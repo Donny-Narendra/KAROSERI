@@ -2,6 +2,39 @@ import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { BarChart3, AlertTriangle, ShieldCheck, Factory, LogOut, Package } from 'lucide-react';
 
+const MOCK_SPKS = [
+  {
+    id: 'SPK-10024',
+    client: 'PT Logistik Indo',
+    wbsPhase: '3. Dinding/Fabrikasi',
+    dpStatus: 'Lunas',
+    materialStatus: 'In Budget',
+    qcStatus: 'Pending WBS',
+    handoverStatus: 'Locked',
+    isOverbudget: false,
+  },
+  {
+    id: 'SPK-10025',
+    client: 'Sinar Karya',
+    wbsPhase: '2. Sasis/Rangka',
+    dpStatus: 'Lunas',
+    materialStatus: 'Overbudget (+12%)',
+    qcStatus: 'Pending WBS',
+    handoverStatus: 'Locked',
+    isOverbudget: true,
+  },
+  {
+    id: 'SPK-10018',
+    client: 'Trans Buana',
+    wbsPhase: '5. Kelistrikan',
+    dpStatus: 'Lunas',
+    materialStatus: 'In Budget',
+    qcStatus: 'Waiting Review',
+    handoverStatus: 'Locked',
+    isOverbudget: false,
+  },
+];
+
 export const AdminDashboardPage: React.FC = () => {
   const { profile, signOut } = useAuth();
 
@@ -108,42 +141,39 @@ export const AdminDashboardPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {/* Dummy Row 1 */}
-                <tr className="hover:bg-surface-hover/50 transition">
-                  <td className="px-5 py-4 font-mono font-medium">SPK-10024</td>
-                  <td className="px-5 py-4">PT Logistik Indo</td>
-                  <td className="px-5 py-4">
-                    <span className="bg-surface-active px-2 py-1 rounded text-xs font-mono">3. Dinding/Fabrikasi</span>
-                  </td>
-                  <td className="px-5 py-4"><span className="text-status-success font-medium flex items-center gap-1"><ShieldCheck className="w-4 h-4"/> Lunas</span></td>
-                  <td className="px-5 py-4"><span className="text-status-success font-medium">In Budget</span></td>
-                  <td className="px-5 py-4"><span className="text-status-idle">Pending WBS</span></td>
-                  <td className="px-5 py-4"><span className="text-status-danger font-medium flex items-center gap-1"><Package className="w-4 h-4"/> Locked</span></td>
-                </tr>
-                {/* Dummy Row 2 */}
-                <tr className="hover:bg-surface-hover/50 transition bg-status-danger/5">
-                  <td className="px-5 py-4 font-mono font-medium">SPK-10025</td>
-                  <td className="px-5 py-4">Sinar Karya</td>
-                  <td className="px-5 py-4">
-                    <span className="bg-surface-active px-2 py-1 rounded text-xs font-mono">2. Sasis/Rangka</span>
-                  </td>
-                  <td className="px-5 py-4"><span className="text-status-success font-medium flex items-center gap-1"><ShieldCheck className="w-4 h-4"/> Lunas</span></td>
-                  <td className="px-5 py-4"><span className="text-status-danger font-bold flex items-center gap-1"><AlertTriangle className="w-4 h-4"/> Overbudget (+12%)</span></td>
-                  <td className="px-5 py-4"><span className="text-status-idle">Pending WBS</span></td>
-                  <td className="px-5 py-4"><span className="text-status-danger font-medium flex items-center gap-1"><Package className="w-4 h-4"/> Locked</span></td>
-                </tr>
-                {/* Dummy Row 3 */}
-                <tr className="hover:bg-surface-hover/50 transition">
-                  <td className="px-5 py-4 font-mono font-medium">SPK-10018</td>
-                  <td className="px-5 py-4">Trans Buana</td>
-                  <td className="px-5 py-4">
-                    <span className="bg-surface-active px-2 py-1 rounded text-xs font-mono">5. Kelistrikan</span>
-                  </td>
-                  <td className="px-5 py-4"><span className="text-status-success font-medium flex items-center gap-1"><ShieldCheck className="w-4 h-4"/> Lunas</span></td>
-                  <td className="px-5 py-4"><span className="text-status-success font-medium">In Budget</span></td>
-                  <td className="px-5 py-4"><span className="text-status-warning font-medium">Waiting Review</span></td>
-                  <td className="px-5 py-4"><span className="text-status-danger font-medium flex items-center gap-1"><Package className="w-4 h-4"/> Locked</span></td>
-                </tr>
+                {MOCK_SPKS.map((spk) => (
+                  <tr key={spk.id} className={`hover:bg-surface-hover/50 transition ${spk.isOverbudget ? 'bg-status-danger/5' : ''}`}>
+                    <td className="px-5 py-4 font-mono font-medium">{spk.id}</td>
+                    <td className="px-5 py-4">{spk.client}</td>
+                    <td className="px-5 py-4">
+                      <span className="bg-surface-active px-2 py-1 rounded text-xs font-mono">{spk.wbsPhase}</span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="text-status-success font-medium flex items-center gap-1">
+                        <ShieldCheck className="w-4 h-4"/> {spk.dpStatus}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      {spk.isOverbudget ? (
+                        <span className="text-status-danger font-bold flex items-center gap-1">
+                          <AlertTriangle className="w-4 h-4"/> {spk.materialStatus}
+                        </span>
+                      ) : (
+                        <span className="text-status-success font-medium">{spk.materialStatus}</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className={spk.qcStatus === 'Waiting Review' ? 'text-status-warning font-medium' : 'text-status-idle'}>
+                        {spk.qcStatus}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="text-status-danger font-medium flex items-center gap-1">
+                        <Package className="w-4 h-4"/> {spk.handoverStatus}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
