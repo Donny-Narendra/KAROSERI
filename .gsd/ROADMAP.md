@@ -6,7 +6,7 @@
 
 ## Phase 2: Vehicle Check-in, Foto 360°, Registrasi SPK, & Change Order Management
 - **Deskripsi:** Modul Service Advisor untuk menerima kendaraan masuk, unggah aset visual, inisiasi SPK, dan manajemen amandemen.
-- **Status:** ⬜ Not Started
+- **Status:** ✅ Complete
 
 ## Phase 3: Struktur WBS 1-5, Estimasi Material/Jasa, dan Mesin Kalkulator RAB Otomatis
 - **Deskripsi:** Jantung operasional proyek. Menyiapkan sistem WBS dan algoritma estimasi biaya aktual, material, serta manpower.
