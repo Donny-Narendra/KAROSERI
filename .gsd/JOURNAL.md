@@ -41,3 +41,22 @@ User invoked `/pause` workflow.
 
 ### Handoff Notes
 Start next session with `/plan 2` to break down the "Vehicle Check-in & SPK Registration" module.
+
+## Session: 2026-10-01 20:56
+
+### Objective
+Plan and begin execution of Phase 2 (Vehicle Check-in & SPK Registration).
+
+### Accomplished
+- Planned Phase 2 into two waves (2.1: DB Schema, 2.2: Frontend UI).
+- Executed Plan 2.1 inline: created migrations for SPK tables and Supabase Storage bucket (`spk-assets`).
+
+### Verification
+- [ ] Supabase schema applied to production (local verify failed due to missing Docker).
+- [ ] Phase 2 frontend complete.
+
+### Paused Because
+To maintain context hygiene between execution waves.
+
+### Handoff Notes
+Start next session with `/execute 2` to run Plan 2.2 (Service Advisor Check-in UI).
