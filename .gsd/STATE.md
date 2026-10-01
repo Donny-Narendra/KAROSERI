@@ -1,34 +1,39 @@
 ## Current Position
 - **Phase**: 2 (Vehicle Check-in, Foto 360°, Registrasi SPK, & Change Order Management)
-- **Task**: Between wave 1 and wave 2 of execution
-- **Status**: Paused at 2026-10-01T20:56:00+07:00
+- **Task**: Gap closure (Plan 2.3)
+- **Status**: Paused at 2026-10-01T21:08:56+07:00
 
 ## Last Session Summary
-- Generated plans for Phase 2 (Plans 2.1 and 2.2).
-- Executed Plan 2.1 (wave 1) inline: created `spk`, `spk_assets`, `spk_amendments` tables, and set up `spk-assets` storage bucket with RLS policies in Supabase.
+- Executed Plan 2.2 inline: Created `ServiceAdvisorDashboard.tsx` and `SpkForm.tsx`.
+- Updated routing in `App.tsx` for service advisor.
+- Verified Phase 2 goal: Found gap in Change Order (Amendment) UI.
+- Created Plan 2.3 for gap closure.
 
 ## In-Progress Work
-- Plan 2.2 (wave 2): Service Advisor Check-in UI is pending execution.
-- Files modified: `supabase/migrations/20261001000001_spk_schema.sql`, `supabase/migrations/20261001000002_storage_setup.sql`, `.gsd/phases/2/*`
-- Tests status: DB reset skipped locally due to missing Docker, but schemas committed.
+- Plan 2.3: Amendment Manager UI is pending execution.
+- Files modified: `src/components/SpkForm.tsx`, `src/pages/ServiceAdvisorDashboard.tsx`, `src/App.tsx`, `.gsd/phases/2/VERIFICATION.md`, `.gsd/phases/2/3-PLAN.md`
+- Tests status: `npm run build` and `npm run lint` passed.
 
 ## Blockers
-- Missing local Docker environment to run `npx supabase db reset --local`, but development continues assuming syntax is correct.
+- None for the UI development. Still missing local Docker environment to run `npx supabase db reset --local`, but development continues assuming syntax is correct.
 
 ## Context Dump
+
 ### Decisions Made
 - Used Supabase Storage bucket `spk-assets` and a separate `spk_assets` table for 360° photos and assets to keep things scalable and easy to secure via Storage RLS.
-- Grouped Phase 2 execution into wave 1 (DB Schema) and wave 2 (UI form).
+- Grouped Phase 2 execution into wave 1 (DB Schema), wave 2 (Check-in UI form), and wave 3 (Gap closure: Amendment UI).
+- Ran Phase 2 inline mode execution for Plan 2.2 since subagent delegation is not available.
 
 ### Approaches Tried
-- Attempted local DB reset but failed because Docker is not installed on this machine.
+- Inline task execution of Plan 2.2.
+- Lazy initialized React state `useState(() => ...)` to avoid purity warnings from oxlint.
 
 ### Current Hypothesis
-- The SQL schema for SPK and Storage is correct. We should proceed to build the UI connected to Supabase JS client.
+- We need to execute the gap closure plan (Plan 2.3) to fully complete Phase 2 and meet the "Change Order Management" must-have.
 
 ### Files of Interest
-- `supabase/migrations/20261001000001_spk_schema.sql`: Contains SPK schema.
-- `.gsd/phases/2/2-PLAN.md`: The pending execution plan for UI.
+- `.gsd/phases/2/3-PLAN.md`: The pending execution plan for UI gap closure.
+- `src/pages/ServiceAdvisorDashboard.tsx`: Where the AmendmentManager component will be integrated.
 
 ## Next Steps
-1. /execute 2 (to run Plan 2.2 for the Service Advisor UI)
+1. /execute 2 --gaps-only (to run Plan 2.3 for Change Order Management UI)
