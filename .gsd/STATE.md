@@ -1,33 +1,35 @@
 ## Current Position
 - **Phase**: 4
-- **Task**: Between waves (Wave 1 complete, Wave 2 pending)
-- **Status**: Active (resumed 2026-10-02T00:08:15+07:00)
+- **Task**: Completed Plan 4.2 (Warehouse Dashboard)
+- **Status**: Paused at 2026-10-02T00:12:22+07:00
 
 ## Last Session Summary
-- Executed Phase 4 Wave 1 successfully inline.
-- Created database schema and RLS policies for inventory transactions and WBS checklists.
+- Executed Phase 4 Plan 4.2 inline.
+- Created `WarehouseDashboard` and `GoodsIssueForm`.
+- Implemented Gate 2 validation (blocking material issuance if over-budget).
+- Updated routing for `petugas_gudang` role.
 
 ## In-Progress Work
-- Ready for Phase 4 Wave 2 (Plan 4.2 & 4.3).
+- Ready for Phase 4 Plan 4.3 (Mandor Dashboard).
+- Files modified: `src/App.tsx`, `src/pages/WarehouseDashboard.tsx`, `src/components/GoodsIssueForm.tsx`
 
 ## Blockers
 - None.
 
 ## Context Dump
 ### Decisions Made
-- Executed Wave 1 inline since subagent delegation is unavailable.
-- Used `checklist_status` enum ('PENDING', 'PASS', 'FAIL') for WBS checklist states.
+- Executed Wave 2 Plan 4.2 inline since subagent delegation is unavailable.
+- Created `GoodsIssueForm` with mock data for RAB estimates to demonstrate Gate 2 logic (will need backend integration later).
 
 ### Approaches Tried
-- Inline mode execution for `1-PLAN.md`.
+- Inline mode execution for Plan 4.2.
 
 ### Current Hypothesis
-- Schema is ready. Frontend UI for Warehouse and Mandor dashboards should integrate directly with this new schema in Wave 2.
+- Gate 2 logic works as intended on the frontend. The next step is Plan 4.3 (Mandor Dashboard) for Gate 3 (WBS QC).
 
 ### Files of Interest
-- `supabase/migrations/20261001000004_phase4_schema.sql`: Contains the new schema.
-- `.gsd/phases/4/2-PLAN.md`: Next plan to execute.
+- `src/components/GoodsIssueForm.tsx`: Contains the Gate 2 logic.
 - `.gsd/phases/4/3-PLAN.md`: Next plan to execute.
 
 ## Next Steps
-1. /execute 4 (to begin Wave 2 execution for UI plans 4.2 and 4.3)
+1. /execute 4 (to execute Plan 4.3 inline for the Mandor Dashboard)
