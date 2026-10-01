@@ -4,6 +4,7 @@ import { LogOut, FileText, Plus, ClipboardList } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { SpkForm } from '../components/SpkForm';
 import { AmendmentManager } from '../components/AmendmentManager';
+import { RabCalculator } from '../components/RabCalculator';
 
 export const ServiceAdvisorDashboard: React.FC = () => {
   const { profile, signOut } = useAuth();
@@ -11,6 +12,7 @@ export const ServiceAdvisorDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [selectedSpkId, setSelectedSpkId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'amendments' | 'rab'>('rab');
 
   const fetchSpks = async () => {
     setLoading(true);
@@ -92,13 +94,37 @@ export const ServiceAdvisorDashboard: React.FC = () => {
               ← Back to SPK List
             </button>
             <div className="bg-surface border border-border rounded-lg overflow-hidden p-6 mb-6">
-               <h3 className="font-bold text-lg text-text mb-2">SPK Details</h3>
-               <p className="text-sm text-text-muted mb-4">Detailed view and change orders for this SPK.</p>
-               <div className="font-mono text-sm bg-background p-3 rounded border border-border">
-                 SPK ID: {spks.find(s => s.id === selectedSpkId)?.spk_no || selectedSpkId}
+               <div className="flex items-center justify-between mb-4">
+                 <div>
+                   <h3 className="font-bold text-lg text-text mb-1">SPK Details</h3>
+                   <p className="text-sm text-text-muted">Manage RAB estimation and change orders for this SPK.</p>
+                 </div>
+                 <div className="font-mono text-sm bg-background p-3 rounded border border-border text-primary font-bold">
+                   {spks.find(s => s.id === selectedSpkId)?.spk_no || selectedSpkId}
+                 </div>
+               </div>
+               
+               <div className="flex gap-2 border-b border-border pb-0 mt-6">
+                 <button 
+                   onClick={() => setActiveTab('rab')}
+                   className={`px-4 py-2 text-sm font-medium border-b-2 transition ${activeTab === 'rab' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-text'}`}
+                 >
+                   RAB Calculator
+                 </button>
+                 <button 
+                   onClick={() => setActiveTab('amendments')}
+                   className={`px-4 py-2 text-sm font-medium border-b-2 transition ${activeTab === 'amendments' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-text'}`}
+                 >
+                   Change Orders
+                 </button>
                </div>
             </div>
-            <AmendmentManager spkId={selectedSpkId} />
+            
+            {activeTab === 'rab' ? (
+              <RabCalculator spkId={selectedSpkId} />
+            ) : (
+              <AmendmentManager spkId={selectedSpkId} />
+            )}
           </div>
         ) : (
           <div className="bg-surface border border-border rounded-lg overflow-hidden">
