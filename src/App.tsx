@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { ServiceAdvisorDashboard } from './pages/ServiceAdvisorDashboard';
 
 const RootRedirect: React.FC = () => {
   const { user, profile, loading } = useAuth();
@@ -17,6 +18,10 @@ const RootRedirect: React.FC = () => {
   // Route based on role
   if (profile.role === 'owner') {
     return <Navigate to="/dashboard" replace />;
+  }
+  
+  if (profile.role === 'service_advisor') {
+    return <Navigate to="/service-advisor" replace />;
   }
   
   // Default for others for now
@@ -43,6 +48,11 @@ function App() {
           {/* Protected Routes for Owner */}
           <Route element={<ProtectedRoute allowedRoles={['owner']} />}>
             <Route path="/dashboard" element={<AdminDashboardPage />} />
+          </Route>
+          
+          {/* Protected Routes for Service Advisor & Owner */}
+          <Route element={<ProtectedRoute allowedRoles={['service_advisor', 'owner']} />}>
+            <Route path="/service-advisor" element={<ServiceAdvisorDashboard />} />
           </Route>
           
           {/* Catch all */}
