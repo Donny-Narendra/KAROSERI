@@ -10,7 +10,7 @@
 
 ## Phase 3: Struktur WBS 1-5, Estimasi Material/Jasa, dan Mesin Kalkulator RAB Otomatis
 - **Deskripsi:** Jantung operasional proyek. Menyiapkan sistem WBS dan algoritma estimasi biaya aktual, material, serta manpower.
-- **Status:** ⬜ Not Started
+- **Status:** ✅ Complete
 
 ## Phase 4: Pengendalian Gudang (Goods Issue & Material Budget Gate) serta Tablet Checklist Progres Mandor
 - **Deskripsi:** Implementasi sistem gudang dan Gate 2 (Overbudget protection) serta UI khusus tablet industri untuk Mandor di lantai perakitan.
