@@ -14,7 +14,7 @@
 
 ## Phase 4: Pengendalian Gudang (Goods Issue & Material Budget Gate) serta Tablet Checklist Progres Mandor
 - **Deskripsi:** Implementasi sistem gudang dan Gate 2 (Overbudget protection) serta UI khusus tablet industri untuk Mandor di lantai perakitan.
-- **Status:** ⬜ Not Started
+- **Status:** ✅ Complete
 
 ## Phase 5: Modul QC Inspeksi Lapangan (Hard-Gate), Kasir Actual Costing, dan Handover Gate
 - **Deskripsi:** Penegakan Gate 3 (QC form dengan JSONB) dan Gate 4 (Handover clearance), kalkulasi tagihan finansial dari Kasir, serta pelepasan BAST.
