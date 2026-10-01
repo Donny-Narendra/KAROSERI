@@ -1,4 +1,4 @@
-# KaroseriOps: Sistem Manajemen Bengkel Modifikasi Karoseri Truk (Job-Order Vehicle Modification)
+# RobelKaroseri: Sistem Manajemen Bengkel Modifikasi Karoseri Truk (Job-Order Vehicle Modification)
 
 ## 1. Fondasi Sistem: Activity-Based / WBS-Centric Core
 Proyek ini menggunakan 5 Pos Kerja (Work Breakdown Structure - WBS):
@@ -26,7 +26,7 @@ Sistem memiliki penguncian alur yang sangat ketat:
 Total Tagihan = (Bahan Aktual Gudang + Jasa Aktual + Biaya Overhead Waktu Aktual) - Uang Muka (DP).
 
 ## 5. UI/UX & Antarmuka (Stitch References)
-Sistem menggunakan aset desain visual dari Google Stitch (Stitch KaroseriOps Enterprise Login Portal) secara eksklusif untuk aspek antarmuka:
+Sistem menggunakan aset desain visual dari Google Stitch (Stitch RobelKaroseri Enterprise Login Portal) secara eksklusif untuk aspek antarmuka:
 - **Alur Autentikasi & Login Card:** Menggunakan tata letak dan gaya komponen otentikasi Stitch.
 - **Tablet Numpad & Form Input:** Mengadaptasi komponen numpad dan elemen UI layar sentuh dari Stitch (khususnya untuk akses Shopfloor Terminal).
 - **Palet Warna & Styling:** Mengikuti elemen visual yang didefinisikan dalam aset Stitch (tanpa mengadopsi logika PRD Stitch).
