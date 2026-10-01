@@ -3,12 +3,14 @@ import { useAuth } from '../context/AuthContext';
 import { LogOut, FileText, Plus, ClipboardList } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { SpkForm } from '../components/SpkForm';
+import { AmendmentManager } from '../components/AmendmentManager';
 
 export const ServiceAdvisorDashboard: React.FC = () => {
   const { profile, signOut } = useAuth();
   const [spks, setSpks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [selectedSpkId, setSelectedSpkId] = useState<string | null>(null);
 
   const fetchSpks = async () => {
     setLoading(true);
@@ -81,6 +83,23 @@ export const ServiceAdvisorDashboard: React.FC = () => {
             </button>
             <SpkForm onSuccess={handleSuccess} />
           </div>
+        ) : selectedSpkId ? (
+          <div>
+            <button 
+              onClick={() => setSelectedSpkId(null)}
+              className="text-text-muted hover:text-text mb-4 text-sm flex items-center gap-2 transition"
+            >
+              ← Back to SPK List
+            </button>
+            <div className="bg-surface border border-border rounded-lg overflow-hidden p-6 mb-6">
+               <h3 className="font-bold text-lg text-text mb-2">SPK Details</h3>
+               <p className="text-sm text-text-muted mb-4">Detailed view and change orders for this SPK.</p>
+               <div className="font-mono text-sm bg-background p-3 rounded border border-border">
+                 SPK ID: {spks.find(s => s.id === selectedSpkId)?.spk_no || selectedSpkId}
+               </div>
+            </div>
+            <AmendmentManager spkId={selectedSpkId} />
+          </div>
         ) : (
           <div className="bg-surface border border-border rounded-lg overflow-hidden">
             <div className="px-5 py-4 border-b border-border bg-surface-hover">
@@ -103,6 +122,7 @@ export const ServiceAdvisorDashboard: React.FC = () => {
                       <th className="px-5 py-3">Vehicle Plate</th>
                       <th className="px-5 py-3">Status</th>
                       <th className="px-5 py-3">Target Date</th>
+                      <th className="px-5 py-3 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -116,6 +136,14 @@ export const ServiceAdvisorDashboard: React.FC = () => {
                         </td>
                         <td className="px-5 py-4 text-text-muted">
                           {spk.target_date ? new Date(spk.target_date).toLocaleDateString() : '-'}
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <button
+                            onClick={() => setSelectedSpkId(spk.id)}
+                            className="text-primary hover:text-primary-hover text-sm font-medium transition"
+                          >
+                            Manage
+                          </button>
                         </td>
                       </tr>
                     ))}
