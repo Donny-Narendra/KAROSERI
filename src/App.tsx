@@ -6,6 +6,7 @@ import { LoginPage } from './pages/LoginPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { ServiceAdvisorDashboard } from './pages/ServiceAdvisorDashboard';
 import { WarehouseDashboard } from './pages/WarehouseDashboard';
+import { MandorDashboard } from './pages/MandorDashboard';
 
 const RootRedirect: React.FC = () => {
   const { user, profile, loading } = useAuth();
@@ -27,6 +28,10 @@ const RootRedirect: React.FC = () => {
   
   if (profile.role === 'petugas_gudang') {
     return <Navigate to="/warehouse" replace />;
+  }
+  
+  if (profile.role === 'mandor') {
+    return <Navigate to="/mandor" replace />;
   }
   
   // Default for others for now
@@ -63,6 +68,11 @@ function App() {
           {/* Protected Routes for Warehouse (Petugas Gudang) & Owner */}
           <Route element={<ProtectedRoute allowedRoles={['petugas_gudang', 'owner']} />}>
             <Route path="/warehouse" element={<WarehouseDashboard />} />
+          </Route>
+          
+          {/* Protected Routes for Mandor & Owner */}
+          <Route element={<ProtectedRoute allowedRoles={['mandor', 'owner']} />}>
+            <Route path="/mandor" element={<MandorDashboard />} />
           </Route>
           
           {/* Catch all */}
