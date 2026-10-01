@@ -1,39 +1,37 @@
 ## Current Position
 - **Phase**: 2 (Vehicle Check-in, Foto 360°, Registrasi SPK, & Change Order Management)
-- **Task**: Gap closure (Plan 2.3)
-- **Status**: Active (resumed 2026-10-01T21:42:16+07:00)
+- **Task**: Between tasks (Ready for Phase 2 Verification)
+- **Status**: Paused at 2026-10-01T21:46:46+07:00
 
 ## Last Session Summary
-- Executed Plan 2.2 inline: Created `ServiceAdvisorDashboard.tsx` and `SpkForm.tsx`.
-- Updated routing in `App.tsx` for service advisor.
-- Verified Phase 2 goal: Found gap in Change Order (Amendment) UI.
-- Created Plan 2.3 for gap closure.
+- Resumed session and executed Plan 2.3 inline (Change Order Management UI gap closure).
+- Built `AmendmentManager.tsx` component and integrated it into `ServiceAdvisorDashboard.tsx`.
+- Ran build verification, committed changes, and generated `3-SUMMARY.md`.
 
 ## In-Progress Work
-- Plan 2.3: Amendment Manager UI is pending execution.
-- Files modified: `src/components/SpkForm.tsx`, `src/pages/ServiceAdvisorDashboard.tsx`, `src/App.tsx`, `.gsd/phases/2/VERIFICATION.md`, `.gsd/phases/2/3-PLAN.md`
-- Tests status: `npm run build` and `npm run lint` passed.
+- None. Gap closure for Phase 2 is complete.
+- Files modified this session: `src/components/AmendmentManager.tsx`, `src/pages/ServiceAdvisorDashboard.tsx`, `.gsd/phases/2/3-SUMMARY.md`
+- Tests status: `npm run build` passed.
 
 ## Blockers
-- None for the UI development. Still missing local Docker environment to run `npx supabase db reset --local`, but development continues assuming syntax is correct.
+- None for UI development. (Still missing local Docker environment for Supabase DB reset, but dev continues normally).
 
 ## Context Dump
-
 ### Decisions Made
 - Used Supabase Storage bucket `spk-assets` and a separate `spk_assets` table for 360° photos and assets to keep things scalable and easy to secure via Storage RLS.
-- Grouped Phase 2 execution into wave 1 (DB Schema), wave 2 (Check-in UI form), and wave 3 (Gap closure: Amendment UI).
-- Ran Phase 2 inline mode execution for Plan 2.2 since subagent delegation is not available.
+- Built `AmendmentManager` to handle change orders directly in the Service Advisor Dashboard detailed view.
 
 ### Approaches Tried
-- Inline task execution of Plan 2.2.
-- Lazy initialized React state `useState(() => ...)` to avoid purity warnings from oxlint.
+- Replaced the main SPK list rendering in `ServiceAdvisorDashboard.tsx` with a conditional selected SPK detail view to host the `AmendmentManager`.
 
 ### Current Hypothesis
-- We need to execute the gap closure plan (Plan 2.3) to fully complete Phase 2 and meet the "Change Order Management" must-have.
+- Phase 2 gap is closed. The next step is to run a verification to ensure the Phase 2 goals (including Change Order Management) are fully met.
 
 ### Files of Interest
-- `.gsd/phases/2/3-PLAN.md`: The pending execution plan for UI gap closure.
-- `src/pages/ServiceAdvisorDashboard.tsx`: Where the AmendmentManager component will be integrated.
+- `src/components/AmendmentManager.tsx`: New component for change orders.
+- `src/pages/ServiceAdvisorDashboard.tsx`: Hosts the SPK details and change orders.
+- `.gsd/phases/2/VERIFICATION.md`: The previous verification file that will be overwritten or updated next.
 
 ## Next Steps
-1. /execute 2 --gaps-only (to run Plan 2.3 for Change Order Management UI)
+1. /verify 2 (to verify the Phase 2 gap is closed and close out Phase 2)
+2. /plan 3 (to plan Phase 3: WBS & Task Management)
