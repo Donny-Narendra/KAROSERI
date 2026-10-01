@@ -2,7 +2,7 @@
 
 ## Phase 1: Authentication, Supabase Setup, RBAC Roles, & Owner Executive Dashboard
 - **Deskripsi:** Pengaturan koneksi dasar, sistem autentikasi, manajemen 5 peran pengguna, proteksi rute, dan pembuatan halaman dashboard eksekutif untuk Owner.
-- **Status:** ⬜ Not Started
+- **Status:** ✅ Complete
 
 ## Phase 2: Vehicle Check-in, Foto 360°, Registrasi SPK, & Change Order Management
 - **Deskripsi:** Modul Service Advisor untuk menerima kendaraan masuk, unggah aset visual, inisiasi SPK, dan manajemen amandemen.
