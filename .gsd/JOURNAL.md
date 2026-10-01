@@ -273,3 +273,26 @@ User requested `/pause` to maintain context hygiene before executing Phase 5.
 
 ### Handoff Notes
 Start the next session with `/execute 5` to begin building the Phase 5 QC and Invoice schema (Wave 1).
+
+## Session: 2026-10-02 00:52
+
+### Objective
+Execute Phase 5 Wave 1 (Plan 5.1: Database Schema for QC & Billing).
+
+### Accomplished
+- Resumed session and loaded context.
+- Read Phase 5 execution plans.
+- Grouped Phase 5 plans by execution wave.
+- Ran inline execution for Wave 1 (Plan 5.1).
+- Created `20261001000005_phase5_schema.sql` with `qc_inspections` and `invoices` tables and RLS policies.
+- Generated `1-SUMMARY.md` documenting completion.
+
+### Verification
+- [x] Wave 1 schema created and verified on disk.
+- [ ] Wave 2 execution.
+
+### Paused Because
+Context hygiene: pausing between waves to ensure fresh context for frontend execution (Wave 2).
+
+### Handoff Notes
+Start the next session with `/execute 5` to continue inline execution of Wave 2 (Plan 5.2 - QC Inspection Form).
