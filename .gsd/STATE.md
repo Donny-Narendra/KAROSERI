@@ -1,38 +1,39 @@
 ## Current Position
 - **Phase**: 5
-- **Task**: Completed Wave 1 (Plan 5.1 - QC & Invoice Schema)
-- **Status**: Paused at 2026-10-02T00:56:34+07:00
+- **Task**: Completed Wave 2 (Plan 5.2 - QC Inspection Form)
+- **Status**: Paused at 2026-10-02T01:02:00+07:00
 
 ## Last Session Summary
-- Resumed session.
-- Executed Phase 5 Plan 5.1 (QC & Invoice Schema).
-- Created `qc_inspections` and `invoices` tables with correct RLS policies.
-- Committed changes and wrote `1-SUMMARY.md`.
+- Resumed session and read Phase 5 plans.
+- Grouped Phase 5 plans by execution wave.
+- Ran inline execution for Wave 2 (Plan 5.2).
+- Created `QcInspectionForm.tsx` and integrated it into `MandorDashboard.tsx`.
+- Verified build passed successfully.
+- Generated `2-SUMMARY.md` documenting completion.
 
 ## In-Progress Work
-- Ready to execute Phase 5 Wave 2.
+- Ready to execute Phase 5 Wave 3 (Plan 5.3: Kasir Dashboard).
 - Files modified: None since commit.
-- Tests status: Not run.
+- Tests status: Build passed.
 
 ## Blockers
 - None.
 
 ## Context Dump
 ### Decisions Made
-- Chose to split Phase 5 into Database Schema, QC Inspection (Mandor), Billing Calculator (Kasir), and Payment/Handover (Kasir).
-- Used JSONB for `qc_inspections` table as required by the spec.
-- Executed inline mode for Plan 5.1 due to lack of subagent delegation.
+- Used mock data in `QcInspectionForm.tsx` since Supabase API isn't fully linked for QC checks.
+- Kept the form UI consistent with other tablet components using Tailwind classes.
 
 ### Approaches Tried
-- Successfully validated Phase 4 deliverables via `npm run build` and checking schema files.
+- Handled the QC form state with local React state mapping to the JSON parameter structure.
 
 ### Current Hypothesis
-- Phase 5 Wave 2 plan (2-PLAN.md) is ready for execution inline.
+- We are ready to move on to Wave 3 which involves the Kasir dashboard and Gate 3 billing blocks.
 
 ### Files of Interest
-- `.gsd/phases/5/2-PLAN.md`: Next plan to execute.
-- `src/components/QcInspectionForm.tsx`: File to be created.
-- `src/pages/MandorDashboard.tsx`: File to be updated.
+- `.gsd/phases/5/3-PLAN.md`: Next plan to execute.
+- `src/pages/KasirDashboard.tsx`: Component to create in Wave 3.
+- `src/App.tsx`: Routing updates needed for Kasir role.
 
 ## Next Steps
-1. /execute 5 (to execute Plan 5.2 - QC Inspection Form)
+1. /execute 5 (to execute Plan 5.3 - Kasir Dashboard & Billing Calculator)
