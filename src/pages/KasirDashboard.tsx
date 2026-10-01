@@ -11,9 +11,10 @@ interface MockSPK {
   materialCost: number;
   jasaCost: number;
   qcStatus: 'PENDING' | 'PASS' | 'FAIL';
+  paymentStatus: 'UNPAID' | 'LUNAS';
 }
 
-const mockSPKs: MockSPK[] = [
+const initialMockSPKs: MockSPK[] = [
   {
     id: 'SPK-2026-001',
     customerName: 'PT. Lintas Semesta',
@@ -23,6 +24,7 @@ const mockSPKs: MockSPK[] = [
     materialCost: 65000000,
     jasaCost: 15000000,
     qcStatus: 'PASS',
+    paymentStatus: 'UNPAID',
   },
   {
     id: 'SPK-2026-002',
@@ -33,6 +35,7 @@ const mockSPKs: MockSPK[] = [
     materialCost: 40000000,
     jasaCost: 8000000,
     qcStatus: 'PENDING',
+    paymentStatus: 'UNPAID',
   },
   {
     id: 'SPK-2026-003',
@@ -43,12 +46,21 @@ const mockSPKs: MockSPK[] = [
     materialCost: 55000000,
     jasaCost: 12000000,
     qcStatus: 'FAIL',
+    paymentStatus: 'UNPAID',
   }
 ];
 
 export const KasirDashboard: React.FC = () => {
   const { profile, signOut } = useAuth();
-  const [selectedSpk, setSelectedSpk] = useState<MockSPK | null>(null);
+  const [spks, setSpks] = useState<MockSPK[]>(initialMockSPKs);
+  const [selectedSpkId, setSelectedSpkId] = useState<string | null>(null);
+
+  const selectedSpk = spks.find(s => s.id === selectedSpkId) || null;
+
+  const handleMarkAsPaid = () => {
+    if (!selectedSpkId) return;
+    setSpks(prev => prev.map(s => s.id === selectedSpkId ? { ...s, paymentStatus: 'LUNAS' } : s));
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(amount);
@@ -84,10 +96,10 @@ export const KasirDashboard: React.FC = () => {
         <div className="lg:w-1/3 flex flex-col gap-4">
           <h2 className="text-lg font-display font-medium text-text-primary mb-2">Select SPK for Billing</h2>
           <div className="space-y-3">
-            {mockSPKs.map((spk) => (
+            {spks.map((spk) => (
               <div
                 key={spk.id}
-                onClick={() => setSelectedSpk(spk)}
+                onClick={() => setSelectedSpkId(spk.id)}
                 className={`p-4 rounded-lg border cursor-pointer transition-all ${
                   selectedSpk?.id === spk.id
                     ? 'bg-surface border-secondary'
@@ -96,13 +108,20 @@ export const KasirDashboard: React.FC = () => {
               >
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="font-medium text-text-primary">{spk.id}</h3>
-                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                    spk.qcStatus === 'PASS' ? 'bg-status-success/20 text-status-success' :
-                    spk.qcStatus === 'FAIL' ? 'bg-status-danger/20 text-status-danger' :
-                    'bg-status-warning/20 text-status-warning'
-                  }`}>
-                    QC: {spk.qcStatus}
-                  </span>
+                  <div className="flex gap-2">
+                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                      spk.qcStatus === 'PASS' ? 'bg-status-success/20 text-status-success' :
+                      spk.qcStatus === 'FAIL' ? 'bg-status-danger/20 text-status-danger' :
+                      'bg-status-warning/20 text-status-warning'
+                    }`}>
+                      QC: {spk.qcStatus}
+                    </span>
+                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                      spk.paymentStatus === 'LUNAS' ? 'bg-status-success/20 text-status-success' : 'bg-status-warning/20 text-status-warning'
+                    }`}>
+                      Pay: {spk.paymentStatus}
+                    </span>
+                  </div>
                 </div>
                 <p className="text-sm text-text-muted">{spk.customerName}</p>
                 <p className="text-xs text-text-muted">{spk.vehicleModel}</p>
@@ -183,15 +202,37 @@ export const KasirDashboard: React.FC = () => {
               {/* Actions */}
               <div className="flex justify-end gap-4">
                 <button
-                  disabled={selectedSpk.qcStatus !== 'PASS'}
+                  disabled={selectedSpk.qcStatus !== 'PASS' || selectedSpk.paymentStatus === 'LUNAS'}
+                  onClick={handleMarkAsPaid}
+                  className={`px-4 py-2 rounded font-medium flex items-center gap-2 transition-all ${
+                    selectedSpk.qcStatus === 'PASS' && selectedSpk.paymentStatus !== 'LUNAS'
+                      ? 'bg-secondary text-secondary-foreground hover:bg-secondary/90'
+                      : 'hidden'
+                  }`}
+                >
+                  Mark as Paid
+                </button>
+                <button
+                  disabled={selectedSpk.qcStatus !== 'PASS' || selectedSpk.paymentStatus === 'LUNAS'}
                   className={`px-6 py-3 rounded font-medium flex items-center gap-2 transition-all ${
-                    selectedSpk.qcStatus === 'PASS'
+                    selectedSpk.qcStatus === 'PASS' && selectedSpk.paymentStatus !== 'LUNAS'
                       ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20'
                       : 'bg-surface-border text-text-muted cursor-not-allowed'
                   }`}
                 >
                   {selectedSpk.qcStatus !== 'PASS' && <Lock className="w-4 h-4" />}
                   Generate Final Bill (Invoice)
+                </button>
+                <button
+                  disabled={selectedSpk.paymentStatus !== 'LUNAS'}
+                  className={`px-6 py-3 rounded font-medium flex items-center gap-2 transition-all ${
+                    selectedSpk.paymentStatus === 'LUNAS'
+                      ? 'bg-status-success text-white hover:bg-status-success/90 shadow-lg shadow-status-success/20'
+                      : 'bg-surface-border text-text-muted cursor-not-allowed'
+                  }`}
+                >
+                  {selectedSpk.paymentStatus !== 'LUNAS' && <Lock className="w-4 h-4" />}
+                  Release Vehicle & Print BAST
                 </button>
               </div>
 
