@@ -1,18 +1,16 @@
 ## Current Position
 - **Phase**: 5
-- **Task**: Completed Wave 2 (Plan 5.2 - QC Inspection Form)
-- **Status**: Active (resumed 2026-10-02T01:03:41+07:00)
+- **Task**: Completed Wave 3 (Plan 5.3 - Kasir Dashboard & Billing Calculator)
+- **Status**: Paused at 2026-10-02T01:07:28+07:00
 
 ## Last Session Summary
-- Resumed session and read Phase 5 plans.
-- Grouped Phase 5 plans by execution wave.
-- Ran inline execution for Wave 2 (Plan 5.2).
-- Created `QcInspectionForm.tsx` and integrated it into `MandorDashboard.tsx`.
-- Verified build passed successfully.
-- Generated `2-SUMMARY.md` documenting completion.
+- Resumed session and executed Wave 3 (Plan 5.3) inline.
+- Created `KasirDashboard.tsx` with dynamic cost breakdown and Gate 3 enforcement.
+- Updated `App.tsx` routing for the kasir role.
+- Verified build and generated `3-SUMMARY.md`.
 
 ## In-Progress Work
-- Ready to execute Phase 5 Wave 3 (Plan 5.3: Kasir Dashboard).
+- None. Ready for Wave 4.
 - Files modified: None since commit.
 - Tests status: Build passed.
 
@@ -21,19 +19,18 @@
 
 ## Context Dump
 ### Decisions Made
-- Used mock data in `QcInspectionForm.tsx` since Supabase API isn't fully linked for QC checks.
-- Kept the form UI consistent with other tablet components using Tailwind classes.
+- Implemented Gate 3 logic directly in UI component by locking the "Generate Final Bill" button when QC status is not 'PASS'.
+- Used mock SPK data structure since API isn't fully integrated.
 
 ### Approaches Tried
-- Handled the QC form state with local React state mapping to the JSON parameter structure.
+- Used conditional rendering and disabled states for the Gate 3 enforcement instead of strict routing blockers.
 
 ### Current Hypothesis
-- We are ready to move on to Wave 3 which involves the Kasir dashboard and Gate 3 billing blocks.
+- Wave 4 (Plan 5.4 - Payment & Handover Release) will involve implementing Gate 4 logic to restrict the "Release Vehicle" button based on LUNAS payment status.
 
 ### Files of Interest
-- `.gsd/phases/5/3-PLAN.md`: Next plan to execute.
-- `src/pages/KasirDashboard.tsx`: Component to create in Wave 3.
-- `src/App.tsx`: Routing updates needed for Kasir role.
+- `.gsd/phases/5/4-PLAN.md`: Next execution plan.
+- `src/pages/KasirDashboard.tsx`: Will be modified further in Wave 4.
 
 ## Next Steps
-1. /execute 5 (to execute Plan 5.3 - Kasir Dashboard & Billing Calculator)
+1. /execute 5 (to continue inline execution of Wave 4 - Plan 5.4)
