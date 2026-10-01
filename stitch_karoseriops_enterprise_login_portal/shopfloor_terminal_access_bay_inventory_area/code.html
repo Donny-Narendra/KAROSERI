@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_blank" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"surface-tint":"#ffb599","primary-fixed-dim":"#ffb599","tertiary-fixed-dim":"#c4c7c9","secondary-fixed-dim":"#b4c5ff","outline":"#a98a7e","surface-dim":"#0b1326","surface-bright":"#31394d","primary":"#ffb599","tertiary-container":"#8e9193","secondary-container":"#0053db","outline-variant":"#5a4138","secondary":"#b4c5ff","primary-fixed":"#ffdbce","surface-container-highest":"#2d3449","on-secondary":"#002a78","on-primary":"#5a1c00","on-tertiary-fixed-variant":"#444749","on-surface-variant":"#e2bfb2","surface":"#0b1326","on-primary-fixed-variant":"#7f2b00","on-secondary-fixed":"#00174b","error":"#ffb4ab","on-tertiary":"#2d3133","on-primary-fixed":"#370e00","tertiary-fixed":"#e0e3e5","error-container":"#93000a","surface-container-high":"#222a3d","on-tertiary-fixed":"#191c1e","on-primary-container":"#4f1700","primary-container":"#f66018","on-secondary-container":"#cdd7ff","inverse-primary":"#a73a00","inverse-on-surface":"#283044","background":"#0b1326","surface-variant":"#2d3449","on-error":"#690005","surface-container-low":"#131b2e","on-tertiary-container":"#272a2c","tertiary":"#c4c7c9","inverse-surface":"#dae2fd","on-secondary-fixed-variant":"#003ea8","on-error-container":"#ffdad6","surface-container-lowest":"#060e20","on-background":"#dae2fd","secondary-fixed":"#dbe1ff","on-surface":"#dae2fd","surface-container":"#171f33"},borderRadius:{DEFAULT:"0.25rem",lg:"0.5rem",xl:"0.75rem",full:"9999px"},spacing:{"space-md":"1rem","space-sm":"0.5rem","gutter-compact":"0.5rem","space-xl":"2.5rem","margin-mobile":"1rem","space-lg":"1.5rem","space-xs":"0.25rem","margin":"1.5rem",gutter:"1rem"},fontFamily:{"headline-lg-mobile":["Space Grotesk"],"label-lg":["JetBrains Mono"],"display-lg":["Space Grotesk"],"body-sm":["Inter"],"display-lg-mobile":["Space Grotesk"],"headline-sm":["Space Grotesk"],"headline-lg":["Space Grotesk"],"headline-md":["Space Grotesk"],"body-lg":["Inter"],"label-sm":["JetBrains Mono"],"body-md":["Inter"],"label-md":["JetBrains Mono"]},fontSize:{"headline-lg-mobile":["1.5rem",{lineHeight:"2rem",letterSpacing:"-0.01em",fontWeight:"600"}],"label-lg":["0.875rem",{lineHeight:"1.25rem",letterSpacing:"0.02em",fontWeight:"600"}],"display-lg":["3rem",{lineHeight:"3.5rem",letterSpacing:"-0.03em",fontWeight:"700"}],"body-sm":["0.75rem",{lineHeight:"1rem",letterSpacing:"0.01em",fontWeight:"400"}],"display-lg-mobile":["2rem",{lineHeight:"2.5rem",letterSpacing:"-0.02em",fontWeight:"700"}],"headline-sm":["1.125rem",{lineHeight:"1.5rem",letterSpacing:"0em",fontWeight:"600"}],"headline-lg":["2rem",{lineHeight:"2.5rem",letterSpacing:"-0.02em",fontWeight:"600"}],"headline-md":["1.375rem",{lineHeight:"1.75rem",letterSpacing:"-0.01em",fontWeight:"600"}],"body-lg":["1rem",{lineHeight:"1.5rem",letterSpacing:"0em",fontWeight:"400"}],"label-sm":["0.6875rem",{lineHeight:"0.875rem",letterSpacing:"0.05em",fontWeight:"500"}],"body-md":["0.875rem",{lineHeight:"1.25rem",letterSpacing:"0em",fontWeight:"400"}],"label-md":["0.75rem",{lineHeight:"1rem",letterSpacing:"0.03em",fontWeight:"500"}]}}}};</script></head><body class="bg-background font-body-md text-on-surface antialiased flex items-center justify-center min-h-screen"><main class="w-full max-w-lg p-space-lg bg-surface-container-low"><div class="flex flex-col w-full text-on-surface select-none">
+<!-- Top Terminal Instrumentation Header -->
+<header class="w-full bg-surface-container-low p-space-md mb-space-md shadow-md flex flex-wrap items-center justify-between gap-space-sm">
+<div class="flex flex-col">
+<div class="flex items-center gap-space-sm">
+<span class="w-2.5 h-2.5 bg-primary-container inline-block"></span>
+<h1 class="font-headline-md text-headline-md tracking-tight text-on-surface uppercase">Shopfloor Terminal Access</h1>
+<span class="font-label-sm text-label-sm px-space-xs py-0.5 bg-surface-container-highest text-on-surface-variant font-medium">BAY &amp; INVENTORY AREA</span>
+</div>
+<p class="font-label-sm text-label-sm text-on-surface-variant mt-0.5 tracking-wider">
+        TERMINAL ID: <span class="text-primary font-bold">TRM-BY04</span> // SHIFT 1 (PAGI) — FABRICATION FLOOR NORTH
+      </p>
+</div>
+<!-- Active Telemetry Diagnostics -->
+<div class="flex items-center gap-space-md bg-surface-container px-space-md py-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-label-md text-primary">sensors</span>
+<span class="font-label-sm text-label-sm text-on-surface">MESH: <strong class="text-primary">98ms</strong></span>
+</div>
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-label-md text-secondary">battery_charging_full</span>
+<span class="font-label-sm text-label-sm text-on-surface">BAT: <strong class="text-secondary">94%</strong></span>
+</div>
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-label-md text-tertiary">schedule</span>
+<span class="font-label-sm text-label-sm text-on-surface font-semibold" id="terminal-clock">07:42:19 WIB</span>
+</div>
+</div>
+</header>
+<!-- Main 2-Column Rugged Workstation Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-space-md w-full">
+<!-- LEFT COLUMN: Operator / Foreman Profile Selection (7 Cols on desktop/tablet landscape) -->
+<section class="lg:col-span-7 flex flex-col gap-space-sm">
+<div class="flex items-center justify-between px-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-label-md text-primary-container">badge</span>
+<span class="font-label-md text-label-md text-on-surface font-semibold tracking-wider uppercase">Pilih Operator / Mandor Regu</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">5 Personel Terdaftar Shift</span>
+</div>
+<!-- Profiles Grid (Touch-target min height 82px) -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-space-sm" id="operator-list">
+<!-- Profile 1: Active Selected -->
+<button class="operator-card text-left p-space-md bg-surface-container-high relative transition-all duration-75 flex items-center justify-between group active:bg-surface-container-highest" data-badge="KO-F01" data-name="Bambang Sutrisno" data-role="Mandor Sasis &amp; Rangka" onclick="selectOperator(this, 'Bambang Sutrisno', 'KO-F01', 'Mandor Sasis &amp; Rangka', 'Bay 1-4 Fabrications')" type="button">
+<!-- Active Highlight Indicator Bar -->
+<div class="active-indicator absolute left-0 top-0 bottom-0 w-1.5 bg-primary-container"></div>
+<div class="flex items-center gap-space-md pl-space-xs min-w-0">
+<div class="w-14 h-14 bg-surface-container-lowest shrink-0 flex items-center justify-center relative">
+<img class="w-full h-full object-cover" data-alt="Portrait photo of an Indonesian senior male coachbuilding foreman in an industrial fabrication bay wearing high-visibility orange safety vest, hard hat, and protective goggles with heavy steel workshop machinery in soft background blur, warm cinematic workshop light." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDu5_tueCj-GdkJu6hBa1OyEMJ9vHmWI5Nq6qS9OTjAEq0uEtUU-r20kCMFTgGapDa8-d9wryoZLGhW0EFLG7ONrCa7mFQvY_O6Y0fjQyEwJq8IZSW8-I0xxBDA46imdBbhC3eNXp9w2hUXeHdWtrs6f-GxF9mrObPPgthDQKZY11WbkYwBA8Y5eximxD9RD3ui-pDykBn6e-Fv-6_euOxJ_sK6CoLdpHG-l-Sy857bnGjGi5JqZWFm"/>
+<span class="absolute bottom-0 right-0 w-3 h-3 bg-primary-container"></span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-space-xs">
+<span class="font-label-sm text-label-sm font-bold text-primary-container">KO-F01</span>
+<span class="font-label-sm text-label-sm px-1 bg-surface-container-lowest text-on-surface-variant">SHIFT 1</span>
+</div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface truncate mt-0.5">Bambang Sutrisno</h2>
+<p class="font-body-sm text-body-sm text-primary truncate">Mandor Sasis &amp; Rangka</p>
+<span class="font-label-sm text-label-sm text-on-surface-variant mt-0.5">Bay 2 Staging • Active</span>
+</div>
+</div>
+<div class="status-icon shrink-0 ml-space-xs text-primary-container">
+<span class="material-symbols-outlined text-headline-md" style="font-variation-settings: 'FILL' 1;">check_box</span>
+</div>
+</button>
+<!-- Profile 2 -->
+<button class="operator-card text-left p-space-md bg-surface-container relative transition-all duration-75 flex items-center justify-between group active:bg-surface-container-highest" data-badge="KO-F04" data-name="Agus Prasetyo" data-role="Mandor Cat &amp; Finishing" onclick="selectOperator(this, 'Agus Prasetyo', 'KO-F04', 'Mandor Cat &amp; Finishing', 'Paint Booth &amp; QC')" type="button">
+<div class="active-indicator hidden absolute left-0 top-0 bottom-0 w-1.5 bg-primary-container"></div>
+<div class="flex items-center gap-space-md pl-space-xs min-w-0">
+<div class="w-14 h-14 bg-surface-container-lowest shrink-0 flex items-center justify-center relative">
+<img class="w-full h-full object-cover" data-alt="Portrait photo of an Indonesian industrial paint technician with respirator strapped to neck and safety helmet inside a modern bus chassis painting spray booth, cool industrial ambient backlighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCy5jy_KCI5ZtNvEasZDlFVVIWdTTkZduQlpZVFMN4GzHnExlLx2_HFmuf0DwvN3OOgNvR0WhpnTPTQ3iyhML0jSylhgAgblyGm5vx0XIRjVVor5MrVLk1cMm6PirGLg_hOKgChAA9Iw0OGIHcDgtAxtPfci-7y32jvM7fSIvMQYAPwHy0_NNuMI78PYGthqqEF0rXA3rGt8Fg0_oUpAaSbNBF45GWQVAryOH9qkD6NAihxBWL-5w1U"/>
+<span class="absolute bottom-0 right-0 w-3 h-3 bg-secondary"></span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-space-xs">
+<span class="font-label-sm text-label-sm font-bold text-on-surface">KO-F04</span>
+<span class="font-label-sm text-label-sm px-1 bg-surface-container-lowest text-on-surface-variant">SHIFT 1</span>
+</div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface truncate mt-0.5">Agus Prasetyo</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">Mandor Cat &amp; Finishing</p>
+<span class="font-label-sm text-label-sm text-on-surface-variant mt-0.5">Booth B • Active Shift</span>
+</div>
+</div>
+<div class="status-icon shrink-0 ml-space-xs text-outline-variant">
+<span class="material-symbols-outlined text-headline-md">check_box_outline_blank</span>
+</div>
+</button>
+<!-- Profile 3 -->
+<button class="operator-card text-left p-space-md bg-surface-container relative transition-all duration-75 flex items-center justify-between group active:bg-surface-container-highest" data-badge="KO-W02" data-name="Hendro Wijaya" data-role="Petugas Gudang Bahan" onclick="selectOperator(this, 'Hendro Wijaya', 'KO-W02', 'Petugas Gudang Bahan', 'Raw Steel Inventory Hub')" type="button">
+<div class="active-indicator hidden absolute left-0 top-0 bottom-0 w-1.5 bg-primary-container"></div>
+<div class="flex items-center gap-space-md pl-space-xs min-w-0">
+<div class="w-14 h-14 bg-surface-container-lowest shrink-0 flex items-center justify-center relative">
+<img class="w-full h-full object-cover" data-alt="Portrait of an experienced male metal warehouse operator holding rugged barcode scanner in a steel beam and aluminum raw materials depot, crisp industrial safety overhead lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD16QXqwxTQMxWPgIJfZB96HeQiA-WW8Ev-Rg2edmrRe-0DUbEiKUuq4zOAVfLr5nd4mmk1f0PVyZM5Db6EzyMGVr1x2jqEojIXMjyeaG1yAdrBTJ6aaxj5FnVP7-UmEctBWyDfPdrjQj96NQ0SM7meCOdvz9NSK1VMt3dPOSEpDXMwGjSuDIoVFRZge9ELcoKu9zV6W6I776DkHuSDeP9XZ1A2Uc7kz6Nhk7j489-2taToXL7CoUlN"/>
+<span class="absolute bottom-0 right-0 w-3 h-3 bg-secondary"></span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-space-xs">
+<span class="font-label-sm text-label-sm font-bold text-on-surface">KO-W02</span>
+<span class="font-label-sm text-label-sm px-1 bg-surface-container-lowest text-on-surface-variant">SHIFT 1</span>
+</div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface truncate mt-0.5">Hendro Wijaya</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">Petugas Gudang Bahan</p>
+<span class="font-label-sm text-label-sm text-on-surface-variant mt-0.5">Warehouse A • On Floor</span>
+</div>
+</div>
+<div class="status-icon shrink-0 ml-space-xs text-outline-variant">
+<span class="material-symbols-outlined text-headline-md">check_box_outline_blank</span>
+</div>
+</button>
+<!-- Profile 4 -->
+<button class="operator-card text-left p-space-md bg-surface-container relative transition-all duration-75 flex items-center justify-between group active:bg-surface-container-highest" data-badge="KO-F02" data-name="Joko Riyadi" data-role="Mandor Elektrikal &amp; Hidrolik" onclick="selectOperator(this, 'Joko Riyadi', 'KO-F02', 'Mandor Elektrikal &amp; Hidrolik', 'Wiring &amp; Pneumatics')" type="button">
+<div class="active-indicator hidden absolute left-0 top-0 bottom-0 w-1.5 bg-primary-container"></div>
+<div class="flex items-center gap-space-md pl-space-xs min-w-0">
+<div class="w-14 h-14 bg-surface-container-lowest shrink-0 flex items-center justify-center relative">
+<div class="w-full h-full bg-surface-container-highest flex items-center justify-center text-primary-fixed">
+<span class="material-symbols-outlined text-headline-md">electrical_services</span>
+</div>
+<span class="absolute bottom-0 right-0 w-3 h-3 bg-secondary"></span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-space-xs">
+<span class="font-label-sm text-label-sm font-bold text-on-surface">KO-F02</span>
+<span class="font-label-sm text-label-sm px-1 bg-surface-container-lowest text-on-surface-variant">SHIFT 1</span>
+</div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface truncate mt-0.5">Joko Riyadi</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">Mandor Elektrik &amp; Hidrolik</p>
+<span class="font-label-sm text-label-sm text-on-surface-variant mt-0.5">Bay 5 • Active Shift</span>
+</div>
+</div>
+<div class="status-icon shrink-0 ml-space-xs text-outline-variant">
+<span class="material-symbols-outlined text-headline-md">check_box_outline_blank</span>
+</div>
+</button>
+<!-- Profile 5 -->
+<button class="operator-card sm:col-span-2 text-left p-space-md bg-surface-container relative transition-all duration-75 flex items-center justify-between group active:bg-surface-container-highest" data-badge="KO-W05" data-name="Rian Hidayat" data-role="Staging Parts &amp; Aksesoris" onclick="selectOperator(this, 'Rian Hidayat', 'KO-W05', 'Staging Parts &amp; Aksesoris', 'Hardware &amp; Parts Crib')" type="button">
+<div class="active-indicator hidden absolute left-0 top-0 bottom-0 w-1.5 bg-primary-container"></div>
+<div class="flex items-center gap-space-md pl-space-xs min-w-0">
+<div class="w-14 h-14 bg-surface-container-lowest shrink-0 flex items-center justify-center relative">
+<div class="w-full h-full bg-surface-container-highest flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-headline-md">precision_manufacturing</span>
+</div>
+<span class="absolute bottom-0 right-0 w-3 h-3 bg-tertiary"></span>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-space-xs">
+<span class="font-label-sm text-label-sm font-bold text-on-surface">KO-W05</span>
+<span class="font-label-sm text-label-sm px-1 bg-surface-container-lowest text-on-surface-variant">SHIFT 1</span>
+</div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface truncate mt-0.5">Rian Hidayat</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">Staging Parts &amp; Aksesoris</p>
+<span class="font-label-sm text-label-sm text-on-surface-variant mt-0.5">Tool Crib Hub • Standby Ready</span>
+</div>
+</div>
+<div class="status-icon shrink-0 ml-space-xs text-outline-variant">
+<span class="material-symbols-outlined text-headline-md">check_box_outline_blank</span>
+</div>
+</button>
+</div>
+<!-- Live Workshop Bay Mini Telemetry & Schematic Snippet -->
+<div class="mt-space-xs p-space-md bg-surface-container-lowest shadow-sm flex flex-col gap-space-sm">
+<div class="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-label-md text-primary">view_in_ar</span>
+            BAY LOAD STATUS: ALLOCATION READY
+          </span>
+<span class="font-mono text-primary font-bold">STATION 02 // STAGED</span>
+</div>
+<!-- Vector Telemetry Graphic -->
+<div class="w-full h-12 bg-surface-container-low px-space-md flex items-center justify-between">
+<div class="flex items-center gap-space-md font-label-sm text-label-sm text-on-surface">
+<div>
+<span class="text-on-surface-variant">BAY 1:</span> <span class="text-primary font-semibold">CHASSIS EXT</span>
+</div>
+<div>
+<span class="text-on-surface-variant">BAY 2:</span> <span class="text-secondary font-semibold">SUBFRAME WELD</span>
+</div>
+<div>
+<span class="text-on-surface-variant">BAY 3:</span> <span class="text-on-surface font-semibold">SKIN RIVET</span>
+</div>
+</div>
+<div class="flex items-center gap-1">
+<span class="w-2 h-4 bg-primary-container inline-block"></span>
+<span class="w-2 h-4 bg-primary-container inline-block"></span>
+<span class="w-2 h-4 bg-primary-container inline-block"></span>
+<span class="w-2 h-4 bg-surface-container-highest inline-block"></span>
+<span class="w-2 h-4 bg-surface-container-highest inline-block"></span>
+</div>
+</div>
+</div>
+</section>
+<!-- RIGHT COLUMN: Tactile Touch Numpad & PIN Verification (5 Cols) -->
+<section class="lg:col-span-5 flex flex-col bg-surface-container p-space-md shadow-lg">
+<!-- Selected Operator Context Callout -->
+<div class="bg-surface-container-lowest p-space-sm mb-space-md flex items-center justify-between">
+<div class="flex items-center gap-space-sm min-w-0">
+<div class="w-10 h-10 bg-primary-container text-on-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined">lock_open</span>
+</div>
+<div class="min-w-0">
+<span class="font-label-sm text-label-sm text-on-surface-variant tracking-wider uppercase block">Authenticating Operator</span>
+<h3 class="font-headline-sm text-headline-sm text-primary truncate leading-tight" id="target-name">Bambang Sutrisno</h3>
+<span class="font-label-sm text-label-sm text-on-surface-variant truncate block" id="target-role">Mandor Sasis &amp; Rangka (KO-F01)</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-primary text-headline-sm animate-pulse">security</span>
+</div>
+<!-- 6-Digit Tactical PIN Feedback Indicators -->
+<div class="flex flex-col items-center justify-center mb-space-md">
+<span class="font-label-sm text-label-sm text-on-surface-variant tracking-widest uppercase mb-space-sm">ENTER 6-DIGIT SHOP PIN</span>
+<div class="flex items-center justify-center gap-3 py-space-xs" id="pin-dots">
+<!-- Dot 1 -->
+<div class="pin-dot w-6 h-6 bg-primary-container flex items-center justify-center shadow-md">
+<span class="w-2 h-2 bg-on-primary rounded-full"></span>
+</div>
+<!-- Dot 2 -->
+<div class="pin-dot w-6 h-6 bg-primary-container flex items-center justify-center shadow-md">
+<span class="w-2 h-2 bg-on-primary rounded-full"></span>
+</div>
+<!-- Dot 3 -->
+<div class="pin-dot w-6 h-6 bg-primary-container flex items-center justify-center shadow-md">
+<span class="w-2 h-2 bg-on-primary rounded-full"></span>
+</div>
+<!-- Dot 4 -->
+<div class="pin-dot w-6 h-6 bg-primary-container flex items-center justify-center shadow-md">
+<span class="w-2 h-2 bg-on-primary rounded-full"></span>
+</div>
+<!-- Dot 5: Empty -->
+<div class="pin-dot w-6 h-6 bg-surface-container-lowest flex items-center justify-center">
+<span class="w-2 h-2 bg-surface-container-highest rounded-full"></span>
+</div>
+<!-- Dot 6: Empty -->
+<div class="pin-dot w-6 h-6 bg-surface-container-lowest flex items-center justify-center">
+<span class="w-2 h-2 bg-surface-container-highest rounded-full"></span>
+</div>
+</div>
+</div>
+<!-- Large Tactile Keypad (3x4 Grid - Touch-optimized for shop floor / gloved handling) -->
+<div class="grid grid-cols-3 gap-2 flex-grow">
+<!-- Digit 1 -->
+<button class="h-16 sm:h-20 bg-surface-container-high text-on-surface flex flex-col items-center justify-center active:bg-primary-container active:text-on-primary transition-colors shadow-sm cursor-pointer select-none" onclick="keyPress('1')" type="button">
+<span class="font-display-lg text-headline-lg font-bold leading-none">1</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant tracking-widest mt-0.5">INIT</span>
+</button>
+<!-- Digit 2 -->
+<button class="h-16 sm:h-20 bg-surface-container-high text-on-surface flex flex-col items-center justify-center active:bg-primary-container active:text-on-primary transition-colors shadow-sm cursor-pointer select-none" onclick="keyPress('2')" type="button">
+<span class="font-display-lg text-headline-lg font-bold leading-none">2</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant tracking-widest mt-0.5">ABC</span>
+</button>
+<!-- Digit 3 -->
+<button class="h-16 sm:h-20 bg-surface-container-high text-on-surface flex flex-col items-center justify-center active:bg-primary-container active:text-on-primary transition-colors shadow-sm cursor-pointer select-none" onclick="keyPress('3')" type="button">
+<span class="font-display-lg text-headline-lg font-bold leading-none">3</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant tracking-widest mt-0.5">DEF</span>
+</button>
+<!-- Digit 4 -->
+<button class="h-16 sm:h-20 bg-surface-container-high text-on-surface flex flex-col items-center justify-center active:bg-primary-container active:text-on-primary transition-colors shadow-sm cursor-pointer select-none" onclick="keyPress('4')" type="button">
+<span class="font-display-lg text-headline-lg font-bold leading-none">4</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant tracking-widest mt-0.5">GHI</span>
+</button>
+<!-- Digit 5 -->
+<button class="h-16 sm:h-20 bg-surface-container-high text-on-surface flex flex-col items-center justify-center active:bg-primary-container active:text-on-primary transition-colors shadow-sm cursor-pointer select-none" onclick="keyPress('5')" type="button">
+<span class="font-display-lg text-headline-lg font-bold leading-none">5</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant tracking-widest mt-0.5">JKL</span>
+</button>
+<!-- Digit 6 -->
+<button class="h-16 sm:h-20 bg-surface-container-high text-on-surface flex flex-col items-center justify-center active:bg-primary-container active:text-on-primary transition-colors shadow-sm cursor-pointer select-none" onclick="keyPress('6')" type="button">
+<span class="font-display-lg text-headline-lg font-bold leading-none">6</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant tracking-widest mt-0.5">MNO</span>
+</button>
+<!-- Digit 7 -->
+<button class="h-16 sm:h-20 bg-surface-container-high text-on-surface flex flex-col items-center justify-center active:bg-primary-container active:text-on-primary transition-colors shadow-sm cursor-pointer select-none" onclick="keyPress('7')" type="button">
+<span class="font-display-lg text-headline-lg font-bold leading-none">7</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant tracking-widest mt-0.5">PQRS</span>
+</button>
+<!-- Digit 8 -->
+<button class="h-16 sm:h-20 bg-surface-container-high text-on-surface flex flex-col items-center justify-center active:bg-primary-container active:text-on-primary transition-colors shadow-sm cursor-pointer select-none" onclick="keyPress('8')" type="button">
+<span class="font-display-lg text-headline-lg font-bold leading-none">8</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant tracking-widest mt-0.5">TUV</span>
+</button>
+<!-- Digit 9 -->
+<button class="h-16 sm:h-20 bg-surface-container-high text-on-surface flex flex-col items-center justify-center active:bg-primary-container active:text-on-primary transition-colors shadow-sm cursor-pointer select-none" onclick="keyPress('9')" type="button">
+<span class="font-display-lg text-headline-lg font-bold leading-none">9</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant tracking-widest mt-0.5">WXYZ</span>
+</button>
+<!-- Key: Clear -->
+<button class="h-16 sm:h-20 bg-surface-container-highest text-error flex flex-col items-center justify-center active:bg-error-container active:text-on-error transition-colors shadow-sm cursor-pointer select-none" onclick="clearPin()" type="button">
+<span class="material-symbols-outlined text-headline-md">close</span>
+<span class="font-label-sm text-label-sm tracking-widest mt-0.5 font-bold uppercase">CLEAR</span>
+</button>
+<!-- Digit 0 -->
+<button class="h-16 sm:h-20 bg-surface-container-high text-on-surface flex flex-col items-center justify-center active:bg-primary-container active:text-on-primary transition-colors shadow-sm cursor-pointer select-none" onclick="keyPress('0')" type="button">
+<span class="font-display-lg text-headline-lg font-bold leading-none">0</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant tracking-widest mt-0.5">OPER</span>
+</button>
+<!-- Key: Backspace -->
+<button class="h-16 sm:h-20 bg-surface-container-highest text-secondary flex flex-col items-center justify-center active:bg-secondary-container active:text-on-secondary transition-colors shadow-sm cursor-pointer select-none" onclick="backspacePin()" type="button">
+<span class="material-symbols-outlined text-headline-md">backspace</span>
+<span class="font-label-sm text-label-sm tracking-widest mt-0.5 font-bold uppercase">DELETE</span>
+</button>
+</div>
+<!-- High Visibility Execution Bar -->
+<button class="w-full mt-space-md py-4 bg-primary-container hover:bg-inverse-primary text-on-primary font-label-lg text-label-lg tracking-wider font-bold uppercase flex items-center justify-center gap-space-sm shadow-md transition-all active:scale-[0.99] cursor-pointer" id="btn-submit" onclick="submitAuth()" type="button">
+<span class="material-symbols-outlined font-bold">verified_user</span>
+<span>SUBMIT PIN &amp; UNLOCK BAY WORKORDER</span>
+</button>
+</section>
+</div>
+<!-- Bottom Industrial Utility & NFC Staging Bar -->
+<footer class="mt-space-md w-full bg-surface-container-low p-space-sm flex flex-col md:flex-row items-center justify-between gap-space-md shadow-md">
+<!-- Alternative Password Entry -->
+<a class="flex items-center gap-space-xs font-label-sm text-label-sm text-secondary hover:text-secondary-fixed transition-colors font-semibold" href="#">
+<span class="material-symbols-outlined text-label-md">arrow_back</span>
+<span>Ganti Ke Password Standar (ERP Admin)</span>
+</a>
+<!-- RFID / NFC Touch Target Visual Indicator -->
+<div class="flex items-center gap-space-sm px-space-md py-1.5 bg-surface-container text-on-surface font-label-sm text-label-sm shadow-inner">
+<span class="material-symbols-outlined text-primary text-label-md animate-pulse">contactless</span>
+<span class="text-on-surface font-medium">Atau Tempelkan Kartu RFID / ID Karyawan ke Sensor Tablet</span>
+<span class="w-2 h-2 bg-primary-container rounded-full inline-block"></span>
+</div>
+<!-- Supervisor Assistance / Emergency Override -->
+<div class="flex items-center gap-space-sm">
+<button class="flex items-center gap-space-xs px-space-sm py-1.5 bg-surface-container-high text-error hover:bg-surface-container-highest transition-colors font-label-sm text-label-sm font-bold uppercase tracking-wider" onclick="triggerHelp()" type="button">
+<span class="material-symbols-outlined text-label-md">support_agent</span>
+<span>Bantuan Supervisor / IT Workshop</span>
+</button>
+</div>
+</footer>
+</div>
+<script>
+  let currentPin = "8421"; // Pre-loaded with 4 digits for industrial mockup realism
+  const maxDigits = 6;
+
+  function renderPin() {
+    const dotsContainer = document.getElementById('pin-dots');
+    if (!dotsContainer) return;
+    const dots = dotsContainer.querySelectorAll('.pin-dot');
+    
+    dots.forEach((dot, index) => {
+      if (index < currentPin.length) {
+        dot.className = "pin-dot w-6 h-6 bg-primary-container flex items-center justify-center shadow-md transition-all";
+        dot.innerHTML = '<span class="w-2 h-2 bg-on-primary rounded-full"></span>';
+      } else {
+        dot.className = "pin-dot w-6 h-6 bg-surface-container-lowest flex items-center justify-center transition-all";
+        dot.innerHTML = '<span class="w-2 h-2 bg-surface-container-highest rounded-full"></span>';
+      }
+    });
+
+    const submitBtn = document.getElementById('btn-submit');
+    if (submitBtn) {
+      if (currentPin.length === maxDigits) {
+        submitBtn.classList.add('animate-pulse');
+      } else {
+        submitBtn.classList.remove('animate-pulse');
+      }
+    }
+  }
+
+  function keyPress(digit) {
+    if (currentPin.length < maxDigits) {
+      currentPin += digit;
+      renderPin();
+      if (currentPin.length === maxDigits) {
+        // Auto feedback after completing 6 digits
+        setTimeout(() => {
+          submitAuth();
+        }, 150);
+      }
+    }
+  }
+
+  function backspacePin() {
+    if (currentPin.length > 0) {
+      currentPin = currentPin.slice(0, -1);
+      renderPin();
+    }
+  }
+
+  function clearPin() {
+    currentPin = "";
+    renderPin();
+  }
+
+  function selectOperator(element, name, badge, role, bay) {
+    // Reset all cards
+    const cards = document.querySelectorAll('.operator-card');
+    cards.forEach(card => {
+      card.classList.remove('bg-surface-container-high');
+      card.classList.add('bg-surface-container');
+      const ind = card.querySelector('.active-indicator');
+      if (ind) ind.classList.add('hidden');
+      const ico = card.querySelector('.status-icon');
+      if (ico) {
+        ico.className = 'status-icon shrink-0 ml-space-xs text-outline-variant';
+        ico.innerHTML = '<span class="material-symbols-outlined text-headline-md">check_box_outline_blank</span>';
+      }
+    });
+
+    // Activate selected
+    element.classList.remove('bg-surface-container');
+    element.classList.add('bg-surface-container-high');
+    const ind = element.querySelector('.active-indicator');
+    if (ind) ind.classList.remove('hidden');
+    const ico = element.querySelector('.status-icon');
+    if (ico) {
+      ico.className = 'status-icon shrink-0 ml-space-xs text-primary-container';
+      ico.innerHTML = '<span class="material-symbols-outlined text-headline-md" style="font-variation-settings: \'FILL\' 1;">check_box</span>';
+    }
+
+    // Update target view
+    const targetName = document.getElementById('target-name');
+    const targetRole = document.getElementById('target-role');
+    if (targetName) targetName.innerText = name;
+    if (targetRole) targetRole.innerText = `${role} (${badge})`;
+
+    // Reset PIN entry for fresh operator session
+    currentPin = "";
+    renderPin();
+  }
+
+  function submitAuth() {
+    const targetName = document.getElementById('target-name') ? document.getElementById('target-name').innerText : 'Bambang Sutrisno';
+    if (currentPin.length < 4) {
+      alert("Masukkan minimal 4 hingga 6 digit PIN otorisasi workshop.");
+      return;
+    }
+    
+    const submitBtn = document.getElementById('btn-submit');
+    if (submitBtn) {
+      submitBtn.innerHTML = '<span class="material-symbols-outlined animate-spin font-bold">sync</span><span>MENGHUBUNGKAN TELEMETRI BENGKEL...</span>';
+      setTimeout(() => {
+        alert("AKSES TERVERIFIKASI // Terminal TRM-BY04 Terbuka untuk: " + targetName);
+        submitBtn.innerHTML = '<span class="material-symbols-outlined font-bold">verified_user</span><span>SUBMIT PIN & UNLOCK BAY WORKORDER</span>';
+        currentPin = "";
+        renderPin();
+      }, 700);
+    }
+  }
+
+  function triggerHelp() {
+    alert("NOTIFIKASI SUPERVISOR TERKIRIM: Pengawas Lapangan dan IT Support diberitahu ke Stasiun TRM-BY04.");
+  }
+
+  // Update real-time clock
+  function updateClock() {
+    const clockEl = document.getElementById('terminal-clock');
+    if (!clockEl) return;
+    const now = new Date();
+    const h = String(now.getHours()).padStart(2, '0');
+    const m = String(now.getMinutes()).padStart(2, '0');
+    const s = String(now.getSeconds()).padStart(2, '0');
+    clockEl.innerText = `${h}:${m}:${s} WIB`;
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+</script></main></body></html>

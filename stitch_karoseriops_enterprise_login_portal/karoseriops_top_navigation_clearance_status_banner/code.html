@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"on-surface":"#dae2fd","surface-container-highest":"#2d3449","error-container":"#93000a","inverse-primary":"#a73a00","on-error-container":"#ffdad6","surface":"#0b1326","tertiary-container":"#8e9193","primary-container":"#f66018","surface-dim":"#0b1326","on-primary-fixed-variant":"#7f2b00","primary-fixed-dim":"#ffb599","surface-tint":"#ffb599","on-secondary-fixed-variant":"#003ea8","surface-container-high":"#222a3d","primary":"#ffb599","on-background":"#dae2fd","tertiary-fixed-dim":"#c4c7c9","secondary-container":"#0053db","tertiary":"#c4c7c9","on-tertiary-fixed":"#191c1e","on-tertiary":"#2d3133","inverse-on-surface":"#283044","inverse-surface":"#dae2fd","primary-fixed":"#ffdbce","on-tertiary-fixed-variant":"#444749","on-secondary-fixed":"#00174b","error":"#ffb4ab","surface-container-lowest":"#060e20","secondary-fixed":"#dbe1ff","surface-bright":"#31394d","on-tertiary-container":"#272a2c","surface-container-low":"#131b2e","on-primary-fixed":"#370e00","on-surface-variant":"#e2bfb2","on-primary-container":"#4f1700","surface-container":"#171f33","outline-variant":"#5a4138","secondary":"#b4c5ff","surface-variant":"#2d3449","secondary-fixed-dim":"#b4c5ff","on-error":"#690005","on-secondary":"#002a78","tertiary-fixed":"#e0e3e5","on-primary":"#5a1c00","on-secondary-container":"#cdd7ff","outline":"#a98a7e","background":"#0b1326"},borderRadius:{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},spacing:{"gutter-compact":"0.5rem","space-md":"1rem","space-sm":"0.5rem","space-xl":"2.5rem","space-lg":"1.5rem","space-xs":"0.25rem","margin":"1.5rem","margin-mobile":"1rem","gutter":"1rem"},fontFamily:{"headline-lg-mobile":["Space Grotesk"],"headline-lg":["Space Grotesk"],"display-lg-mobile":["Space Grotesk"],"body-sm":["Inter"],"body-md":["Inter"],"body-lg":["Inter"],"display-lg":["Space Grotesk"],"headline-sm":["Space Grotesk"],"label-md":["JetBrains Mono"],"headline-md":["Space Grotesk"],"label-sm":["JetBrains Mono"],"label-lg":["JetBrains Mono"]},fontSize:{"headline-lg-mobile":["1.5rem",{"lineHeight":"2rem","letterSpacing":"-0.01em","fontWeight":"600"}],"headline-lg":["2rem",{"lineHeight":"2.5rem","letterSpacing":"-0.02em","fontWeight":"600"}],"display-lg-mobile":["2rem",{"lineHeight":"2.5rem","letterSpacing":"-0.02em","fontWeight":"700"}],"body-sm":["0.75rem",{"lineHeight":"1rem","letterSpacing":"0.01em","fontWeight":"400"}],"body-md":["0.875rem",{"lineHeight":"1.25rem","letterSpacing":"0em","fontWeight":"400"}],"body-lg":["1rem",{"lineHeight":"1.5rem","letterSpacing":"0em","fontWeight":"400"}],"display-lg":["3rem",{"lineHeight":"3.5rem","letterSpacing":"-0.03em","fontWeight":"700"}],"headline-sm":["1.125rem",{"lineHeight":"1.5rem","letterSpacing":"0em","fontWeight":"600"}],"label-md":["0.75rem",{"lineHeight":"1rem","letterSpacing":"0.03em","fontWeight":"500"}],"headline-md":["1.375rem",{"lineHeight":"1.75rem","letterSpacing":"-0.01em","fontWeight":"600"}],"label-sm":["0.6875rem",{"lineHeight":"0.875rem","letterSpacing":"0.05em","fontWeight":"500"}],"label-lg":["0.875rem",{"lineHeight":"1.25rem","letterSpacing":"0.02em","fontWeight":"600"}]}}}}</script></head><body class="bg-surface font-body-md text-on-surface antialiased selection:bg-primary-container selection:text-on-primary-container"><header class="fixed top-0 left-0 right-0 z-50 bg-surface-container-low shadow-[0_1px_8px_rgba(0,0,0,0.4)]"><div class="h-20 w-full px-space-md flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-md shrink-0"><div class="flex items-center gap-space-sm"><img alt="Geometric industrial logo for KaroseriOps with a stylized heavy truck chassis silhouette and interlocking precision technical gear/bracket geometric lines in vibrant safety orange (#EA580C) and crisp white on dark badge.. Brand logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1V5UTgIZY8apaWcBMsnNClITbs-2DpnA8G9C7ZBVLLTLFMitb6XOAlIcPYH1ql17Kk8RFL7wpcwnoZSG6TrXE8unYclPiRxeG5CsaW7OyJixiSKIsHscqmgn0XPTyt5CCf8gs3CgKrhwiU5WD_yIVhhBO75j1esSzhmy2_rCPeUUUGgQyemo_DT2uLDNllSSiBfhEfiSMYt6ub_0bMmf6WkcHQiGsqKIMfmRNhSGQ439rk1D_VpUolqRg"/><div class="flex flex-col"><span class="font-headline-sm text-headline-sm font-bold tracking-tight text-on-surface leading-none uppercase">KaroseriOps</span><span class="font-label-sm text-label-sm uppercase tracking-widest text-primary font-semibold">Commercial ERP</span></div></div><div class="h-7 w-[1px] bg-surface-container-highest"></div><div class="hidden xl:flex items-center gap-space-xs px-space-sm py-1 bg-surface-container border-l-2 border-primary"><div class="w-2 h-2 rounded-full bg-primary animate-pulse"></div><div class="flex flex-col"><span class="font-label-sm text-label-sm font-bold text-on-surface uppercase">Ngawi Modification Hub</span><span class="font-label-sm text-label-sm text-on-surface-variant font-mono">BAY 04 • HEAVY LINE // NODE ID-NGW-02</span></div></div></div><div class="flex-1 max-w-xl mx-auto hidden md:block"><div class="relative flex items-center w-full"><span class="material-symbols-outlined absolute left-3 text-on-surface-variant pointer-events-none text-[18px]">search</span><input class="w-full bg-surface-container-lowest text-on-surface placeholder:text-on-surface-variant font-body-md text-body-md pl-10 pr-16 py-2 border-0 outline-none focus:ring-1 focus:ring-secondary" placeholder="Search SPK #, Plate, Chassis VIN, or BOM Part ID..." type="text"/><div class="absolute right-2 flex items-center gap-1"><kbd class="font-label-sm text-label-sm px-1.5 py-0.5 bg-surface-container-highest text-on-surface-variant">⌘K</kbd><kbd class="font-label-sm text-label-sm px-1.5 py-0.5 bg-surface-container-highest text-on-surface-variant">/</kbd></div></div></div><div class="flex items-center gap-space-sm shrink-0"><div class="hidden 2xl:flex items-center gap-space-xs"><div class="flex items-center gap-1.5 px-space-sm py-1 bg-surface-container border-l-2 border-primary-container"><span class="material-symbols-outlined text-primary text-[16px]">pending_actions</span><span class="font-label-sm text-label-sm uppercase font-bold text-primary">3 SPK Waiting QC</span></div><div class="flex items-center gap-1.5 px-space-sm py-1 bg-surface-container border-l-2 border-error"><span class="material-symbols-outlined text-error text-[16px]">warning</span><span class="font-label-sm text-label-sm uppercase font-bold text-error">1 Overbudget Alert</span></div></div><div class="h-6 w-[1px] bg-surface-container-highest hidden lg:block"></div><div class="hidden lg:flex items-center gap-1.5 px-space-sm py-1 bg-surface-container"><span class="font-label-sm text-label-sm uppercase font-bold text-primary tracking-wide">Shopfloor Foreman</span><span class="font-label-sm text-label-sm text-on-surface-variant bg-surface-container-highest px-1">LVL-4</span></div><div class="flex items-center gap-space-sm pl-space-xs"><div class="relative"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><div class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-primary rounded-full ring-2 ring-surface-container-low"></div></div><div class="hidden sm:flex flex-col text-left"><span class="font-label-md text-label-md font-semibold text-on-surface leading-tight">Bambang Sutrisno, S.T.</span><span class="font-label-sm text-label-sm text-on-surface-variant leading-tight">KO-8842 • Supervisor</span></div><span class="material-symbols-outlined text-on-surface-variant text-[18px]">expand_more</span></div></div></div><div class="w-full bg-surface-container-lowest px-space-md py-1.5 flex flex-wrap items-center justify-between gap-space-xs border-t border-surface-container-highest"><div class="flex items-center gap-space-sm"><div class="flex items-center justify-center px-1.5 py-0.5 bg-primary-container text-on-primary-container font-label-sm text-label-sm font-bold uppercase tracking-wider">Restricted Clearance</div><p class="font-label-sm text-label-sm text-on-surface"><span class="text-primary font-bold">Notice:</span> Material requisitions &gt; Rp 15.000.000 require Dual-Signoff (Warehouse Custodian + Plant Head). Current: <span class="text-on-surface font-semibold">Bay 04 - Chassis Framing</span>.</p></div><div class="flex items-center gap-space-md"><span class="font-label-sm text-label-sm text-on-surface-variant">STATION LOG #9822</span><a class="font-label-sm text-label-sm uppercase font-bold text-primary hover:text-on-surface transition-colors flex items-center gap-0.5" href="#">Review Scope <span class="material-symbols-outlined text-[14px]">arrow_forward</span></a></div></div></header><aside class="fixed left-0 top-20 bottom-0 w-64 bg-surface-container-low z-40 flex flex-col justify-between pt-8"><div class="flex flex-col flex-1 px-space-sm"><div class="px-space-sm mb-4"><span class="font-label-sm text-label-sm uppercase tracking-widest text-on-surface-variant font-bold">Plant Production</span></div><nav class="flex flex-col gap-1" data-active-classes="bg-surface-container-high text-primary font-bold"><a aria-current="page" class="flex items-center gap-space-sm px-space-sm py-2 transition-colors bg-surface-container-high text-primary font-bold" data-path="workshop-bay-monitor" href="#"><span class="material-symbols-outlined text-[20px]">precision_manufacturing</span>Workshop Bay Monitor</a><a class="flex items-center gap-space-sm px-space-sm py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="spk-production-queue" href="#"><span class="material-symbols-outlined text-[20px]">assignment</span>SPK Work Orders</a><a class="flex items-center gap-space-sm px-space-sm py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="chassis-modification-schematics" href="#"><span class="material-symbols-outlined text-[20px]">architecture</span>Chassis Schematics</a><a class="flex items-center gap-space-sm px-space-sm py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="bom-parts-staging" href="#"><span class="material-symbols-outlined text-[20px]">conveyor_belt</span>BOM &amp; Parts Staging</a><a class="flex items-center gap-space-sm px-space-sm py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="quality-control-inspection" href="#"><span class="material-symbols-outlined text-[20px]">verified</span>QC &amp; Defect Gates</a></nav><div class="px-space-sm mt-6 mb-2"><span class="font-label-sm text-label-sm uppercase tracking-widest text-on-surface-variant font-bold">Administration</span></div><nav class="flex flex-col gap-1" data-active-classes="bg-surface-container-high text-primary font-bold"><a class="flex items-center gap-space-sm px-space-sm py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="material-requisition-approvals" href="#"><span class="material-symbols-outlined text-[20px]">rule</span>Dual Sign-off Approvals</a><a class="flex items-center gap-space-sm px-space-sm py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="plant-telemetry-analytics" href="#"><span class="material-symbols-outlined text-[20px]">analytics</span>Plant Telemetry</a></nav></div><div class="p-space-sm bg-surface-container-lowest m-space-sm flex flex-col gap-1"><div class="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm"><span class="font-mono">LINE VOLTAGE</span><span class="text-on-surface font-mono">380V NOM</span></div><div class="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm"><span class="font-mono">SYSTEM STATUS</span><span class="text-primary font-mono">NORMAL</span></div></div></aside><div class="pl-64"><main class="relative pt-20 w-full min-h-screen bg-surface"><div class="flex flex-col w-full">
+<!-- Top Navigation Simulation & Contextual Control Bar -->
+<section class="w-full bg-surface-container-lowest px-space-md py-space-sm shadow-xl relative z-30">
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-space-md">
+<!-- Left: Location & Telemetry Instrumentation -->
+<div class="flex items-center gap-space-md">
+<div class="flex items-center gap-space-sm bg-surface-container px-space-md py-2 shadow-sm">
+<div class="w-2.5 h-2.5 rounded-full bg-primary-container animate-pulse shadow-sm"></div>
+<div class="flex flex-col">
+<div class="flex items-center gap-2">
+<span class="font-headline-sm text-headline-sm uppercase tracking-tight text-on-surface font-bold">Ngawi Modification Hub</span>
+<span class="px-1.5 py-0.2 bg-surface-container-highest font-label-sm text-label-sm text-primary">UNIT 03</span>
+</div>
+<div class="flex items-center gap-2 text-on-surface-variant font-label-sm text-label-sm">
+<span class="text-on-surface font-semibold">BAY 04 HEAVY LINE</span>
+<span class="text-surface-variant">/</span>
+<span class="font-mono">NODE ID-NGW-02</span>
+<span class="text-surface-variant">/</span>
+<span class="text-primary font-mono">LATENCY: 18ms</span>
+</div>
+</div>
+</div>
+<!-- Clearance Role Badge Preview -->
+<div class="hidden sm:flex items-center gap-2 bg-surface-container-high px-space-sm py-2">
+<span class="material-symbols-outlined text-primary-container text-[18px]">verified_user</span>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm uppercase font-bold text-on-surface">Active Clearance</span>
+<span class="font-label-sm text-label-sm text-primary font-bold uppercase tracking-wider">Tier-2 • Shopfloor Foreman</span>
+</div>
+</div>
+</div>
+<!-- Center: Advanced Global SPK Search with Quick Popover -->
+<div class="relative flex-1 max-w-2xl">
+<div class="relative flex items-center w-full shadow-inner bg-surface-container-low">
+<span class="material-symbols-outlined absolute left-3 text-primary text-[20px]">search</span>
+<input class="w-full bg-transparent text-on-surface placeholder:text-on-surface-variant font-label-md text-label-md pl-10 pr-24 py-2.5 outline-none focus:bg-surface-container-high transition-colors" id="spk-search-input" placeholder="Search SPK #, Police Plate, Chassis VIN, or Part Code..." type="text" value="SPK-2024-"/>
+<div class="absolute right-2 flex items-center gap-1.5 pointer-events-none">
+<span class="bg-surface-container-highest px-1.5 py-0.5 text-on-surface-variant font-label-sm text-label-sm">⌘K</span>
+<span class="bg-surface-container-highest px-1.5 py-0.5 text-on-surface-variant font-label-sm text-label-sm">ESC</span>
+</div>
+</div>
+<!-- Quick Query Hints -->
+<div class="flex items-center gap-1.5 mt-1.5 overflow-x-auto text-on-surface-variant">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-surface-tint">Index Scope:</span>
+<button class="px-2 py-0.5 bg-surface-container font-label-sm text-label-sm text-on-surface hover:bg-surface-container-high transition-colors">SPK NUM</button>
+<button class="px-2 py-0.5 bg-surface-container font-label-sm text-label-sm text-on-surface-variant hover:bg-surface-container-high transition-colors">CHASSIS VIN</button>
+<button class="px-2 py-0.5 bg-surface-container font-label-sm text-label-sm text-on-surface-variant hover:bg-surface-container-high transition-colors">NOL-POL</button>
+<button class="px-2 py-0.5 bg-surface-container font-label-sm text-label-sm text-on-surface-variant hover:bg-surface-container-high transition-colors">BILL-OF-MATS</button>
+</div>
+<!-- Live Predictive Search Dropdown -->
+<div class="absolute left-0 right-0 top-full mt-2 bg-surface-container-high shadow-2xl p-space-sm z-50" id="search-popover">
+<div class="flex items-center justify-between pb-2 mb-2 bg-surface-container px-space-sm py-1">
+<span class="font-label-sm text-label-sm uppercase font-bold text-on-surface-variant tracking-wider">Telemetry Matches (Recent Active Bay Records)</span>
+<span class="font-label-sm text-label-sm text-primary font-mono">2 MATCHES FOUND</span>
+</div>
+<div class="space-y-1">
+<div class="flex items-center justify-between p-space-sm bg-surface-container hover:bg-surface-container-highest transition-colors cursor-pointer">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary-container text-[18px]">rv_hookup</span>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md font-bold text-on-surface">SPK-7721 — Mitsubishi Fuso Fighter 6x2</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Modification: Dump Bed Hardox Stage 3 • Plate: <strong class="text-on-surface">AD 8192 LK</strong></span>
+</div>
+</div>
+<div class="text-right">
+<span class="px-2 py-0.5 bg-surface-container-lowest font-label-sm text-label-sm text-primary font-mono">BAY 04 // ACTIVE</span>
+</div>
+</div>
+<div class="flex items-center justify-between p-space-sm bg-surface-container hover:bg-surface-container-highest transition-colors cursor-pointer">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-secondary text-[18px]">ac_unit</span>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md font-bold text-on-surface">SPK-7719 — Hino Ranger 500 FL</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Modification: Box Refrigerator Heavy Cargo • Plate: <strong class="text-on-surface">B 9281 TYN</strong></span>
+</div>
+</div>
+<div class="text-right">
+<span class="px-2 py-0.5 bg-surface-container-lowest font-label-sm text-label-sm text-secondary font-mono">BAY 02 // STAGED</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right: Role Switcher & Live Session State -->
+<div class="flex items-center gap-space-sm shrink-0">
+<!-- Interactive Multi-Role Simulator Pill -->
+<div class="hidden xl:flex items-center bg-surface-container p-1 shadow-sm">
+<span class="font-label-sm text-label-sm px-2 text-on-surface-variant uppercase font-semibold">Clearance Mode:</span>
+<button class="px-2 py-1 bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm hover:text-on-surface">Owner</button>
+<button class="px-2 py-1 bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm hover:text-on-surface">Advisor</button>
+<button class="px-2.5 py-1 bg-primary-container text-on-primary font-label-sm text-label-sm font-bold shadow-sm">Foreman</button>
+<button class="px-2 py-1 bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm hover:text-on-surface">Warehouse</button>
+<button class="px-2 py-1 bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm hover:text-on-surface">Finance</button>
+</div>
+<!-- User Identity Session Pill with Dropdown Preview -->
+<div class="relative group">
+<button class="flex items-center gap-space-sm bg-surface-container px-space-sm py-1.5 hover:bg-surface-container-high transition-colors">
+<div class="relative">
+<div class="w-8 h-8 bg-surface-container-highest flex items-center justify-center text-primary font-bold">
+<span class="material-symbols-outlined text-[18px]">construction</span>
+</div>
+<span class="w-2.5 h-2.5 bg-primary-container rounded-full absolute -top-0.5 -right-0.5 shadow-sm"></span>
+</div>
+<div class="text-left hidden sm:flex flex-col">
+<span class="font-label-md text-label-md font-bold text-on-surface leading-tight">Bambang S., S.T.</span>
+<span class="font-label-sm text-label-sm text-primary font-mono leading-tight">KO-8842 // Lead Shift 1</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">tune</span>
+</button>
+<!-- Interactive User Session Dropdown Preview -->
+<div class="absolute right-0 top-full mt-2 w-72 bg-surface-container-high shadow-2xl p-space-sm hidden group-hover:block hover:block z-50">
+<div class="p-space-sm bg-surface-container mb-2">
+<div class="font-label-sm text-label-sm text-on-surface-variant uppercase font-semibold">Station Binding</div>
+<div class="font-body-md text-body-md text-on-surface font-bold">Terminal TRM-BY04-NGAWI</div>
+<div class="font-label-sm text-label-sm text-primary font-mono">Shift 07:00 – 16:00 WIB (Pagi)</div>
+</div>
+<div class="flex flex-col gap-1">
+<a class="flex items-center justify-between px-space-sm py-2 hover:bg-surface-container text-on-surface font-body-md text-body-md transition-colors" href="#">
+<span class="flex items-center gap-2"><span class="material-symbols-outlined text-[18px]">badge</span>Station Bindings</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-mono">LOCKED</span>
+</a>
+<a class="flex items-center justify-between px-space-sm py-2 hover:bg-surface-container text-on-surface font-body-md text-body-md transition-colors" href="#">
+<span class="flex items-center gap-2"><span class="material-symbols-outlined text-[18px]">fact_check</span>Audit Logs (ISO 9001:2015)</span>
+<span class="font-label-sm text-label-sm text-primary font-mono">SYNCED</span>
+</a>
+<a class="flex items-center justify-between px-space-sm py-2 hover:bg-surface-container text-on-surface font-body-md text-body-md transition-colors" href="#">
+<span class="flex items-center gap-2"><span class="material-symbols-outlined text-[18px]">swap_horiz</span>Transfer Terminal Session</span>
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant">arrow_forward</span>
+</a>
+<div class="my-1 bg-surface-container-highest h-[1px]"></div>
+<a class="flex items-center justify-between px-space-sm py-2 bg-error-container text-on-error-container font-label-md text-label-md uppercase font-bold hover:brightness-110 transition-all" href="#">
+<span class="flex items-center gap-2"><span class="material-symbols-outlined text-[18px]">lock</span>Lock Terminal Session</span>
+<span class="font-mono text-label-sm">SIGN OUT</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Contextual Permission Status Banner (Hard-Gate Industrial Advisory Bar) -->
+<section class="w-full bg-surface-container relative z-20 shadow-md">
+<div class="flex flex-col md:flex-row items-stretch md:items-center justify-between">
+<!-- Left Indicator & Attention Narrative -->
+<div class="flex items-center gap-space-md p-space-md flex-1">
+<div class="w-10 h-10 bg-primary-container text-on-primary flex items-center justify-center shrink-0 shadow-md">
+<span class="material-symbols-outlined text-[24px]">gavel</span>
+</div>
+<div class="flex flex-col">
+<div class="flex flex-wrap items-center gap-2">
+<span class="font-label-sm text-label-sm uppercase font-bold bg-surface-container-highest px-2 py-0.5 text-primary tracking-wider">HARD-GATE ENFORCEMENT</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-mono">SECURITY PROTOCOL REV 4.2</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface mt-0.5 leading-snug">
+<strong class="text-primary uppercase tracking-wide">Attention: Restricted Clearance View.</strong> Authenticated profile holds <strong class="text-on-surface font-bold">[Shopfloor Foreman]</strong> scope. Material requisitions &gt; <span class="font-mono text-surface-tint">Rp 15.000.000</span> mandate Warehouse Custodian + Plant Head dual-signoff. Work order write-permissions are locked to active <span class="font-mono text-on-surface">Bay 04 - Chassis Framing</span>.
+          </p>
+</div>
+</div>
+<!-- Right Action Triggers & Station Heartbeat -->
+<div class="flex flex-wrap items-center gap-space-sm px-space-md py-space-sm md:py-0 bg-surface-container-high md:bg-transparent shrink-0">
+<button class="flex items-center gap-1.5 px-space-md py-2 bg-surface-container-highest hover:bg-surface-bright text-on-surface font-label-md text-label-md uppercase tracking-wider transition-colors shadow-sm" id="btn-open-matrix">
+<span class="material-symbols-outlined text-[16px] text-primary">policy</span>
+<span>View Matrix Boundaries</span>
+</button>
+<button class="flex items-center gap-1.5 px-space-md py-2 bg-primary-container text-on-primary hover:brightness-110 font-label-md text-label-md uppercase font-bold tracking-wider transition-all shadow-md" id="btn-request-override">
+<span class="material-symbols-outlined text-[16px]">key</span>
+<span>Request Temp Override</span>
+</button>
+<div class="hidden 2xl:flex flex-col text-right pl-space-sm">
+<span class="font-label-sm text-label-sm text-on-surface-variant font-mono">TERMINAL: TRM-BY04</span>
+<span class="font-label-sm text-label-sm text-primary font-mono font-bold">AUDIT: VERIFIED PASS</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Live Operation Grounding View (Active Bay Work Order & Matrix Comparator) -->
+<section class="w-full p-space-md space-y-space-md">
+<!-- Top Row: Active Chassis Job Card Under Bambang's Supervised Scope -->
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-space-md">
+<!-- Card 1: Active Work Order Details -->
+<div class="xl:col-span-2 bg-surface-container p-space-md shadow-md flex flex-col justify-between">
+<div>
+<div class="flex flex-wrap items-center justify-between gap-space-sm pb-space-sm mb-space-sm bg-surface-container-low px-space-sm py-2">
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-label-sm bg-primary-container text-on-primary font-bold px-2 py-0.5">ACTIVE BAY JOB</span>
+<span class="font-label-md text-label-md font-mono text-on-surface font-bold">SPK-2024-0412</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-mono">// VIN: MJ8FL8JW9PK028912</span>
+</div>
+<div class="flex items-center gap-space-sm">
+<span class="font-label-sm text-label-sm text-on-surface-variant font-mono">PRIORITY: HIGH</span>
+<span class="px-2 py-0.5 bg-surface-container-highest text-primary font-label-sm text-label-sm font-bold">WBS: 04.2-HYD</span>
+</div>
+</div>
+<div class="flex flex-col md:flex-row gap-space-md">
+<!-- Vehicle Visual Asset -->
+<div class="w-full md:w-56 h-36 bg-surface-container-lowest shrink-0 overflow-hidden relative shadow-inner">
+<img class="w-full h-full object-cover opacity-90" data-alt="A heavy industrial Hino 500 series commercial dump truck chassis inside an automotive coachbuilding modification bay. Dark industrial garage backdrop with vivid hydraulic mounting brackets in safety orange and precision welding tools under harsh tactical shopfloor lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBw--3-57mvsAjcatyz_01BD8VnDy0cqZFDB4CzI5iS8gyud6LkpKLSJTmkEAdEIQ2bAfdWZ6gB_i8hZe7Fzzv7to26v6uO2Lhk5X2O1-M9TXU0xSqYoRsjFjFmZuTY_1CkxvbB8iUzmfHq1KcuEEttss9nPKvenOsNEqQxQAMBb6rGC8zp9Hks_12tSfYL8vSrhn2qv73T6rynvPH30Kx-RwtqkkTTOyfcNTA2zlG1paYG-b3qR1KH"/>
+<div class="absolute bottom-1 left-1 bg-surface-container-lowest/90 px-1.5 py-0.5 font-label-sm text-label-sm text-on-surface font-mono">
+                HINO 500 FL8J
+              </div>
+</div>
+<!-- Job Narrative & Specification -->
+<div class="flex-1 space-y-2">
+<h2 class="font-headline-md text-headline-md font-bold text-on-surface">
+                Hino 500 Series FL8J — Dump Body Hardox 450 Modification
+              </h2>
+<p class="font-body-md text-body-md text-on-surface-variant">
+                Full rear subframe reinforcement, 22 CBM Dump Vessel fabrication, PTO pump mounting, and dual double-acting hoist cylinders installation for heavy mining fleet customer PT Antang Sejahtera.
+              </p>
+<!-- Dimensional Tolerances Readout -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
+<div class="bg-surface-container-low p-2">
+<div class="font-label-sm text-label-sm text-on-surface-variant">OVERALL LENGTH</div>
+<div class="font-label-md text-label-md font-mono text-on-surface font-bold">9,420 mm</div>
+</div>
+<div class="bg-surface-container-low p-2">
+<div class="font-label-sm text-label-sm text-on-surface-variant">SUBFRAME CLEAR</div>
+<div class="font-label-md text-label-md font-mono text-on-surface font-bold">+1.2 mm (NOM)</div>
+</div>
+<div class="bg-surface-container-low p-2">
+<div class="font-label-sm text-label-sm text-on-surface-variant">PAYLOAD RATING</div>
+<div class="font-label-md text-label-md font-mono text-on-surface font-bold">26,000 KG</div>
+</div>
+<div class="bg-surface-container-low p-2">
+<div class="font-label-sm text-label-sm text-on-surface-variant">STAGE TARGET</div>
+<div class="font-label-md text-label-md font-mono text-primary font-bold">14:00 WIB TODAY</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Milestone Pipeline Tracker -->
+<div class="mt-space-md pt-space-sm bg-surface-container-lowest p-space-sm">
+<div class="flex items-center justify-between mb-2">
+<span class="font-label-sm text-label-sm uppercase font-bold text-on-surface-variant">Milestone Assembly Gate</span>
+<span class="font-label-sm text-label-sm text-primary font-mono font-bold">GATE 3 OF 4 IN-PROGRESS (72% COMPLETION)</span>
+</div>
+<!-- Milestone Progress Graphic -->
+<div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+<div class="p-2 bg-surface-container-high">
+<div class="flex items-center justify-between text-primary mb-1">
+<span class="font-label-sm text-label-sm font-bold">01. Chassis Prep</span>
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+</div>
+<div class="w-full bg-surface-container h-1.5">
+<div class="bg-primary-container h-1.5 w-full"></div>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-mono mt-1 block">100% Signed</span>
+</div>
+<div class="p-2 bg-surface-container-high">
+<div class="flex items-center justify-between text-primary mb-1">
+<span class="font-label-sm text-label-sm font-bold">02. Subframe Welded</span>
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+</div>
+<div class="w-full bg-surface-container h-1.5">
+<div class="bg-primary-container h-1.5 w-full"></div>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-mono mt-1 block">100% Signed</span>
+</div>
+<div class="p-2 bg-surface-container-highest">
+<div class="flex items-center justify-between text-surface-tint mb-1">
+<span class="font-label-sm text-label-sm font-bold">03. Hydr. Cylinder</span>
+<span class="material-symbols-outlined text-[16px] animate-spin">sync</span>
+</div>
+<div class="w-full bg-surface-container h-1.5">
+<div class="bg-surface-tint h-1.5 w-3/4"></div>
+</div>
+<span class="font-label-sm text-label-sm text-surface-tint font-mono mt-1 block">75% Active Mounting</span>
+</div>
+<div class="p-2 bg-surface-container-low opacity-60">
+<div class="flex items-center justify-between text-on-surface-variant mb-1">
+<span class="font-label-sm text-label-sm font-bold">04. Shotblast &amp; QC</span>
+<span class="material-symbols-outlined text-[16px]">lock</span>
+</div>
+<div class="w-full bg-surface-container h-1.5">
+<div class="bg-surface-container-highest h-1.5 w-0"></div>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-mono mt-1 block">Pending Gate-3 QC</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Action Bar Bound to Role -->
+<div class="mt-space-md pt-space-sm flex flex-wrap items-center justify-between gap-space-sm">
+<div class="flex items-center gap-2">
+<button class="px-space-md py-2 bg-primary-container text-on-primary font-label-md text-label-md uppercase font-bold hover:brightness-110 transition-all shadow-sm">
+              Log Welder Shift Hours
+            </button>
+<button class="px-space-md py-2 bg-surface-container-highest text-on-surface font-label-md text-label-md uppercase hover:bg-surface-bright transition-colors shadow-sm">
+              Flag Micro-Defect
+            </button>
+</div>
+<div class="flex items-center gap-2 text-on-surface-variant font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-primary text-[18px]">verified</span>
+<span>Station Foreman Verified: Bambang S.</span>
+</div>
+</div>
+</div>
+<!-- Card 2: bambang's Specific Role Permission Sandbox -->
+<div class="bg-surface-container p-space-md shadow-md flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between pb-space-sm mb-space-sm bg-surface-container-low px-space-sm py-2">
+<span class="font-label-sm text-label-sm uppercase font-bold text-on-surface">Foreman Execution Boundary</span>
+<span class="px-1.5 py-0.5 bg-primary-container text-on-primary font-label-sm text-label-sm font-mono font-bold">TIER-2 ACTIVE</span>
+</div>
+<div class="space-y-space-sm">
+<div class="p-space-sm bg-surface-container-low">
+<span class="font-label-sm text-label-sm text-primary font-bold uppercase tracking-wider block mb-1">
+                Permitted Shopfloor Actions
+              </span>
+<ul class="space-y-1 font-body-sm text-body-sm text-on-surface">
+<li class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[16px]">check</span>
+<span>Sign-off Subframe Welding Stage (WBS 04.1)</span>
+</li>
+<li class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[16px]">check</span>
+<span>Requisition consumables &lt; Rp 15.000.000</span>
+</li>
+<li class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[16px]">check</span>
+<span>Dispatch Bay 04 Techs (Welder, Fitter, Helper)</span>
+</li>
+<li class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[16px]">check</span>
+<span>Record dimensional variance down to ±0.5mm</span>
+</li>
+</ul>
+</div>
+<div class="p-space-sm bg-surface-container-highest">
+<span class="font-label-sm text-label-sm text-error font-bold uppercase tracking-wider block mb-1">
+                Blocked Administrative Actions
+              </span>
+<ul class="space-y-1 font-body-sm text-body-sm text-on-surface-variant">
+<li class="flex items-center gap-2">
+<span class="material-symbols-outlined text-error text-[16px]">block</span>
+<span class="line-through text-on-surface-variant">Authorize Final Vehicle Gate-Out Dispatch</span>
+</li>
+<li class="flex items-center gap-2">
+<span class="material-symbols-outlined text-error text-[16px]">block</span>
+<span class="line-through text-on-surface-variant">Sign off PO Material Requisition &gt; Rp 15 Juta</span>
+</li>
+<li class="flex items-center gap-2">
+<span class="material-symbols-outlined text-error text-[16px]">block</span>
+<span class="line-through text-on-surface-variant">Modify Contract Pricing or SPK Bill-of-Materials</span>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="pt-space-md">
+<div class="p-space-sm bg-surface-container-lowest flex items-center justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant font-mono">STATION ID: NGW-BAY-04-A</span>
+<span class="font-label-sm text-label-sm text-primary font-mono font-bold">ONLINE NOMINAL</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Matrix Comparison Drawer Preview (Permission Boundaries) -->
+<div class="bg-surface-container p-space-md shadow-md" id="permission-matrix-panel">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm pb-space-sm mb-space-md bg-surface-container-low px-space-sm py-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">table_chart</span>
+<span class="font-headline-sm text-headline-sm uppercase font-bold text-on-surface">Role-Based Clearance Access Matrix</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-mono">(STATION ACCESS COMPARISON)</span>
+</div>
+<div class="flex items-center gap-2 font-label-sm text-label-sm text-on-surface-variant">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+<span>Your Role: Shopfloor Foreman</span>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left font-body-sm text-body-sm">
+<thead>
+<tr class="bg-surface-container-highest text-on-surface font-label-md text-label-md uppercase tracking-wider">
+<th class="p-space-sm">Operational Task / Gate Action</th>
+<th class="p-space-sm">Owner / Plant GM</th>
+<th class="p-space-sm">Service Advisor</th>
+<th class="p-space-sm bg-surface-bright text-primary font-bold">Shopfloor Foreman (Active)</th>
+<th class="p-space-sm">Warehouse Custodian</th>
+<th class="p-space-sm">Finance &amp; Cashier</th>
+</tr>
+</thead>
+<tbody class="text-on-surface font-label-sm text-label-sm">
+<tr class="bg-surface-container-low hover:bg-surface-container-high transition-colors">
+<td class="p-space-sm font-body-md text-body-md font-semibold text-on-surface">Create New SPK &amp; BOM Spec</td>
+<td class="p-space-sm text-primary font-bold">FULL ACCESS</td>
+<td class="p-space-sm text-on-surface">FULL ACCESS</td>
+<td class="p-space-sm bg-surface-container-highest text-on-surface-variant">VIEW ONLY</td>
+<td class="p-space-sm text-on-surface-variant">VIEW ONLY</td>
+<td class="p-space-sm text-on-surface-variant">VIEW ONLY</td>
+</tr>
+<tr class="bg-surface-container hover:bg-surface-container-high transition-colors">
+<td class="p-space-sm font-body-md text-body-md font-semibold text-on-surface">Shopfloor Welder Task Assignment</td>
+<td class="p-space-sm text-on-surface-variant">VIEW ONLY</td>
+<td class="p-space-sm text-on-surface-variant">VIEW ONLY</td>
+<td class="p-space-sm bg-surface-container-highest text-primary font-bold">FULL ACCESS (BAY 04)</td>
+<td class="p-space-sm text-on-surface-variant">NO ACCESS</td>
+<td class="p-space-sm text-on-surface-variant">NO ACCESS</td>
+</tr>
+<tr class="bg-surface-container-low hover:bg-surface-container-high transition-colors">
+<td class="p-space-sm font-body-md text-body-md font-semibold text-on-surface">Material Pick Order (&lt; Rp 15.000.000)</td>
+<td class="p-space-sm text-primary font-bold">AUTO-APPROVE</td>
+<td class="p-space-sm text-on-surface-variant">NO ACCESS</td>
+<td class="p-space-sm bg-surface-container-highest text-primary font-bold">DIRECT ISSUE</td>
+<td class="p-space-sm text-on-surface">RELEASE STOCK</td>
+<td class="p-space-sm text-on-surface-variant">GL POSTING</td>
+</tr>
+<tr class="bg-surface-container hover:bg-surface-container-high transition-colors">
+<td class="p-space-sm font-body-md text-body-md font-semibold text-on-surface">High-Value Requisition (&gt; Rp 15 Juta)</td>
+<td class="p-space-sm text-primary font-bold">MANDATORY CO-SIGN</td>
+<td class="p-space-sm text-on-surface-variant">NO ACCESS</td>
+<td class="p-space-sm bg-surface-container-highest text-surface-tint font-bold">REQUIRES SIGN-OFF REQUEST</td>
+<td class="p-space-sm text-primary font-bold">MANDATORY CO-SIGN</td>
+<td class="p-space-sm text-on-surface">AUDIT VERIFY</td>
+</tr>
+<tr class="bg-surface-container-low hover:bg-surface-container-high transition-colors">
+<td class="p-space-sm font-body-md text-body-md font-semibold text-on-surface">Final Delivery Gate-Out Pass</td>
+<td class="p-space-sm text-primary font-bold">FINAL RELEASE</td>
+<td class="p-space-sm text-on-surface">HANDOVER SIGN</td>
+<td class="p-space-sm bg-surface-container-highest text-error font-bold">NO CLEARANCE</td>
+<td class="p-space-sm text-on-surface-variant">PARTS AUDIT</td>
+<td class="p-space-sm text-primary font-bold">PAYMENT SETTLED GATE</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+<!-- Interactive JavaScript Logic -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const searchInput = document.getElementById('spk-search-input');
+      const searchPopover = document.getElementById('search-popover');
+      const btnMatrix = document.getElementById('btn-open-matrix');
+      const matrixPanel = document.getElementById('permission-matrix-panel');
+      const btnOverride = document.getElementById('btn-request-override');
+
+      // Toggle search dropdown preview
+      searchInput.addEventListener('focus', () => {
+        searchPopover.classList.remove('hidden');
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!searchInput.contains(e.target) && !searchPopover.contains(e.target)) {
+          searchPopover.classList.add('hidden');
+        }
+      });
+
+      // Quick smooth scroll or highlight matrix drawer
+      btnMatrix.addEventListener('click', () => {
+        matrixPanel.scrollIntoView({ behavior: 'smooth' });
+        matrixPanel.classList.add('bg-surface-container-highest');
+        setTimeout(() => {
+          matrixPanel.classList.remove('bg-surface-container-highest');
+        }, 1200);
+      });
+
+      // Request Temporary Override confirmation prompt simulation
+      btnOverride.addEventListener('click', () => {
+        const pin = prompt("Dual-Authorization Override Required:\nEnter Supervisor Keycard Passcode (KO-xxxx):", "KO-8842");
+        if (pin) {
+          alert(`Temporary bay privilege token issued for terminal TRM-BY04-NGAWI.\nValid window: 30 minutes.\nAudit hash logged to ISO compliance register.`);
+        }
+      });
+    });
+  </script>
+</div></main></div></body></html>

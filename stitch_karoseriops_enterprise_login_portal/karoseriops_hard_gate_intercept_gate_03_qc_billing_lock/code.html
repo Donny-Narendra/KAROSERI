@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{colors:{"on-surface":"#dae2fd","surface-container-highest":"#2d3449","error-container":"#93000a","inverse-primary":"#a73a00","on-error-container":"#ffdad6","surface":"#0b1326","tertiary-container":"#8e9193","primary-container":"#f66018","surface-dim":"#0b1326","on-primary-fixed-variant":"#7f2b00","primary-fixed-dim":"#ffb599","surface-tint":"#ffb599","on-secondary-fixed-variant":"#003ea8","surface-container-high":"#222a3d","primary":"#ffb599","on-background":"#dae2fd","tertiary-fixed-dim":"#c4c7c9","secondary-container":"#0053db","tertiary":"#c4c7c9","on-tertiary-fixed":"#191c1e","on-tertiary":"#2d3133","inverse-on-surface":"#283044","inverse-surface":"#dae2fd","primary-fixed":"#ffdbce","on-tertiary-fixed-variant":"#444749","on-secondary-fixed":"#00174b","error":"#ffb4ab","surface-container-lowest":"#060e20","secondary-fixed":"#dbe1ff","surface-bright":"#31394d","on-tertiary-container":"#272a2c","surface-container-low":"#131b2e","on-primary-fixed":"#370e00","on-surface-variant":"#e2bfb2","on-primary-container":"#4f1700","surface-container":"#171f33","outline-variant":"#5a4138","secondary":"#b4c5ff","surface-variant":"#2d3449","secondary-fixed-dim":"#b4c5ff","on-error":"#690005","on-secondary":"#002a78","tertiary-fixed":"#e0e3e5","on-primary":"#5a1c00","on-secondary-container":"#cdd7ff","outline":"#a98a7e","background":"#0b1326"},borderRadius:{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},spacing:{"gutter-compact":"0.5rem","space-md":"1rem","space-sm":"0.5rem","space-xl":"2.5rem","space-lg":"1.5rem","space-xs":"0.25rem","margin":"1.5rem","margin-mobile":"1rem","gutter":"1rem"},fontFamily:{"headline-lg-mobile":["Space Grotesk"],"headline-lg":["Space Grotesk"],"display-lg-mobile":["Space Grotesk"],"body-sm":["Inter"],"body-md":["Inter"],"body-lg":["Inter"],"display-lg":["Space Grotesk"],"headline-sm":["Space Grotesk"],"label-md":["JetBrains Mono"],"headline-md":["Space Grotesk"],"label-sm":["JetBrains Mono"],"label-lg":["JetBrains Mono"]},fontSize:{"headline-lg-mobile":["1.5rem",{"lineHeight":"2rem","letterSpacing":"-0.01em","fontWeight":"600"}],"headline-lg":["2rem",{"lineHeight":"2.5rem","letterSpacing":"-0.02em","fontWeight":"600"}],"display-lg-mobile":["2rem",{"lineHeight":"2.5rem","letterSpacing":"-0.02em","fontWeight":"700"}],"body-sm":["0.75rem",{"lineHeight":"1rem","letterSpacing":"0.01em","fontWeight":"400"}],"body-md":["0.875rem",{"lineHeight":"1.25rem","letterSpacing":"0em","fontWeight":"400"}],"body-lg":["1rem",{"lineHeight":"1.5rem","letterSpacing":"0em","fontWeight":"400"}],"display-lg":["3rem",{"lineHeight":"3.5rem","letterSpacing":"-0.03em","fontWeight":"700"}],"headline-sm":["1.125rem",{"lineHeight":"1.5rem","letterSpacing":"0em","fontWeight":"600"}],"label-md":["0.75rem",{"lineHeight":"1rem","letterSpacing":"0.03em","fontWeight":"500"}],"headline-md":["1.375rem",{"lineHeight":"1.75rem","letterSpacing":"-0.01em","fontWeight":"600"}],"label-sm":["0.6875rem",{"lineHeight":"0.875rem","letterSpacing":"0.05em","fontWeight":"500"}],"label-lg":["0.875rem",{"lineHeight":"1.25rem","letterSpacing":"0.02em","fontWeight":"600"}]}}}}</script></head><body class="bg-surface font-body-md text-on-surface antialiased selection:bg-primary-container selection:text-on-primary-container"><header class="fixed top-0 left-0 right-0 z-50 bg-surface-container-low shadow-[0_1px_8px_rgba(0,0,0,0.4)]"><div class="h-20 w-full px-space-md flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-md shrink-0"><div class="flex items-center gap-space-sm"><img alt="Geometric industrial logo for KaroseriOps with a stylized heavy truck chassis silhouette and interlocking precision technical gear/bracket geometric lines in vibrant safety orange (#EA580C) and crisp white on dark badge.. Brand logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1V5UTgIZY8apaWcBMsnNClITbs-2DpnA8G9C7ZBVLLTLFMitb6XOAlIcPYH1ql17Kk8RFL7wpcwnoZSG6TrXE8unYclPiRxeG5CsaW7OyJixiSKIsHscqmgn0XPTyt5CCf8gs3CgKrhwiU5WD_yIVhhBO75j1esSzhmy2_rCPeUUUGgQyemo_DT2uLDNllSSiBfhEfiSMYt6ub_0bMmf6WkcHQiGsqKIMfmRNhSGQ439rk1D_VpUolqRg"/><div class="flex flex-col"><span class="font-headline-sm text-headline-sm font-bold tracking-tight text-on-surface leading-none uppercase">KaroseriOps</span><span class="font-label-sm text-label-sm uppercase tracking-widest text-primary font-semibold">Commercial ERP</span></div></div><div class="h-7 w-[1px] bg-surface-container-highest"></div><div class="hidden xl:flex items-center gap-space-xs px-space-sm py-1 bg-surface-container border-l-2 border-primary"><div class="w-2 h-2 rounded-full bg-primary animate-pulse"></div><div class="flex flex-col"><span class="font-label-sm text-label-sm font-bold text-on-surface uppercase">Ngawi Modification Hub</span><span class="font-label-sm text-label-sm text-on-surface-variant font-mono">BAY 04 • HEAVY LINE // NODE ID-NGW-02</span></div></div></div><div class="flex-1 max-w-xl mx-auto hidden md:block"><div class="relative flex items-center w-full"><span class="material-symbols-outlined absolute left-3 text-on-surface-variant pointer-events-none text-[18px]">search</span><input class="w-full bg-surface-container-lowest text-on-surface placeholder:text-on-surface-variant font-body-md text-body-md pl-10 pr-16 py-2 border-0 outline-none focus:ring-1 focus:ring-secondary" placeholder="Search SPK #, Plate, Chassis VIN, or BOM Part ID..." type="text"/><div class="absolute right-2 flex items-center gap-1"><kbd class="font-label-sm text-label-sm px-1.5 py-0.5 bg-surface-container-highest text-on-surface-variant">⌘K</kbd><kbd class="font-label-sm text-label-sm px-1.5 py-0.5 bg-surface-container-highest text-on-surface-variant">/</kbd></div></div></div><div class="flex items-center gap-space-sm shrink-0"><div class="hidden 2xl:flex items-center gap-space-xs"><div class="flex items-center gap-1.5 px-space-sm py-1 bg-surface-container border-l-2 border-primary-container"><span class="material-symbols-outlined text-primary text-[16px]">pending_actions</span><span class="font-label-sm text-label-sm uppercase font-bold text-primary">3 SPK Waiting QC</span></div><div class="flex items-center gap-1.5 px-space-sm py-1 bg-surface-container border-l-2 border-error"><span class="material-symbols-outlined text-error text-[16px]">warning</span><span class="font-label-sm text-label-sm uppercase font-bold text-error">1 Overbudget Alert</span></div></div><div class="h-6 w-[1px] bg-surface-container-highest hidden lg:block"></div><div class="hidden lg:flex items-center gap-1.5 px-space-sm py-1 bg-surface-container"><span class="font-label-sm text-label-sm uppercase font-bold text-primary tracking-wide">Shopfloor Foreman</span><span class="font-label-sm text-label-sm text-on-surface-variant bg-surface-container-highest px-1">LVL-4</span></div><div class="flex items-center gap-space-sm pl-space-xs"><div class="relative"><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div><div class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-primary rounded-full ring-2 ring-surface-container-low"></div></div><div class="hidden sm:flex flex-col text-left"><span class="font-label-md text-label-md font-semibold text-on-surface leading-tight">Bambang Sutrisno, S.T.</span><span class="font-label-sm text-label-sm text-on-surface-variant leading-tight">KO-8842 • Supervisor</span></div><span class="material-symbols-outlined text-on-surface-variant text-[18px]">expand_more</span></div></div></div><div class="w-full bg-surface-container-lowest px-space-md py-1.5 flex flex-wrap items-center justify-between gap-space-xs border-t border-surface-container-highest"><div class="flex items-center gap-space-sm"><div class="flex items-center justify-center px-1.5 py-0.5 bg-primary-container text-on-primary-container font-label-sm text-label-sm font-bold uppercase tracking-wider">Restricted Clearance</div><p class="font-label-sm text-label-sm text-on-surface"><span class="text-primary font-bold">Notice:</span> Material requisitions &gt; Rp 15.000.000 require Dual-Signoff (Warehouse Custodian + Plant Head). Current: <span class="text-on-surface font-semibold">Bay 04 - Chassis Framing</span>.</p></div><div class="flex items-center gap-space-md"><span class="font-label-sm text-label-sm text-on-surface-variant">STATION LOG #9822</span><a class="font-label-sm text-label-sm uppercase font-bold text-primary hover:text-on-surface transition-colors flex items-center gap-0.5" href="#">Review Scope <span class="material-symbols-outlined text-[14px]">arrow_forward</span></a></div></div></header><aside class="fixed left-0 top-20 bottom-0 w-64 bg-surface-container-low z-40 flex flex-col justify-between pt-8"><div class="flex flex-col flex-1 px-space-sm"><div class="px-space-sm mb-4"><span class="font-label-sm text-label-sm uppercase tracking-widest text-on-surface-variant font-bold">Plant Production</span></div><nav class="flex flex-col gap-1" data-active-classes="bg-surface-container-high text-primary font-bold"><a class="flex items-center gap-space-sm px-space-sm py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="workshop-bay-monitor" href="#"><span class="material-symbols-outlined text-[20px]">precision_manufacturing</span>Workshop Bay Monitor</a><a class="flex items-center gap-space-sm px-space-sm py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="spk-production-queue" href="#"><span class="material-symbols-outlined text-[20px]">assignment</span>SPK Work Orders</a><a class="flex items-center gap-space-sm px-space-sm py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="chassis-modification-schematics" href="#"><span class="material-symbols-outlined text-[20px]">architecture</span>Chassis Schematics</a><a class="flex items-center gap-space-sm px-space-sm py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="bom-parts-staging" href="#"><span class="material-symbols-outlined text-[20px]">conveyor_belt</span>BOM &amp; Parts Staging</a><a class="flex items-center gap-space-sm px-space-sm py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="quality-control-inspection" href="#"><span class="material-symbols-outlined text-[20px]">verified</span>QC &amp; Defect Gates</a></nav><div class="px-space-sm mt-6 mb-2"><span class="font-label-sm text-label-sm uppercase tracking-widest text-on-surface-variant font-bold">Administration</span></div><nav class="flex flex-col gap-1" data-active-classes="bg-surface-container-high text-primary font-bold"><a class="flex items-center gap-space-sm px-space-sm py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="material-requisition-approvals" href="#"><span class="material-symbols-outlined text-[20px]">rule</span>Dual Sign-off Approvals</a><a class="flex items-center gap-space-sm px-space-sm py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors font-body-md text-body-md" data-path="plant-telemetry-analytics" href="#"><span class="material-symbols-outlined text-[20px]">analytics</span>Plant Telemetry</a></nav></div><div class="p-space-sm bg-surface-container-lowest m-space-sm flex flex-col gap-1"><div class="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm"><span class="font-mono">LINE VOLTAGE</span><span class="text-on-surface font-mono">380V NOM</span></div><div class="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm"><span class="font-mono">SYSTEM STATUS</span><span class="text-primary font-mono">NORMAL</span></div></div></aside><div class="pl-64"><main class="relative pt-20 w-full min-h-screen bg-surface"><div class="flex flex-col w-full">
+<!-- Top Industrial Context Breadcrumb & SPK Context Banner -->
+<div class="w-full bg-surface-container-low px-space-md py-space-sm flex flex-col xl:flex-row xl:items-center justify-between gap-space-sm">
+<div class="flex flex-wrap items-center gap-space-sm">
+<div class="flex items-center gap-1.5 px-space-sm py-1 bg-surface-container-highest text-on-surface">
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-secondary font-bold">Context:</span>
+<span class="font-label-sm text-label-sm font-semibold">FINANCE &amp; CASHIER MODULE</span>
+</div>
+<div class="h-4 w-[1px] bg-surface-container-highest hidden sm:block"></div>
+<div class="flex items-center gap-1.5 px-space-sm py-1 bg-surface-container-highest">
+<span class="material-symbols-outlined text-[16px] text-primary">local_shipping</span>
+<span class="font-label-sm text-label-sm text-on-surface font-mono font-bold">SPK-2024-0412</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">• Hino 500 Series FL8J</span>
+<span class="font-label-sm text-label-sm text-secondary hidden md:inline-block">[Dump Body Hardox 450]</span>
+</div>
+<div class="hidden lg:flex items-center gap-1.5 px-space-sm py-1 bg-surface-container">
+<span class="font-label-sm text-label-sm text-on-surface-variant font-mono">CLIENT:</span>
+<span class="font-label-sm text-label-sm font-semibold text-on-surface">PT Antang Sejahtera</span>
+</div>
+</div>
+<div class="flex items-center gap-space-md">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
+<span class="font-label-sm text-label-sm font-mono text-on-surface-variant uppercase">HARD-GATE ENFORCED: QC_RELEASE_REQ</span>
+</div>
+<span class="font-label-sm text-label-sm font-mono text-on-surface-variant px-space-sm py-0.5 bg-surface-container-lowest">BAY 04 // S-LINE</span>
+</div>
+</div>
+<!-- Hazard Micro Striping Bar -->
+<div class="w-full h-1.5 bg-[repeating-linear-gradient(45deg,#f66018,#f66018_12px,#0b1326_12px,#0b1326_24px)] opacity-85"></div>
+<!-- Main Workstation Canvas -->
+<div class="p-space-md md:p-space-lg max-w-7xl mx-auto w-full flex flex-col gap-space-lg">
+<!-- Hero Warning & Diagnostic Module -->
+<div class="bg-surface-container-low shadow-xl p-space-md md:p-space-lg relative overflow-hidden">
+<!-- Blueprint grid decorative backdrop -->
+<div class="absolute inset-0 opacity-[0.035] pointer-events-none bg-[radial-gradient(#dae2fd_1px,transparent_1px)] [background-size:16px_16px]"></div>
+<div class="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-space-lg">
+<div class="flex items-start gap-space-md max-w-3xl">
+<!-- Mechanical Lock Emblem / Animated Visual -->
+<div class="relative shrink-0 flex items-center justify-center w-16 h-16 md:w-20 md:h-20 bg-surface-container-lowest shadow-md">
+<!-- Pulsing technical aura -->
+<div class="absolute -inset-1 bg-primary-container/20 animate-ping opacity-60"></div>
+<div class="absolute inset-0 bg-primary-container/10"></div>
+<!-- Central Icon & Crosshairs -->
+<span class="material-symbols-outlined text-[36px] md:text-[44px] text-primary-container select-none" style="font-variation-settings: 'FILL' 1;">gpp_bad</span>
+<div class="absolute top-1 left-1 font-label-sm text-[8px] text-primary-container/70 font-mono">GATE-03</div>
+<div class="absolute bottom-1 right-1 font-label-sm text-[8px] text-primary-container/70 font-mono">320-BAR</div>
+</div>
+<!-- Alert Details & Typography -->
+<div class="flex flex-col gap-1.5 min-w-0">
+<div class="flex flex-wrap items-center gap-space-sm">
+<span class="font-label-sm text-label-sm uppercase font-bold px-2 py-0.5 bg-primary-container text-on-primary-container tracking-wider">
+                HARD-GATE INTERCEPT [GATE 03: QC BILLING LOCK]
+              </span>
+<span class="font-label-sm text-label-sm font-mono text-error font-semibold flex items-center gap-1 bg-surface-container-highest px-2 py-0.5">
+<span class="w-1.5 h-1.5 rounded-full bg-error animate-ping"></span>
+                ERR_WBS_GATE_UNRELEASED_094
+              </span>
+</div>
+<h1 class="font-headline-lg text-headline-lg font-bold text-on-surface tracking-tight leading-none uppercase pt-1">
+              Final Billing Module is Locked
+            </h1>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-2xl leading-relaxed">
+              In accordance with Standard Operating Procedure (SOP-FIN-088) and strict Segregation of Duties, final commercial invoicing, Surat Jalan cetak, and delivery gate pass cannot be generated until all 5 WBS stages pass certified physical workshop QC inspection.
+            </p>
+</div>
+</div>
+<!-- Telemetry Pill / Workshop Station Snapshot -->
+<div class="shrink-0 w-full lg:w-auto bg-surface-container-highest p-space-sm flex flex-col gap-2 min-w-[240px]">
+<div class="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span class="font-mono">CURRENT STATION</span>
+<span class="text-primary font-bold font-mono">FINISH LINE // BAY 04</span>
+</div>
+<div class="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span class="font-mono">HOLD CONDITION</span>
+<span class="text-error font-mono font-bold">HYD_PRESSURE_320B</span>
+</div>
+<div class="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span class="font-mono">INSPECTION LEAD</span>
+<span class="text-on-surface font-mono">B. Sutrisno, S.T.</span>
+</div>
+<div class="h-[1px] bg-surface-container my-0.5"></div>
+<div class="flex items-center justify-between text-on-surface-variant font-label-sm text-label-sm">
+<span class="font-mono">LOCK AUTHORITY</span>
+<span class="text-secondary font-mono">CHIEF_PLANT_AUDIT</span>
+</div>
+</div>
+</div>
+</div>
+<!-- WBS Milestone Clearance Pipeline Card -->
+<div class="bg-surface-container-low shadow-md p-space-md md:p-space-lg flex flex-col gap-space-md">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-sm pb-space-sm bg-surface-container-lowest p-space-sm">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[20px]">fact_check</span>
+<div>
+<h2 class="font-headline-sm text-headline-sm uppercase font-bold text-on-surface leading-none">
+              Physical Quality Verification Pipeline (WBS 1 — 5)
+            </h2>
+<span class="font-label-sm text-label-sm text-on-surface-variant font-mono">4 OF 5 GATES CERTIFIED • 1 BLOCKING ANCHOR IDENTIFIED</span>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-label-sm font-mono text-on-surface-variant">PIPELINE INTEGRITY:</span>
+<span class="font-label-sm text-label-sm px-2 py-0.5 bg-surface-container font-mono text-primary font-bold">80.0% CLEARED</span>
+</div>
+</div>
+<!-- Pipeline Cards Sequence -->
+<div class="grid grid-cols-1 md:grid-cols-5 gap-space-sm">
+<!-- WBS 1: PASS -->
+<div class="bg-surface-container p-space-sm flex flex-col justify-between gap-space-sm transition-colors hover:bg-surface-container-high">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm font-mono text-on-surface-variant uppercase">STAGE 01</span>
+<span class="inline-flex items-center gap-1 font-label-sm text-label-sm font-bold px-1.5 py-0.2 bg-surface-container-lowest text-secondary font-mono">
+<span class="material-symbols-outlined text-[13px] text-secondary">check</span> PASS
+            </span>
+</div>
+<div>
+<h3 class="font-headline-sm text-[15px] font-bold text-on-surface leading-snug">Demolition &amp; Prep</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant mt-1">Chassis degreasing, sandblasting, frame squaring checked.</p>
+</div>
+<div class="bg-surface-container-lowest p-2 flex flex-col gap-0.5 font-label-sm text-label-sm font-mono">
+<span class="text-on-surface font-semibold text-[11px]">Bambang S. (Foreman)</span>
+<span class="text-on-surface-variant text-[10px]">14 Oct • 09:30 WIB</span>
+<span class="text-secondary text-[9px] truncate">DIGI-SIGN: #4019-BMS</span>
+</div>
+</div>
+<!-- WBS 2: PASS -->
+<div class="bg-surface-container p-space-sm flex flex-col justify-between gap-space-sm transition-colors hover:bg-surface-container-high">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm font-mono text-on-surface-variant uppercase">STAGE 02</span>
+<span class="inline-flex items-center gap-1 font-label-sm text-label-sm font-bold px-1.5 py-0.2 bg-surface-container-lowest text-secondary font-mono">
+<span class="material-symbols-outlined text-[13px] text-secondary">check</span> PASS
+            </span>
+</div>
+<div>
+<h3 class="font-headline-sm text-[15px] font-bold text-on-surface leading-snug">Chassis &amp; Subframe</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant mt-1">Crossmember gusset weld integrity, subframe torque specs.</p>
+</div>
+<div class="bg-surface-container-lowest p-2 flex flex-col gap-0.5 font-label-sm text-label-sm font-mono">
+<span class="text-on-surface font-semibold text-[11px]">Joko R. (Lead Welder)</span>
+<span class="text-on-surface-variant text-[10px]">15 Oct • 11:15 WIB</span>
+<span class="text-secondary text-[9px] truncate">DIGI-SIGN: #8832-JKR</span>
+</div>
+</div>
+<!-- WBS 3: PASS -->
+<div class="bg-surface-container p-space-sm flex flex-col justify-between gap-space-sm transition-colors hover:bg-surface-container-high">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm font-mono text-on-surface-variant uppercase">STAGE 03</span>
+<span class="inline-flex items-center gap-1 font-label-sm text-label-sm font-bold px-1.5 py-0.2 bg-surface-container-lowest text-secondary font-mono">
+<span class="material-symbols-outlined text-[13px] text-secondary">check</span> PASS
+            </span>
+</div>
+<div>
+<h3 class="font-headline-sm text-[15px] font-bold text-on-surface leading-snug">Body &amp; Hardox Sheeting</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant mt-1">Hardox 450 floor plate 8mm thickness ultrasonic gauge.</p>
+</div>
+<div class="bg-surface-container-lowest p-2 flex flex-col gap-0.5 font-label-sm text-label-sm font-mono">
+<span class="text-on-surface font-semibold text-[11px]">Hendro W. (QC Insp.)</span>
+<span class="text-on-surface-variant text-[10px]">16 Oct • 16:45 WIB</span>
+<span class="text-secondary text-[9px] truncate">DIGI-SIGN: #9112-HDW</span>
+</div>
+</div>
+<!-- WBS 4: PASS -->
+<div class="bg-surface-container p-space-sm flex flex-col justify-between gap-space-sm transition-colors hover:bg-surface-container-high">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm font-mono text-on-surface-variant uppercase">STAGE 04</span>
+<span class="inline-flex items-center gap-1 font-label-sm text-label-sm font-bold px-1.5 py-0.2 bg-surface-container-lowest text-secondary font-mono">
+<span class="material-symbols-outlined text-[13px] text-secondary">check</span> PASS
+            </span>
+</div>
+<div>
+<h3 class="font-headline-sm text-[15px] font-bold text-on-surface leading-snug">Paint &amp; Top Coat</h3>
+<p class="font-label-sm text-label-sm text-on-surface-variant mt-1">Polyurethane 140µm DFT coating check &amp; bake cure pass.</p>
+</div>
+<div class="bg-surface-container-lowest p-2 flex flex-col gap-0.5 font-label-sm text-label-sm font-mono">
+<span class="text-on-surface font-semibold text-[11px]">Agus P. (Finishing Lead)</span>
+<span class="text-on-surface-variant text-[10px]">17 Oct • 14:20 WIB</span>
+<span class="text-secondary text-[9px] truncate">DIGI-SIGN: #7410-AGP</span>
+</div>
+</div>
+<!-- WBS 5: BLOCKING / ACTIVE ANCHOR -->
+<div class="bg-surface-container-high p-space-sm flex flex-col justify-between gap-space-sm shadow-xl relative overflow-hidden">
+<!-- Subtle top alert accent line -->
+<div class="absolute top-0 left-0 right-0 h-1 bg-primary-container"></div>
+<div class="flex items-center justify-between pt-1">
+<span class="font-label-sm text-label-sm font-mono text-primary font-bold uppercase">STAGE 05</span>
+<span class="inline-flex items-center gap-1 font-label-sm text-label-sm font-bold px-2 py-0.5 bg-primary-container text-on-primary-container font-mono animate-pulse">
+<span class="material-symbols-outlined text-[13px]">lock</span> BLOCKING
+            </span>
+</div>
+<div>
+<h3 class="font-headline-sm text-[15px] font-bold text-primary leading-snug">Electrical &amp; Hydraulic Test</h3>
+<div class="mt-2 space-y-1 font-label-sm text-label-sm">
+<div class="flex items-center gap-1 text-on-surface">
+<span class="material-symbols-outlined text-[14px] text-secondary">done</span>
+<span>Shower Test: <strong class="text-secondary">Water Tight</strong></span>
+</div>
+<div class="flex items-center gap-1 text-primary">
+<span class="material-symbols-outlined text-[14px] text-primary animate-spin">sync</span>
+<span>Hydraulic: <strong class="text-on-surface">320 bar hold</strong></span>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-2 flex flex-col gap-1 font-label-sm text-label-sm font-mono">
+<span class="text-primary font-bold text-[11px] flex items-center justify-between">
+<span>Bambang Sutrisno, S.T.</span>
+<span class="text-[9px] bg-primary/20 text-primary px-1 py-0.2">AWAITING</span>
+</span>
+<span class="text-on-surface-variant text-[10px]">Foreman Bay 04 Physical Sign-off</span>
+<span class="text-error text-[9px]">GATE RELEASE: REQUISITE INCOMPLETE</span>
+</div>
+</div>
+</div>
+<!-- Live Inspection Telemetry Snippet -->
+<div class="bg-surface-container-lowest p-space-sm flex flex-col lg:flex-row items-start lg:items-center justify-between gap-space-sm">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-primary text-[20px]">speed</span>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm font-mono uppercase text-on-surface">Live Bay 04 Test Rig Telemetry:</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Target Hold: 320.0 BAR • Elapsed: 18m 42s / 20m 00s nominal duration • 0 Bar Loss Detected.</span>
+</div>
+</div>
+<div class="flex items-center gap-space-sm shrink-0">
+<div class="w-32 bg-surface-container-highest h-2 overflow-hidden">
+<div class="bg-primary-container h-full w-[92%] transition-all"></div>
+</div>
+<span class="font-label-sm text-label-sm font-mono font-bold text-primary">93% COMPLETE</span>
+</div>
+</div>
+</div>
+<!-- Actions & Operational Next Steps Split Bento Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-space-md">
+<!-- Primary Resolution Actions Panel (7 Cols) -->
+<div class="lg:col-span-7 bg-surface-container-low p-space-md md:p-space-lg flex flex-col justify-between gap-space-lg shadow-md">
+<div class="flex flex-col gap-2">
+<span class="font-label-sm text-label-sm uppercase font-mono tracking-widest text-primary font-bold">Standard Resolution Protocol</span>
+<h2 class="font-headline-sm text-headline-sm uppercase font-bold text-on-surface">Accelerate Shopfloor Sign-off</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">
+            Foreman Bambang Sutrisno is actively stationed at Bay 04 completing the remaining 90 seconds of the hydraulic pressure hold test. Triggering the expedited call sends an elevated priority beacon to the Bay 04 station terminal and foreman rugged mobile.
+          </p>
+</div>
+<div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-space-sm pt-space-xs">
+<!-- Safety Orange Execution Action -->
+<button class="flex-1 bg-primary-container text-on-primary-container px-space-md py-3 font-label-md text-label-md uppercase font-bold tracking-wider hover:opacity-95 active:bg-inverse-primary transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md" id="expedite-btn">
+<span class="material-symbols-outlined text-[18px]">cell_tower</span>
+<span>Request Expedited Inspection</span>
+</button>
+<!-- Return to Cashier Module -->
+<button class="bg-surface-container-high text-on-surface hover:text-primary hover:bg-surface-container-highest px-space-md py-3 font-label-md text-label-md uppercase font-semibold tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer">
+<span class="material-symbols-outlined text-[18px]">arrow_back</span>
+<span>Return to Cashier Queue</span>
+</button>
+</div>
+<!-- Telemetry View Link -->
+<div class="flex items-center justify-between pt-space-xs bg-surface-container-lowest p-space-sm">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+<span class="font-label-sm text-label-sm font-mono text-on-surface">FEED: NGW-BAY04-CAM-01 (LIVE RTSP)</span>
+</div>
+<button class="font-label-sm text-label-sm uppercase font-bold text-primary hover:text-on-surface transition-colors flex items-center gap-1 cursor-pointer">
+<span>View Bay 04 Video Stream</span>
+<span class="material-symbols-outlined text-[14px]">open_in_new</span>
+</button>
+</div>
+</div>
+<!-- Emergency Bypass Key & Governance Box (5 Cols) -->
+<div class="lg:col-span-5 bg-surface-container-low p-space-md md:p-space-lg flex flex-col justify-between gap-space-md shadow-md">
+<div class="flex flex-col gap-2">
+<div class="flex items-center justify-between">
+<span class="font-label-sm text-label-sm uppercase font-mono tracking-widest text-error font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-error">admin_panel_settings</span>
+              Executive Override
+            </span>
+<span class="font-label-sm text-label-sm font-mono px-1.5 py-0.5 bg-surface-container-highest text-on-surface-variant">LEVEL-4 ONLY</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm font-bold text-on-surface uppercase">Emergency Bypass Gate</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">
+            Requires dual-key cryptographic bypass from Plant Director or General Manager. All bypass events generate an immutable audit entry flagged directly to Internal Quality Compliance.
+          </p>
+</div>
+<!-- Token Entry Mockup with Controlled State -->
+<div class="bg-surface-container-lowest p-space-sm flex flex-col gap-space-sm">
+<label class="font-label-sm text-label-sm text-on-surface uppercase font-mono font-semibold flex items-center justify-between">
+<span>6-Digit Emergency Token</span>
+<span class="text-on-surface-variant font-normal">RSA-SHA256 SYNC</span>
+</label>
+<div class="flex items-center gap-2">
+<div class="relative flex-1">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[16px]">key</span>
+<input class="w-full bg-surface-container text-on-surface placeholder:text-on-surface-variant/40 font-mono text-center tracking-[0.4em] py-2 pl-8 pr-2 outline-none font-bold text-sm focus:bg-surface-container-high" maxlength="6" placeholder="• • • • • •" type="password"/>
+</div>
+<button class="bg-surface-container-highest text-on-surface-variant hover:text-on-surface px-4 py-2 font-label-sm text-label-sm font-mono uppercase font-bold tracking-wider transition-colors cursor-pointer shrink-0">
+              Verify Key
+            </button>
+</div>
+<span class="font-label-sm text-[10px] text-on-surface-variant font-mono">Note: Your session identity (Siti Rahmawati - KO-C02) will be logged as requester.</span>
+</div>
+<div class="flex items-center gap-2 text-on-surface-variant font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[16px] text-on-surface-variant">verified_user</span>
+<span>Role Clearance: Restricted from Finance Operator level.</span>
+</div>
+</div>
+</div>
+<!-- Regulatory Compliance & ISO 9001 Footer Anchor -->
+<div class="bg-surface-container-lowest p-space-md flex flex-col md:flex-row items-start md:items-center justify-between gap-space-md text-on-surface-variant shadow-sm">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-secondary text-[22px]">policy</span>
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm font-mono font-bold text-on-surface uppercase">Quality Management Standard ISO 9001:2015 § 8.6</span>
+<span class="font-label-sm text-label-sm">Clause: "The release of products and services to the customer shall not proceed until the planned arrangements have been satisfactorily completed."</span>
+</div>
+</div>
+<div class="flex flex-wrap items-center gap-space-md font-label-sm text-label-sm font-mono shrink-0">
+<span class="px-2 py-0.5 bg-surface-container text-on-surface">AUDIT NODE: #9941-KOP</span>
+<span class="text-on-surface-variant">PLANT: NGAWI HUB</span>
+</div>
+</div>
+</div>
+<!-- Notification Toast Simulation Logic -->
+<script>
+    const expediteBtn = document.getElementById('expedite-btn');
+    if (expediteBtn) {
+      expediteBtn.addEventListener('click', function() {
+        const originalText = this.innerHTML;
+        this.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span><span>Broadcasting to Bay 04 Pager...</span>';
+        this.classList.add('opacity-75');
+        
+        setTimeout(() => {
+          this.innerHTML = '<span class="material-symbols-outlined text-[18px]">done_all</span><span>Foreman Alerted (Station Pager Ack #04)</span>';
+          this.classList.remove('opacity-75', 'bg-primary-container', 'text-on-primary-container');
+          this.classList.add('bg-surface-container-highest', 'text-primary');
+        }, 1200);
+      });
+    }
+  </script>
+</div></main></div></body></html>
