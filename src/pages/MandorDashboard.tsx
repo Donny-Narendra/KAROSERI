@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { WbsChecklist } from '../components/WbsChecklist';
 
+import { QcInspectionForm } from '../components/QcInspectionForm';
+
 export const MandorDashboard: React.FC = () => {
   const { profile, signOut } = useAuth();
   const [selectedSpk, setSelectedSpk] = useState<string>('');
@@ -59,7 +61,10 @@ export const MandorDashboard: React.FC = () => {
           </div>
 
           {selectedSpk && (
-            <WbsChecklist spkId={selectedSpk} />
+            <>
+              <WbsChecklist spkId={selectedSpk} />
+              <QcInspectionForm spkId={selectedSpk} />
+            </>
           )}
 
           {!selectedSpk && (
