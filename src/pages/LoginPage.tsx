@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Factory, Security, TerminalSquare, Badge, Key, ChevronDown, MonitorSmartphone } from 'lucide-react';
+import { Factory, ShieldCheck, TerminalSquare, Badge, Key } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -145,7 +145,7 @@ export const LoginPage: React.FC = () => {
 
             <div className="mt-8 pt-5 border-t border-border space-y-3">
               <div className="flex items-start gap-2.5 text-text-muted">
-                <Security className="w-5 h-5 text-secondary shrink-0 mt-0.5" />
+                <ShieldCheck className="w-5 h-5 text-secondary shrink-0 mt-0.5" />
                 <p className="text-xs leading-relaxed">
                   Protected by Role-Based Access Control (RBAC) & Immutable Audit Logging. ISO/IEC 27001 Certified. Unauthorized access is logged with plant terminal telemetry.
                 </p>
