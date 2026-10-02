@@ -86,3 +86,24 @@ Phase complete. Ending session for context reset before starting Phase 4 (Wave 3
 
 ### Handoff Notes
 Next step is to review `GAP_ANALYSIS_DASHBOARD_ROLES.md` for Wave 3 tasks and run `/plan 4` to continue execution.
+---
+
+## Session: 2026-10-03 01:50
+
+### Objective
+Execute Plan 4.1: Down Payment (DP) Recording & SPK Activation.
+
+### Accomplished
+- Updated KasirDashboard to allow DP recording.
+- Implemented backend update to spk table for dp_amount and status ('ACTIVE').
+- Verified Kasir can record DP and SPK status updates.
+
+### Verification
+- [x] UI for DP input in KasirDashboard.
+- [x] SPK status changes to ACTIVE upon DP recording.
+
+### Paused Because
+Session end. Plan 4.1 is complete. Taking a break before starting 4.2.
+
+### Handoff Notes
+Next step is to execute Plan 4.2 (/execute 4.2). Target is QcInspectionForm.tsx to save QC data, including uji_kelistrikan, to the qc_inspections table.
