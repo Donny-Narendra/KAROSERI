@@ -34,10 +34,32 @@ Plan Phase 3 and begin execution (Wave 2 Gap Analysis).
 
 ### Verification
 - [x] WbsChecklist loads and persists data successfully.
-- [ ] Goods Issue Form Gate 2 Enforcement (Next up).
+- [x] Goods Issue Form Gate 2 Enforcement (Next up).
 
 ### Paused Because
 Context refresh. Finished Plan 3.1 and want a fresh context before starting Plan 3.2.
 
 ### Handoff Notes
 Next step is to execute Plan 3.2. Reference `.gsd/phases/3/2-PLAN.md` and `src/components/GoodsIssueForm.tsx`.
+
+---
+
+## Session: 2026-10-03 01:27
+
+### Objective
+Execute Plan 3.2 (Goods Issue Form Integration).
+
+### Accomplished
+- Connected `GoodsIssueForm.tsx` to Supabase.
+- Implemented RAB constraint checks using DB values.
+- Wrote transaction to `inventory_transactions`.
+
+### Verification
+- [x] Goods Issue Form Gate 2 Enforcement.
+- [ ] Material Return & Stockout Warning (Next up).
+
+### Paused Because
+Context refresh. Finished Plan 3.2 and want a fresh context before starting Plan 3.3.
+
+### Handoff Notes
+Next step is to execute Plan 3.3. Reference `.gsd/phases/3/3-PLAN.md` and `src/components/MaterialReturnForm.tsx`.
