@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, Plus, Trash2 } from 'lucide-react';
+import { Calculator, Plus, Trash2, Edit2 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
 interface RabItem {
@@ -17,6 +17,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   const [wbsCategory, setWbsCategory] = useState('Pembongkaran');
   const [bayHourlyRate, setBayHourlyRate] = useState<number>(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   
   const [newItem, setNewItem] = useState<Partial<RabItem>>({
     type: 'material',
@@ -100,18 +101,35 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     e.preventDefault();
     if (!newItem.description || !newItem.qty || newItem.unitPrice === undefined) return;
     
-    setItems([
-      ...items,
-      {
-        id: Date.now().toString(),
-        wbsCategory,
-        type: newItem.type as 'material' | 'labor' | 'overhead',
-        description: newItem.description,
-        qty: newItem.qty,
-        unitPrice: newItem.unitPrice,
-        wasteFactor: newItem.type === 'material' ? newItem.wasteFactor : 0,
-      }
-    ]);
+    if (editingId) {
+      setItems(items.map(item => 
+        item.id === editingId 
+          ? {
+              ...item,
+              wbsCategory,
+              type: newItem.type as 'material' | 'labor' | 'overhead',
+              description: newItem.description,
+              qty: newItem.qty,
+              unitPrice: newItem.unitPrice,
+              wasteFactor: newItem.type === 'material' ? newItem.wasteFactor : 0,
+            }
+          : item
+      ));
+      setEditingId(null);
+    } else {
+      setItems([
+        ...items,
+        {
+          id: Date.now().toString(),
+          wbsCategory,
+          type: newItem.type as 'material' | 'labor' | 'overhead',
+          description: newItem.description,
+          qty: newItem.qty,
+          unitPrice: newItem.unitPrice,
+          wasteFactor: newItem.type === 'material' ? newItem.wasteFactor : 0,
+        }
+      ]);
+    }
     
     setNewItem({
       type: newItem.type,
@@ -119,6 +137,18 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       unitPrice: newItem.type === 'overhead' ? bayHourlyRate : 0,
       wasteFactor: newItem.type === 'material' ? 5 : 0,
     });
+  };
+
+  const handleEditItem = (item: RabItem) => {
+    setNewItem({
+      type: item.type,
+      description: item.description,
+      qty: item.qty,
+      unitPrice: item.unitPrice,
+      wasteFactor: item.wasteFactor,
+    });
+    setWbsCategory(item.wbsCategory);
+    setEditingId(item.id);
   };
 
   const handleRemoveItem = (id: string) => {
@@ -313,8 +343,25 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
               className="w-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-bold py-2 px-4 rounded text-sm transition flex items-center justify-center gap-2 mt-2"
             >
               <Plus className="w-4 h-4" />
-              Add Item
+              {editingId ? 'Update Item' : 'Add Item'}
             </button>
+            {editingId && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingId(null);
+                  setNewItem({
+                    type: 'material',
+                    qty: 1,
+                    unitPrice: 0,
+                    wasteFactor: 5,
+                  });
+                }}
+                className="w-full bg-surface hover:bg-surface-hover text-text-muted border border-border font-bold py-2 px-4 rounded text-sm transition flex items-center justify-center gap-2 mt-2"
+              >
+                Cancel Edit
+              </button>
+            )}
           </form>
         </div>
 
@@ -362,13 +409,22 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                           Rp {calculateItemTotal(item).toLocaleString('id-ID')}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <button 
-                            onClick={() => handleRemoveItem(item.id)}
-                            className="text-status-danger hover:text-red-400 p-1 rounded hover:bg-status-danger/10 transition"
-                            title="Remove item"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center justify-center gap-2">
+                            <button 
+                              onClick={() => handleEditItem(item)}
+                              className="text-primary hover:text-primary-hover p-1 rounded hover:bg-primary/10 transition"
+                              title="Edit item"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={() => handleRemoveItem(item.id)}
+                              className="text-status-danger hover:text-red-400 p-1 rounded hover:bg-status-danger/10 transition"
+                              title="Remove item"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
