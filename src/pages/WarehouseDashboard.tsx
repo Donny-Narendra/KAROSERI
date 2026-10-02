@@ -1,10 +1,46 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Factory, LogOut, Search, ClipboardList } from 'lucide-react';
+import { Factory, LogOut, Search, ClipboardList, Loader2 } from 'lucide-react';
 import { GoodsIssueForm } from '../components/GoodsIssueForm';
+import { supabase } from '../lib/supabaseClient';
 
 export const WarehouseDashboard: React.FC = () => {
   const { profile, signOut } = useAuth();
+  const [recentIssues, setRecentIssues] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const fetchIssues = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('inventory_transactions')
+        .select(`
+          id,
+          quantity_issued,
+          issued_at,
+          spk ( spk_no ),
+          materials ( name, unit )
+        `)
+        .order('issued_at', { ascending: false })
+        .limit(10);
+        
+      if (error) throw error;
+      setRecentIssues(data || []);
+    } catch (error) {
+      console.error('Error fetching recent issues:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchIssues();
+  }, [refreshKey]);
+
+  const handleIssueSuccess = () => {
+    setRefreshKey(prev => prev + 1);
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
@@ -35,9 +71,9 @@ export const WarehouseDashboard: React.FC = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
-            <GoodsIssueForm />
+            <GoodsIssueForm onSuccess={handleIssueSuccess} />
             
-            {/* Recent Issues Table Mock */}
+            {/* Recent Issues Table */}
             <div className="bg-surface border border-border rounded-lg overflow-hidden">
               <div className="px-5 py-4 border-b border-border bg-surface-hover flex justify-between items-center">
                 <h3 className="font-bold text-text font-display flex items-center gap-2">
@@ -63,18 +99,37 @@ export const WarehouseDashboard: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  <tr className="hover:bg-surface-hover/50 transition">
-                    <td className="px-5 py-3 text-text-muted">10:45 AM</td>
-                    <td className="px-5 py-3 font-mono">SPK-10024</td>
-                    <td className="px-5 py-3">Plat Besi 2mm</td>
-                    <td className="px-5 py-3 font-medium">10 Lembar</td>
-                  </tr>
-                  <tr className="hover:bg-surface-hover/50 transition">
-                    <td className="px-5 py-3 text-text-muted">09:12 AM</td>
-                    <td className="px-5 py-3 font-mono">SPK-10025</td>
-                    <td className="px-5 py-3">Kabel 2.5mm</td>
-                    <td className="px-5 py-3 font-medium">2 Roll</td>
-                  </tr>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={4} className="px-5 py-8 text-center text-text-muted">
+                        <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
+                        Loading recent issues...
+                      </td>
+                    </tr>
+                  ) : recentIssues.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-5 py-8 text-center text-text-muted">
+                        No material issues recorded yet.
+                      </td>
+                    </tr>
+                  ) : (
+                    recentIssues.map((issue) => (
+                      <tr key={issue.id} className="hover:bg-surface-hover/50 transition">
+                        <td className="px-5 py-3 text-text-muted">
+                          {new Date(issue.issued_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        <td className="px-5 py-3 font-mono text-primary">
+                          {issue.spk?.spk_no || '-'}
+                        </td>
+                        <td className="px-5 py-3">
+                          {issue.materials?.name || 'Unknown'}
+                        </td>
+                        <td className="px-5 py-3 font-medium">
+                          {issue.quantity_issued} {issue.materials?.unit || ''}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

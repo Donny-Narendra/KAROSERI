@@ -218,13 +218,13 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                         </td>
                         <td className="px-4 py-3 text-right font-mono">{item.qty}</td>
                         <td className="px-4 py-3 text-right font-mono text-text-muted">
-                          ${item.unitPrice.toLocaleString()}
+                          Rp {item.unitPrice.toLocaleString('id-ID')}
                         </td>
                         <td className="px-4 py-3 text-right font-mono text-text-muted">
                           {item.type === 'material' ? `${item.wasteFactor}%` : '-'}
                         </td>
                         <td className="px-4 py-3 text-right font-mono font-medium text-primary">
-                          ${calculateItemTotal(item).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                          Rp {calculateItemTotal(item).toLocaleString('id-ID')}
                         </td>
                         <td className="px-4 py-3 text-center">
                           <button 
@@ -246,9 +246,9 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
             <div className="bg-surface border-t border-border p-4 flex items-center justify-between">
                <span className="text-sm font-mono text-text-muted uppercase">Total Estimated Cost</span>
                <div className="flex items-center gap-2">
-                 <DollarSign className="w-5 h-5 text-status-success" />
+                 <span className="text-xl font-bold text-status-success">Rp</span>
                  <span className="text-2xl font-bold font-mono text-text">
-                   ${totalCost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                   {totalCost.toLocaleString('id-ID')}
                  </span>
                </div>
             </div>

@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabaseClient';
 import { SpkForm } from '../components/SpkForm';
 import { AmendmentManager } from '../components/AmendmentManager';
 import { RabCalculator } from '../components/RabCalculator';
+import { CancelSpkModal } from '../components/CancelSpkModal';
+import { spkService } from '../services/spkService';
 
 export const ServiceAdvisorDashboard: React.FC = () => {
   const { profile, signOut } = useAuth();
@@ -13,6 +15,8 @@ export const ServiceAdvisorDashboard: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [selectedSpkId, setSelectedSpkId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'amendments' | 'rab'>('rab');
+  const [listTab, setListTab] = useState<'active' | 'cancelled'>('active');
+  const [cancellingSpkId, setCancellingSpkId] = useState<string | null>(null);
 
   const fetchSpks = async () => {
     setLoading(true);
@@ -39,6 +43,16 @@ export const ServiceAdvisorDashboard: React.FC = () => {
     setShowForm(false);
     fetchSpks();
   };
+
+  const handleCancelSpk = async (reason: string) => {
+    if (!cancellingSpkId || !profile) return;
+    await spkService.cancelSpk({ spkId: cancellingSpkId, reason, userId: profile.id });
+    fetchSpks();
+  };
+
+  const filteredSpks = spks.filter(s => 
+    listTab === 'active' ? s.status !== 'CANCELLED' : s.status === 'CANCELLED'
+  );
 
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
@@ -128,10 +142,24 @@ export const ServiceAdvisorDashboard: React.FC = () => {
           </div>
         ) : (
           <div className="bg-surface border border-border rounded-lg overflow-hidden">
-            <div className="px-5 py-4 border-b border-border bg-surface-hover">
+            <div className="px-5 py-4 border-b border-border bg-surface-hover flex justify-between items-center">
               <h3 className="font-bold text-text font-display flex items-center gap-2">
                 <FileText className="w-5 h-5 text-primary"/> Recent SPKs
               </h3>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setListTab('active')}
+                  className={`px-3 py-1 text-sm font-medium rounded transition ${listTab === 'active' ? 'bg-primary text-background' : 'bg-background text-text-muted hover:text-text'}`}
+                >
+                  Active
+                </button>
+                <button
+                  onClick={() => setListTab('cancelled')}
+                  className={`px-3 py-1 text-sm font-medium rounded transition ${listTab === 'cancelled' ? 'bg-status-danger text-white' : 'bg-background text-text-muted hover:text-text'}`}
+                >
+                  Cancelled
+                </button>
+              </div>
             </div>
             
             {loading ? (
@@ -152,7 +180,7 @@ export const ServiceAdvisorDashboard: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {spks.map((spk) => (
+                    {filteredSpks.map((spk) => (
                       <tr key={spk.id} className="hover:bg-surface-hover/50 transition">
                         <td className="px-5 py-4 font-mono font-medium text-primary">{spk.spk_no}</td>
                         <td className="px-5 py-4">{spk.customer_name}</td>
@@ -163,13 +191,21 @@ export const ServiceAdvisorDashboard: React.FC = () => {
                         <td className="px-5 py-4 text-text-muted">
                           {spk.target_date ? new Date(spk.target_date).toLocaleDateString() : '-'}
                         </td>
-                        <td className="px-5 py-4 text-right">
+                        <td className="px-5 py-4 text-right flex justify-end gap-3 items-center">
                           <button
                             onClick={() => setSelectedSpkId(spk.id)}
                             className="text-primary hover:text-primary-hover text-sm font-medium transition"
                           >
                             Manage
                           </button>
+                          {(spk.status === 'DRAFT' || spk.status === 'PENDING_PAYMENT') && (
+                            <button
+                              onClick={() => setCancellingSpkId(spk.id)}
+                              className="text-status-danger hover:text-red-500 text-sm font-medium transition"
+                            >
+                              Cancel
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -180,6 +216,13 @@ export const ServiceAdvisorDashboard: React.FC = () => {
           </div>
         )}
       </main>
+
+      <CancelSpkModal
+        isOpen={!!cancellingSpkId}
+        onClose={() => setCancellingSpkId(null)}
+        onConfirm={handleCancelSpk}
+        spkNo={spks.find(s => s.id === cancellingSpkId)?.spk_no || ''}
+      />
     </div>
   );
 };

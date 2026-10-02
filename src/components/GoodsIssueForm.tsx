@@ -1,11 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Package, CheckCircle2, Lock } from 'lucide-react';
-
-// Mock Data
-const MOCK_SPKS = [
-  { id: 'SPK-10024', client: 'PT Logistik Indo' },
-  { id: 'SPK-10025', client: 'Sinar Karya' },
-];
+import { supabase } from '../lib/supabaseClient';
 
 const MOCK_MATERIALS = [
   { id: 'M-001', name: 'Plat Besi 2mm', unit: 'Lembar' },
@@ -13,6 +8,7 @@ const MOCK_MATERIALS = [
   { id: 'M-003', name: 'Kabel 2.5mm', unit: 'Roll' },
 ];
 
+// Note: RAB Data is still mocked because the RAB schema is not yet implemented.
 const MOCK_RAB_DATA = {
   'SPK-10024': {
     'M-001': { rabQty: 100, wasteFactor: 5, issuedQty: 90 }, // Max: 105, Remaining: 15
@@ -23,7 +19,22 @@ const MOCK_RAB_DATA = {
   }
 };
 
-export const GoodsIssueForm: React.FC = () => {
+interface GoodsIssueFormProps {
+  onSuccess?: () => void;
+}
+
+export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => {
+  const [spks, setSpks] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchSpks();
+  }, []);
+
+  const fetchSpks = async () => {
+    const { data, error } = await supabase.from('spk').select('*').neq('status', 'CANCELLED').order('created_at', { ascending: false });
+    if (data) setSpks(data);
+    if (error) console.error('Error fetching SPKs:', error);
+  };
   const [selectedSpk, setSelectedSpk] = useState<string>('');
   const [selectedMaterial, setSelectedMaterial] = useState<string>('');
   const [requestQty, setRequestQty] = useState<string>('');
@@ -47,6 +58,7 @@ export const GoodsIssueForm: React.FC = () => {
       alert(`Berhasil mengeluarkan ${requestQty} unit material untuk ${selectedSpk}`);
       // In a real app, this would mutate the DB via Supabase
       setRequestQty('');
+      if (onSuccess) onSuccess();
     }
   };
 
@@ -70,8 +82,8 @@ export const GoodsIssueForm: React.FC = () => {
               className="w-full bg-background border border-border rounded p-2 text-text focus:border-primary focus:outline-none"
             >
               <option value="">-- Choose SPK --</option>
-              {MOCK_SPKS.map(spk => (
-                <option key={spk.id} value={spk.id}>{spk.id} - {spk.client}</option>
+              {spks.map(spk => (
+                <option key={spk.id} value={spk.spk_no}>{spk.spk_no} - {spk.customer_name}</option>
               ))}
             </select>
           </div>

@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { AdminSettingsPage } from './pages/AdminSettingsPage';
 import { ServiceAdvisorDashboard } from './pages/ServiceAdvisorDashboard';
 import { WarehouseDashboard } from './pages/WarehouseDashboard';
 import { MandorDashboard } from './pages/MandorDashboard';
@@ -63,6 +64,7 @@ function App() {
           {/* Protected Routes for Owner */}
           <Route element={<ProtectedRoute allowedRoles={['owner']} />}>
             <Route path="/dashboard" element={<AdminDashboardPage />} />
+            <Route path="/admin/settings" element={<AdminSettingsPage />} />
           </Route>
           
           {/* Protected Routes for Service Advisor & Owner */}

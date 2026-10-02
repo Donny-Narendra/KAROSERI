@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { AlertCircle, FileText, CheckCircle, Calculator, Lock } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
 
 interface MockSPK {
   id: string;
@@ -14,52 +15,40 @@ interface MockSPK {
   paymentStatus: 'UNPAID' | 'LUNAS';
 }
 
-const initialMockSPKs: MockSPK[] = [
-  {
-    id: 'SPK-2026-001',
-    customerName: 'PT. Lintas Semesta',
-    vehicleModel: 'Hino Dutro 130 HD',
-    status: 'IN_PROGRESS',
-    dpAmount: 25000000,
-    materialCost: 65000000,
-    jasaCost: 15000000,
-    qcStatus: 'PASS',
-    paymentStatus: 'UNPAID',
-  },
-  {
-    id: 'SPK-2026-002',
-    customerName: 'Bpk. Ahmad Susanto',
-    vehicleModel: 'Mitsubishi Colt Diesel Fuso',
-    status: 'IN_PROGRESS',
-    dpAmount: 10000000,
-    materialCost: 40000000,
-    jasaCost: 8000000,
-    qcStatus: 'PENDING',
-    paymentStatus: 'UNPAID',
-  },
-  {
-    id: 'SPK-2026-003',
-    customerName: 'CV. Maju Jaya',
-    vehicleModel: 'Isuzu Elf NMR 71',
-    status: 'IN_PROGRESS',
-    dpAmount: 15000000,
-    materialCost: 55000000,
-    jasaCost: 12000000,
-    qcStatus: 'FAIL',
-    paymentStatus: 'UNPAID',
-  }
-];
-
 export const KasirDashboard: React.FC = () => {
   const { profile, signOut } = useAuth();
-  const [spks, setSpks] = useState<MockSPK[]>(initialMockSPKs);
+  const [spks, setSpks] = useState<MockSPK[]>([]);
   const [selectedSpkId, setSelectedSpkId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchSpks();
+  }, []);
+
+  const fetchSpks = async () => {
+    const { data, error } = await supabase.from('spk').select('*').neq('status', 'CANCELLED').order('created_at', { ascending: false });
+    if (data) {
+      const formatted = data.map((d: any) => ({
+        id: d.spk_no,
+        customerName: d.customer_name,
+        vehicleModel: d.vehicle_plate, // using plate for now
+        status: d.status,
+        dpAmount: Number(d.dp_amount || 0),
+        materialCost: Number(d.total_estimated_cost || 0), // fallback to estimated
+        jasaCost: 15000000, // placeholder since not in spk table directly
+        qcStatus: 'PENDING' as const,
+        paymentStatus: 'UNPAID' as const,
+      }));
+      setSpks(formatted);
+    }
+    if (error) console.error('Error fetching SPKs:', error);
+  };
 
   const selectedSpk = spks.find(s => s.id === selectedSpkId) || null;
 
   const handleMarkAsPaid = () => {
     if (!selectedSpkId) return;
     setSpks(prev => prev.map(s => s.id === selectedSpkId ? { ...s, paymentStatus: 'LUNAS' } : s));
+    alert('Billed marked as Lunas (Note: updating to Supabase DB for payment status is not implemented yet in this phase).');
   };
 
   const formatCurrency = (amount: number) => {

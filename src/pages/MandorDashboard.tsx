@@ -1,18 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { WbsChecklist } from '../components/WbsChecklist';
+import { supabase } from '../lib/supabaseClient';
 
 import { QcInspectionForm } from '../components/QcInspectionForm';
 
 export const MandorDashboard: React.FC = () => {
   const { profile, signOut } = useAuth();
   const [selectedSpk, setSelectedSpk] = useState<string>('');
+  const [spks, setSpks] = useState<any[]>([]);
 
-  // Mock SPK list for the Mandor to select
-  const MOCK_SPKS = [
-    { id: '11111111-1111-1111-1111-111111111111', number: 'SPK-202610-001', customer: 'PT. Lintas Darat' },
-    { id: '22222222-2222-2222-2222-222222222222', number: 'SPK-202610-002', customer: 'CV. Maju Jaya' },
-  ];
+  useEffect(() => {
+    fetchSpks();
+  }, []);
+
+  const fetchSpks = async () => {
+    const { data, error } = await supabase.from('spk').select('*').eq('status', 'ACTIVE');
+    if (data) setSpks(data);
+    if (error) console.error('Error fetching SPKs:', error);
+  };
 
   return (
     <div className="min-h-screen bg-background text-text">
@@ -43,7 +49,7 @@ export const MandorDashboard: React.FC = () => {
           <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
             <h2 className="text-xl font-display font-semibold mb-4">Select Active SPK</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {MOCK_SPKS.map(spk => (
+              {spks.map(spk => (
                 <button
                   key={spk.id}
                   onClick={() => setSelectedSpk(spk.id)}
@@ -53,8 +59,8 @@ export const MandorDashboard: React.FC = () => {
                       : 'border-border bg-background hover:border-primary/50'
                   }`}
                 >
-                  <div className="text-lg font-bold">{spk.number}</div>
-                  <div className="text-text-muted">{spk.customer}</div>
+                  <div className="text-lg font-bold">{spk.spk_no}</div>
+                  <div className="text-text-muted">{spk.customer_name}</div>
                 </button>
               ))}
             </div>
