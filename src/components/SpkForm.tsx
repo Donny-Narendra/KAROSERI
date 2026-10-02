@@ -16,6 +16,8 @@ export const SpkForm: React.FC<SpkFormProps> = ({ onSuccess }) => {
   const [spkNo, setSpkNo] = useState(() => `SPK-${Math.floor(1000 + Math.random() * 9000)}`);
   const [customerName, setCustomerName] = useState('');
   const [vehiclePlate, setVehiclePlate] = useState('');
+  const [vehicleVin, setVehicleVin] = useState('');
+  const [vehicleEngine, setVehicleEngine] = useState('');
   const [targetDate, setTargetDate] = useState('');
   
   const [files, setFiles] = useState<File[]>([]);
@@ -49,6 +51,8 @@ export const SpkForm: React.FC<SpkFormProps> = ({ onSuccess }) => {
           spk_no: spkNo,
           customer_name: customerName,
           vehicle_plate: vehiclePlate,
+          vehicle_vin: vehicleVin || null,
+          vehicle_engine: vehicleEngine || null,
           target_date: targetDate || null,
           created_by: profile.id
         })
@@ -88,6 +92,8 @@ export const SpkForm: React.FC<SpkFormProps> = ({ onSuccess }) => {
       setSpkNo(`SPK-${Math.floor(1000 + Math.random() * 9000)}`);
       setCustomerName('');
       setVehiclePlate('');
+      setVehicleVin('');
+      setVehicleEngine('');
       setTargetDate('');
       setFiles([]);
       
@@ -156,6 +162,29 @@ export const SpkForm: React.FC<SpkFormProps> = ({ onSuccess }) => {
               onChange={(e) => setVehiclePlate(e.target.value)}
               className="w-full bg-background border border-border rounded px-4 py-2 text-text focus:outline-none focus:border-primary transition uppercase"
               placeholder="e.g. B 1234 CD"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-mono text-text-muted mb-2">VIN / CHASSIS NUMBER</label>
+            <input
+              type="text"
+              value={vehicleVin}
+              onChange={(e) => setVehicleVin(e.target.value)}
+              className="w-full bg-background border border-border rounded px-4 py-2 text-text focus:outline-none focus:border-primary transition uppercase"
+              placeholder="e.g. MH123456789"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-mono text-text-muted mb-2">ENGINE NUMBER</label>
+            <input
+              type="text"
+              value={vehicleEngine}
+              onChange={(e) => setVehicleEngine(e.target.value)}
+              className="w-full bg-background border border-border rounded px-4 py-2 text-text focus:outline-none focus:border-primary transition uppercase"
+              placeholder="e.g. 4D56-12345"
             />
           </div>
         </div>
