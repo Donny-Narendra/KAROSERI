@@ -107,3 +107,26 @@ Session end. Plan 4.1 is complete. Taking a break before starting 4.2.
 
 ### Handoff Notes
 Next step is to execute Plan 4.2 (/execute 4.2). Target is QcInspectionForm.tsx to save QC data, including uji_kelistrikan, to the qc_inspections table.
+
+---
+
+## Session: 2026-10-03 01:58
+
+### Objective
+Execute Plan 4.2 (Full QC Inspection Backend Integration).
+
+### Accomplished
+- Updated `QcInspectionForm.tsx` to include the `uji_kelistrikan` state and UI checkbox.
+- Integrated with `supabase` to insert QC inspection results into the `qc_inspections` table.
+- SPK status updates to `READY_FOR_HANDOVER` when the QC is passed.
+
+### Verification
+- [x] UI for `uji_kelistrikan` in QC Form.
+- [x] Submitting form saves to `qc_inspections` table.
+- [x] SPK status changes to `READY_FOR_HANDOVER` on pass.
+
+### Paused Because
+Context refresh. Finished Plan 4.2 and want a fresh context before starting Plan 4.3.
+
+### Handoff Notes
+Next step is to execute Plan 4.3. Reference `.gsd/phases/4/3-PLAN.md`.
