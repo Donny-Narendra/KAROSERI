@@ -50,3 +50,21 @@
 - [x] Status WBS tersimpan di Supabase.
 - [x] Pengeluaran barang dibatasi oleh limit RAB secara riil.
 - [x] Gudang dapat mencatat retur barang dan melihat stok kritis.
+
+---
+
+### Phase 4: Validasi QC & Handover (Hilir)
+**Status**: 📝 Planned
+**Objective**: Mengeksekusi Wave 3 dari Gap Analysis untuk integrasi backend QC, pencatatan DP awal, dan penagihan akhir di Kasir.
+**Depends on**: Phase 3
+
+**Tasks**:
+- [ ] Implementasi form DP awal di KasirDashboard untuk memicu SPK ACTIVE.
+- [ ] Integrasi penuh QcInspectionForm ke tabel qc_inspections beserta parameter Uji Kelistrikan (Gate 3).
+- [ ] Penagihan Akhir dan Invoice berbasis cost aktual (material dan jasa) dari Supabase.
+
+**Verification**:
+- [ ] Pembayaran DP mengubah status SPK.
+- [ ] Laporan QC tersimpan ke database.
+- [ ] Bill akhir berdasarkan real cost (inventory_transactions).
+

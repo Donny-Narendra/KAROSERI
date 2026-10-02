@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabaseClient';
 
 interface MockSPK {
   id: string;
+  dbId: string;
   customerName: string;
   vehicleModel: string;
   status: string;
@@ -19,6 +20,7 @@ export const KasirDashboard: React.FC = () => {
   const { profile, signOut } = useAuth();
   const [spks, setSpks] = useState<MockSPK[]>([]);
   const [selectedSpkId, setSelectedSpkId] = useState<string | null>(null);
+  const [dpInput, setDpInput] = useState('');
 
   useEffect(() => {
     fetchSpks();
@@ -29,6 +31,7 @@ export const KasirDashboard: React.FC = () => {
     if (data) {
       const formatted = data.map((d: any) => ({
         id: d.spk_no,
+        dbId: d.id,
         customerName: d.customer_name,
         vehicleModel: d.vehicle_plate, // using plate for now
         status: d.status,
@@ -44,6 +47,30 @@ export const KasirDashboard: React.FC = () => {
   };
 
   const selectedSpk = spks.find(s => s.id === selectedSpkId) || null;
+
+  const handleRecordDP = async () => {
+    if (!selectedSpk || !dpInput) return;
+    
+    const amount = Number(dpInput);
+    if (isNaN(amount) || amount <= 0) {
+      alert('Please enter a valid DP amount');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('spk')
+      .update({ dp_amount: amount, status: 'ACTIVE' })
+      .eq('id', selectedSpk.dbId);
+
+    if (error) {
+      console.error('Error updating DP:', error);
+      alert('Failed to record DP');
+    } else {
+      alert('DP recorded successfully. SPK is now ACTIVE.');
+      setDpInput('');
+      fetchSpks();
+    }
+  };
 
   const handleMarkAsPaid = () => {
     if (!selectedSpkId) return;
@@ -132,6 +159,29 @@ export const KasirDashboard: React.FC = () => {
                   <span className="text-sm font-medium text-text-muted">{selectedSpk.id}</span>
                 </div>
               </div>
+
+              {/* DP Recording Form */}
+              {(selectedSpk.status === 'DRAFT' || selectedSpk.status === 'PENDING_PAYMENT') && (
+                <div className="mb-6 p-4 rounded-lg border border-primary/30 bg-primary/5">
+                  <h3 className="font-medium text-text-primary mb-2">Record Down Payment (DP)</h3>
+                  <p className="text-sm text-text-muted mb-4">SPK is currently <strong>{selectedSpk.status}</strong>. Record DP to activate it for production.</p>
+                  <div className="flex gap-3">
+                    <input 
+                      type="number"
+                      placeholder="Enter DP Amount (Rp)"
+                      className="flex-1 p-2 rounded border border-border bg-background"
+                      value={dpInput}
+                      onChange={(e) => setDpInput(e.target.value)}
+                    />
+                    <button 
+                      onClick={handleRecordDP}
+                      className="px-4 py-2 bg-primary text-background font-medium rounded hover:bg-primary/90 transition"
+                    >
+                      Record DP & Activate SPK
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Gate 3 Status Notice */}
               <div className={`mb-6 p-4 rounded-lg border flex items-start gap-3 ${
