@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { supabase } from '../lib/supabaseClient';
 
 interface QcInspectionFormProps {
   spkId: string;
@@ -8,27 +9,46 @@ export const QcInspectionForm: React.FC<QcInspectionFormProps> = ({ spkId }) => 
   const [params, setParams] = useState({
     shower_test: false,
     uji_hidrolik: false,
-    dimensi_kendaraan: false
+    dimensi_kendaraan: false,
+    uji_kelistrikan: false
   });
   const [status, setStatus] = useState<'PENDING' | 'PASS' | 'FAIL'>('PENDING');
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     // Require all checks to be true to pass the QC
-    const allPassed = params.shower_test && params.uji_hidrolik && params.dimensi_kendaraan;
+    const allPassed = params.shower_test && params.uji_hidrolik && params.dimensi_kendaraan && params.uji_kelistrikan;
     const finalStatus = allPassed ? 'PASS' : 'FAIL';
     
-    const payload = {
-      spk_id: spkId,
-      parameters: params,
-      status: finalStatus,
-    };
-    
-    console.log("Submitting QC Inspection (Mock):", payload);
-    setStatus(finalStatus);
-    setSubmitted(true);
-    alert(`QC Inspection submitted with status: ${finalStatus}`);
+    try {
+      const { error } = await supabase
+        .from('qc_inspections')
+        .insert({
+          spk_id: spkId,
+          form_data: params,
+          status: finalStatus,
+          inspected_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+
+      if (finalStatus === 'PASS') {
+        const { error: spkError } = await supabase
+          .from('spk')
+          .update({ status: 'READY_FOR_HANDOVER' })
+          .eq('id', spkId);
+          
+        if (spkError) throw spkError;
+      }
+
+      setStatus(finalStatus);
+      setSubmitted(true);
+      alert(`QC Inspection submitted with status: ${finalStatus}`);
+    } catch (err: any) {
+      console.error('Error submitting QC inspection:', err);
+      alert('Failed to submit QC inspection: ' + err.message);
+    }
   };
 
   return (
@@ -69,6 +89,16 @@ export const QcInspectionForm: React.FC<QcInspectionFormProps> = ({ spkId }) => 
               onChange={(e) => setParams({...params, dimensi_kendaraan: e.target.checked})}
             />
             <span className="font-medium">Dimensi Kendaraan (Dimensions Check)</span>
+          </label>
+
+          <label className="flex items-center space-x-3 cursor-pointer p-3 border border-border rounded hover:bg-background transition-colors">
+            <input 
+              type="checkbox" 
+              className="w-5 h-5 accent-primary" 
+              checked={params.uji_kelistrikan}
+              onChange={(e) => setParams({...params, uji_kelistrikan: e.target.checked})}
+            />
+            <span className="font-medium">Uji Kelistrikan (Electrical Test)</span>
           </label>
         </div>
         
