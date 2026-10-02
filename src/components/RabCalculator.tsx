@@ -40,8 +40,61 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
         setBayHourlyRate(data.bay_hourly_rate || 0);
       }
     };
+
+    const fetchExistingRab = async () => {
+      if (!spkId) return;
+      
+      const { data: estData, error: estError } = await supabase
+        .from('rab_estimations')
+        .select('id')
+        .eq('spk_id', spkId)
+        .single();
+        
+      if (!estError && estData) {
+        const { data: itemsData, error: itemsError } = await supabase
+          .from('rab_items')
+          .select('*')
+          .eq('rab_estimation_id', estData.id);
+          
+        if (!itemsError && itemsData) {
+          const loadedItems = itemsData.map((dbItem: any) => {
+            let type: 'material' | 'labor' | 'overhead' = 'material';
+            let qty = 0;
+            let unitPrice = 0;
+            
+            if (dbItem.labor_hours > 0) {
+              type = 'labor';
+              qty = Number(dbItem.labor_hours);
+              unitPrice = Number(dbItem.labor_rate);
+            } else if (dbItem.overhead_hours > 0) {
+              type = 'overhead';
+              qty = Number(dbItem.overhead_hours);
+              unitPrice = Number(dbItem.overhead_rate);
+            } else {
+              type = 'material';
+              qty = Number(dbItem.quantity);
+              // Recover unit price (without waste factor)
+              unitPrice = Number(dbItem.item_total) / (Number(dbItem.quantity) || 1);
+            }
+            
+            return {
+              id: dbItem.id,
+              wbsCategory: dbItem.wbs_category,
+              type,
+              description: dbItem.description,
+              qty,
+              unitPrice,
+              wasteFactor: 0
+            };
+          });
+          setItems(loadedItems);
+        }
+      }
+    };
+
     fetchSettings();
-  }, []);
+    fetchExistingRab();
+  }, [spkId]);
 
   const handleAddItem = (e: React.FormEvent) => {
     e.preventDefault();
