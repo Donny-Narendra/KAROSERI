@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, Plus, Trash2, DollarSign } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { Calculator, Plus, Trash2 } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
 
 interface RabItem {
   id: string;
