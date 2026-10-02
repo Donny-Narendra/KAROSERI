@@ -54,17 +54,17 @@
 ---
 
 ### Phase 4: Validasi QC & Handover (Hilir)
-**Status**: 📝 Planned
+**Status**: ✅ Done
 **Objective**: Mengeksekusi Wave 3 dari Gap Analysis untuk integrasi backend QC, pencatatan DP awal, dan penagihan akhir di Kasir.
 **Depends on**: Phase 3
 
 **Tasks**:
-- [ ] Implementasi form DP awal di KasirDashboard untuk memicu SPK ACTIVE.
-- [ ] Integrasi penuh QcInspectionForm ke tabel qc_inspections beserta parameter Uji Kelistrikan (Gate 3).
-- [ ] Penagihan Akhir dan Invoice berbasis cost aktual (material dan jasa) dari Supabase.
+- [x] Implementasi form DP awal di KasirDashboard untuk memicu SPK ACTIVE.
+- [x] Integrasi penuh QcInspectionForm ke tabel qc_inspections beserta parameter Uji Kelistrikan (Gate 3).
+- [x] Penagihan Akhir dan Invoice berbasis cost aktual (material dan jasa) dari Supabase.
 
 **Verification**:
-- [ ] Pembayaran DP mengubah status SPK.
-- [ ] Laporan QC tersimpan ke database.
-- [ ] Bill akhir berdasarkan real cost (inventory_transactions).
+- [x] Pembayaran DP mengubah status SPK.
+- [x] Laporan QC tersimpan ke database.
+- [x] Bill akhir berdasarkan real cost (inventory_transactions).
 
