@@ -26,6 +26,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   async function fetchProfile(userId: string) {
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from('profiles')

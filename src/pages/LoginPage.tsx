@@ -20,7 +20,7 @@ export const LoginPage: React.FC = () => {
         password,
       });
       if (error) throw error;
-      navigate('/dashboard');
+      navigate('/');
     } catch (err: any) {
       setError(err.message);
     } finally {
