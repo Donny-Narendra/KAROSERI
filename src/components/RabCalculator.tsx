@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calculator, Plus, Trash2, DollarSign } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface RabItem {
   id: string;
-  type: 'material' | 'labor';
+  wbsCategory: string;
+  type: 'material' | 'labor' | 'overhead';
   description: string;
   qty: number;
   unitPrice: number;
@@ -12,7 +14,9 @@ interface RabItem {
 
 export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   const [items, setItems] = useState<RabItem[]>([]);
-  const [wbsCategory, setWbsCategory] = useState('1'); // 1-5
+  const [wbsCategory, setWbsCategory] = useState('Pembongkaran');
+  const [bayHourlyRate, setBayHourlyRate] = useState<number>(0);
+  const [isSaving, setIsSaving] = useState(false);
   
   const [newItem, setNewItem] = useState<Partial<RabItem>>({
     type: 'material',
@@ -22,12 +26,22 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   });
 
   const wbsCategories = [
-    { id: '1', label: 'WBS 1: Body Construction & Frame' },
-    { id: '2', label: 'WBS 2: Electrical & Wiring' },
-    { id: '3', label: 'WBS 3: Interior & Upholstery' },
-    { id: '4', label: 'WBS 4: Painting & Finishing' },
-    { id: '5', label: 'WBS 5: Final Assembly & QC' },
+    { id: 'Pembongkaran', label: 'WBS 1: Pembongkaran' },
+    { id: 'Sasis/Rangka', label: 'WBS 2: Sasis/Rangka' },
+    { id: 'Dinding/Fabrikasi', label: 'WBS 3: Dinding/Fabrikasi' },
+    { id: 'Cat/Finishing', label: 'WBS 4: Cat/Finishing' },
+    { id: 'Kelistrikan/Hidrolik', label: 'WBS 5: Kelistrikan/Hidrolik' },
   ];
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      const { data, error } = await supabase.from('workshop_settings').select('bay_hourly_rate').eq('id', 1).single();
+      if (!error && data) {
+        setBayHourlyRate(data.bay_hourly_rate || 0);
+      }
+    };
+    fetchSettings();
+  }, []);
 
   const handleAddItem = (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +51,8 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       ...items,
       {
         id: Date.now().toString(),
-        type: newItem.type as 'material' | 'labor',
+        wbsCategory,
+        type: newItem.type as 'material' | 'labor' | 'overhead',
         description: newItem.description,
         qty: newItem.qty,
         unitPrice: newItem.unitPrice,
@@ -48,7 +63,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     setNewItem({
       type: newItem.type,
       qty: 1,
-      unitPrice: 0,
+      unitPrice: newItem.type === 'overhead' ? bayHourlyRate : 0,
       wasteFactor: newItem.type === 'material' ? 5 : 0,
     });
   };
@@ -66,6 +81,60 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   };
 
   const totalCost = items.reduce((sum, item) => sum + calculateItemTotal(item), 0);
+  const totalMaterialCost = items.filter(i => i.type === 'material').reduce((sum, i) => sum + calculateItemTotal(i), 0);
+  const totalLaborCost = items.filter(i => i.type === 'labor').reduce((sum, i) => sum + calculateItemTotal(i), 0);
+  const totalOverheadCost = items.filter(i => i.type === 'overhead').reduce((sum, i) => sum + calculateItemTotal(i), 0);
+
+  const handleSaveEstimation = async () => {
+    if (!spkId) {
+      alert('SPK ID is missing');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      // 1. Upsert estimation
+      const { data: estData, error: estError } = await supabase.from('rab_estimations').upsert({
+        spk_id: spkId,
+        total_material_cost: totalMaterialCost,
+        total_labor_cost: totalLaborCost,
+        total_overhead_cost: totalOverheadCost,
+        total_estimated_cost: totalCost,
+      }, { onConflict: 'spk_id' }).select().single();
+
+      if (estError) throw estError;
+
+      // 2. Insert items
+      await supabase.from('rab_items').delete().eq('rab_estimation_id', estData.id);
+
+      if (items.length > 0) {
+        const itemsToInsert = items.map(item => ({
+          rab_estimation_id: estData.id,
+          wbs_category: item.wbsCategory,
+          description: item.description,
+          quantity: item.type === 'material' ? item.qty : 0,
+          labor_hours: item.type === 'labor' ? item.qty : 0,
+          labor_rate: item.type === 'labor' ? item.unitPrice : 0,
+          overhead_hours: item.type === 'overhead' ? item.qty : 0,
+          overhead_rate: item.type === 'overhead' ? item.unitPrice : 0,
+          item_total: calculateItemTotal(item)
+        }));
+
+        const { error: itemsError } = await supabase.from('rab_items').insert(itemsToInsert);
+        if (itemsError) throw itemsError;
+      }
+
+      // 3. Update SPK total cost
+      const { error: spkError } = await supabase.from('spk').update({ total_estimated_cost: totalCost }).eq('id', spkId);
+      if (spkError) throw spkError;
+
+      alert('Estimation saved successfully!');
+    } catch (err: any) {
+      console.error(err);
+      alert('Failed to save estimation: ' + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="bg-surface border border-border rounded-lg overflow-hidden">
@@ -119,6 +188,17 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                 />
                 Labor
               </label>
+              <label className="flex items-center gap-2 text-sm text-text cursor-pointer">
+                <input 
+                  type="radio" 
+                  name="type" 
+                  value="overhead"
+                  checked={newItem.type === 'overhead'}
+                  onChange={() => setNewItem({...newItem, type: 'overhead', wasteFactor: 0, unitPrice: bayHourlyRate})}
+                  className="accent-primary"
+                />
+                Overhead
+              </label>
             </div>
 
             <div>
@@ -128,7 +208,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                 required
                 value={newItem.description || ''}
                 onChange={(e) => setNewItem({...newItem, description: e.target.value})}
-                placeholder={newItem.type === 'material' ? 'e.g. Steel Plate 2mm' : 'e.g. Welding Specialist'}
+                placeholder={newItem.type === 'material' ? 'e.g. Steel Plate 2mm' : newItem.type === 'labor' ? 'e.g. Welding Specialist' : 'e.g. Workshop Bay Overhead'}
                 className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
               />
             </div>
@@ -149,7 +229,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">Unit Price</label>
+                <label className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">Unit Price / Rate</label>
                 <input
                   type="number"
                   required
@@ -200,8 +280,9 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                     <tr>
                       <th className="px-4 py-3">Description</th>
                       <th className="px-4 py-3">Type</th>
-                      <th className="px-4 py-3 text-right">Qty</th>
-                      <th className="px-4 py-3 text-right">Price</th>
+                      <th className="px-4 py-3">WBS</th>
+                      <th className="px-4 py-3 text-right">Qty/Hrs</th>
+                      <th className="px-4 py-3 text-right">Price/Rate</th>
                       <th className="px-4 py-3 text-right">Waste</th>
                       <th className="px-4 py-3 text-right">Total</th>
                       <th className="px-4 py-3 text-center"></th>
@@ -212,10 +293,11 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                       <tr key={item.id} className="hover:bg-surface-hover/30 transition">
                         <td className="px-4 py-3 font-medium">{item.description}</td>
                         <td className="px-4 py-3">
-                          <span className={`px-2 py-0.5 rounded text-xs font-mono ${item.type === 'material' ? 'bg-status-info/10 text-status-info border border-status-info/20' : 'bg-status-warning/10 text-status-warning border border-status-warning/20'}`}>
+                          <span className={`px-2 py-0.5 rounded text-xs font-mono ${item.type === 'material' ? 'bg-status-info/10 text-status-info border border-status-info/20' : item.type === 'labor' ? 'bg-status-warning/10 text-status-warning border border-status-warning/20' : 'bg-status-danger/10 text-status-danger border border-status-danger/20'}`}>
                             {item.type}
                           </span>
                         </td>
+                        <td className="px-4 py-3 text-xs text-text-muted truncate max-w-[100px]">{item.wbsCategory}</td>
                         <td className="px-4 py-3 text-right font-mono">{item.qty}</td>
                         <td className="px-4 py-3 text-right font-mono text-text-muted">
                           Rp {item.unitPrice.toLocaleString('id-ID')}
@@ -257,11 +339,11 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
           
           <div className="mt-4 flex justify-end">
              <button 
-                onClick={() => console.log('Saving RAB for SPK:', spkId, { wbsCategory, items })}
-                disabled={items.length === 0}
+                onClick={handleSaveEstimation}
+                disabled={items.length === 0 || isSaving}
                 className="bg-primary hover:bg-primary-hover disabled:bg-surface disabled:text-text-muted disabled:cursor-not-allowed text-background font-bold py-2 px-6 rounded transition"
              >
-                Save Estimation
+                {isSaving ? 'Saving...' : 'Save Estimation'}
              </button>
           </div>
         </div>

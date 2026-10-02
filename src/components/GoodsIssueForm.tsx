@@ -1,30 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Package, CheckCircle2, Lock } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
-
-const MOCK_MATERIALS = [
-  { id: 'M-001', name: 'Plat Besi 2mm', unit: 'Lembar' },
-  { id: 'M-002', name: 'Cat Merah', unit: 'Liter' },
-  { id: 'M-003', name: 'Kabel 2.5mm', unit: 'Roll' },
-];
-
-// Note: RAB Data is still mocked because the RAB schema is not yet implemented.
-const MOCK_RAB_DATA = {
-  'SPK-10024': {
-    'M-001': { rabQty: 100, wasteFactor: 5, issuedQty: 90 }, // Max: 105, Remaining: 15
-    'M-002': { rabQty: 50, wasteFactor: 10, issuedQty: 55 }, // Max: 55, Remaining: 0
-  },
-  'SPK-10025': {
-    'M-003': { rabQty: 20, wasteFactor: 5, issuedQty: 10 }, // Max: 21, Remaining: 11
-  }
-};
+import { useAuth } from '../context/AuthContext';
 
 interface GoodsIssueFormProps {
   onSuccess?: () => void;
 }
 
 export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => {
+  const { user } = useAuth();
   const [spks, setSpks] = useState<any[]>([]);
+  const [selectedSpk, setSelectedSpk] = useState<string>('');
+  const [selectedMaterial, setSelectedMaterial] = useState<string>('');
+  const [requestQty, setRequestQty] = useState<string>('');
+
+  const [rabMaterials, setRabMaterials] = useState<any[]>([]);
+  const [inventoryTotals, setInventoryTotals] = useState<Record<string, number>>({});
 
   useEffect(() => {
     fetchSpks();
@@ -35,30 +26,93 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
     if (data) setSpks(data);
     if (error) console.error('Error fetching SPKs:', error);
   };
-  const [selectedSpk, setSelectedSpk] = useState<string>('');
-  const [selectedMaterial, setSelectedMaterial] = useState<string>('');
-  const [requestQty, setRequestQty] = useState<string>('');
 
-  const spkRabData = selectedSpk ? (MOCK_RAB_DATA as any)[selectedSpk] : null;
-  const materialRab = (spkRabData && selectedMaterial) ? spkRabData[selectedMaterial] : null;
+  useEffect(() => {
+    if (selectedSpk) {
+      fetchRabAndInventory(selectedSpk);
+    } else {
+      setRabMaterials([]);
+      setInventoryTotals({});
+      setSelectedMaterial('');
+    }
+  }, [selectedSpk]);
 
+  const fetchRabAndInventory = async (spkId: string) => {
+    const { data: rabData, error: rabError } = await supabase
+      .from('rab_estimations')
+      .select(`
+        id,
+        rab_items (
+          quantity,
+          material_id,
+          materials ( id, name, waste_factor_percentage )
+        )
+      `)
+      .eq('spk_id', spkId)
+      .single();
+
+    if (rabError) {
+      console.error('Error fetching RAB data:', rabError);
+      setRabMaterials([]);
+    } else if (rabData && rabData.rab_items) {
+      const mats = rabData.rab_items.filter((item: any) => item.material_id && item.materials);
+      setRabMaterials(mats);
+    }
+
+    const { data: invData, error: invError } = await supabase
+      .from('inventory_transactions')
+      .select('material_id, quantity_issued')
+      .eq('spk_id', spkId);
+
+    if (invError) {
+      console.error('Error fetching inventory:', invError);
+    } else if (invData) {
+      const totals: Record<string, number> = {};
+      invData.forEach((tx: any) => {
+        totals[tx.material_id] = (totals[tx.material_id] || 0) + Number(tx.quantity_issued);
+      });
+      setInventoryTotals(totals);
+    }
+  };
+
+  const selectedRabItem = rabMaterials.find(m => m.material_id === selectedMaterial);
+  
   let maxAllowed = 0;
   let remainingAllowed = 0;
   let isOverbudget = false;
 
-  if (materialRab) {
-    maxAllowed = materialRab.rabQty * (1 + (materialRab.wasteFactor / 100));
-    remainingAllowed = maxAllowed - materialRab.issuedQty;
+  if (selectedRabItem) {
+    const wasteFactor = Number(selectedRabItem.materials.waste_factor_percentage || 0);
+    const rabQty = Number(selectedRabItem.quantity || 0);
+    const issuedQty = inventoryTotals[selectedMaterial] || 0;
+    
+    maxAllowed = rabQty * (1 + (wasteFactor / 100));
+    remainingAllowed = maxAllowed - issuedQty;
     isOverbudget = parseFloat(requestQty || '0') > remainingAllowed;
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isOverbudget && requestQty && remainingAllowed > 0) {
-      alert(`Berhasil mengeluarkan ${requestQty} unit material untuk ${selectedSpk}`);
-      // In a real app, this would mutate the DB via Supabase
-      setRequestQty('');
-      if (onSuccess) onSuccess();
+    if (!isOverbudget && requestQty && remainingAllowed > 0 && user) {
+      const qty = parseFloat(requestQty);
+      const { error } = await supabase
+        .from('inventory_transactions')
+        .insert({
+          spk_id: selectedSpk,
+          material_id: selectedMaterial,
+          quantity_issued: qty,
+          issued_by: user.id
+        });
+        
+      if (!error) {
+        alert(`Berhasil mengeluarkan ${qty} unit material`);
+        setRequestQty('');
+        fetchRabAndInventory(selectedSpk);
+        if (onSuccess) onSuccess();
+      } else {
+        alert('Gagal mengeluarkan material');
+        console.error(error);
+      }
     }
   };
 
@@ -77,13 +131,12 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
               value={selectedSpk}
               onChange={(e) => {
                 setSelectedSpk(e.target.value);
-                setSelectedMaterial('');
               }}
               className="w-full bg-background border border-border rounded p-2 text-text focus:border-primary focus:outline-none"
             >
               <option value="">-- Choose SPK --</option>
               {spks.map(spk => (
-                <option key={spk.id} value={spk.spk_no}>{spk.spk_no} - {spk.customer_name}</option>
+                <option key={spk.id} value={spk.id}>{spk.spk_no} - {spk.customer_name}</option>
               ))}
             </select>
           </div>
@@ -93,31 +146,31 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
             <select
               value={selectedMaterial}
               onChange={(e) => setSelectedMaterial(e.target.value)}
-              disabled={!selectedSpk}
+              disabled={!selectedSpk || rabMaterials.length === 0}
               className="w-full bg-background border border-border rounded p-2 text-text focus:border-primary focus:outline-none disabled:opacity-50"
             >
               <option value="">-- Choose Material --</option>
-              {MOCK_MATERIALS.map(mat => (
-                <option key={mat.id} value={mat.id}>{mat.name} ({mat.unit})</option>
+              {rabMaterials.map(mat => (
+                <option key={mat.material_id} value={mat.material_id}>{mat.materials.name}</option>
               ))}
             </select>
           </div>
         </div>
 
-        {materialRab && (
+        {selectedRabItem && (
           <div className="bg-background border border-border p-4 rounded-lg grid grid-cols-3 gap-4">
             <div>
               <div className="text-xs text-text-muted uppercase font-mono">RAB Estimate</div>
-              <div className="font-medium">{materialRab.rabQty} (Waste {materialRab.wasteFactor}%)</div>
+              <div className="font-medium">{selectedRabItem.quantity} (Waste {selectedRabItem.materials.waste_factor_percentage}%)</div>
             </div>
             <div>
               <div className="text-xs text-text-muted uppercase font-mono">Max Allowed</div>
-              <div className="font-medium">{maxAllowed}</div>
+              <div className="font-medium">{maxAllowed.toFixed(2)}</div>
             </div>
             <div>
               <div className="text-xs text-text-muted uppercase font-mono">Remaining Budget</div>
               <div className={`font-medium ${remainingAllowed <= 0 ? 'text-status-danger' : 'text-status-success'}`}>
-                {remainingAllowed}
+                {remainingAllowed.toFixed(2)}
               </div>
             </div>
           </div>
@@ -127,10 +180,11 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
           <label className="block text-sm text-text-muted mb-1">Request Quantity</label>
           <input
             type="number"
-            min="1"
+            min="0.1"
+            step="0.1"
             value={requestQty}
             onChange={(e) => setRequestQty(e.target.value)}
-            disabled={!materialRab || remainingAllowed <= 0}
+            disabled={!selectedRabItem || remainingAllowed <= 0}
             className="w-full bg-background border border-border rounded p-2 text-text focus:border-primary focus:outline-none disabled:opacity-50"
             placeholder="Enter quantity..."
           />
@@ -142,7 +196,7 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
             <div>
               <h4 className="font-bold text-status-danger text-sm">Gate 2 Locked: Overbudget</h4>
               <p className="text-xs text-status-danger/80 mt-1">
-                Requested quantity ({requestQty}) exceeds the remaining allowable budget ({remainingAllowed}).
+                Requested quantity ({requestQty}) exceeds the remaining allowable budget ({remainingAllowed.toFixed(2)}).
                 This issue is blocked until authorized by the Owner via a Change Order (Amandemen SPK).
               </p>
             </div>
@@ -152,7 +206,7 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
         <div className="pt-2">
           <button
             type="submit"
-            disabled={!selectedMaterial || !requestQty || isOverbudget || remainingAllowed <= 0}
+            disabled={!selectedMaterial || !requestQty || isOverbudget || remainingAllowed <= 0 || !user}
             className="bg-primary hover:bg-primary/90 text-white font-medium py-2 px-6 rounded transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {isOverbudget ? <Lock className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
