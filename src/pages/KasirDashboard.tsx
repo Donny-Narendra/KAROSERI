@@ -27,20 +27,58 @@ export const KasirDashboard: React.FC = () => {
   }, []);
 
   const fetchSpks = async () => {
-    const { data, error } = await supabase.from('spk').select('*').neq('status', 'CANCELLED').order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('spk').select(`
+      *,
+      qc_inspections ( status, inspected_at ),
+      invoices ( status, created_at ),
+      rab_estimations ( id, total_labor_cost ),
+      inventory_transactions ( quantity_issued, materials ( unit_price ) )
+    `).neq('status', 'CANCELLED').order('created_at', { ascending: false });
+
     if (data) {
-      const formatted = data.map((d: any) => ({
-        id: d.spk_no,
-        dbId: d.id,
-        customerName: d.customer_name,
-        vehicleModel: d.vehicle_plate, // using plate for now
-        status: d.status,
-        dpAmount: Number(d.dp_amount || 0),
-        materialCost: Number(d.total_estimated_cost || 0), // fallback to estimated
-        jasaCost: 15000000, // placeholder since not in spk table directly
-        qcStatus: 'PENDING' as const,
-        paymentStatus: 'UNPAID' as const,
-      }));
+      const formatted = data.map((d: any) => {
+        // qc status (latest)
+        let qcStatus = 'PENDING';
+        if (d.qc_inspections && d.qc_inspections.length > 0) {
+           const sortedQc = d.qc_inspections.sort((a: any, b: any) => new Date(b.inspected_at).getTime() - new Date(a.inspected_at).getTime());
+           qcStatus = sortedQc[0].status;
+        }
+
+        // payment status (latest invoice)
+        let paymentStatus = 'UNPAID';
+        if (d.invoices && d.invoices.length > 0) {
+           const sortedInv = d.invoices.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+           paymentStatus = sortedInv[0].status;
+        }
+
+        // actual material cost
+        let actualMaterialCost = 0;
+        if (d.inventory_transactions) {
+          actualMaterialCost = d.inventory_transactions.reduce((acc: number, curr: any) => {
+            const price = curr.materials?.unit_price || 0;
+            return acc + (Number(curr.quantity_issued) * Number(price));
+          }, 0);
+        }
+
+        // actual labor cost
+        let actualLaborCost = 0;
+        if (d.rab_estimations && d.rab_estimations.length > 0) {
+           actualLaborCost = Number(d.rab_estimations[0].total_labor_cost || 0);
+        }
+
+        return {
+          id: d.spk_no,
+          dbId: d.id,
+          customerName: d.customer_name,
+          vehicleModel: d.vehicle_plate,
+          status: d.status,
+          dpAmount: Number(d.dp_amount || 0),
+          materialCost: actualMaterialCost,
+          jasaCost: actualLaborCost,
+          qcStatus: qcStatus as any,
+          paymentStatus: paymentStatus as any,
+        };
+      });
       setSpks(formatted);
     }
     if (error) console.error('Error fetching SPKs:', error);
@@ -72,10 +110,70 @@ export const KasirDashboard: React.FC = () => {
     }
   };
 
-  const handleMarkAsPaid = () => {
-    if (!selectedSpkId) return;
-    setSpks(prev => prev.map(s => s.id === selectedSpkId ? { ...s, paymentStatus: 'LUNAS' } : s));
-    alert('Billed marked as Lunas (Note: updating to Supabase DB for payment status is not implemented yet in this phase).');
+  const handleGenerateInvoice = async () => {
+    if (!selectedSpk) return;
+    
+    const totalAmount = (selectedSpk.materialCost + selectedSpk.jasaCost) - selectedSpk.dpAmount;
+    
+    const { error } = await supabase
+      .from('invoices')
+      .insert({
+        spk_id: selectedSpk.dbId,
+        dp_amount: selectedSpk.dpAmount,
+        actual_material_cost: selectedSpk.materialCost,
+        actual_labor_cost: selectedSpk.jasaCost,
+        total_amount: totalAmount,
+        status: 'UNPAID'
+      });
+      
+    if (error) {
+      console.error('Error generating invoice:', error);
+      alert('Failed to generate invoice');
+    } else {
+      alert('Invoice generated successfully.');
+      fetchSpks();
+    }
+  };
+
+  const handleMarkAsPaid = async () => {
+    if (!selectedSpk) return;
+    
+    const { data: invoices, error: fetchError } = await supabase
+      .from('invoices')
+      .select('id')
+      .eq('spk_id', selectedSpk.dbId)
+      .eq('status', 'UNPAID')
+      .order('created_at', { ascending: false })
+      .limit(1);
+      
+    if (fetchError || !invoices || invoices.length === 0) {
+      console.error('Error finding invoice:', fetchError);
+      alert('Could not find unpaid invoice for this SPK. Generate invoice first.');
+      return;
+    }
+    
+    const invoiceId = invoices[0].id;
+    
+    const { error: invError } = await supabase
+      .from('invoices')
+      .update({ status: 'LUNAS' })
+      .eq('id', invoiceId);
+      
+    if (invError) {
+      console.error('Error updating invoice:', invError);
+      alert('Failed to mark invoice as paid.');
+      return;
+    }
+    
+    const { error: spkError } = await supabase
+      .from('spk')
+      .update({ status: 'COMPLETED' })
+      .eq('id', selectedSpk.dbId);
+      
+    if (spkError) console.error('Error updating SPK status:', spkError);
+    
+    alert('Bill marked as Paid and SPK is COMPLETED.');
+    fetchSpks();
   };
 
   const formatCurrency = (amount: number) => {
@@ -252,7 +350,8 @@ export const KasirDashboard: React.FC = () => {
                   Mark as Paid
                 </button>
                 <button
-                  disabled={selectedSpk.qcStatus !== 'PASS' || selectedSpk.paymentStatus === 'LUNAS'}
+                  disabled={selectedSpk.qcStatus !== 'PASS' || selectedSpk.paymentStatus === 'LUNAS' || selectedSpk.paymentStatus === 'UNPAID' && spks.find(s => s.id === selectedSpk.id)?.paymentStatus === 'UNPAID'}
+                  onClick={handleGenerateInvoice}
                   className={`px-6 py-3 rounded font-medium flex items-center gap-2 transition-all ${
                     selectedSpk.qcStatus === 'PASS' && selectedSpk.paymentStatus !== 'LUNAS'
                       ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20'
