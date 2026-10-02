@@ -37,16 +37,16 @@
 ---
 
 ### Phase 3: Aktualisasi Produksi (WBS & Logistik)
-**Status**: ⬜ Not Started
+**Status**: ✅ Done
 **Objective**: Mengeksekusi Wave 2 dari Gap Analysis untuk validasi aktual di lantai pabrik dan gudang.
 **Depends on**: Phase 2
 
 **Tasks**:
-- [ ] Integrasi backend pada komponen `WbsChecklist.tsx`.
-- [ ] Hubungkan `GoodsIssueForm.tsx` dengan estimasi aktual RAB untuk validasi limit.
-- [ ] Penambahan fitur Retur Material dan Peringatan Stockout (Stok Kritis).
+- [x] Integrasi backend pada komponen `WbsChecklist.tsx`.
+- [x] Hubungkan `GoodsIssueForm.tsx` dengan estimasi aktual RAB untuk validasi limit.
+- [x] Penambahan fitur Retur Material dan Peringatan Stockout (Stok Kritis).
 
 **Verification**:
-- [ ] Status WBS tersimpan di Supabase.
-- [ ] Pengeluaran barang dibatasi oleh limit RAB secara riil.
-- [ ] Gudang dapat mencatat retur barang dan melihat stok kritis.
+- [x] Status WBS tersimpan di Supabase.
+- [x] Pengeluaran barang dibatasi oleh limit RAB secara riil.
+- [x] Gudang dapat mencatat retur barang dan melihat stok kritis.
