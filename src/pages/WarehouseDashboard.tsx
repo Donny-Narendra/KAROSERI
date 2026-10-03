@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { Factory, LogOut, Search, ClipboardList, Loader2 } from 'lucide-react';
 import { GoodsIssueForm } from '../components/GoodsIssueForm';
 import { GoodsReturnForm } from '../components/GoodsReturnForm';
+import { RequisitionApproval } from '../components/RequisitionApproval';
 import { supabase } from '../lib/supabaseClient';
 import { AlertTriangle } from 'lucide-react';
 
@@ -12,7 +13,7 @@ export const WarehouseDashboard: React.FC = () => {
   const [lowStockWarnings, setLowStockWarnings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [activeTab, setActiveTab] = useState<'issue' | 'return'>('issue');
+  const [activeTab, setActiveTab] = useState<'issue' | 'return' | 'requisition'>('requisition');
 
   const fetchIssues = async () => {
     setLoading(true);
@@ -99,12 +100,20 @@ export const WarehouseDashboard: React.FC = () => {
               >
                 Return Material
               </button>
+              <button
+                className={`px-4 py-2 font-medium ${activeTab === 'requisition' ? 'text-primary border-b-2 border-primary' : 'text-text-muted hover:text-text'}`}
+                onClick={() => setActiveTab('requisition')}
+              >
+                Mandor Requests
+              </button>
             </div>
 
             {activeTab === 'issue' ? (
               <GoodsIssueForm onSuccess={handleIssueSuccess} />
-            ) : (
+            ) : activeTab === 'return' ? (
               <GoodsReturnForm onSuccess={handleIssueSuccess} />
+            ) : (
+              <RequisitionApproval onSuccess={handleIssueSuccess} />
             )}
             
             {/* Recent Issues Table */}
