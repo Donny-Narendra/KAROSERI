@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabaseClient';
+import { MaterialRequisitionForm } from './MaterialRequisitionForm';
 
 interface WbsChecklistProps {
   spkId: string;
@@ -28,6 +29,9 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
   const [initialFetchLoading, setInitialFetchLoading] = useState(true);
   const [statuses, setStatuses] = useState<Record<string, 'PENDING' | 'PASS' | 'FAIL'>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
+  
+  // Requisition Modal State
+  const [requisitionCategory, setRequisitionCategory] = useState<string | null>(null);
 
   useEffect(() => {
     if (!spkId) return;
@@ -131,13 +135,22 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
 
   return (
     <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
-      <h3 className="text-xl font-display font-semibold text-text mb-6">WBS QC Checklist</h3>
+      <h3 className="text-xl font-display font-semibold text-text mb-6">WBS QC Checklist & Material Requests</h3>
       
       <div className="space-y-6">
         {WBS_CATEGORIES.map((category) => (
           <div key={category} className="bg-background p-4 rounded border border-border flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex-1">
-              <h4 className="font-medium text-text text-lg">{WBS_LABELS[category]}</h4>
+              <div className="flex items-center justify-between mb-1">
+                <h4 className="font-medium text-text text-lg">{WBS_LABELS[category]}</h4>
+                <button
+                  type="button"
+                  onClick={() => setRequisitionCategory(category)}
+                  className="px-3 py-1 bg-surface border border-primary text-primary rounded text-sm hover:bg-primary/10 transition-colors"
+                >
+                  Minta Material
+                </button>
+              </div>
               <p className="text-sm text-text-muted">{category}</p>
               
               <div className="mt-2 flex gap-2">
@@ -152,7 +165,7 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
               </div>
             </div>
             
-            <div className="flex gap-2 min-w-[200px] justify-end">
+            <div className="flex gap-2 min-w-[200px] justify-end mt-4 md:mt-0">
               <button
                 disabled={loading}
                 onClick={() => handleStatusUpdate(category, 'PASS')}
@@ -179,6 +192,14 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
           </div>
         ))}
       </div>
+
+      {requisitionCategory && (
+        <MaterialRequisitionForm
+          spkId={spkId}
+          wbsCategory={requisitionCategory}
+          onClose={() => setRequisitionCategory(null)}
+        />
+      )}
     </div>
   );
 };
