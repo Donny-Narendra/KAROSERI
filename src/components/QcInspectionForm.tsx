@@ -14,6 +14,46 @@ export const QcInspectionForm: React.FC<QcInspectionFormProps> = ({ spkId }) => 
   });
   const [status, setStatus] = useState<'PENDING' | 'PASS' | 'FAIL'>('PENDING');
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  React.useEffect(() => {
+    if (!spkId) return;
+
+    const fetchQcData = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('qc_inspections')
+          .select('*')
+          .eq('spk_id', spkId)
+          .maybeSingle();
+
+        if (error && error.code !== 'PGRST116') throw error; // PGRST116 is no rows returned
+
+        if (data) {
+          setParams(data.form_data);
+          setStatus(data.status);
+          setSubmitted(true);
+        } else {
+          // Reset if no data found for this SPK
+          setParams({
+            shower_test: false,
+            uji_hidrolik: false,
+            dimensi_kendaraan: false,
+            uji_kelistrikan: false
+          });
+          setStatus('PENDING');
+          setSubmitted(false);
+        }
+      } catch (err) {
+        console.error('Error fetching QC data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQcData();
+  }, [spkId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,9 +144,14 @@ export const QcInspectionForm: React.FC<QcInspectionFormProps> = ({ spkId }) => 
         
         <button 
           type="submit" 
-          className="w-full py-3 bg-primary text-primary-content rounded-lg font-bold hover:brightness-110 transition-all shadow-[0_0_15px_rgba(255,107,0,0.3)]"
+          disabled={loading || submitted && status === 'PASS'}
+          className={`w-full py-3 rounded-lg font-bold transition-all ${
+            loading || (submitted && status === 'PASS')
+              ? 'bg-surface border border-border text-text-muted cursor-not-allowed'
+              : 'bg-primary text-primary-content hover:brightness-110 shadow-[0_0_15px_rgba(255,107,0,0.3)]'
+          }`}
         >
-          Submit Final QC
+          {loading ? 'Loading...' : (submitted && status === 'PASS' ? 'QC Passed' : 'Submit Final QC')}
         </button>
       </form>
     </div>

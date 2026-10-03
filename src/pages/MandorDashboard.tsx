@@ -61,6 +61,14 @@ export const MandorDashboard: React.FC = () => {
                 >
                   <div className="text-lg font-bold">{spk.spk_no}</div>
                   <div className="text-text-muted">{spk.customer_name}</div>
+                  <div className="text-sm mt-2 text-text">
+                    <span className="inline-block bg-background px-2 py-1 rounded border border-border mr-2">
+                      {spk.vehicle_number || 'N/A'}
+                    </span>
+                    <span className="text-text-muted">
+                      In: {new Date(spk.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
                 </button>
               ))}
             </div>
