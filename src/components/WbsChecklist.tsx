@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabaseClient';
 import { MaterialRequisitionForm } from './MaterialRequisitionForm';
+import { SpkBoronganPanel } from './SpkBoronganPanel';
 
 interface WbsChecklistProps {
   spkId: string;
@@ -32,6 +33,7 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
   
   // Requisition Modal State
   const [requisitionCategory, setRequisitionCategory] = useState<string | null>(null);
+  const [boronganCategory, setBoronganCategory] = useState<string | null>(null);
 
   useEffect(() => {
     if (!spkId) return;
@@ -143,13 +145,22 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
             <div className="flex-1">
               <div className="flex items-center justify-between mb-1">
                 <h4 className="font-medium text-text text-lg">{WBS_LABELS[category]}</h4>
-                <button
-                  type="button"
-                  onClick={() => setRequisitionCategory(category)}
-                  className="px-3 py-1 bg-surface border border-primary text-primary rounded text-sm hover:bg-primary/10 transition-colors"
-                >
-                  Minta Material
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setBoronganCategory(category)}
+                    className="px-3 py-1 bg-surface border border-primary text-primary rounded text-sm hover:bg-primary/10 transition-colors"
+                  >
+                    SPK Borongan
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRequisitionCategory(category)}
+                    className="px-3 py-1 bg-surface border border-primary text-primary rounded text-sm hover:bg-primary/10 transition-colors"
+                  >
+                    Minta Material
+                  </button>
+                </div>
               </div>
               <p className="text-sm text-text-muted">{category}</p>
               
@@ -198,6 +209,14 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
           spkId={spkId}
           wbsCategory={requisitionCategory}
           onClose={() => setRequisitionCategory(null)}
+        />
+      )}
+
+      {boronganCategory && (
+        <SpkBoronganPanel
+          spkId={spkId}
+          wbsCategory={boronganCategory}
+          onClose={() => setBoronganCategory(null)}
         />
       )}
     </div>
