@@ -15,11 +15,18 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
   const [requestQty, setRequestQty] = useState<string>('');
 
   const [rabMaterials, setRabMaterials] = useState<any[]>([]);
+  const [masterMaterials, setMasterMaterials] = useState<any[]>([]);
   const [inventoryTotals, setInventoryTotals] = useState<Record<string, number>>({});
 
   useEffect(() => {
     fetchSpks();
+    fetchMasterMaterials();
   }, []);
+
+  const fetchMasterMaterials = async () => {
+    const { data } = await supabase.from('materials').select('id, name, current_stock, unit').order('name');
+    if (data) setMasterMaterials(data);
+  };
 
   const fetchSpks = async () => {
     const { data, error } = await supabase.from('spk').select('id, spk_no, customer_name, vehicle_plate, status').eq('status', 'ACTIVE').order('created_at', { ascending: false });
@@ -38,14 +45,18 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
   }, [selectedSpk]);
 
   const fetchRabAndInventory = async (spkId: string) => {
+    // Fetch master materials first for tolerant matching
+    const { data: masterData } = await supabase.from('materials').select('id, name, current_stock, unit, waste_factor_percentage').order('name');
+    if (masterData) setMasterMaterials(masterData);
+
     const { data: rabData, error: rabError } = await supabase
       .from('rab_estimations')
       .select(`
         id,
         rab_items (
           quantity,
-          material_id,
-          materials ( id, name, waste_factor_percentage )
+          description,
+          material_id
         )
       `)
       .eq('spk_id', spkId)
@@ -54,8 +65,25 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
     if (rabError) {
       console.error('Error fetching RAB data:', rabError);
       setRabMaterials([]);
-    } else if (rabData && rabData.rab_items) {
-      const mats = rabData.rab_items.filter((item: any) => item.material_id && item.materials);
+    } else if (rabData && rabData.rab_items && masterData) {
+      const mats = rabData.rab_items.map((item: any) => {
+        let matched = null;
+        if (item.material_id) matched = masterData.find(m => m.id === item.material_id);
+        else if (item.description) matched = masterData.find(m => m.name.toLowerCase() === item.description.toLowerCase());
+
+        if (matched) {
+          return {
+            material_id: matched.id,
+            quantity: item.quantity,
+            materials: {
+              id: matched.id,
+              name: matched.name,
+              waste_factor_percentage: matched.waste_factor_percentage || 0
+            }
+          };
+        }
+        return null;
+      }).filter(Boolean);
       setRabMaterials(mats);
     }
 
@@ -76,6 +104,7 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
   };
 
   const selectedRabItem = rabMaterials.find(m => m.material_id === selectedMaterial);
+  const selectedMasterItem = masterMaterials.find(m => m.id === selectedMaterial);
   
   let maxAllowed = 0;
   let remainingAllowed = 0;
@@ -89,11 +118,20 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
     maxAllowed = rabQty * (1 + (wasteFactor / 100));
     remainingAllowed = maxAllowed - issuedQty;
     isOverbudget = parseFloat(requestQty || '0') > remainingAllowed;
+  } else if (selectedMasterItem) {
+    // If not in RAB (or RAB is empty), fallback to physical stock limit logic if needed, 
+    // but for flexibility, we allow issuing if it's not strictly restricted by RAB here,
+    // or we treat remainingAllowed as current stock.
+    const issuedQty = inventoryTotals[selectedMaterial] || 0;
+    maxAllowed = Infinity;
+    remainingAllowed = (selectedMasterItem.current_stock || 0) - issuedQty;
+    // Don't block with overbudget for non-RAB fallback according to prompt "Sesuai fleksibilitas"
+    isOverbudget = parseFloat(requestQty || '0') > (selectedMasterItem.current_stock || 0);
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isOverbudget && requestQty && remainingAllowed > 0 && user) {
+    if (!isOverbudget && requestQty && user) {
       const qty = parseFloat(requestQty);
       const { error } = await supabase
         .from('inventory_transactions')
@@ -105,6 +143,10 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
         });
         
       if (!error) {
+        // Kurangi current_stock di tabel materials
+        const currentStock = selectedMasterItem?.current_stock || 0;
+        await supabase.from('materials').update({ current_stock: currentStock - qty }).eq('id', selectedMaterial);
+
         alert(`Berhasil mengeluarkan ${qty} unit material`);
         setRequestQty('');
         fetchRabAndInventory(selectedSpk);
@@ -146,16 +188,38 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
             <select
               value={selectedMaterial}
               onChange={(e) => setSelectedMaterial(e.target.value)}
-              disabled={!selectedSpk || rabMaterials.length === 0}
+              disabled={!selectedSpk}
               className="w-full bg-background border border-border rounded p-2 text-text focus:border-primary focus:outline-none disabled:opacity-50"
             >
               <option value="">-- Choose Material --</option>
-              {rabMaterials.map(mat => (
-                <option key={mat.material_id} value={mat.material_id}>{mat.materials.name}</option>
-              ))}
+              {masterMaterials.map(mat => {
+                const isRab = rabMaterials.some(r => r.material_id === mat.id);
+                return (
+                  <option key={mat.id} value={mat.id}>
+                    {mat.name} {isRab ? '(RAB)' : ''} (Stok: {mat.current_stock || 0} {mat.unit || ''})
+                  </option>
+                );
+              })}
             </select>
           </div>
         </div>
+
+        {selectedMasterItem && (
+          <div className="bg-surface/50 border border-border p-4 rounded-lg flex items-center justify-between">
+            <div>
+              <p className="text-sm text-text-muted">Stok Tersedia</p>
+              <p className="font-bold text-lg">{selectedMasterItem.current_stock || 0} <span className="text-sm font-normal text-text-muted">{selectedMasterItem.unit}</span></p>
+            </div>
+            {selectedRabItem && (
+              <div className="text-right">
+                <p className="text-sm text-text-muted">Sisa Kuota RAB</p>
+                <p className={`font-bold text-lg ${remainingAllowed <= 0 ? 'text-status-danger' : 'text-status-success'}`}>
+                  {remainingAllowed.toFixed(2)} <span className="text-sm font-normal text-text-muted">{selectedMasterItem.unit}</span>
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {selectedRabItem && (
           <div className="bg-background border border-border p-4 rounded-lg grid grid-cols-3 gap-4">
@@ -184,7 +248,7 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
             step="0.1"
             value={requestQty}
             onChange={(e) => setRequestQty(e.target.value)}
-            disabled={!selectedRabItem || remainingAllowed <= 0}
+            disabled={!selectedMaterial || remainingAllowed <= 0}
             className="w-full bg-background border border-border rounded p-2 text-text focus:border-primary focus:outline-none disabled:opacity-50"
             placeholder="Enter quantity..."
           />
@@ -210,7 +274,7 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
             className="bg-primary hover:bg-primary/90 text-white font-medium py-2 px-6 rounded transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {isOverbudget ? <Lock className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
-            {isOverbudget ? 'Blocked' : 'Issue Material'}
+            {isOverbudget ? (selectedRabItem ? 'Blocked: Overbudget' : 'Blocked: Insufficient Stock') : 'Issue Material'}
           </button>
         </div>
       </form>
