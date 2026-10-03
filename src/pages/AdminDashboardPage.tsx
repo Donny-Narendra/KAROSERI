@@ -19,7 +19,7 @@ export const AdminDashboardPage: React.FC = () => {
     const { data, error } = await supabase.from('spk').select(`
       *,
       rab_estimations ( total_estimated_cost, total_labor_cost, total_overhead_cost ),
-      inventory_transactions ( quantity_issued, materials ( unit_price ) )
+      inventory_transactions ( quantity_issued, materials ( unit_price, is_customer_supplied ) )
     `).order('created_at', { ascending: false });
     if (data) setSpks(data);
     if (error) console.error('Error fetching SPKs:', error);
@@ -55,6 +55,8 @@ export const AdminDashboardPage: React.FC = () => {
     let actualMaterial = 0;
     if (spk.inventory_transactions && spk.inventory_transactions.length > 0) {
       actualMaterial = spk.inventory_transactions.reduce((acc: number, curr: any) => {
+        const isCustomerSupplied = curr.materials?.is_customer_supplied === true;
+        if (isCustomerSupplied) return acc;
         const price = curr.materials?.unit_price || 0;
         return acc + (Number(curr.quantity_issued) * Number(price));
       }, 0);

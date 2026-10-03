@@ -55,7 +55,7 @@ export const KasirDashboard: React.FC = () => {
       qc_inspections ( status, inspected_at ),
       invoices ( status, created_at ),
       rab_estimations ( id, total_labor_cost, total_overhead_cost, total_estimated_cost ),
-      inventory_transactions ( quantity_issued, materials ( unit_price ) )
+      inventory_transactions ( quantity_issued, materials ( unit_price, is_customer_supplied ) )
     `).neq('status', 'CANCELLED').order('created_at', { ascending: false });
 
     if (data) {
@@ -78,6 +78,8 @@ export const KasirDashboard: React.FC = () => {
         let actualMaterialCost = 0;
         if (d.inventory_transactions && d.inventory_transactions.length > 0) {
           actualMaterialCost = d.inventory_transactions.reduce((acc: number, curr: any) => {
+            const isCustomerSupplied = curr.materials?.is_customer_supplied === true;
+            if (isCustomerSupplied) return acc;
             const price = curr.materials?.unit_price || 0;
             return acc + (Number(curr.quantity_issued) * Number(price));
           }, 0);

@@ -1,14 +1,14 @@
 ## Current Position
 - **Phase**: 8 (Material Requisition & SPK Borongan)
-- **Task**: Plan 8.3 Completed, up next: Plan 8.4 (SPK Borongan Assignment)
-- **Status**: Active (resumed 2026-10-03T16:31:03+07:00)
+- **Task**: Plan 8.4 Completed, up next: Plan 8.5 (SPK Borongan Management)
+- **Status**: Active (Plan 8.4 complete)
 
 ## Last Session Summary
-- Executed Plan 8.3: Created `RequisitionApproval.tsx` and integrated it into `WarehouseDashboard.tsx` for Gudang to manage material requests.
+- Executed Plan 8.4: Customer Supplied Material Integration. Updated KasirDashboard and AdminDashboardPage to ignore costs for customer-supplied materials (`is_customer_supplied = true`).
 
 ## In-Progress Work
 - None.
-- Files modified: None.
+- Files modified: `KasirDashboard.tsx`, `AdminDashboardPage.tsx`.
 - Tests status: `npm run build` passed.
 
 ## Blockers
@@ -20,6 +20,7 @@
 - `spk_borongan` table added for worker assignments per WBS.
 - `is_customer_supplied` boolean added to `materials` for items with zero cost.
 - Running execution in Inline mode since `invoke_subagent` is not available.
+- Updated costing logic across dashboards to accurately reflect Rp0 material costs for customer-supplied items.
 
 ## Next Steps
-1. /execute 8.4 (to continue with Plan 8.4: SPK Borongan Assignment)
+1. /execute 8.5 (to execute Plan 8.5: SPK Borongan Management)
