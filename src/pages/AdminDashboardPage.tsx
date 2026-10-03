@@ -268,6 +268,44 @@ export const AdminDashboardPage: React.FC = () => {
             </table>
           </div>
         </div>
+
+        {/* Cancelled SPK Log */}
+        <div className="bg-surface border border-border rounded-lg overflow-hidden mt-8">
+          <div className="px-5 py-4 border-b border-border bg-surface-hover">
+            <h3 className="font-bold text-status-danger font-display">{t('admin.cancelled_spk_log', 'Log SPK Dibatalkan')}</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-text">
+              <thead className="bg-background text-text-muted font-mono text-xs uppercase">
+                <tr>
+                  <th className="px-5 py-3">Plat Nomor / No SPK</th>
+                  <th className="px-5 py-3">Client</th>
+                  <th className="px-5 py-3">Waktu Cancel</th>
+                  <th className="px-5 py-3">Keterangan</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {spks.filter(s => s.status === 'CANCELLED').length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-5 py-8 text-center text-text-muted">
+                      Tidak ada log SPK yang dibatalkan.
+                    </td>
+                  </tr>
+                ) : spks.filter(s => s.status === 'CANCELLED').map((spk) => (
+                  <tr key={spk.id} className="hover:bg-surface-hover/50 transition">
+                    <td className="px-5 py-4 font-mono">
+                      <div className="font-bold">{spk.vehicle_plate}</div>
+                      <div className="text-xs text-text-muted">{spk.spk_no}</div>
+                    </td>
+                    <td className="px-5 py-4">{spk.customer_name}</td>
+                    <td className="px-5 py-4">{new Date(spk.updated_at).toLocaleString('id-ID')}</td>
+                    <td className="px-5 py-4 text-text-muted italic">{spk.notes || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </main>
     </div>
   );
