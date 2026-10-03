@@ -1,15 +1,16 @@
 ## Current Position
-- **Phase**: 8
-- **Task**: Planning complete
-- **Status**: Ready for execution
+- **Phase**: 8 (Material Requisition & SPK Borongan)
+- **Task**: Plan 8.1 Completed, up next: Plan 8.2 (Mandor Material Requisition)
+- **Status**: Paused at 2026-10-03T16:07:00+07:00
 
 ## Last Session Summary
-- Created database enums in `src/types/database.ts` to sync with PostgreSQL.
-- Updated KasirDashboard and billingService.ts to use strict enums and correctly display DP History.
+- Planned Phase 8 (Wave 1 to Wave 4).
+- Executed Plan 8.1: Created Supabase migration `20261003000006_phase8_schema.sql` for Material Requisitions and SPK Borongan.
+- Updated `src/types/database.ts` with `RequisitionStatus` and `SpkBoronganStatus`.
 
 ## In-Progress Work
 - None.
-- Files modified: `src/types/database.ts`, `src/types/spk.ts`, `src/services/billingService.ts`, `src/pages/KasirDashboard.tsx`.
+- Files modified: `supabase/migrations/20261003000006_phase8_schema.sql`, `src/types/database.ts`.
 - Tests status: `npm run build` passed.
 
 ## Blockers
@@ -17,7 +18,10 @@
 
 ## Context Dump
 ### Decisions Made
-- `src/types/database.ts` was created for centralized PostgreSQL enum mappings to prevent mismatch throughout the frontend application.
+- `material_requisitions` table added for Mandor requests.
+- `spk_borongan` table added for worker assignments per WBS.
+- `is_customer_supplied` boolean added to `materials` for items with zero cost.
+- Running execution in Inline mode since `invoke_subagent` is not available.
 
 ## Next Steps
-1. Run `/complete-milestone` to archive the current milestone since Phase 7 gap fixes are complete.
+1. /execute 8 (to continue with Plan 8.2: Mandor Material Requisition)

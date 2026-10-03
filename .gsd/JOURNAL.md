@@ -300,3 +300,24 @@ User requested to pause the session via /pause command. Milestone gap fixes are 
 
 ### Handoff Notes
 Tugas gap fixing selesai, lanjutkan dengan `/complete-milestone` jika tidak ada fitur yang terlewat.
+
+---
+
+## Session: 2026-10-03 16:07
+
+### Objective
+Plan and begin execution of Phase 8 (Material Requisition & SPK Borongan).
+
+### Accomplished
+- Planned Phase 8 tasks (Plans 8.1 to 8.5) across 4 waves.
+- Executed Plan 8.1: Database schema migrations and TS types update.
+
+### Verification
+- [x] Schema migration file created and correct.
+- [x] TypeScript build passes.
+
+### Paused Because
+Context refresh. Finished Plan 8.1 and want a fresh context before starting Plan 8.2 inline.
+
+### Handoff Notes
+Next step is to execute Plan 8.2 (`/execute 8`). Target is `src/components/MaterialRequisitionForm.tsx` and `src/pages/MandorDashboard.tsx`.
