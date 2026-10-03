@@ -278,3 +278,25 @@ Execute Plan 7.1 (Riwayat Pembayaran DP di Kasir Dashboard).
 
 ### Handoff Notes
 - The user can proceed to run `/complete-milestone` to archive the current milestone or `/new-milestone`.
+
+---
+
+## Session: 2026-10-03 15:55
+
+### Objective
+Sinkronisasi TypeScript Enum Types dengan PostgreSQL dan perbaikan fetching Riwayat Pembayaran DP di KasirDashboard.
+
+### Accomplished
+- Dibuat `src/types/database.ts` berisi enums `UserRole`, `SpkStatus`, `WbsCategory`, `ChecklistStatus`.
+- Diperbarui `src/types/spk.ts` dan logic filter status di KasirDashboard untuk meniadakan filter status case-insensitive.
+- Fetch query `billingService.ts` diperbarui untuk query DP yang statusnya strict ACTIVE/COMPLETED.
+
+### Verification
+- [x] npm run build successful tanpa type mismatch.
+- [x] DP history renders accurately di UI Kasir.
+
+### Paused Because
+User requested to pause the session via /pause command. Milestone gap fixes are complete.
+
+### Handoff Notes
+Tugas gap fixing selesai, lanjutkan dengan `/complete-milestone` jika tidak ada fitur yang terlewat.
