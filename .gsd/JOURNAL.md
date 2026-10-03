@@ -198,8 +198,8 @@ Complete and verify Phase 5 (Integrasi Mandor Terminal) and safely pause the ses
 
 ### Accomplished
 - Planned Phase 5 tasks using provided Gap Analysis requirements.
-- Executed Plan 5.1: Connected \MandorDashboard.tsx\ to fetch active SPKs.
-- Verified \WbsChecklist.tsx\ and \QcInspectionForm.tsx\ integration with Supabase.
+- Executed Plan 5.1: Connected `MandorDashboard.tsx` to fetch active SPKs.
+- Verified `WbsChecklist.tsx` and `QcInspectionForm.tsx` integration with Supabase.
 - Cleaned up state and committed Phase 5 completion.
 
 ### Verification
@@ -210,3 +210,26 @@ Complete and verify Phase 5 (Integrasi Mandor Terminal) and safely pause the ses
 
 ### Handoff Notes
 - The next step is to plan and execute Phase 6 (Admin Monitoring Dashboard / Audit Logs) or complete the milestone if there are no more tasks.
+
+---
+
+## Session: 2026-10-03 14:23
+
+### Objective
+Fix critical bugs in Mandor Terminal (`22P02` enum error) and Kasir Dashboard (Costing calculation and billing button states).
+
+### Accomplished
+- Updated `spk_status` enum query in `MandorDashboard.tsx` to strictly use 'ACTIVE'.
+- Rewrote Actual Costing calculation in `KasirDashboard.tsx` to handle 0 actual cost by falling back to `total_estimated_cost`.
+- Connected `Generate Final Bill` button to create unpaid invoices and trigger `window.print()`.
+
+### Verification
+- [x] Mandor Terminal loads Active SPKs without PostgreSQL errors.
+- [x] Kasir Dashboard correctly calculates and displays positive Final Bills based on actual or fallback estimates.
+- [x] Build passes without errors.
+
+### Paused Because
+User invoked `/pause`.
+
+### Handoff Notes
+Next step is to address any remaining gap analysis tasks or proceed to the Admin Monitoring Dashboard.
