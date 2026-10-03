@@ -366,3 +366,24 @@ Context refresh. Finished Plan 8.3 and want a fresh context before starting Plan
 
 ### Handoff Notes
 Next step is to execute Plan 8.4 (`/execute 8.4`). Target is `ServiceAdvisorDashboard.tsx` and SPK Borongan assignment.
+
+---
+
+## Session: 2026-10-03 16:38
+
+### Objective
+Execute Plan 8.4 (Customer Supplied Material Integration).
+
+### Accomplished
+- Updated KasirDashboard and AdminDashboardPage to ignore costs for customer-supplied materials (is_customer_supplied = true).
+- Verified build passes.
+
+### Verification
+- [x] Both Kasir and Admin dashboards calculate cost correctly accounting for the flag.
+- [x] npm run build passes without errors.
+
+### Paused Because
+Context refresh. Finished Plan 8.4 and want a fresh context before starting Plan 8.5.
+
+### Handoff Notes
+Next step is to execute Plan 8.5 (/execute 8.5). Target is SPK Borongan Management.
