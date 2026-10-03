@@ -115,19 +115,19 @@
 ---
 
 ### Phase 8: Material Requisition & SPK Borongan Mandor
-**Status**: ⏳ Pending
+**Status**: ✅ Complete
 **Objective**: Implementasi Modul Permintaan Material (Requisition) dari Mandor, opsi Material Konsumen, dan manajemen SPK Borongan (SPK-B) per sub-WBS.
 **Depends on**: Phase 7
 
 **Tasks**:
-- [ ] Implementasi form permintaan material oleh Mandor per WBS dan panel persetujuan di Gudang.
-- [ ] Opsi pencatatan `is_customer_supplied = true` (harga = Rp 0) agar tidak masuk tagihan akhir.
-- [ ] Modul penugasan tenaga borongan per sub-WBS beserta nilai kontrak.
-- [ ] Fitur ekspor/cetak SPK Borongan (SPK-B).
-- [ ] Fitur Opname Fisik & re-assign tenaga borongan jika terjadi pergantian di tengah jalan.
+- [x] Implementasi form permintaan material oleh Mandor per WBS dan panel persetujuan di Gudang.
+- [x] Opsi pencatatan `is_customer_supplied = true` (harga = Rp 0) agar tidak masuk tagihan akhir.
+- [x] Modul penugasan tenaga borongan per sub-WBS beserta nilai kontrak.
+- [x] Fitur ekspor/cetak SPK Borongan (SPK-B).
+- [x] Fitur Opname Fisik & re-assign tenaga borongan jika terjadi pergantian di tengah jalan.
 
 **Verification**:
-- [ ] Mandor dapat merequest barang dan disetujui oleh gudang.
-- [ ] Barang dengan flag customer supplied bernilai Rp 0 di tagihan Kasir.
-- [ ] SPK-B dapat dicetak dan proses opname fisik dapat mereset progress/men-generate SPK-B lanjutan.
+- [x] Mandor dapat merequest barang dan disetujui oleh gudang.
+- [x] Barang dengan flag customer supplied bernilai Rp 0 di tagihan Kasir.
+- [x] SPK-B dapat dicetak dan proses opname fisik dapat mereset progress/men-generate SPK-B lanjutan.
 

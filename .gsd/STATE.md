@@ -1,10 +1,10 @@
 ## Current Position
 - **Phase**: 8 (Material Requisition & SPK Borongan)
-- **Task**: Plan 8.4 Completed, up next: Plan 8.5 (SPK Borongan Management)
-- **Status**: Active (resumed 2026-10-03T16:39:38+07:00)
+- **Task**: Plan 8.5 Completed. Phase 8 is complete.
+- **Status**: Active
 
 ## Last Session Summary
-- Executed Plan 8.4: Customer Supplied Material Integration. Updated KasirDashboard and AdminDashboardPage to ignore costs for customer-supplied materials (`is_customer_supplied = true`).
+- Executed Plan 8.5: SPK Borongan Management. Added `SpkBoronganPanel` for assigning workers, opname fisik cut-off, and integrated it into the Mandor WBS checklist.
 
 ## In-Progress Work
 - None.

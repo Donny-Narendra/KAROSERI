@@ -387,3 +387,28 @@ Context refresh. Finished Plan 8.4 and want a fresh context before starting Plan
 
 ### Handoff Notes
 Next step is to execute Plan 8.5 (/execute 8.5). Target is SPK Borongan Management.
+
+---
+
+## Session: 2026-10-03 16:41
+
+### Objective
+Execute Plan 8.5: SPK Borongan Management.
+
+### Accomplished
+- Created `SpkBoronganPanel.tsx` for Mandor to assign SPK Borongan workers.
+- Integrated into `MandorDashboard.tsx` via `WbsChecklist`.
+- Added support for Opname Fisik (Cut-Off) and cetak SPK-B.
+- Fixed TypeScript errors and verified successful build.
+
+### Verification
+- [x] SPK-B assignments can be created.
+- [x] SPK-B can be cut-off.
+- [x] Types and build pass without error.
+- [x] ROADMAP updated, Phase 8 is complete.
+
+### Paused Because
+Phase complete. Task execution is finished.
+
+### Handoff Notes
+Phase 8 is fully completed. The user can now review the system or mark the milestone complete (`/complete-milestone`).
