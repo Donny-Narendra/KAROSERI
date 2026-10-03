@@ -383,6 +383,10 @@ export const KasirDashboard: React.FC = () => {
                   </button>
                   <button
                     disabled={selectedSpk.paymentStatus !== 'LUNAS'}
+                    onClick={() => {
+                      alert('BAST (Berita Acara Serah Terima) has been printed for ' + selectedSpk.id);
+                      window.print();
+                    }}
                     className={`px-6 py-3 rounded font-medium flex items-center gap-2 transition-all ${
                       selectedSpk.paymentStatus === 'LUNAS'
                         ? 'bg-status-success text-white hover:bg-status-success/90 shadow-lg shadow-status-success/20'
