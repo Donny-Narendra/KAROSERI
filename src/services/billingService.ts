@@ -27,7 +27,7 @@ export const fetchDPHistory = async (): Promise<DPHistoryRecord[]> => {
     )
   `)
   .gt('dp_amount', 0)
-  .in('status', ['ACTIVE', 'READY_FOR_HANDOVER', 'COMPLETED']);
+  .in('status', ['ACTIVE', 'COMPLETED']);
 
   if (error) {
     console.error('Error fetching DP history:', error);

@@ -1,4 +1,4 @@
-export type SpkStatus = 'DRAFT' | 'PENDING_PAYMENT' | 'ACTIVE' | 'CANCELLED' | 'UNPAID' | 'COMPLETED' | 'active';
+import type { SpkStatus } from './database';
 
 export interface Spk {
   id: string;

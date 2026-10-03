@@ -121,10 +121,10 @@ export const KasirDashboard: React.FC = () => {
   };
 
   const selectedSpk = spks.find(s => s.id === selectedSpkId) || null;
-  const draftStatuses = ['DRAFT', 'PENDING_DP', 'PENDING_PAYMENT'];
+  const draftStatuses = ['DRAFT', 'PENDING_PAYMENT'];
   const displayedSpks = activeTab === 'DP' 
-    ? spks.filter(s => draftStatuses.includes(s.status.toUpperCase()))
-    : spks.filter(s => !draftStatuses.includes(s.status.toUpperCase()));
+    ? spks.filter(s => draftStatuses.includes(s.status))
+    : spks.filter(s => !draftStatuses.includes(s.status));
 
   const handleGenerateInvoice = async () => {
     if (!selectedSpk) return;
