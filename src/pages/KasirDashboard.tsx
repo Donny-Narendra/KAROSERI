@@ -16,7 +16,7 @@ interface MockSPK {
   overheadCost: number;
   totalEstimatedCost: number;
   qcStatus: 'PENDING' | 'PASS' | 'FAIL';
-  paymentStatus: 'UNPAID' | 'LUNAS';
+  paymentStatus: 'NO_INVOICE' | 'UNPAID' | 'LUNAS';
 }
 
 export const KasirDashboard: React.FC = () => {
@@ -49,7 +49,7 @@ export const KasirDashboard: React.FC = () => {
         }
 
         // payment status (latest invoice)
-        let paymentStatus = 'UNPAID';
+        let paymentStatus = 'NO_INVOICE';
         if (d.invoices && d.invoices.length > 0) {
            const sortedInv = d.invoices.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
            paymentStatus = sortedInv[0].status;
@@ -57,7 +57,7 @@ export const KasirDashboard: React.FC = () => {
 
         // actual material cost
         let actualMaterialCost = 0;
-        if (d.inventory_transactions) {
+        if (d.inventory_transactions && d.inventory_transactions.length > 0) {
           actualMaterialCost = d.inventory_transactions.reduce((acc: number, curr: any) => {
             const price = curr.materials?.unit_price || 0;
             return acc + (Number(curr.quantity_issued) * Number(price));
@@ -72,6 +72,13 @@ export const KasirDashboard: React.FC = () => {
            actualLaborCost = Number(d.rab_estimations[0].total_labor_cost || 0);
            overheadCost = Number(d.rab_estimations[0].total_overhead_cost || 0);
            totalEstimatedCost = Number(d.rab_estimations[0].total_estimated_cost || 0);
+        } else if (d.total_estimated_cost) {
+           totalEstimatedCost = Number(d.total_estimated_cost);
+           actualLaborCost = totalEstimatedCost * 0.3; // fallback split
+        }
+
+        if (actualMaterialCost === 0 && totalEstimatedCost > 0) {
+           actualMaterialCost = totalEstimatedCost - actualLaborCost - overheadCost;
         }
 
         return {
@@ -103,7 +110,7 @@ export const KasirDashboard: React.FC = () => {
   const handleGenerateInvoice = async () => {
     if (!selectedSpk) return;
     
-    const totalAmount = (selectedSpk.materialCost + selectedSpk.jasaCost) - selectedSpk.dpAmount;
+    const totalAmount = Math.max(0, (selectedSpk.materialCost + selectedSpk.jasaCost) - selectedSpk.dpAmount);
     
     const { error } = await supabase
       .from('invoices')
@@ -121,6 +128,7 @@ export const KasirDashboard: React.FC = () => {
       alert('Failed to generate invoice');
     } else {
       alert('Invoice generated successfully.');
+      window.print();
       fetchSpks();
     }
   };
@@ -351,7 +359,7 @@ export const KasirDashboard: React.FC = () => {
               <div className="bg-primary/5 border border-primary/20 rounded-lg p-5 flex justify-between items-center mb-8">
                 <span className="text-lg font-medium text-text-primary">Final Bill to Customer</span>
                 <span className="text-2xl font-bold text-primary">
-                  {formatCurrency((selectedSpk.materialCost + selectedSpk.jasaCost) - selectedSpk.dpAmount)}
+                  {formatCurrency(Math.max(0, (selectedSpk.materialCost + selectedSpk.jasaCost) - selectedSpk.dpAmount))}
                 </span>
               </div>
 
@@ -359,10 +367,10 @@ export const KasirDashboard: React.FC = () => {
               {activeTab === 'FINAL' && (
                 <div className="flex justify-end gap-4">
                   <button
-                    disabled={selectedSpk.qcStatus !== 'PASS' || selectedSpk.paymentStatus === 'LUNAS'}
+                    disabled={selectedSpk.qcStatus !== 'PASS' || selectedSpk.paymentStatus !== 'UNPAID'}
                     onClick={handleMarkAsPaid}
                     className={`px-4 py-2 rounded font-medium flex items-center gap-2 transition-all ${
-                      selectedSpk.qcStatus === 'PASS' && selectedSpk.paymentStatus !== 'LUNAS'
+                      selectedSpk.qcStatus === 'PASS' && selectedSpk.paymentStatus === 'UNPAID'
                         ? 'bg-secondary text-secondary-foreground hover:bg-secondary/90'
                         : 'hidden'
                     }`}
@@ -370,10 +378,10 @@ export const KasirDashboard: React.FC = () => {
                     Mark as Paid
                   </button>
                   <button
-                    disabled={selectedSpk.qcStatus !== 'PASS' || selectedSpk.paymentStatus === 'LUNAS' || (selectedSpk.paymentStatus === 'UNPAID' && spks.find(s => s.id === selectedSpk.id)?.paymentStatus === 'UNPAID')}
+                    disabled={selectedSpk.qcStatus !== 'PASS' || selectedSpk.paymentStatus !== 'NO_INVOICE'}
                     onClick={handleGenerateInvoice}
                     className={`px-6 py-3 rounded font-medium flex items-center gap-2 transition-all ${
-                      selectedSpk.qcStatus === 'PASS' && selectedSpk.paymentStatus !== 'LUNAS'
+                      selectedSpk.qcStatus === 'PASS' && selectedSpk.paymentStatus === 'NO_INVOICE'
                         ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20'
                         : 'bg-surface-border text-text-muted cursor-not-allowed'
                     }`}

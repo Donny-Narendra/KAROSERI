@@ -57,6 +57,11 @@ async function run() {
       DO $$ BEGIN
         CREATE POLICY "Kasir can read materials" ON public.materials FOR SELECT USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'kasir' );
       EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+      -- Mandor access to spk
+      DO $$ BEGIN
+        CREATE POLICY "Mandor can read spk" ON public.spk FOR SELECT USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'mandor' );
+      EXCEPTION WHEN duplicate_object THEN NULL; END $$;
     `);
     console.log('Successfully updated RLS policies and created payments table.');
   } catch (err) {

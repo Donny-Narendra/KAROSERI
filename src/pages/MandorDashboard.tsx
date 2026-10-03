@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { WbsChecklist } from '../components/WbsChecklist';
 import { supabase } from '../lib/supabaseClient';
+import type { Spk } from '../types/spk';
 
 import { QcInspectionForm } from '../components/QcInspectionForm';
 
 export const MandorDashboard: React.FC = () => {
   const { profile, signOut } = useAuth();
   const [selectedSpk, setSelectedSpk] = useState<string>('');
-  const [spks, setSpks] = useState<any[]>([]);
+  const [spks, setSpks] = useState<Spk[]>([]);
 
   useEffect(() => {
     fetchSpks();
@@ -16,7 +17,8 @@ export const MandorDashboard: React.FC = () => {
 
   const fetchSpks = async () => {
     const { data, error } = await supabase.from('spk').select('*').eq('status', 'ACTIVE');
-    if (data) setSpks(data);
+    console.log('Fetched SPKs for Mandor:', data, error);
+    if (data) setSpks(data as Spk[]);
     if (error) console.error('Error fetching SPKs:', error);
   };
 
@@ -48,30 +50,36 @@ export const MandorDashboard: React.FC = () => {
           
           <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
             <h2 className="text-xl font-display font-semibold mb-4">Select Active SPK</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {spks.map(spk => (
-                <button
-                  key={spk.id}
-                  onClick={() => setSelectedSpk(spk.id)}
-                  className={`p-6 rounded-lg border text-left transition-all ${
-                    selectedSpk === spk.id 
-                      ? 'border-primary bg-primary/10' 
-                      : 'border-border bg-background hover:border-primary/50'
-                  }`}
-                >
-                  <div className="text-lg font-bold">{spk.spk_no}</div>
-                  <div className="text-text-muted">{spk.customer_name}</div>
-                  <div className="text-sm mt-2 text-text">
-                    <span className="inline-block bg-background px-2 py-1 rounded border border-border mr-2">
-                      {spk.vehicle_number || 'N/A'}
-                    </span>
-                    <span className="text-text-muted">
-                      In: {new Date(spk.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
+            {spks.length === 0 ? (
+              <div className="text-center py-8 text-text-muted border-2 border-dashed border-border rounded-lg">
+                Tidak ada SPK aktif saat ini
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {spks.map(spk => (
+                  <button
+                    key={spk.id}
+                    onClick={() => setSelectedSpk(spk.id)}
+                    className={`p-6 rounded-lg border text-left transition-all ${
+                      selectedSpk === spk.id 
+                        ? 'border-primary bg-primary/10' 
+                        : 'border-border bg-background hover:border-primary/50'
+                    }`}
+                  >
+                    <div className="text-lg font-bold">{spk.spk_no}</div>
+                    <div className="text-text-muted">{spk.customer_name}</div>
+                    <div className="text-sm mt-2 text-text">
+                      <span className="inline-block bg-background px-2 py-1 rounded border border-border mr-2">
+                        {spk.vehicle_number || 'N/A'}
+                      </span>
+                      <span className="text-text-muted">
+                        In: {new Date(spk.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {selectedSpk && (
