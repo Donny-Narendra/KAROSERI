@@ -102,12 +102,12 @@
 ---
 
 ### Phase 7: Riwayat Pembayaran DP (Kasir)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Implementasi Fitur Riwayat/Histori Pembayaran DP di Kasir Dashboard.
 **Depends on**: Phase 6
 
 **Tasks**:
-- [ ] Tambahkan filter Riwayat DP Diterima dan komponen tabel histori pada KasirDashboard.
+- [x] Tambahkan filter Riwayat DP Diterima dan komponen tabel histori pada KasirDashboard.
 
 **Verification**:
-- [ ] Kasir dapat melihat seluruh riwayat uang muka yang telah dibayarkan konsumen.
+- [x] Kasir dapat melihat seluruh riwayat uang muka yang telah dibayarkan konsumen.
