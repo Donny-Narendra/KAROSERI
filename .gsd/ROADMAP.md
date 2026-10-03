@@ -87,15 +87,15 @@
 ---
 
 ### Phase 6: Monitoring (Admin) - Wave 4
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Mengeksekusi Wave 4 dari Gap Analysis untuk menambahkan visualisasi Actual Costing di Admin Dashboard dan Audit Log untuk SPK Cancel.
 **Depends on**: Phase 5
 
 **Tasks**:
-- [ ] Visualisasi dasbor Actual Costing yang membandingkan Total Estimasi RAB dengan Pengeluaran Logistik (inventory_transactions).
-- [ ] Tambahkan Audit Log Monitoring SPK Cancel di Admin Dashboard.
+- [x] Visualisasi dasbor Actual Costing yang membandingkan Total Estimasi RAB dengan Pengeluaran Logistik (inventory_transactions).
+- [x] Tambahkan Audit Log Monitoring SPK Cancel di Admin Dashboard.
 
 **Verification**:
-- [ ] Admin Dashboard memunculkan chart komparasi biaya aktual vs estimasi.
-- [ ] Terdapat tabel log khusus pembatalan (status = CANCELLED).
+- [x] Admin Dashboard memunculkan chart komparasi biaya aktual vs estimasi.
+- [x] Terdapat tabel log khusus pembatalan (status = CANCELLED).
 
