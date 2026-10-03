@@ -1,7 +1,7 @@
 ## Current Position
 - **Phase**: 8 (Material Requisition & SPK Borongan)
 - **Task**: Bug fix for Goods Issue dropdown
-- **Status**: Paused at 2026-10-03T16:58:34+07:00
+- **Status**: Active (resumed 2026-10-03T16:59:41+07:00)
 
 ## Last Session Summary
 - Fixed `GoodsIssueForm.tsx` and `GoodsReturnForm.tsx` to correctly fetch ACTIVE SPKs and specific columns.
