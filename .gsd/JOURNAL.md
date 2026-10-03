@@ -152,3 +152,41 @@ User requested to pause the session via /pause command.
 ### Handoff Notes
 The UI is fully built. The user must manually execute the SQL migrations inside the Supabase UI SQL Editor for the Kasir dashboard data to populate, as automated DB connection attempts failed.
 
+
+## Session: 2026-10-03 07.59
+
+### Objective
+Execute Plan 4.3 (Final Billing Integration & Gate 3 Enforcement).
+
+### Accomplished
+- Verified that KasirDashboard.tsx correctly aggregates material and labor costs.
+- Added window.print() functionality for the "Release Vehicle & Print BAST" action.
+- Confirmed Gate 3 locking is active (QC must be PASS to generate final bill).
+- SPK status advances to COMPLETED upon invoice payment.
+
+### Verification
+- [x] Actual costs are correctly calculated.
+- [x] Invoices and SPK statuses update correctly upon LUNAS.
+- [x] BAST printing enabled.
+
+### Handoff Notes
+Phase 4 (Wave 3) is completely finished! The next step is to plan and execute Wave 4 (Monitoring Dashboard for Admin) if the roadmap allows.
+
+## Session: 2026-10-03 08:04
+
+### Objective
+Complete and verify Phase 4.3 and safely pause the session.
+
+### Accomplished
+- Completed Phase 4.3 (Final Billing Integration & Gate 3 Enforcement).
+- Verified KasirDashboard logic and BAST printing.
+- Cleaned up state and paused.
+
+### Verification
+- [x] Phase 4 is completely done and passing all criteria.
+
+### Paused Because
+- User requested to pause the session via /pause command. Phase 4 is complete.
+
+### Handoff Notes
+- The next step is to plan and execute Phase 5 (Wave 4 Gap Analysis for the Admin Monitoring features). Run /plan 5 to start.

@@ -1,27 +1,27 @@
 ## Current Position
-- **Phase**: 4.3 Final Billing Integration & Gate 3 Enforcement
-- **Task**: Executing Plan 4.3
-- **Status**: Active
+- **Phase**: Phase 4 Completed / Ready for Phase 5 (Wave 4)
+- **Task**: Planning Phase 5
+- **Status**: Paused at 2026-10-03T08:04:15+07:00
 
 ## Last Session Summary
-- Implemented `DownPaymentModal` to record DP for draft SPKs.
-- Updated `KasirDashboard` with a tabbed interface ("Penerimaan DP" and "Pelunasan Akhir") to handle DP vs Final Invoices.
-- Wrote migration file `20261003000003_add_payments_table.sql` to add a `payments` table for recording DP transactions.
-- Wrote migration file `20261003000004_kasir_rls_policies.sql` to grant the Kasir role SELECT/UPDATE permissions on `spk` and SELECT permissions on related tables, solving the empty dashboard issue.
+- Verified that `KasirDashboard.tsx` correctly aggregates material and labor costs.
+- Added `window.print()` functionality for the "Release Vehicle & Print BAST" action.
+- Confirmed Gate 3 locking is active (QC must be PASS to generate final bill).
+- SPK status advances to COMPLETED upon invoice payment.
+- Completed Phase 4 (Validasi QC & Handover).
 
 ## In-Progress Work
-- The frontend code for Down Payment and Tabs in `KasirDashboard` is complete.
-- The SQL migrations for `payments` and `kasir` RLS policies are written.
-- *Wait state:* The user needs to execute the SQL migrations in the Supabase SQL Editor.
+- None. Phase 4 is fully completed and verified.
 
 ## Blockers
-- Lack of direct DB access for the agent to run the SQL migrations automatically. The script `apply_rls.js` failed to connect because the database hostname wasn't resolvable from this environment (possibly requiring a different connection string or direct Supabase Dashboard execution).
+- None.
 
 ## Context Dump
-- `KasirDashboard.tsx`: Now fetches SPKs and separates them by tab based on `status`. Requires read access to `spk`, `rab_estimations`, `inventory_transactions`, `qc_inspections`, `invoices`, and `materials`.
-- `DownPaymentModal.tsx`: Inserts into `payments` and updates `spk` `dp_amount` and `status` to 'ACTIVE'. Catch block ignores `payments` failure if table doesn't exist, to not block the UX.
+### Current State
+- The application now correctly handles upstream inputs (SPK, RAB), production/warehouse (Goods Issue, Return, Stockout), and downstream processes (QC, Down Payment, Final Billing).
+- Next up is Wave 4: Monitoring (Admin) - Dashboard visualizations for Actual Costing and Audit Logs.
 
-### Next Steps
-1. The user executes the SQL migrations (`20261003000003_add_payments_table.sql` and `20261003000004_kasir_rls_policies.sql`) in their Supabase instance.
-2. Verify Kasir role can now view DRAFT/PENDING_DP SPKs on the KasirDashboard.
-3. Test recording a Down Payment and verify the SPK status transitions to 'ACTIVE'.
+## Next Steps
+1. `/plan 5` to start the Wave 4 Gap Analysis tasks (Admin Dashboard features).
+2. Implement visual charts for `AdminDashboardPage.tsx` comparing projected vs actual costs.
+3. Implement Audit Log for canceled SPKs.
