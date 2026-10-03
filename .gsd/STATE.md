@@ -1,7 +1,7 @@
 ## Current Position
 - **Phase**: Down Payment Implementation (Kasir)
 - **Task**: Creating the DP feature for KasirDashboard and fixing Kasir RLS policies
-- **Status**: Paused at 2026-10-03T07:53:21+07:00
+- **Status**: Active (resumed 2026-10-03T07:54:22+07:00)
 
 ## Last Session Summary
 - Implemented `DownPaymentModal` to record DP for draft SPKs.
