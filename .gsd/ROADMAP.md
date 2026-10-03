@@ -99,3 +99,15 @@
 - [x] Admin Dashboard memunculkan chart komparasi biaya aktual vs estimasi.
 - [x] Terdapat tabel log khusus pembatalan (status = CANCELLED).
 
+---
+
+### Phase 7: Riwayat Pembayaran DP (Kasir)
+**Status**: ⬜ Not Started
+**Objective**: Implementasi Fitur Riwayat/Histori Pembayaran DP di Kasir Dashboard.
+**Depends on**: Phase 6
+
+**Tasks**:
+- [ ] Tambahkan filter Riwayat DP Diterima dan komponen tabel histori pada KasirDashboard.
+
+**Verification**:
+- [ ] Kasir dapat melihat seluruh riwayat uang muka yang telah dibayarkan konsumen.
