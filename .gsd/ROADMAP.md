@@ -134,15 +134,15 @@
 ---
 
 ### Phase 9: Manajemen Inventaris Bahan Gudang
-**Status**: ⚪ Not Started
+**Status**: ✅ Complete
 **Objective**: Implementasi Fitur Manajemen Inventaris Bahan Gudang (CRUD, Export XLSX, dan Smart Bulk Import)
 **Depends on**: Phase 8
 
 **Tasks**:
-- [ ] Buat komponen tabel manajemen inventaris dan modal CRUD di Warehouse
-- [ ] Implementasi fitur download/export seluruh data materials ke XLSX
-- [ ] Implementasi smart import XLSX dengan logika skip, update, dan insert baru
+- [x] Buat komponen tabel manajemen inventaris dan modal CRUD di Warehouse
+- [x] Implementasi fitur download/export seluruh data materials ke XLSX
+- [x] Implementasi smart import XLSX dengan logika skip, update, dan insert baru
 
 **Verification**:
-- [ ] UI Manajemen Inventaris berfungsi dan sinkron dengan Supabase.
-- [ ] Export dan import file XLSX tervalidasi.
+- [x] UI Manajemen Inventaris berfungsi dan sinkron dengan Supabase.
+- [x] Export dan import file XLSX tervalidasi.
