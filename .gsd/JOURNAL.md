@@ -255,3 +255,26 @@ Execute Plan 6.1 (Actual vs Projected Costing Visualization).
 
 ### Handoff Notes
 - Next step is to execute Plan 6.2 (Audit Log Monitoring for Cancelled SPKs).
+
+---
+
+## Session: 2026-10-03 15:25
+
+### Objective
+Execute Plan 7.1 (Riwayat Pembayaran DP di Kasir Dashboard).
+
+### Accomplished
+- Planned Phase 7 based on user requirements.
+- Executed Plan 7.1: Created `billingService.ts` and `DpHistoryList.tsx`.
+- Updated `KasirDashboard.tsx` to include sub-tabs for pending DP and DP history.
+- Verified Phase 7 and marked the roadmap as complete.
+
+### Verification
+- [x] npm run build successful.
+- [x] Code committed.
+
+### Paused Because
+- Session complete. All phases for the milestone are finished.
+
+### Handoff Notes
+- The user can proceed to run `/complete-milestone` to archive the current milestone or `/new-milestone`.
