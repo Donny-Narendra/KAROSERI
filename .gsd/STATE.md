@@ -1,11 +1,11 @@
 ## Current Position
-- **Phase**: 8 (Material Requisition & SPK Borongan)
-- **Task**: Bug fix for Goods Issue dropdown
-- **Status**: Active (resumed 2026-10-03T16:59:41+07:00)
+- **Phase**: 9 (Manajemen Inventaris Bahan Gudang)
+- **Task**: Plan 1 completed
+- **Status**: Active
 
 ## Last Session Summary
-- Fixed `GoodsIssueForm.tsx` and `GoodsReturnForm.tsx` to correctly fetch ACTIVE SPKs and specific columns.
-- Added RLS policies for `petugas_gudang` to access `spk`, `materials`, `rab_estimations`, and `rab_items`.
+- Added `InventoryManager.tsx` to `WarehouseDashboard.tsx` to handle CRUD operations on `materials` table.
+- Created `inventoryService.ts` for materials database queries.
 
 ## In-Progress Work
 - None.
@@ -15,15 +15,13 @@
 
 ## Context Dump
 ### Decisions Made
-- Replaced `.neq('status', 'CANCELLED')` with `.eq('status', 'ACTIVE')` in dropdowns.
-- Created `20261003000007_warehouse_rls_policies.sql`.
+- Added a new 'Manajemen Inventaris' tab alongside other Warehouse operations.
 
 ### Files of Interest
-- `src/components/GoodsIssueForm.tsx`
-- `src/components/GoodsReturnForm.tsx`
-- `supabase/migrations/20261003000007_warehouse_rls_policies.sql`
+- `src/components/InventoryManager.tsx`
+- `src/services/inventoryService.ts`
+- `src/pages/WarehouseDashboard.tsx`
 
 ## Next Steps
-1. The user must manually apply `20261003000007_warehouse_rls_policies.sql` in Supabase SQL Editor.
-2. Review the system and run `/complete-milestone` to archive the current milestone.
-3. Plan next milestone with `/new-milestone` if applicable.
+1. Execute Phase 9 Plan 2 (Export XLSX).
+2. Execute Phase 9 Plan 3 (Import XLSX).
