@@ -3,6 +3,9 @@ import { useAuth } from '../context/AuthContext';
 import { AlertCircle, FileText, CheckCircle, Calculator, Lock, Receipt } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { DownPaymentModal } from '../components/DownPaymentModal';
+import { DpHistoryList } from '../components/DpHistoryList';
+import { fetchDPHistory } from '../services/billingService';
+import type { DPHistoryRecord } from '../services/billingService';
 
 interface MockSPK {
   id: string;
@@ -24,11 +27,27 @@ export const KasirDashboard: React.FC = () => {
   const [spks, setSpks] = useState<MockSPK[]>([]);
   const [selectedSpkId, setSelectedSpkId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'DP' | 'FINAL'>('DP');
+  const [dpSubTab, setDpSubTab] = useState<'PENDING' | 'HISTORY'>('PENDING');
   const [isDpModalOpen, setIsDpModalOpen] = useState(false);
+  const [dpHistory, setDpHistory] = useState<DPHistoryRecord[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   useEffect(() => {
     fetchSpks();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'DP' && dpSubTab === 'HISTORY') {
+      loadHistory();
+    }
+  }, [activeTab, dpSubTab]);
+
+  const loadHistory = async () => {
+    setLoadingHistory(true);
+    const history = await fetchDPHistory();
+    setDpHistory(history);
+    setLoadingHistory(false);
+  };
 
   const fetchSpks = async () => {
     const { data, error } = await supabase.from('spk').select(`
@@ -208,7 +227,7 @@ export const KasirDashboard: React.FC = () => {
         <div className="lg:w-1/3 flex flex-col gap-4">
           <div className="flex bg-surface-border p-1 rounded-lg">
             <button 
-              onClick={() => { setActiveTab('DP'); setSelectedSpkId(null); }}
+              onClick={() => { setActiveTab('DP'); setDpSubTab('PENDING'); setSelectedSpkId(null); }}
               className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'DP' ? 'bg-surface text-primary shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
             >
               Penerimaan DP
@@ -221,12 +240,33 @@ export const KasirDashboard: React.FC = () => {
             </button>
           </div>
 
-          <h2 className="text-lg font-display font-medium text-text-primary mb-2 mt-2">
-            {activeTab === 'DP' ? 'Menunggu DP' : 'Select SPK for Billing'}
+          {activeTab === 'DP' && (
+            <div className="flex bg-surface border border-surface-border p-1 rounded-lg mt-2">
+              <button 
+                onClick={() => setDpSubTab('PENDING')}
+                className={`flex-1 py-1.5 text-xs font-medium rounded transition-colors ${dpSubTab === 'PENDING' ? 'bg-surface-border text-text-primary shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
+              >
+                Menunggu DP
+              </button>
+              <button 
+                onClick={() => { setDpSubTab('HISTORY'); setSelectedSpkId(null); }}
+                className={`flex-1 py-1.5 text-xs font-medium rounded transition-colors ${dpSubTab === 'HISTORY' ? 'bg-surface-border text-text-primary shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
+              >
+                Riwayat DP
+              </button>
+            </div>
+          )}
+
+          <h2 className="text-lg font-display font-medium text-text-primary mb-2 mt-4">
+            {activeTab === 'DP' ? (dpSubTab === 'HISTORY' ? 'Riwayat DP Diterima' : 'Menunggu DP') : 'Select SPK for Billing'}
           </h2>
           
           <div className="space-y-3">
-            {displayedSpks.length === 0 ? (
+            {activeTab === 'DP' && dpSubTab === 'HISTORY' ? (
+              <div className="p-4 text-center text-sm text-text-muted border border-dashed border-surface-border rounded-lg bg-surface/30">
+                Data riwayat ditampilkan di panel utama.
+              </div>
+            ) : displayedSpks.length === 0 ? (
               <div className="text-center p-6 border border-dashed border-surface-border rounded-lg text-text-muted">
                 Tidak ada data.
               </div>
@@ -275,7 +315,14 @@ export const KasirDashboard: React.FC = () => {
 
         {/* Billing Calculator & Gate 3 Enforcement */}
         <div className="lg:w-2/3">
-          {selectedSpk ? (
+          {activeTab === 'DP' && dpSubTab === 'HISTORY' ? (
+            <div className="bg-surface rounded-xl border border-surface-border p-6 shadow-xl">
+              <h2 className="text-2xl font-display font-semibold text-text-primary mb-6">
+                Riwayat DP Diterima
+              </h2>
+              <DpHistoryList history={dpHistory} loading={loadingHistory} />
+            </div>
+          ) : selectedSpk ? (
             <div className="bg-surface rounded-xl border border-surface-border p-6 shadow-xl">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-display font-semibold text-text-primary">
