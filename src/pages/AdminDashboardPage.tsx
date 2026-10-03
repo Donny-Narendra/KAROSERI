@@ -16,7 +16,11 @@ export const AdminDashboardPage: React.FC = () => {
 
   const fetchSpks = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from('spk').select('*').order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('spk').select(`
+      *,
+      rab_estimations ( total_estimated_cost, total_labor_cost, total_overhead_cost ),
+      inventory_transactions ( quantity_issued, materials ( unit_price ) )
+    `).order('created_at', { ascending: false });
     if (data) setSpks(data);
     if (error) console.error('Error fetching SPKs:', error);
     setLoading(false);
@@ -31,6 +35,38 @@ export const AdminDashboardPage: React.FC = () => {
 
   const overbudgetCount = spks.filter(s => s.is_overbudget === true || s.material_gate_status === 'OVERBUDGET').length;
   const pendingQcCount = spks.filter(s => s.qc_status === 'PENDING' || s.wbs_status === 'WAITING_REVIEW').length;
+
+  const validSpksForCosting = spks.filter(s => !['CANCELLED', 'DRAFT', 'PENDING_DP'].includes(s.status));
+  let totalProjectedCost = 0;
+  let totalActualCost = 0;
+
+  validSpksForCosting.forEach(spk => {
+    let estCost = 0;
+    let laborCost = 0;
+    let overheadCost = 0;
+    if (spk.rab_estimations && spk.rab_estimations.length > 0) {
+      estCost = Number(spk.rab_estimations[0].total_estimated_cost || 0);
+      laborCost = Number(spk.rab_estimations[0].total_labor_cost || 0);
+      overheadCost = Number(spk.rab_estimations[0].total_overhead_cost || 0);
+    } else if (spk.total_estimated_cost) {
+      estCost = Number(spk.total_estimated_cost);
+      laborCost = estCost * 0.3; 
+    }
+    let actualMaterial = 0;
+    if (spk.inventory_transactions && spk.inventory_transactions.length > 0) {
+      actualMaterial = spk.inventory_transactions.reduce((acc: number, curr: any) => {
+        const price = curr.materials?.unit_price || 0;
+        return acc + (Number(curr.quantity_issued) * Number(price));
+      }, 0);
+    }
+    if (actualMaterial === 0 && estCost > 0) {
+      actualMaterial = Math.max(0, estCost - laborCost - overheadCost);
+    }
+    totalProjectedCost += estCost;
+    totalActualCost += (actualMaterial + laborCost + overheadCost);
+  });
+  
+  const marginPercentage = totalProjectedCost > 0 ? ((totalProjectedCost - totalActualCost) / totalProjectedCost) * 100 : 0;
 
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
@@ -141,6 +177,45 @@ export const AdminDashboardPage: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Actual Costing vs Projected Margin */}
+        <div className="bg-surface border border-border rounded-lg overflow-hidden mt-8 p-6">
+          <h3 className="font-bold text-text font-display mb-4">{t('admin.costing_margin', 'Actual Costing vs Projected Margin')}</h3>
+          {loading ? (
+            <div className="h-20 bg-surface-hover animate-pulse rounded"></div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex justify-between items-end">
+                <div>
+                  <p className="text-sm text-text-muted font-mono mb-1">Total Actual Cost vs Projected</p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-text">
+                      {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(totalActualCost)}
+                    </span>
+                    <span className="text-sm text-text-muted">
+                      / {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(totalProjectedCost)}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-text-muted font-mono mb-1">Profit Margin</p>
+                  <span className={`text-xl font-bold ${marginPercentage >= 0 ? 'text-status-success' : 'text-status-danger'}`}>
+                    {marginPercentage > 0 ? '+' : ''}{marginPercentage.toFixed(2)}%
+                  </span>
+                </div>
+              </div>
+              <div className="w-full bg-surface-hover rounded-full h-4 overflow-hidden flex">
+                <div 
+                  className={`h-full transition-all ${totalActualCost > totalProjectedCost ? 'bg-status-danger' : 'bg-primary'}`} 
+                  style={{ width: `${totalProjectedCost > 0 ? Math.min(100, (totalActualCost / totalProjectedCost) * 100) : 0}%` }}
+                ></div>
+              </div>
+              <p className="text-xs text-text-muted text-center mt-2">
+                * Cost is calculated from {validSpksForCosting.length} active/completed SPKs with RAB estimations.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Monitoring Table */}
