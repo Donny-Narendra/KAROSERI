@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, AlertCircle, Save, X, Search, CheckCircle2 } from 'lucide-react';
-import { inventoryService, Material } from '../services/inventoryService';
+import { Plus, Edit2, Trash2, AlertCircle, Save, X, Search, CheckCircle2, Download } from 'lucide-react';
+import { inventoryService, type Material } from '../services/inventoryService';
+import { exportMaterialsToExcel } from '../utils/excelExport';
 
 export const InventoryManager: React.FC = () => {
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -151,6 +152,14 @@ export const InventoryManager: React.FC = () => {
               className="w-full bg-background border border-border rounded pl-9 pr-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
             />
           </div>
+          <button 
+            onClick={() => exportMaterialsToExcel(materials)}
+            className="bg-surface-hover hover:bg-border text-text border border-border px-3 py-1.5 rounded text-sm font-medium transition flex items-center gap-1.5 shrink-0"
+            title="Download Data Stok (Excel)"
+          >
+            <Download className="w-4 h-4" />
+            Download
+          </button>
           <button 
             onClick={() => handleOpenModal()}
             className="bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded text-sm font-medium transition flex items-center gap-1.5 shrink-0"
