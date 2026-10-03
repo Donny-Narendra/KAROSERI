@@ -130,3 +130,25 @@ Context refresh. Finished Plan 4.2 and want a fresh context before starting Plan
 
 ### Handoff Notes
 Next step is to execute Plan 4.3. Reference `.gsd/phases/4/3-PLAN.md`.
+
+## Session: 2026-10-03 07:53
+
+### Objective
+Implement Kasir Down Payment (DP) recording feature.
+
+### Accomplished
+- Added tabbed layout for DP vs Final Billing in KasirDashboard
+- Created DownPaymentModal for DP recording
+- Wrote SQL migrations for the payments table and Kasir RLS policies
+
+### Verification
+- [x] Frontend compiles successfully without TS errors
+- [ ] Kasir can view draft SPKs (requires user to apply SQL migration)
+- [ ] Kasir can record DP and advance SPK to ACTIVE (requires user to apply SQL migration)
+
+### Paused Because
+User requested to pause the session via /pause command.
+
+### Handoff Notes
+The UI is fully built. The user must manually execute the SQL migrations inside the Supabase UI SQL Editor for the Kasir dashboard data to populate, as automated DB connection attempts failed.
+
