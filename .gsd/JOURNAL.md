@@ -321,3 +321,25 @@ Context refresh. Finished Plan 8.1 and want a fresh context before starting Plan
 
 ### Handoff Notes
 Next step is to execute Plan 8.2 (`/execute 8`). Target is `src/components/MaterialRequisitionForm.tsx` and `src/pages/MandorDashboard.tsx`.
+
+---
+
+## Session: 2026-10-03 16:11
+
+### Objective
+Execute Plan 8.2 (Mandor Material Requisition).
+
+### Accomplished
+- Created `MaterialRequisitionForm.tsx` for Mandor to request materials per WBS.
+- Integrated the form into `MandorDashboard.tsx` via `WbsChecklist.tsx` with a "Minta Material" button.
+- Verified compilation and committed the changes.
+
+### Verification
+- [x] Material requisition component exists and compiles.
+- [x] Mandor UI includes material requisition feature.
+
+### Paused Because
+Context refresh. Finished Plan 8.2 and want a fresh context before starting Plan 8.3.
+
+### Handoff Notes
+Next step is to execute Plan 8.3 (`/execute 8.3`). Target is `src/components/RequisitionApproval.tsx` and `src/pages/GudangDashboard.tsx`.
