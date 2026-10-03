@@ -1,7 +1,7 @@
 ## Current Position
 - **Phase**: 8 (Material Requisition & SPK Borongan)
 - **Task**: Plan 8.4 Completed, up next: Plan 8.5 (SPK Borongan Management)
-- **Status**: Paused at 2026-10-03T16:38:51+07:00
+- **Status**: Active (resumed 2026-10-03T16:39:38+07:00)
 
 ## Last Session Summary
 - Executed Plan 8.4: Customer Supplied Material Integration. Updated KasirDashboard and AdminDashboardPage to ignore costs for customer-supplied materials (`is_customer_supplied = true`).
