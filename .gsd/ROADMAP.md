@@ -68,3 +68,18 @@
 - [x] Laporan QC tersimpan ke database.
 - [x] Bill akhir berdasarkan real cost (inventory_transactions).
 
+---
+
+### Phase 5: Integrasi Mandor Terminal (Wave 4)
+**Status**: ✅ Complete
+**Objective**: Implementasi fitur fetching Active SPK dan integrasi penuh Taskboard WBS serta QC Hard-Gate untuk user Mandor di lantai bengkel.
+**Depends on**: Phase 4
+
+**Tasks**:
+- [x] Koneksikan fetching SPK aktif dan state selector di Mandor Terminal.
+- [x] Aktifkan integrasi riil Supabase pada WbsChecklist dan QcInspectionForm.
+
+**Verification**:
+- [x] SPK berstatus ACTIVE muncul di Mandor Dashboard.
+- [x] WBS Checklist tersimpan ke DB.
+- [x] Hasil QC Inspection tersimpan ke tabel `qc_inspections`.
