@@ -434,3 +434,25 @@ User requested `/pause`.
 
 ### Handoff Notes
 Run `/complete-milestone` to wrap up Milestone 2 or `/new-milestone` to start the next one.
+
+---
+
+## Session: 2026-10-03 16:58
+
+### Objective
+Perbaikan Dropdown SPK Kosong pada Halaman /warehouse (Goods Issue).
+
+### Accomplished
+- Fixed `GoodsIssueForm.tsx` and `GoodsReturnForm.tsx` queries to fetch 'ACTIVE' SPKs.
+- Created RLS policy migration for warehouse access to SPK and material tables.
+- Verified fix with successful build.
+
+### Verification
+- [x] npm run build successful.
+- [ ] User needs to apply SQL migration manually to verify on live DB.
+
+### Paused Because
+User requested `/pause`. Task is complete.
+
+### Handoff Notes
+SQL migration `20261003000007_warehouse_rls_policies.sql` must be applied. Then run `/complete-milestone` if the milestone is completely done.

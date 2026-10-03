@@ -1,29 +1,29 @@
 ## Current Position
 - **Phase**: 8 (Material Requisition & SPK Borongan)
-- **Task**: Phase 8 is complete.
-- **Status**: Active (resumed 2026-10-03T16:48:00+07:00)
+- **Task**: Bug fix for Goods Issue dropdown
+- **Status**: Paused at 2026-10-03T16:58:34+07:00
 
 ## Last Session Summary
-- Executed Plan 8.5: SPK Borongan Management. Added `SpkBoronganPanel` for assigning workers, opname fisik cut-off, and integrated it into the Mandor WBS checklist.
-- Completed Phase 8 execution and verification.
+- Fixed `GoodsIssueForm.tsx` and `GoodsReturnForm.tsx` to correctly fetch ACTIVE SPKs and specific columns.
+- Added RLS policies for `petugas_gudang` to access `spk`, `materials`, `rab_estimations`, and `rab_items`.
 
 ## In-Progress Work
-- None. All tasks for Phase 8 are complete and committed.
+- None.
 
 ## Blockers
 - None.
 
 ## Context Dump
-
 ### Decisions Made
-- `SpkBoronganPanel` built as a modal triggered from `WbsChecklist`.
-- Uses `spk_borongan` table for records and handles `ACTIVE`, `CUT_OFF`, and `COMPLETED` statuses.
-- Print functionality built with native `window.print()` in a new tab.
+- Replaced `.neq('status', 'CANCELLED')` with `.eq('status', 'ACTIVE')` in dropdowns.
+- Created `20261003000007_warehouse_rls_policies.sql`.
 
 ### Files of Interest
-- `src/components/SpkBoronganPanel.tsx`: New panel.
-- `src/components/WbsChecklist.tsx`: Integrated the panel launch button.
+- `src/components/GoodsIssueForm.tsx`
+- `src/components/GoodsReturnForm.tsx`
+- `supabase/migrations/20261003000007_warehouse_rls_policies.sql`
 
 ## Next Steps
-1. Review the system and run `/complete-milestone` to archive the current milestone.
-2. Plan next milestone with `/new-milestone` if applicable.
+1. The user must manually apply `20261003000007_warehouse_rls_policies.sql` in Supabase SQL Editor.
+2. Review the system and run `/complete-milestone` to archive the current milestone.
+3. Plan next milestone with `/new-milestone` if applicable.
