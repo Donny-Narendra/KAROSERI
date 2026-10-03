@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, AlertCircle, Save, X, Search, CheckCircle2, Download } from 'lucide-react';
 import { inventoryService, type Material } from '../services/inventoryService';
 import { exportMaterialsToExcel } from '../utils/excelExport';
+import { ImportInventoryModal } from './ImportInventoryModal';
+import { Upload } from 'lucide-react';
 
 export const InventoryManager: React.FC = () => {
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -10,6 +12,7 @@ export const InventoryManager: React.FC = () => {
   
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -159,6 +162,14 @@ export const InventoryManager: React.FC = () => {
           >
             <Download className="w-4 h-4" />
             Download
+          </button>
+          <button 
+            onClick={() => setIsImportModalOpen(true)}
+            className="bg-surface-hover hover:bg-border text-text border border-border px-3 py-1.5 rounded text-sm font-medium transition flex items-center gap-1.5 shrink-0"
+            title="Import Data Stok (Excel)"
+          >
+            <Upload className="w-4 h-4" />
+            Import
           </button>
           <button 
             onClick={() => handleOpenModal()}
@@ -396,6 +407,18 @@ export const InventoryManager: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Import Modal */}
+      {isImportModalOpen && (
+        <ImportInventoryModal 
+          onClose={() => setIsImportModalOpen(false)}
+          onSuccess={(msg) => {
+            showMessage(msg);
+            loadMaterials();
+          }}
+          existingMaterials={materials}
+        />
       )}
     </div>
   );

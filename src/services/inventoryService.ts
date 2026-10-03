@@ -62,5 +62,26 @@ export const inventoryService = {
       .eq('id', id);
       
     if (error) throw error;
+  },
+
+  async bulkSyncMaterials(inserts: Omit<Material, 'id'>[], updates: (Partial<Omit<Material, 'id'>> & { id: string })[]) {
+    // Perform bulk updates
+    if (updates.length > 0) {
+      for (const update of updates) {
+        const { error } = await supabase
+          .from('materials')
+          .update(update)
+          .eq('id', update.id);
+        if (error) throw error;
+      }
+    }
+    
+    // Perform bulk inserts
+    if (inserts.length > 0) {
+      const { error } = await supabase
+        .from('materials')
+        .insert(inserts);
+      if (error) throw error;
+    }
   }
 };
