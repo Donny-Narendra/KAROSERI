@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, Plus, Trash2, Edit2 } from 'lucide-react';
+import { Calculator, Plus, Trash2, Edit2, Download, Upload } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import * as XLSX from 'xlsx';
 
 interface RabItem {
   id: string;
@@ -16,8 +17,9 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   const [items, setItems] = useState<RabItem[]>([]);
   const [wbsCategory, setWbsCategory] = useState('Pembongkaran');
   const [bayHourlyRate, setBayHourlyRate] = useState<number>(0);
-  const [isSaving, setIsSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   
   const [newItem, setNewItem] = useState<Partial<RabItem>>({
     type: 'material',
@@ -69,8 +71,8 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
               unitPrice = Number(dbItem.labor_rate);
             } else if (dbItem.overhead_hours > 0) {
               type = 'overhead';
-              qty = Number(dbItem.overhead_hours);
-              unitPrice = Number(dbItem.overhead_rate);
+              qty = Number(dbItem.overhead_hours) / 8;
+              unitPrice = Number(dbItem.overhead_rate) * 8;
             } else {
               type = 'material';
               qty = Number(dbItem.quantity);
@@ -94,8 +96,20 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     };
 
     fetchSettings();
-    fetchExistingRab();
+    fetchExistingRab().finally(() => {
+      setIsInitialLoad(false);
+    });
   }, [spkId]);
+
+  useEffect(() => {
+    if (isInitialLoad) return;
+    
+    const timer = setTimeout(() => {
+      handleSaveEstimation(true); // true = silent save
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [items, isInitialLoad]);
 
   const handleAddItem = (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,9 +122,9 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
               ...item,
               wbsCategory,
               type: newItem.type as 'material' | 'labor' | 'overhead',
-              description: newItem.description,
-              qty: newItem.qty,
-              unitPrice: newItem.unitPrice,
+              description: newItem.description as string,
+              qty: newItem.qty as number,
+              unitPrice: newItem.unitPrice as number,
               wasteFactor: newItem.type === 'material' ? newItem.wasteFactor : 0,
             }
           : item
@@ -123,9 +137,9 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
           id: Date.now().toString(),
           wbsCategory,
           type: newItem.type as 'material' | 'labor' | 'overhead',
-          description: newItem.description,
-          qty: newItem.qty,
-          unitPrice: newItem.unitPrice,
+          description: newItem.description as string,
+          qty: newItem.qty as number,
+          unitPrice: newItem.unitPrice as number,
           wasteFactor: newItem.type === 'material' ? newItem.wasteFactor : 0,
         }
       ]);
@@ -134,9 +148,98 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     setNewItem({
       type: newItem.type,
       qty: 1,
-      unitPrice: newItem.type === 'overhead' ? bayHourlyRate : 0,
+      unitPrice: newItem.type === 'overhead' ? bayHourlyRate * 8 : 0,
       wasteFactor: newItem.type === 'material' ? 5 : 0,
     });
+  };
+
+  const handleDownloadTemplate = () => {
+    const wsData = [
+      ["WBS Category", "Type (material/labor/overhead)", "Description", "Qty", "Unit Price", "Waste Factor (%)"],
+      ["Pembongkaran", "material", "Contoh Material (Plat Baja 2mm)", 10, 150000, 5],
+      ["Sasis/Rangka", "labor", "Tukang Las", 8, 200000, 0],
+      ["Dinding/Fabrikasi", "overhead", "Listrik Bengkel", 1, 400000, 0]
+    ];
+    
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    
+    ws['!cols'] = [
+      { wch: 20 },
+      { wch: 30 },
+      { wch: 35 },
+      { wch: 10 },
+      { wch: 15 },
+      { wch: 15 }
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template_RAB");
+    XLSX.writeFile(wb, "RAB_Template.xlsx");
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json<any>(ws, { header: 1 });
+        
+        const rows = data.slice(1);
+        
+        const newItems: RabItem[] = [];
+        
+        rows.forEach((row) => {
+          if (!row || row.length < 3) return;
+          
+          const wbsCat = String(row[0] || 'Pembongkaran').trim();
+          let typeStr = String(row[1] || 'material').toLowerCase().trim();
+          
+          if (!['material', 'labor', 'overhead'].includes(typeStr)) {
+             typeStr = 'material';
+          }
+          
+          const type = typeStr as 'material' | 'labor' | 'overhead';
+          
+          const description = String(row[2] || '').trim();
+          if (!description) return;
+          
+          const qty = Number(row[3]) || 1;
+          const unitPrice = Number(row[4]) || (type === 'overhead' ? bayHourlyRate * 8 : 0);
+          const wasteFactor = type === 'material' ? (Number(row[5]) || 0) : 0;
+          
+          newItems.push({
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            wbsCategory: wbsCat,
+            type,
+            description,
+            qty,
+            unitPrice,
+            wasteFactor
+          });
+        });
+
+        if (newItems.length > 0) {
+          setItems(prev => [...prev, ...newItems]);
+          alert(`Berhasil mengimpor ${newItems.length} item!`);
+        } else {
+          alert('Tidak ada data valid yang ditemukan di file Excel.');
+        }
+      } catch (error) {
+        console.error("Error parsing excel:", error);
+        alert('Gagal membaca file Excel. Pastikan formatnya sesuai template.');
+      }
+      
+      if (e.target) {
+        e.target.value = '';
+      }
+    };
+    reader.readAsBinaryString(file);
   };
 
   const handleEditItem = (item: RabItem) => {
@@ -152,7 +255,14 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   };
 
   const handleRemoveItem = (id: string) => {
-    setItems(items.filter(item => item.id !== id));
+    setItemToDelete(id);
+  };
+
+  const confirmRemoveItem = () => {
+    if (itemToDelete) {
+      setItems(items.filter(item => item.id !== itemToDelete));
+      setItemToDelete(null);
+    }
   };
 
   const calculateItemTotal = (item: RabItem) => {
@@ -168,12 +278,11 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   const totalLaborCost = items.filter(i => i.type === 'labor').reduce((sum, i) => sum + calculateItemTotal(i), 0);
   const totalOverheadCost = items.filter(i => i.type === 'overhead').reduce((sum, i) => sum + calculateItemTotal(i), 0);
 
-  const handleSaveEstimation = async () => {
+  const handleSaveEstimation = async (silent = false) => {
     if (!spkId) {
-      alert('SPK ID is missing');
+      if (!silent) alert('SPK ID is missing');
       return;
     }
-    setIsSaving(true);
     try {
       // 1. Upsert estimation
       const { data: estData, error: estError } = await supabase.from('rab_estimations').upsert({
@@ -187,7 +296,8 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       if (estError) throw estError;
 
       // 2. Insert items
-      await supabase.from('rab_items').delete().eq('rab_estimation_id', estData.id);
+      const { error: delError } = await supabase.from('rab_items').delete().eq('rab_estimation_id', estData.id);
+      if (delError && !silent) console.error("Error deleting old items:", delError);
 
       if (items.length > 0) {
         const itemsToInsert = items.map(item => ({
@@ -197,8 +307,8 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
           quantity: item.type === 'material' ? item.qty : 0,
           labor_hours: item.type === 'labor' ? item.qty : 0,
           labor_rate: item.type === 'labor' ? item.unitPrice : 0,
-          overhead_hours: item.type === 'overhead' ? item.qty : 0,
-          overhead_rate: item.type === 'overhead' ? item.unitPrice : 0,
+          overhead_hours: item.type === 'overhead' ? item.qty * 8 : 0,
+          overhead_rate: item.type === 'overhead' ? item.unitPrice / 8 : 0,
           item_total: calculateItemTotal(item)
         }));
 
@@ -210,21 +320,37 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       const { error: spkError } = await supabase.from('spk').update({ total_estimated_cost: totalCost }).eq('id', spkId);
       if (spkError) throw spkError;
 
-      alert('Estimation saved successfully!');
+      if (!silent) alert('Estimation saved successfully!');
     } catch (err: any) {
       console.error(err);
-      alert('Failed to save estimation: ' + err.message);
-    } finally {
-      setIsSaving(false);
+      if (!silent) alert('Failed to save estimation: ' + err.message);
     }
   };
 
   return (
     <div className="bg-surface border border-border rounded-lg overflow-hidden">
-      <div className="px-5 py-4 border-b border-border bg-surface-hover">
+      <div className="px-5 py-4 border-b border-border bg-surface-hover flex items-center justify-between">
          <h3 className="font-bold text-text font-display flex items-center gap-2">
            <Calculator className="w-5 h-5 text-primary"/> RAB Calculator
          </h3>
+         <div className="flex gap-2">
+           <button 
+              onClick={handleDownloadTemplate}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-surface border border-border rounded hover:bg-surface-hover transition text-text"
+              title="Download template Excel"
+           >
+              <Download className="w-4 h-4" /> Download Template
+           </button>
+           <label className="flex items-center gap-2 px-3 py-1.5 text-sm bg-primary/10 text-primary border border-primary/20 rounded hover:bg-primary/20 transition cursor-pointer" title="Import data dari Excel">
+              <Upload className="w-4 h-4" /> Import Excel
+              <input 
+                type="file" 
+                accept=".xlsx, .xls" 
+                className="hidden" 
+                onChange={handleFileUpload}
+              />
+           </label>
+         </div>
       </div>
       
       <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -277,7 +403,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                   name="type" 
                   value="overhead"
                   checked={newItem.type === 'overhead'}
-                  onChange={() => setNewItem({...newItem, type: 'overhead', wasteFactor: 0, unitPrice: bayHourlyRate})}
+                  onChange={() => setNewItem({...newItem, type: 'overhead', wasteFactor: 0, unitPrice: bayHourlyRate * 8})}
                   className="accent-primary"
                 />
                 Overhead
@@ -299,7 +425,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
-                  {newItem.type === 'material' ? 'Qty' : 'Hours'}
+                  {newItem.type === 'material' ? 'Qty' : newItem.type === 'overhead' ? 'Days' : 'Hours'}
                 </label>
                 <input
                   type="number"
@@ -381,7 +507,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                       <th className="px-4 py-3">Description</th>
                       <th className="px-4 py-3">Type</th>
                       <th className="px-4 py-3">WBS</th>
-                      <th className="px-4 py-3 text-right">Qty/Hrs</th>
+                      <th className="px-4 py-3 text-right">Qty/Hrs/Days</th>
                       <th className="px-4 py-3 text-right">Price/Rate</th>
                       <th className="px-4 py-3 text-right">Waste</th>
                       <th className="px-4 py-3 text-right">Total</th>
@@ -445,19 +571,32 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
             </div>
 
           </div>
-          
-          <div className="mt-4 flex justify-end">
-             <button 
-                onClick={handleSaveEstimation}
-                disabled={items.length === 0 || isSaving}
-                className="bg-primary hover:bg-primary-hover disabled:bg-surface disabled:text-text-muted disabled:cursor-not-allowed text-background font-bold py-2 px-6 rounded transition"
-             >
-                {isSaving ? 'Saving...' : 'Save Estimation'}
-             </button>
-          </div>
         </div>
 
       </div>
+
+      {itemToDelete && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-surface border border-border rounded-lg p-6 max-w-sm w-full shadow-xl">
+            <h3 className="text-lg font-bold text-text mb-2">Konfirmasi Hapus</h3>
+            <p className="text-sm text-text-muted mb-6">Apakah Anda yakin ingin menghapus item ini? Tindakan ini tidak dapat dibatalkan.</p>
+            <div className="flex justify-end gap-3">
+              <button 
+                onClick={() => setItemToDelete(null)}
+                className="px-4 py-2 text-sm font-bold text-text-muted bg-surface hover:bg-surface-hover border border-border rounded transition"
+              >
+                Batal
+              </button>
+              <button 
+                onClick={confirmRemoveItem}
+                className="px-4 py-2 text-sm font-bold text-white bg-status-danger hover:bg-red-600 rounded transition"
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
