@@ -185,3 +185,17 @@
 
 **Verification**:
 - TBD
+
+---
+
+### Phase 13: Implementasi Fitur Paket Barang Jadi (BOM)
+**Status**: ⬜ Not Started
+**Objective**: Implementasi Fitur Paket Barang Jadi (Bill of Materials / Assembly Kits) pada Gudang.
+**Depends on**: Phase 12
+
+**Tasks**:
+- [ ] 13.1: Skema Database & BOM Builder untuk Paket Barang Jadi
+
+**Verification**:
+- [ ] Schema database termigrasi.
+- [ ] UI PackageManager berjalan tanpa error.
