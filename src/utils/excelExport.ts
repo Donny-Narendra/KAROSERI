@@ -2,19 +2,29 @@ import * as XLSX from 'xlsx';
 import type { Material } from '../services/inventoryService';
 
 export const exportMaterialsToExcel = (materials: Material[]) => {
-  // Map data to the requested format
-  const dataToExport = materials.map((m) => ({
-    'ID Material': m.id,
-    'Nama Barang': m.name,
-    'Satuan': m.unit,
-    'Stok Saat Ini': m.current_stock,
-    'Stok Minimum': m.minimum_stock,
-    'Harga Satuan (Rp)': m.unit_price,
-    'Waste Factor (%)': m.waste_factor_percentage
-  }));
+  // Define Headers
+  const headerLabels = ['ID Material', 'Nama Bahan', 'Satuan (Unit)', 'Stok Saat Ini', 'Stok Minimum', 'Harga Satuan (Rp)', 'Waste Factor (%)'];
+  const headerKeys = ['id', 'name', 'unit', 'current_stock', 'minimum_stock', 'unit_price', 'waste_factor_percentage'];
+  
+  // Map data to array of arrays
+  const dataRows = materials.length > 0 
+    ? materials.map(m => [
+        m.id,
+        m.name,
+        m.unit,
+        m.current_stock,
+        m.minimum_stock,
+        m.unit_price,
+        m.waste_factor_percentage
+      ])
+    : [
+        ['', 'Contoh Bahan A', 'pcs', 100, 10, 50000, 5] // Example row if empty
+      ];
+
+  const aoa = [headerLabels, headerKeys, ...dataRows];
 
   // Create a new workbook and add the worksheet
-  const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+  const worksheet = XLSX.utils.aoa_to_sheet(aoa);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Inventaris');
 
@@ -22,7 +32,7 @@ export const exportMaterialsToExcel = (materials: Material[]) => {
   const colWidths = [
     { wch: 36 }, // ID Material (UUID)
     { wch: 30 }, // Nama Barang
-    { wch: 10 }, // Satuan
+    { wch: 15 }, // Satuan
     { wch: 15 }, // Stok Saat Ini
     { wch: 15 }, // Stok Minimum
     { wch: 20 }, // Harga Satuan (Rp)

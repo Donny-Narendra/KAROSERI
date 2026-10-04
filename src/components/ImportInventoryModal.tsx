@@ -46,15 +46,28 @@ export const ImportInventoryModal: React.FC<ImportInventoryModalProps> = ({ onCl
           const updates: (Partial<Omit<Material, 'id'>> & { id: string })[] = [];
           let skips = 0;
 
+          const getVal = (row: any, keys: string[]) => {
+            for (const k of keys) {
+              const match = Object.keys(row).find(key => key.toLowerCase().trim() === k.toLowerCase().trim());
+              if (match && row[match] !== undefined && row[match] !== '') return row[match];
+            }
+            return undefined;
+          };
+
           data.forEach((row: any) => {
-            const name = row['Nama Bahan'];
+            const name = getVal(row, ['Nama Bahan', 'Nama Barang', 'name']);
             if (!name) return; // Skip invalid rows
 
-            const unit = row['Satuan'] || 'pcs';
-            const current_stock = parseFloat(row['Stok Saat Ini']) || 0;
-            const minimum_stock = parseFloat(row['Stok Min']) || 0;
-            const unit_price = parseFloat(row['Harga Satuan (Rp)']) || 0;
-            const waste_factor_percentage = parseFloat(row['Waste %']) || 0;
+            // Check if this row is actually the DB keys row (row 2 in our new template)
+            if (name === 'name' && getVal(row, ['unit_price', 'Harga Satuan (Rp)']) === 'unit_price') {
+              return; 
+            }
+
+            const unit = getVal(row, ['Satuan (Unit)', 'Satuan', 'unit']) || 'pcs';
+            const current_stock = parseFloat(getVal(row, ['Stok Saat Ini', 'current_stock'])) || 0;
+            const minimum_stock = parseFloat(getVal(row, ['Stok Minimum', 'Stok Min', 'minimum_stock'])) || 0;
+            const unit_price = parseFloat(getVal(row, ['Harga Satuan (Rp)', 'Harga Satuan', 'unit_price'])) || 0;
+            const waste_factor_percentage = parseFloat(getVal(row, ['Waste Factor (%)', 'Waste %', 'waste_factor_percentage'])) || 0;
 
             const existing = existingMaterials.find(m => m.name.toLowerCase() === String(name).toLowerCase());
 
@@ -147,7 +160,7 @@ export const ImportInventoryModal: React.FC<ImportInventoryModalProps> = ({ onCl
                 <FileText className="w-10 h-10 text-text-muted mb-3" />
                 <p className="text-text-muted text-sm mb-4">
                   Upload file Excel (.xlsx) dengan kolom: <br/>
-                  <span className="font-mono bg-surface-hover px-1 rounded mt-2 inline-block">Nama Bahan, Satuan, Stok Saat Ini, Stok Min, Harga Satuan (Rp), Waste %</span>
+                  <span className="font-mono bg-surface-hover px-1 rounded mt-2 inline-block">ID Material, Nama Bahan, Satuan (Unit), Stok Saat Ini, Stok Minimum, Harga Satuan (Rp), Waste Factor (%)</span>
                 </p>
                 <label className="bg-surface-hover hover:bg-border text-text border border-border px-4 py-2 rounded text-sm font-medium transition cursor-pointer flex items-center gap-2">
                   <Upload className="w-4 h-4" />
