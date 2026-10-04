@@ -5,6 +5,7 @@ import { GoodsIssueForm } from '../components/GoodsIssueForm';
 import { GoodsReturnForm } from '../components/GoodsReturnForm';
 import { RequisitionApproval } from '../components/RequisitionApproval';
 import { InventoryManager } from '../components/InventoryManager';
+import { PackageManager } from '../components/PackageManager';
 import { RecentMaterialIssues } from '../components/RecentMaterialIssues';
 import { supabase } from '../lib/supabaseClient';
 import { AlertTriangle } from 'lucide-react';
@@ -13,7 +14,7 @@ export const WarehouseDashboard: React.FC = () => {
   const { profile, signOut } = useAuth();
   const [lowStockWarnings, setLowStockWarnings] = useState<any[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [activeTab, setActiveTab] = useState<'issue' | 'return' | 'requisition' | 'inventory'>('requisition');
+  const [activeTab, setActiveTab] = useState<'issue' | 'return' | 'requisition' | 'inventory' | 'packages'>('packages');
 
   const fetchMaterials = async () => {
     try {
@@ -90,6 +91,12 @@ export const WarehouseDashboard: React.FC = () => {
               >
                 Manajemen Inventaris
               </button>
+              <button
+                className={`px-4 py-2 font-medium ${activeTab === 'packages' ? 'text-primary border-b-2 border-primary' : 'text-text-muted hover:text-text'}`}
+                onClick={() => setActiveTab('packages')}
+              >
+                Paket Barang Jadi
+              </button>
             </div>
 
             {activeTab === 'issue' ? (
@@ -98,6 +105,8 @@ export const WarehouseDashboard: React.FC = () => {
               <GoodsReturnForm onSuccess={handleIssueSuccess} />
             ) : activeTab === 'requisition' ? (
               <RequisitionApproval onSuccess={handleIssueSuccess} />
+            ) : activeTab === 'packages' ? (
+              <PackageManager />
             ) : (
               <InventoryManager />
             )}

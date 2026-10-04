@@ -1,29 +1,28 @@
 ## Current Position
-- **Phase**: 13 (Planning)
-- **Task**: Plan created
-- **Status**: Ready for execution
+- **Phase**: 13 (completed)
+- **Task**: All tasks complete
+- **Status**: Verified
 
 ## Last Session Summary
-Phase 11 and 12 were completed in the last session. Created a plan for Phase 13: Implementasi Fitur Paket Barang Jadi (BOM).
+Phase 13 executed successfully. 1 plan, 1 task completed. Fitur Paket Barang Jadi (BOM) berhasil diimplementasikan di Gudang.
 
 ## In-Progress Work
-- Phase 13: Implementasi Fitur Paket Barang Jadi (BOM)
+- None.
 
 ## Blockers
 - None.
 
 ## Context Dump
 ### Decisions Made
-- Used Supabase's `in` delete clause with Postgres FK error catching (`23503`) to reject deletion if materials are referenced elsewhere.
-- Extracted RecentMaterialIssues into its own component for modularity.
-- Modifikasi format ekspor XLSX (sekarang hanya 1 baris header untuk user-friendliness, setelah menghilangkan db-keys berdasarkan iterasi/feedback).
-- Parser import diperbarui untuk menangani row label teks UI dan skip apabila tidak sengaja mendeteksi row config dari file lawas, serta memberikan safeguard pada data *stok minimum* yang dihapus dari template Excel sehingga tidak me-reset nilai eksisting database.
-- Menambahkan paginasi client-side di halaman inventaris dengan state `currentPage` & 15 data per halaman.
+- `item_type` on `package_items` restricted to `MATERIAL` and `LABOR` via CHECK constraint in SQL.
+- `package_id` uses ON DELETE CASCADE.
+- `PackageManager.tsx` created with a dynamic table that calculates `totalHPP` dynamically from the current UI state without backend roundtrips.
+- Added a new sub-tab in `WarehouseDashboard.tsx` specifically for `packages`.
 
 ### Files of Interest
-- `src/utils/excelExport.ts`
-- `src/components/ImportInventoryModal.tsx`
-- `src/components/InventoryManager.tsx`
+- `src/components/PackageManager.tsx`
+- `src/services/packageService.ts`
+- `supabase/migrations/20261005000000_create_packages_bom.sql`
 
 ## Next Steps
-1. Run /execute 13 to implement Phase 13 (Paket Barang Jadi/BOM).
+1. /complete-milestone — Complete the milestone since all current roadmap phases are done.
