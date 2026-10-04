@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, AlertCircle, Save, X, Search, CheckCircle2, Download } from 'lucide-react';
+import { Plus, Edit2, Trash2, AlertCircle, Save, X, Search, CheckCircle2, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { inventoryService, type Material } from '../services/inventoryService';
 import { exportMaterialsToExcel } from '../utils/excelExport';
 import { ImportInventoryModal } from './ImportInventoryModal';
@@ -9,6 +9,14 @@ export const InventoryManager: React.FC = () => {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
   
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -174,6 +182,9 @@ export const InventoryManager: React.FC = () => {
     m.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const totalPages = Math.ceil(filteredMaterials.length / itemsPerPage);
+  const paginatedMaterials = filteredMaterials.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
   return (
     <div className="bg-surface border border-border rounded-lg overflow-hidden flex flex-col font-sans">
       <div className="p-5 border-b border-border bg-surface-hover flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -273,7 +284,7 @@ export const InventoryManager: React.FC = () => {
                 <td colSpan={8} className="px-4 py-8 text-center text-text-muted">Tidak ada material ditemukan.</td>
               </tr>
             ) : (
-              filteredMaterials.map((m) => (
+              paginatedMaterials.map((m) => (
                 <tr key={m.id} className="hover:bg-surface-hover/50 transition">
                   <td className="px-4 py-3 text-center">
                     <input 
@@ -315,6 +326,34 @@ export const InventoryManager: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="px-5 py-4 border-t border-border flex items-center justify-between bg-surface">
+          <span className="text-sm text-text-muted">
+            Menampilkan {(currentPage - 1) * itemsPerPage + 1} - {Math.min(currentPage * itemsPerPage, filteredMaterials.length)} dari {filteredMaterials.length} material
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="p-1 rounded border border-border hover:bg-surface-hover disabled:opacity-50 text-text transition"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <span className="text-sm px-2 text-text font-medium">
+              Hal {currentPage} / {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="p-1 rounded border border-border hover:bg-surface-hover disabled:opacity-50 text-text transition"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* CRUD Modal */}
       {isModalOpen && (
