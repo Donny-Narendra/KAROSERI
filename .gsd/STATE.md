@@ -1,13 +1,13 @@
 ## Current Position
-- **Phase**: 11 (completed)
-- **Task**: All tasks complete
-- **Status**: Verified
+- **Phase**: 12 (Planning)
+- **Task**: Plan created
+- **Status**: Ready for execution
 
 ## Last Session Summary
-Phase 11 executed successfully. 1 plan, 1 task completed. Fitur Void Issue dan Custom Unit Price pada tabel Recent Material Issues berhasil diimplementasikan.
+Phase 11 executed successfully. 1 plan, 1 task completed. Fitur Void Issue dan Custom Unit Price pada tabel Recent Material Issues berhasil diimplementasikan. Phase 12 plan added for Excel Column Alignment.
 
 ## In-Progress Work
-- None.
+- Phase 12: Penyelarasan Nama Kolom Database pada Download Template Excel Material Inventaris
 
 ## Blockers
 - None.
@@ -18,12 +18,12 @@ Phase 11 executed successfully. 1 plan, 1 task completed. Fitur Void Issue dan C
 - Kept the UI in sync with table filtering and checkall/uncheckall patterns.
 - Extracted RecentMaterialIssues into its own component for modularity.
 - Implemented robust UI for editing `custom_unit_price` and reflecting real costs in Kasir and Admin dashboards.
+- Created Plan 12.1 for aligning Excel download columns with database fields.
 
 ### Files of Interest
-- `src/components/RecentMaterialIssues.tsx`
-- `src/services/inventoryService.ts`
-- `src/pages/KasirDashboard.tsx`
-- `src/pages/AdminDashboardPage.tsx`
+- `src/utils/excelExport.ts`
+- `src/components/InventoryManager.tsx`
+- `src/components/ImportInventoryModal.tsx`
 
 ## Next Steps
-1. /complete-milestone — Complete the milestone since all current roadmap phases are done.
+1. Run /execute 12 to implement Excel Column Alignment.

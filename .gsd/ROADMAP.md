@@ -172,3 +172,16 @@
 
 **Verification**:
 - TBD
+
+---
+
+### Phase 12: Penyelarasan Nama Kolom Database pada Download Template Excel Material Inventaris
+**Status**: ⬜ Not Started
+**Objective**: Implementasi Fitur Penyelarasan Nama Kolom Database pada Download Template Excel Material Inventaris di Manajemen Gudang.
+**Depends on**: Phase 11
+
+**Tasks**:
+- [ ] TBD (run /plan 12 to create)
+
+**Verification**:
+- TBD
