@@ -146,3 +146,17 @@
 **Verification**:
 - [x] UI Manajemen Inventaris berfungsi dan sinkron dengan Supabase.
 - [x] Export dan import file XLSX tervalidasi.
+
+---
+
+### Phase 10: Seleksi Checklist dan Hapus Bersama (Bulk Delete)
+**Status**: ⬜ Not Started
+**Objective**: Implementasi Fitur Seleksi Checklist dan Hapus Bersama (Bulk Delete) pada Manajemen Inventaris Gudang.
+**Depends on**: Phase 9
+
+**Tasks**:
+- [ ] TBD (run /plan 10 to create)
+
+**Verification**:
+- TBD
+
