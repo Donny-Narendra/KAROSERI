@@ -83,5 +83,21 @@ export const inventoryService = {
         .insert(inserts);
       if (error) throw error;
     }
+  },
+
+  async bulkDeleteMaterials(ids: string[]) {
+    if (!ids || ids.length === 0) return;
+    
+    const { error } = await supabase
+      .from('materials')
+      .delete()
+      .in('id', ids);
+      
+    if (error) {
+      if (error.code === '23503') {
+        throw new Error('Beberapa material tidak dapat dihapus karena sudah digunakan dalam transaksi SPK');
+      }
+      throw error;
+    }
   }
 };

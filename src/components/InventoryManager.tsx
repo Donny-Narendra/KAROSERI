@@ -30,6 +30,10 @@ export const InventoryManager: React.FC = () => {
   // Delete confirmation
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
+  // Bulk delete state
+  const [selectedMaterialIds, setSelectedMaterialIds] = useState<string[]>([]);
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+
   useEffect(() => {
     loadMaterials();
   }, []);
@@ -134,6 +138,38 @@ export const InventoryManager: React.FC = () => {
     }
   };
 
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedMaterialIds(filteredMaterials.map(m => m.id));
+    } else {
+      setSelectedMaterialIds([]);
+    }
+  };
+
+  const handleSelectMaterial = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedMaterialIds(prev => [...prev, id]);
+    } else {
+      setSelectedMaterialIds(prev => prev.filter(mId => mId !== id));
+    }
+  };
+
+  const confirmBulkDelete = async () => {
+    if (selectedMaterialIds.length === 0) return;
+    setIsSubmitting(true);
+    try {
+      await inventoryService.bulkDeleteMaterials(selectedMaterialIds);
+      showMessage(`${selectedMaterialIds.length} material berhasil dihapus`);
+      setSelectedMaterialIds([]);
+      setIsBulkDeleteModalOpen(false);
+      loadMaterials();
+    } catch (err: any) {
+      showMessage(err.message || 'Gagal menghapus material', true);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const filteredMaterials = materials.filter(m => 
     m.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -171,6 +207,16 @@ export const InventoryManager: React.FC = () => {
             <Upload className="w-4 h-4" />
             Import
           </button>
+          {selectedMaterialIds.length > 0 && (
+            <button 
+              onClick={() => setIsBulkDeleteModalOpen(true)}
+              className="bg-status-danger hover:bg-red-600 text-white px-3 py-1.5 rounded text-sm font-medium transition flex items-center gap-1.5 shrink-0"
+              title="Hapus Terpilih"
+            >
+              <Trash2 className="w-4 h-4" />
+              Hapus Terpilih ({selectedMaterialIds.length})
+            </button>
+          )}
           <button 
             onClick={() => handleOpenModal()}
             className="bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded text-sm font-medium transition flex items-center gap-1.5 shrink-0"
@@ -199,6 +245,15 @@ export const InventoryManager: React.FC = () => {
         <table className="w-full text-left text-sm text-text border border-border">
           <thead className="bg-background text-text-muted font-mono text-xs uppercase border-b border-border">
             <tr>
+              <th className="px-4 py-3 w-10">
+                <input 
+                  type="checkbox" 
+                  className="rounded border-border text-primary focus:ring-primary cursor-pointer"
+                  checked={filteredMaterials.length > 0 && selectedMaterialIds.length === filteredMaterials.length}
+                  onChange={handleSelectAll}
+                  title="Pilih Semua"
+                />
+              </th>
               <th className="px-4 py-3">Nama Bahan</th>
               <th className="px-4 py-3">Satuan</th>
               <th className="px-4 py-3 text-right">Stok Saat Ini</th>
@@ -211,15 +266,23 @@ export const InventoryManager: React.FC = () => {
           <tbody className="divide-y divide-border">
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-text-muted">Loading data...</td>
+                <td colSpan={8} className="px-4 py-8 text-center text-text-muted">Loading data...</td>
               </tr>
             ) : filteredMaterials.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-text-muted">Tidak ada material ditemukan.</td>
+                <td colSpan={8} className="px-4 py-8 text-center text-text-muted">Tidak ada material ditemukan.</td>
               </tr>
             ) : (
               filteredMaterials.map((m) => (
                 <tr key={m.id} className="hover:bg-surface-hover/50 transition">
+                  <td className="px-4 py-3 text-center">
+                    <input 
+                      type="checkbox" 
+                      className="rounded border-border text-primary focus:ring-primary cursor-pointer"
+                      checked={selectedMaterialIds.includes(m.id)}
+                      onChange={(e) => handleSelectMaterial(m.id, e.target.checked)}
+                    />
+                  </td>
                   <td className="px-4 py-3 font-medium">{m.name}</td>
                   <td className="px-4 py-3 text-text-muted">{m.unit}</td>
                   <td className={`px-4 py-3 text-right font-mono ${m.current_stock <= m.minimum_stock ? 'text-status-danger font-bold' : ''}`}>
@@ -420,6 +483,38 @@ export const InventoryManager: React.FC = () => {
           existingMaterials={materials}
         />
       )}
+
+      {/* Bulk Delete Confirmation Modal */}
+      {isBulkDeleteModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-surface border border-border rounded-lg shadow-xl w-full max-w-sm p-6 text-center">
+            <div className="w-12 h-12 rounded-full bg-status-danger/10 flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-6 h-6 text-status-danger" />
+            </div>
+            <h3 className="font-bold text-lg text-text mb-2">Hapus {selectedMaterialIds.length} Material?</h3>
+            <p className="text-text-muted mb-6">
+              Tindakan ini tidak dapat dibatalkan. Material yang sudah digunakan dalam transaksi tidak akan ikut terhapus.
+            </p>
+            <div className="flex justify-center gap-3">
+              <button 
+                onClick={() => setIsBulkDeleteModalOpen(false)}
+                className="px-4 py-2 border border-border rounded text-text-muted hover:text-text hover:bg-surface-hover font-medium transition"
+                disabled={isSubmitting}
+              >
+                Batal
+              </button>
+              <button 
+                onClick={confirmBulkDelete}
+                className="px-4 py-2 bg-status-danger hover:bg-red-600 text-white rounded font-medium transition flex items-center gap-2"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Menghapus...' : 'Ya, Hapus'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
