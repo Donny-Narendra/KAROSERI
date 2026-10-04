@@ -4,7 +4,6 @@ import type { Material } from '../services/inventoryService';
 export const exportMaterialsToExcel = (materials: Material[]) => {
   // Define Headers
   const headerLabels = ['ID Material', 'Nama Bahan', 'Satuan (Unit)', 'Stok Saat Ini', 'Stok Minimum', 'Harga Satuan (Rp)', 'Waste Factor (%)'];
-  const headerKeys = ['id', 'name', 'unit', 'current_stock', 'minimum_stock', 'unit_price', 'waste_factor_percentage'];
   
   // Map data to array of arrays
   const dataRows = materials.length > 0 
@@ -21,7 +20,7 @@ export const exportMaterialsToExcel = (materials: Material[]) => {
         ['', 'Contoh Bahan A', 'pcs', 100, 10, 50000, 5] // Example row if empty
       ];
 
-  const aoa = [headerLabels, headerKeys, ...dataRows];
+  const aoa = [headerLabels, ...dataRows];
 
   // Create a new workbook and add the worksheet
   const worksheet = XLSX.utils.aoa_to_sheet(aoa);
