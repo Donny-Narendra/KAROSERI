@@ -199,3 +199,16 @@
 **Verification**:
 - [x] Schema database termigrasi.
 - [x] UI PackageManager berjalan tanpa error.
+
+---
+
+### Phase 14: Search Autocomplete Material di BOM
+**Status**: ⬜ Not Started
+**Objective**: Implementasi Fitur Search Autocomplete Keyboard-Navigated untuk Pemilihan Bahan Material pada Modal BOM.
+**Depends on**: Phase 13
+
+**Tasks**:
+- [ ] 14.1: Implementasi Fitur Search Autocomplete Keyboard-Navigated
+
+**Verification**:
+- [ ] Komponen MaterialAutocomplete berfungsi dengan pencarian, navigasi panah, dan pembaruan input.
