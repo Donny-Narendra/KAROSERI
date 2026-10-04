@@ -1,13 +1,13 @@
 ## Current Position
 - **Phase**: 12 (completed)
-- **Task**: All tasks complete
-- **Status**: Verified
+- **Task**: N/A - Roadmap completed
+- **Status**: Paused at 2026-10-04T18:59:58+07:00
 
 ## Last Session Summary
-Phase 12 executed successfully. 1 plan, 1 task completed. Fitur penyelarasan nama kolom database pada template excel berhasil diimplementasikan.
+Phase 11 (Void Issue & Custom Price) & Phase 12 (Excel template logic) implemented successfully. We also added client-side pagination to the `InventoryManager` table and handled a UI refinement to remove the minimum stock column from the exported Excel.
 
 ## In-Progress Work
-- None.
+- None. All tasks complete.
 
 ## Blockers
 - None.
@@ -15,15 +15,15 @@ Phase 12 executed successfully. 1 plan, 1 task completed. Fitur penyelarasan nam
 ## Context Dump
 ### Decisions Made
 - Used Supabase's `in` delete clause with Postgres FK error catching (`23503`) to reject deletion if materials are referenced elsewhere.
-- Kept the UI in sync with table filtering and checkall/uncheckall patterns.
 - Extracted RecentMaterialIssues into its own component for modularity.
-- Implemented robust UI for editing `custom_unit_price` and reflecting real costs in Kasir and Admin dashboards.
-- Modifikasi format ekspor XLSX untuk menyertakan row ke-2 yang memuat nama kunci database.
-- Parser import diperbarui untuk menangani baik row label teks UI maupun kunci database, serta melewati (skip) nama kunci tersebut.
+- Modifikasi format ekspor XLSX (sekarang hanya 1 baris header untuk user-friendliness, setelah menghilangkan db-keys berdasarkan iterasi/feedback).
+- Parser import diperbarui untuk menangani row label teks UI dan skip apabila tidak sengaja mendeteksi row config dari file lawas, serta memberikan safeguard pada data *stok minimum* yang dihapus dari template Excel sehingga tidak me-reset nilai eksisting database.
+- Menambahkan paginasi client-side di halaman inventaris dengan state `currentPage` & 15 data per halaman.
 
 ### Files of Interest
 - `src/utils/excelExport.ts`
 - `src/components/ImportInventoryModal.tsx`
+- `src/components/InventoryManager.tsx`
 
 ## Next Steps
 1. /complete-milestone — Complete the milestone since all current roadmap phases are done.
