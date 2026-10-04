@@ -203,12 +203,12 @@
 ---
 
 ### Phase 14: Search Autocomplete Material di BOM
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Implementasi Fitur Search Autocomplete Keyboard-Navigated untuk Pemilihan Bahan Material pada Modal BOM.
 **Depends on**: Phase 13
 
 **Tasks**:
-- [ ] 14.1: Implementasi Fitur Search Autocomplete Keyboard-Navigated
+- [x] 14.1: Implementasi Fitur Search Autocomplete Keyboard-Navigated
 
 **Verification**:
-- [ ] Komponen MaterialAutocomplete berfungsi dengan pencarian, navigasi panah, dan pembaruan input.
+- [x] Komponen MaterialAutocomplete berfungsi dengan pencarian, navigasi panah, dan pembaruan input.

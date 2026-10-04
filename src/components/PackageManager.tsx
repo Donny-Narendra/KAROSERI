@@ -3,6 +3,7 @@ import { Plus, Edit2, Trash2, AlertCircle, Save, X, Search, CheckCircle2, PlusCi
 import { packageService } from '../services/packageService';
 import { inventoryService, type Material } from '../services/inventoryService';
 import type { ProductPackage, PackageItem } from '../types/package';
+import { MaterialAutocomplete } from './MaterialAutocomplete';
 
 export const PackageManager: React.FC = () => {
   const [packages, setPackages] = useState<ProductPackage[]>([]);
@@ -394,16 +395,11 @@ export const PackageManager: React.FC = () => {
                         </td>
                         <td className="px-3 py-2">
                           {item.item_type === 'MATERIAL' ? (
-                            <select
-                              value={item.material_id || ''}
-                              onChange={(e) => handleItemChange(index, 'material_id', e.target.value)}
-                              className="w-full bg-background border border-border rounded px-2 py-1 text-sm focus:border-primary focus:outline-none"
-                            >
-                              <option value="" disabled>-- Pilih Material --</option>
-                              {materials.map(m => (
-                                <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>
-                              ))}
-                            </select>
+                            <MaterialAutocomplete
+                              materials={materials}
+                              initialValue={materials.find(m => m.id === item.material_id)?.name || ''}
+                              onSelect={(material) => handleItemChange(index, 'material_id', material.id)}
+                            />
                           ) : (
                             <input
                               type="text"

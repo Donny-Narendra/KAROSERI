@@ -1,28 +1,26 @@
 ## Current Position
-- **Phase**: 14 (Planning)
-- **Task**: Plan created
-- **Status**: Ready for execution
+- **Phase**: 14 (completed)
+- **Task**: All tasks complete
+- **Status**: Verified
 
 ## Last Session Summary
-Phase 13 (Fitur Paket Barang Jadi/BOM) executed successfully. Created a plan for Phase 14: Search Autocomplete Material di BOM.
+Phase 14 executed successfully. 1 plan, 2 tasks completed. Fitur Search Autocomplete Keyboard-Navigated berhasil diimplementasikan di modal BOM.
 
 ## In-Progress Work
-- Phase 14: Search Autocomplete Material di BOM
+- None.
 
 ## Blockers
 - None.
 
 ## Context Dump
 ### Decisions Made
-- `item_type` on `package_items` restricted to `MATERIAL` and `LABOR` via CHECK constraint in SQL.
-- `package_id` uses ON DELETE CASCADE.
-- `PackageManager.tsx` created with a dynamic table that calculates `totalHPP` dynamically from the current UI state without backend roundtrips.
-- Added a new sub-tab in `WarehouseDashboard.tsx` specifically for `packages`.
+- `MaterialAutocomplete` dirancang sebagai komponen mandiri yang reusable (menerima array of objects).
+- Autocomplete memiliki logic debounce interaksi blur dan click lewat timeout 150ms agar event click dari mouse pada suggestion dropdown tidak hangus karena blur input.
+- Scroll auto-adjust ditambahkan secara manual menggunakan `.scrollTop` dan `.offsetTop` agar tidak memengaruhi posisi scroll layar secara global (mengindari bug layar meloncat).
 
 ### Files of Interest
+- `src/components/MaterialAutocomplete.tsx`
 - `src/components/PackageManager.tsx`
-- `src/services/packageService.ts`
-- `supabase/migrations/20261005000000_create_packages_bom.sql`
 
 ## Next Steps
-1. Run /execute 14 to implement Phase 14 (Search Autocomplete Material di BOM).
+1. /complete-milestone — Complete the milestone since all current roadmap phases are done.
