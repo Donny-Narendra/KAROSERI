@@ -150,7 +150,7 @@
 ---
 
 ### Phase 10: Seleksi Checklist dan Hapus Bersama (Bulk Delete)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Implementasi Fitur Seleksi Checklist dan Hapus Bersama (Bulk Delete) pada Manajemen Inventaris Gudang.
 **Depends on**: Phase 9
 
