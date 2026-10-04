@@ -6,6 +6,6 @@ ADD COLUMN IF NOT EXISTS custom_unit_price numeric DEFAULT NULL;
 CREATE POLICY "Petugas Gudang can update inventory_transactions" ON public.inventory_transactions FOR UPDATE USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'petugas_gudang' );
 CREATE POLICY "Petugas Gudang can delete inventory_transactions" ON public.inventory_transactions FOR DELETE USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'petugas_gudang' );
 
-CREATE POLICY "Admin can insert inventory_transactions" ON public.inventory_transactions FOR INSERT WITH CHECK ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' );
-CREATE POLICY "Admin can update inventory_transactions" ON public.inventory_transactions FOR UPDATE USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' );
-CREATE POLICY "Admin can delete inventory_transactions" ON public.inventory_transactions FOR DELETE USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin' );
+CREATE POLICY "Admin can insert inventory_transactions" ON public.inventory_transactions FOR INSERT WITH CHECK ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'owner' );
+CREATE POLICY "Admin can update inventory_transactions" ON public.inventory_transactions FOR UPDATE USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'owner' );
+CREATE POLICY "Admin can delete inventory_transactions" ON public.inventory_transactions FOR DELETE USING ( (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'owner' );
