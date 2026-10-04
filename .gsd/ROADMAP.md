@@ -160,3 +160,15 @@
 **Verification**:
 - TBD
 
+---
+
+### Phase 11: Seleksi Hapus (Void Issue) & Edit Harga Khusus pada Recent Material Issues
+**Status**: ⬜ Not Started
+**Objective**: Implementasi Fitur Seleksi Hapus (Void Issue) & Edit Harga Khusus pada Recent Material Issues di Manajemen Gudang.
+**Depends on**: Phase 10
+
+**Tasks**:
+- [ ] TBD (run /plan 11 to create)
+
+**Verification**:
+- TBD
