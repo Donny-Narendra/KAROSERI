@@ -495,6 +495,12 @@ export const InventoryManager: React.FC = () => {
             <p className="text-text-muted mb-6">
               Tindakan ini tidak dapat dibatalkan. Material yang sudah digunakan dalam transaksi tidak akan ikut terhapus.
             </p>
+            {error && (
+              <div className="mb-4 p-3 bg-status-danger/10 border border-status-danger/30 rounded text-status-danger text-sm text-left flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
             <div className="flex justify-center gap-3">
               <button 
                 onClick={() => setIsBulkDeleteModalOpen(false)}

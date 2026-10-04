@@ -1,42 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Factory, LogOut, Search, ClipboardList, Loader2 } from 'lucide-react';
+import { Factory, LogOut } from 'lucide-react';
 import { GoodsIssueForm } from '../components/GoodsIssueForm';
 import { GoodsReturnForm } from '../components/GoodsReturnForm';
 import { RequisitionApproval } from '../components/RequisitionApproval';
 import { InventoryManager } from '../components/InventoryManager';
+import { RecentMaterialIssues } from '../components/RecentMaterialIssues';
 import { supabase } from '../lib/supabaseClient';
 import { AlertTriangle } from 'lucide-react';
 
 export const WarehouseDashboard: React.FC = () => {
   const { profile, signOut } = useAuth();
-  const [recentIssues, setRecentIssues] = useState<any[]>([]);
   const [lowStockWarnings, setLowStockWarnings] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
   const [activeTab, setActiveTab] = useState<'issue' | 'return' | 'requisition' | 'inventory'>('requisition');
 
-  const fetchIssues = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('inventory_transactions')
-        .select(`
-          id,
-          quantity_issued,
-          issued_at,
-          spk ( spk_no ),
-          materials ( name, unit )
-        `)
-        .order('issued_at', { ascending: false })
-        .limit(10);
-        
-      if (error) throw error;
-      setRecentIssues(data || []);
-    } catch (error) {
-      console.error('Error fetching recent issues:', error);
-    }
-
+  const fetchMaterials = async () => {
     try {
       const { data: matData } = await supabase
         .from('materials')
@@ -46,13 +25,11 @@ export const WarehouseDashboard: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching materials:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchIssues();
+    fetchMaterials();
   }, [refreshKey]);
 
   const handleIssueSuccess = () => {
@@ -126,65 +103,7 @@ export const WarehouseDashboard: React.FC = () => {
             )}
             
             {/* Recent Issues Table */}
-            <div className="bg-surface border border-border rounded-lg overflow-hidden">
-              <div className="px-5 py-4 border-b border-border bg-surface-hover flex justify-between items-center">
-                <h3 className="font-bold text-text font-display flex items-center gap-2">
-                  <ClipboardList className="w-5 h-5 text-primary" />
-                  Recent Material Issues
-                </h3>
-                <div className="relative">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-                  <input 
-                    type="text" 
-                    placeholder="Search SPK..." 
-                    className="bg-background border border-border rounded pl-9 pr-3 py-1 text-sm text-text focus:outline-none focus:border-primary"
-                  />
-                </div>
-              </div>
-              <table className="w-full text-left text-sm text-text">
-                <thead className="bg-background text-text-muted font-mono text-xs uppercase border-b border-border">
-                  <tr>
-                    <th className="px-5 py-3">Time</th>
-                    <th className="px-5 py-3">SPK No.</th>
-                    <th className="px-5 py-3">Material</th>
-                    <th className="px-5 py-3">Qty</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {loading ? (
-                    <tr>
-                      <td colSpan={4} className="px-5 py-8 text-center text-text-muted">
-                        <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
-                        Loading recent issues...
-                      </td>
-                    </tr>
-                  ) : recentIssues.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="px-5 py-8 text-center text-text-muted">
-                        No material issues recorded yet.
-                      </td>
-                    </tr>
-                  ) : (
-                    recentIssues.map((issue) => (
-                      <tr key={issue.id} className="hover:bg-surface-hover/50 transition">
-                        <td className="px-5 py-3 text-text-muted">
-                          {new Date(issue.issued_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </td>
-                        <td className="px-5 py-3 font-mono text-primary">
-                          {issue.spk?.spk_no || '-'}
-                        </td>
-                        <td className="px-5 py-3">
-                          {issue.materials?.name || 'Unknown'}
-                        </td>
-                        <td className="px-5 py-3 font-medium">
-                          {issue.quantity_issued} {issue.materials?.unit || ''}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <RecentMaterialIssues refreshKey={refreshKey} />
           </div>
           
           <div className="space-y-6">
