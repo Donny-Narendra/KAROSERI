@@ -65,7 +65,10 @@ export const ImportInventoryModal: React.FC<ImportInventoryModalProps> = ({ onCl
 
             const unit = getVal(row, ['Satuan (Unit)', 'Satuan', 'unit']) || 'pcs';
             const current_stock = parseFloat(getVal(row, ['Stok Saat Ini', 'current_stock'])) || 0;
-            const minimum_stock = parseFloat(getVal(row, ['Stok Minimum', 'Stok Min', 'minimum_stock'])) || 0;
+            const minStockVal = getVal(row, ['Stok Minimum', 'Stok Min', 'minimum_stock']);
+            const minimum_stock = minStockVal !== undefined 
+              ? (parseFloat(minStockVal) || 0) 
+              : (existingMaterials.find(m => m.name.toLowerCase() === String(name).toLowerCase())?.minimum_stock || 0);
             const unit_price = parseFloat(getVal(row, ['Harga Satuan (Rp)', 'Harga Satuan', 'unit_price'])) || 0;
             const waste_factor_percentage = parseFloat(getVal(row, ['Waste Factor (%)', 'Waste %', 'waste_factor_percentage'])) || 0;
 
@@ -160,7 +163,7 @@ export const ImportInventoryModal: React.FC<ImportInventoryModalProps> = ({ onCl
                 <FileText className="w-10 h-10 text-text-muted mb-3" />
                 <p className="text-text-muted text-sm mb-4">
                   Upload file Excel (.xlsx) dengan kolom: <br/>
-                  <span className="font-mono bg-surface-hover px-1 rounded mt-2 inline-block">ID Material, Nama Bahan, Satuan (Unit), Stok Saat Ini, Stok Minimum, Harga Satuan (Rp), Waste Factor (%)</span>
+                  <span className="font-mono bg-surface-hover px-1 rounded mt-2 inline-block">ID Material, Nama Bahan, Satuan (Unit), Stok Saat Ini, Harga Satuan (Rp), Waste Factor (%)</span>
                 </p>
                 <label className="bg-surface-hover hover:bg-border text-text border border-border px-4 py-2 rounded text-sm font-medium transition cursor-pointer flex items-center gap-2">
                   <Upload className="w-4 h-4" />

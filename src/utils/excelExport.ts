@@ -3,7 +3,7 @@ import type { Material } from '../services/inventoryService';
 
 export const exportMaterialsToExcel = (materials: Material[]) => {
   // Define Headers
-  const headerLabels = ['ID Material', 'Nama Bahan', 'Satuan (Unit)', 'Stok Saat Ini', 'Stok Minimum', 'Harga Satuan (Rp)', 'Waste Factor (%)'];
+  const headerLabels = ['ID Material', 'Nama Bahan', 'Satuan (Unit)', 'Stok Saat Ini', 'Harga Satuan (Rp)', 'Waste Factor (%)'];
   
   // Map data to array of arrays
   const dataRows = materials.length > 0 
@@ -12,12 +12,11 @@ export const exportMaterialsToExcel = (materials: Material[]) => {
         m.name,
         m.unit,
         m.current_stock,
-        m.minimum_stock,
         m.unit_price,
         m.waste_factor_percentage
       ])
     : [
-        ['', 'Contoh Bahan A', 'pcs', 100, 10, 50000, 5] // Example row if empty
+        ['', 'Contoh Bahan A', 'pcs', 100, 50000, 5] // Example row if empty
       ];
 
   const aoa = [headerLabels, ...dataRows];
@@ -33,7 +32,6 @@ export const exportMaterialsToExcel = (materials: Material[]) => {
     { wch: 30 }, // Nama Barang
     { wch: 15 }, // Satuan
     { wch: 15 }, // Stok Saat Ini
-    { wch: 15 }, // Stok Minimum
     { wch: 20 }, // Harga Satuan (Rp)
     { wch: 18 }  // Waste Factor (%)
   ];
