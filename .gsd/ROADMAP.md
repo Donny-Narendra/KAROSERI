@@ -222,3 +222,18 @@
 
 **Gaps to Close:**
 - [x] Perluasan Akses Modul Paket Barang Jadi (BOM) ke Role Owner dan Service Advisor
+
+---
+
+### Phase 16: Pemecahan Kuota Material ke WBS 1-5 pada RAB Calculator
+**Status**: ? Not Started
+**Objective**: Implementasi Fitur "Pilih Paket Barang Jadi & Pemecahan Kuota Material ke WBS 1-5" pada RAB Calculator
+**Depends on**: Phase 15
+
+**Tasks**:
+- [ ] 16.1: Buat komponen modal alokasi paket BOM ke WBS (PackageAllocationModal)
+- [ ] 16.2: Integrasikan pemilih paket dan modal alokasi pada RabCalculator
+
+**Verification**:
+- Sisa kuota berkurang secara visual setiap kali angka diinputkan pada kolom WBS 1..5.
+- Baris tabel RAB menampilkan kategori WBS yang sesuai dengan alokasi yang ditentukan oleh Service Advisor.
