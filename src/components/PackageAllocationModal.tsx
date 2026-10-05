@@ -16,6 +16,13 @@ interface PackageAllocationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onApply: (allocatedItems: RabItemPayload[]) => void;
+  existingItems?: {
+    wbsCategory: string;
+    type: 'material' | 'labor' | 'overhead';
+    description: string;
+    qty: number;
+    unitPrice: number;
+  }[];
 }
 
 const WBS_CATEGORIES = [
@@ -37,21 +44,24 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
   isOpen,
   onClose,
   onApply,
+  existingItems,
 }) => {
   const [allocations, setAllocations] = useState<AllocationState>({});
 
   useEffect(() => {
     if (isOpen && packageData.items) {
       const initial: AllocationState = {};
-      packageData.items.forEach((_, idx) => {
+      packageData.items.forEach((item, idx) => {
         initial[idx] = {};
+        const desc = item.item_type === 'MATERIAL' ? (item.material?.name || 'Unknown Material') : (item.labor_name || 'Unknown Labor');
         WBS_CATEGORIES.forEach((cat) => {
-          initial[idx][cat] = '';
+          const match = existingItems?.find(e => e.wbsCategory === cat && e.description === desc);
+          initial[idx][cat] = match && match.qty > 0 ? String(match.qty) : '';
         });
       });
       setAllocations(initial);
     }
-  }, [isOpen, packageData]);
+  }, [isOpen, packageData, existingItems]);
 
   if (!isOpen) return null;
 

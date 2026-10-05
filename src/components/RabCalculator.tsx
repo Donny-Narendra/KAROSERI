@@ -15,6 +15,7 @@ interface RabItem {
   qty: number;
   unitPrice: number;
   wasteFactor?: number; // percentage (0-100)
+  packageId?: string;
 }
 
 export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
@@ -96,7 +97,8 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
               description: dbItem.description,
               qty,
               unitPrice,
-              wasteFactor: 0
+              wasteFactor: 0,
+              packageId: dbItem.package_id
             };
           });
           setItems(loadedItems);
@@ -328,7 +330,8 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
           labor_rate: item.type === 'labor' ? item.unitPrice : 0,
           overhead_hours: item.type === 'overhead' ? item.qty * 8 : 0,
           overhead_rate: item.type === 'overhead' ? item.unitPrice / 8 : 0,
-          item_total: calculateItemTotal(item)
+          item_total: calculateItemTotal(item),
+          package_id: item.packageId || null
         }));
 
         const { error: itemsError } = await supabase.from('rab_items').insert(itemsToInsert);
@@ -347,6 +350,9 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   };
 
   const handleApplyPackageAllocation = (allocatedItems: RabItemPayload[]) => {
+    if (!selectedPackage) return;
+    const pkgId = selectedPackage.id;
+
     const newItems = allocatedItems.map((payload) => ({
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       wbsCategory: payload.wbsCategory,
@@ -355,11 +361,18 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       qty: payload.qty,
       unitPrice: payload.unitPrice,
       wasteFactor: payload.wasteFactor || 0,
+      packageId: pkgId,
     }));
-    setItems((prev) => [...prev, ...newItems]);
+    
+    setItems((prev) => [
+      ...prev.filter(i => i.packageId !== pkgId),
+      ...newItems
+    ]);
     setIsPackageModalOpen(false);
     setSelectedPackage(null);
   };
+
+  const appliedPackagesData = packages.filter(p => items.some(i => i.packageId === p.id));
 
   return (
     <div className="bg-surface border border-border rounded-lg overflow-hidden">
@@ -408,12 +421,39 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                 value=""
               >
                 <option value="" disabled>-- Pilih Paket BOM --</option>
-                {packages.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
+                {packages.map(p => {
+                  const isApplied = items.some(i => i.packageId === p.id);
+                  return (
+                    <option key={p.id} value={p.id} disabled={isApplied}>
+                      {p.name} {isApplied ? '(Sudah Dialokasikan)' : ''}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           </div>
+
+          {appliedPackagesData.length > 0 && (
+            <div className="bg-surface border border-border rounded-lg p-4 mb-6">
+              <h4 className="font-bold text-sm text-text border-b border-border pb-2 mb-3">Paket BOM Diterapkan</h4>
+              <div className="space-y-2">
+                {appliedPackagesData.map(pkg => (
+                  <div key={pkg.id} className="flex items-center justify-between bg-background p-2 rounded border border-border">
+                    <span className="text-sm font-medium text-text">{pkg.name}</span>
+                    <button
+                      onClick={() => {
+                        setSelectedPackage(pkg);
+                        setIsPackageModalOpen(true);
+                      }}
+                      className="text-xs bg-primary/10 text-primary px-2 py-1 rounded hover:bg-primary/20 transition font-bold"
+                    >
+                      Edit Alokasi
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-text-muted mb-2 font-mono">WBS Category</label>
@@ -658,6 +698,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       {selectedPackage && (
         <PackageAllocationModal
           packageData={selectedPackage}
+          existingItems={items.filter(i => i.packageId === selectedPackage.id)}
           isOpen={isPackageModalOpen}
           onClose={() => {
             setIsPackageModalOpen(false);
