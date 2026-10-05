@@ -35,7 +35,8 @@ class PackageService {
     if (items.length > 0) {
       const itemsToInsert = items.map(item => ({
         ...item,
-        package_id: newPackage.id
+        package_id: newPackage.id,
+        default_wbs_allocation: (item as any).default_wbs_allocation || {}
       }));
 
       const { error: itemsError } = await supabase
@@ -74,7 +75,8 @@ class PackageService {
         labor_name: item.labor_name,
         quantity: item.quantity,
         cost_per_unit: item.cost_per_unit,
-        package_id: id
+        package_id: id,
+        default_wbs_allocation: (item as any).default_wbs_allocation || {}
       }));
 
       const { error: itemsError } = await supabase
@@ -91,6 +93,16 @@ class PackageService {
       .from('product_packages')
       .delete()
       .eq('id', id);
+
+    if (error) throw error;
+  }
+
+  async updatePackageItemDefaultAllocation(itemId: string, defaultAllocation: Record<string, number>): Promise<void> {
+    if (!itemId) return;
+    const { error } = await supabase
+      .from('package_items')
+      .update({ default_wbs_allocation: defaultAllocation })
+      .eq('id', itemId);
 
     if (error) throw error;
   }

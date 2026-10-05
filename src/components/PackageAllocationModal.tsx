@@ -15,7 +15,7 @@ interface PackageAllocationModalProps {
   packageData: ProductPackage;
   isOpen: boolean;
   onClose: () => void;
-  onApply: (allocatedItems: RabItemPayload[], isComplete: boolean) => void;
+  onApply: (allocatedItems: RabItemPayload[], isComplete: boolean, templateToSave?: Record<string, Record<string, number>>) => void;
   existingItems?: {
     wbsCategory: string;
     type: 'material' | 'labor' | 'overhead';
@@ -47,6 +47,7 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
   existingItems,
 }) => {
   const [allocations, setAllocations] = useState<AllocationState>({});
+  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
 
   useEffect(() => {
     if (isOpen && packageData.items) {
@@ -56,10 +57,18 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
         const desc = item.item_type === 'MATERIAL' ? (item.material?.name || 'Unknown Material') : (item.labor_name || 'Unknown Labor');
         WBS_CATEGORIES.forEach((cat) => {
           const match = existingItems?.find(e => e.wbsCategory === cat && e.description === desc);
-          initial[idx][cat] = match && match.qty > 0 ? String(match.qty) : '';
+          if (match && match.qty > 0) {
+            initial[idx][cat] = String(match.qty);
+          } else if ((!existingItems || existingItems.length === 0) && item.default_wbs_allocation?.[cat] !== undefined) {
+             const defVal = item.default_wbs_allocation[cat];
+             initial[idx][cat] = defVal > 0 ? String(defVal) : '';
+          } else {
+            initial[idx][cat] = '';
+          }
         });
       });
       setAllocations(initial);
+      setSaveAsTemplate(false);
     }
   }, [isOpen, packageData, existingItems]);
 
@@ -97,10 +106,17 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
     if (hasNegativeRemainder || totalAllocatedSum === 0) return;
 
     const payload: RabItemPayload[] = [];
+    const templateToSave: Record<string, Record<string, number>> = {};
 
     items.forEach((item, idx) => {
+      if (item.id && saveAsTemplate) {
+        templateToSave[item.id] = {};
+      }
       WBS_CATEGORIES.forEach((cat) => {
         const qty = parseFloat(allocations[idx]?.[cat]) || 0;
+        if (item.id && saveAsTemplate) {
+          templateToSave[item.id][cat] = qty;
+        }
         if (qty > 0) {
           payload.push({
             wbsCategory: cat,
@@ -114,7 +130,7 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
       });
     });
 
-    onApply(payload, isComplete);
+    onApply(payload, isComplete, saveAsTemplate ? templateToSave : undefined);
   };
 
   return (
@@ -204,6 +220,17 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
               <AlertTriangle className="w-4 h-4" />
               Terdapat item yang dialokasikan melebihi kuota.
             </div>
+          )}
+          {isComplete && !hasNegativeRemainder && (
+             <label className="flex items-center gap-2 mr-auto text-sm text-text cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={saveAsTemplate}
+                  onChange={(e) => setSaveAsTemplate(e.target.checked)}
+                  className="rounded border-border accent-primary w-4 h-4 cursor-pointer"
+                />
+                Simpan alokasi WBS ini sebagai template bawaan paket
+             </label>
           )}
           <button 
             onClick={onClose}

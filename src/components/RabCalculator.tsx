@@ -358,9 +358,22 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     }
   };
 
-  const handleApplyPackageAllocation = (allocatedItems: RabItemPayload[], isComplete: boolean) => {
+  const handleApplyPackageAllocation = async (allocatedItems: RabItemPayload[], isComplete: boolean, templateToSave?: Record<string, Record<string, number>>) => {
     if (!selectedPackage) return;
     const pkgId = selectedPackage.id;
+
+    if (templateToSave) {
+      try {
+        for (const [itemId, allocation] of Object.entries(templateToSave)) {
+          await packageService.updatePackageItemDefaultAllocation(itemId, allocation);
+        }
+        // Force refresh packages to get the new templates in state
+        const pkgs = await packageService.getPackages();
+        setPackages(pkgs);
+      } catch (err) {
+        console.error("Failed to save template:", err);
+      }
+    }
 
     const newItems = allocatedItems.map((payload) => ({
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),

@@ -18,4 +18,5 @@ export interface PackageItem {
   cost_per_unit: number;
   created_at?: string;
   material?: Material; // for nested fetching
+  default_wbs_allocation?: Record<string, number>;
 }
