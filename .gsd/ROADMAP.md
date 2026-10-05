@@ -274,4 +274,13 @@
 **Objective**: Address gaps from milestone audit (Mengganti tombol import template dengan Export XLSX dan fungsi Export PDF/Cetak pada RAB Calculator)
 
 **Gaps to Close:**
-- [ ] Ganti Import Template dengan Fitur Export XLSX dan PDF pada RAB Calculator
+- [x] Ganti Import Template dengan Fitur Export XLSX dan PDF pada RAB Calculator
+
+---
+
+### Phase 21: Gap Closure (Implementasi Approval Workflow untuk Change Orders)
+**Status**: ⬜ Not Started
+**Objective**: Address gaps from milestone audit (Implementasi Approval Workflow untuk Change Orders)
+
+**Gaps to Close:**
+- [ ] Tambahkan aksi Approve dan Reject pada Change Orders SPK
