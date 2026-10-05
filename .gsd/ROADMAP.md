@@ -266,3 +266,12 @@
 **Gaps to Close:**
 - [x] Penambahan kolom `default_wbs_allocation` pada `package_items`
 - [x] Fitur checkbox simpan alokasi WBS bawaan di PackageAllocationModal dan pemuatan alokasi bawaan secara otomatis
+
+---
+
+### Phase 20: Gap Closure (Ganti Import Template dengan Fitur Export XLSX dan PDF)
+**Status**: ⬜ Not Started
+**Objective**: Address gaps from milestone audit (Mengganti tombol import template dengan Export XLSX dan fungsi Export PDF/Cetak pada RAB Calculator)
+
+**Gaps to Close:**
+- [ ] Ganti Import Template dengan Fitur Export XLSX dan PDF pada RAB Calculator
