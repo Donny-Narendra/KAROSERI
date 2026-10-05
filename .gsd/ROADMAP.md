@@ -246,3 +246,13 @@
 **Gaps to Close:**
 - [ ] Komponen material tidak bisa diedit setelah dialokasikan ke WBS 1 s/d WBS 5 dan masuk ke tabel RAB.
 - [ ] Nilai alokasi yang pernah diisi sebelumnya tidak tersimpan/termuat kembali.
+
+---
+
+### Phase 18: Gap Closure (Simpan Draf Alokasi Parsial Paket BOM dan Kunci SPK Menuju Kasir)
+**Status**: ⬜ Not Started
+**Objective**: Address gaps from milestone audit (Izinkan Simpan Draf Alokasi Parsial Paket BOM dan Kunci SPK Menuju Kasir)
+
+**Gaps to Close:**
+- [ ] Buka kunci tombol Terapkan ke RAB untuk alokasi parsial di PackageAllocationModal
+- [ ] Proteksi filter antrean SPK Kasir dari RAB alokasi parsial
