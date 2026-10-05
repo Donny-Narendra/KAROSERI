@@ -279,8 +279,8 @@
 ---
 
 ### Phase 21: Gap Closure (Implementasi Approval Workflow untuk Change Orders)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Address gaps from milestone audit (Implementasi Approval Workflow untuk Change Orders)
 
 **Gaps to Close:**
-- [ ] Tambahkan aksi Approve dan Reject pada Change Orders SPK
+- [x] Tambahkan aksi Approve dan Reject pada Change Orders SPK
