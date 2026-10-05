@@ -256,3 +256,13 @@
 **Gaps to Close:**
 - [x] Buka kunci tombol Terapkan ke RAB untuk alokasi parsial di PackageAllocationModal
 - [x] Proteksi filter antrean SPK Kasir dari RAB alokasi parsial
+
+---
+
+### Phase 19: Gap Closure (Simpan & Terapkan Pembagian WBS Bawaan pada Paket BOM)
+**Status**: ⬜ Not Started
+**Objective**: Address gaps from milestone audit (Simpan & Terapkan Pembagian WBS Bawaan pada Paket Barang Jadi)
+
+**Gaps to Close:**
+- [ ] Penambahan kolom `default_wbs_allocation` pada `package_items`
+- [ ] Fitur checkbox simpan alokasi WBS bawaan di PackageAllocationModal dan pemuatan alokasi bawaan secara otomatis
