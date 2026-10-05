@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, Plus, Trash2, Edit2, Download, Upload } from 'lucide-react';
+import { Calculator, Plus, Trash2, Edit2, Download, Printer } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
-import * as XLSX from 'xlsx';
+
 import { packageService } from '../services/packageService';
 import type { ProductPackage } from '../types/package';
 import { PackageAllocationModal } from './PackageAllocationModal';
 import type { RabItemPayload } from './PackageAllocationModal';
+import { exportRabToExcel, printRabQuotation } from '../utils/rabExport';
 
 interface RabItem {
   id: string;
@@ -25,6 +26,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [spkDetails, setSpkDetails] = useState<any>(null);
 
   // Package BOM state
   const [packages, setPackages] = useState<ProductPackage[]>([]);
@@ -64,9 +66,12 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
         .eq('spk_id', spkId)
         .single();
         
-      const { data: spkData } = await supabase.from('spk').select('allocation_status').eq('id', spkId).single();
-      if (spkData?.allocation_status) {
-         setAllocationStatus(spkData.allocation_status);
+      const { data: spkData } = await supabase.from('spk').select('*').eq('id', spkId).single();
+      if (spkData) {
+         setSpkDetails(spkData);
+         if (spkData.allocation_status) {
+           setAllocationStatus(spkData.allocation_status);
+         }
       }
         
       if (!estError && estData) {
@@ -180,93 +185,22 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     });
   };
 
-  const handleDownloadTemplate = () => {
-    const wsData = [
-      ["WBS Category", "Type (material/labor/overhead)", "Description", "Qty", "Unit Price", "Waste Factor (%)"],
-      ["Pembongkaran", "material", "Contoh Material (Plat Baja 2mm)", 10, 150000, 5],
-      ["Sasis/Rangka", "labor", "Tukang Las", 8, 200000, 0],
-      ["Dinding/Fabrikasi", "overhead", "Listrik Bengkel", 1, 400000, 0]
-    ];
-    
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
-    
-    ws['!cols'] = [
-      { wch: 20 },
-      { wch: 30 },
-      { wch: 35 },
-      { wch: 10 },
-      { wch: 15 },
-      { wch: 15 }
-    ];
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Template_RAB");
-    XLSX.writeFile(wb, "RAB_Template.xlsx");
+  const handleExportXlsx = () => {
+    exportRabToExcel(spkDetails, items, {
+      material: totalMaterialCost,
+      labor: totalLaborCost,
+      overhead: totalOverheadCost,
+      grandTotal: totalCost
+    });
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      try {
-        const bstr = evt.target?.result;
-        const wb = XLSX.read(bstr, { type: 'binary' });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json<any>(ws, { header: 1 });
-        
-        const rows = data.slice(1);
-        
-        const newItems: RabItem[] = [];
-        
-        rows.forEach((row) => {
-          if (!row || row.length < 3) return;
-          
-          const wbsCat = String(row[0] || 'Pembongkaran').trim();
-          let typeStr = String(row[1] || 'material').toLowerCase().trim();
-          
-          if (!['material', 'labor', 'overhead'].includes(typeStr)) {
-             typeStr = 'material';
-          }
-          
-          const type = typeStr as 'material' | 'labor' | 'overhead';
-          
-          const description = String(row[2] || '').trim();
-          if (!description) return;
-          
-          const qty = Number(row[3]) || 1;
-          const unitPrice = Number(row[4]) || (type === 'overhead' ? bayHourlyRate * 8 : 0);
-          const wasteFactor = type === 'material' ? (Number(row[5]) || 0) : 0;
-          
-          newItems.push({
-            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-            wbsCategory: wbsCat,
-            type,
-            description,
-            qty,
-            unitPrice,
-            wasteFactor
-          });
-        });
-
-        if (newItems.length > 0) {
-          setItems(prev => [...prev, ...newItems]);
-          alert(`Berhasil mengimpor ${newItems.length} item!`);
-        } else {
-          alert('Tidak ada data valid yang ditemukan di file Excel.');
-        }
-      } catch (error) {
-        console.error("Error parsing excel:", error);
-        alert('Gagal membaca file Excel. Pastikan formatnya sesuai template.');
-      }
-      
-      if (e.target) {
-        e.target.value = '';
-      }
-    };
-    reader.readAsBinaryString(file);
+  const handlePrintPdf = () => {
+    printRabQuotation(spkDetails, items, {
+      material: totalMaterialCost,
+      labor: totalLaborCost,
+      overhead: totalOverheadCost,
+      grandTotal: totalCost
+    });
   };
 
   const handleEditItem = (item: RabItem) => {
@@ -405,21 +339,19 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
          </h3>
          <div className="flex gap-2">
            <button 
-              onClick={handleDownloadTemplate}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-surface border border-border rounded hover:bg-surface-hover transition text-text"
-              title="Download template Excel"
+              onClick={handleExportXlsx}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-status-success/10 text-status-success border border-status-success/20 rounded hover:bg-status-success/20 transition"
+              title="Export to XLSX"
            >
-              <Download className="w-4 h-4" /> Download Template
+              <Download className="w-4 h-4" /> Export XLSX
            </button>
-           <label className="flex items-center gap-2 px-3 py-1.5 text-sm bg-primary/10 text-primary border border-primary/20 rounded hover:bg-primary/20 transition cursor-pointer" title="Import data dari Excel">
-              <Upload className="w-4 h-4" /> Import Excel
-              <input 
-                type="file" 
-                accept=".xlsx, .xls" 
-                className="hidden" 
-                onChange={handleFileUpload}
-              />
-           </label>
+           <button 
+              onClick={handlePrintPdf}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-primary/10 text-primary border border-primary/20 rounded hover:bg-primary/20 transition cursor-pointer" 
+              title="Print to PDF"
+           >
+              <Printer className="w-4 h-4" /> Export PDF / Cetak
+           </button>
          </div>
       </div>
       
