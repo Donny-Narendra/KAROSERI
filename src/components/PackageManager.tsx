@@ -85,10 +85,10 @@ export const PackageManager: React.FC = () => {
       ...items,
       {
         item_type: type,
-        material_id: type === 'MATERIAL' ? (materials[0]?.id || '') : null,
+        material_id: type === 'MATERIAL' ? '' : null,
         labor_name: type === 'LABOR' ? '' : null,
         quantity: 1,
-        cost_per_unit: type === 'MATERIAL' ? (materials[0]?.unit_price || 0) : 0,
+        cost_per_unit: 0,
       }
     ]);
   };
@@ -365,7 +365,7 @@ export const PackageManager: React.FC = () => {
                 </div>
               </div>
 
-              <div className="border border-border rounded overflow-hidden">
+              <div className="border border-border rounded">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-background text-text-muted border-b border-border">
                     <tr>
