@@ -237,3 +237,12 @@
 **Verification**:
 - Sisa kuota berkurang secara visual setiap kali angka diinputkan pada kolom WBS 1..5.
 - Baris tabel RAB menampilkan kategori WBS yang sesuai dengan alokasi yang ditentukan oleh Service Advisor.
+---
+
+### Phase 17: Edit Alokasi Paket BOM & Tracking Jatah Kuota Terpakai di RAB Calculator
+**Status**: ? Not Started
+**Objective**: Address gaps from milestone audit (Edit Alokasi Paket BOM & Tracking Jatah Kuota Terpakai di RAB Calculator)
+
+**Gaps to Close:**
+- [ ] Komponen material tidak bisa diedit setelah dialokasikan ke WBS 1 s/d WBS 5 dan masuk ke tabel RAB.
+- [ ] Nilai alokasi yang pernah diisi sebelumnya tidak tersimpan/termuat kembali.
