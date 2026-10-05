@@ -250,9 +250,9 @@
 ---
 
 ### Phase 18: Gap Closure (Simpan Draf Alokasi Parsial Paket BOM dan Kunci SPK Menuju Kasir)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Address gaps from milestone audit (Izinkan Simpan Draf Alokasi Parsial Paket BOM dan Kunci SPK Menuju Kasir)
 
 **Gaps to Close:**
-- [ ] Buka kunci tombol Terapkan ke RAB untuk alokasi parsial di PackageAllocationModal
-- [ ] Proteksi filter antrean SPK Kasir dari RAB alokasi parsial
+- [x] Buka kunci tombol Terapkan ke RAB untuk alokasi parsial di PackageAllocationModal
+- [x] Proteksi filter antrean SPK Kasir dari RAB alokasi parsial
