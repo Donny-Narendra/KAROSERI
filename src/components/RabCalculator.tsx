@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Calculator, Plus, Trash2, Edit2, Download, Upload } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import * as XLSX from 'xlsx';
+import { packageService } from '../services/packageService';
+import type { ProductPackage } from '../types/package';
+import { PackageAllocationModal } from './PackageAllocationModal';
+import type { RabItemPayload } from './PackageAllocationModal';
 
 interface RabItem {
   id: string;
@@ -20,6 +24,11 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  // Package BOM state
+  const [packages, setPackages] = useState<ProductPackage[]>([]);
+  const [isPackageModalOpen, setIsPackageModalOpen] = useState(false);
+  const [selectedPackage, setSelectedPackage] = useState<ProductPackage | null>(null);
   
   const [newItem, setNewItem] = useState<Partial<RabItem>>({
     type: 'material',
@@ -95,7 +104,17 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       }
     };
 
+    const fetchPackages = async () => {
+      try {
+        const pkgs = await packageService.getPackages();
+        setPackages(pkgs);
+      } catch (err) {
+        console.error("Failed to load packages:", err);
+      }
+    };
+
     fetchSettings();
+    fetchPackages();
     fetchExistingRab().finally(() => {
       setIsInitialLoad(false);
     });
@@ -327,6 +346,21 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     }
   };
 
+  const handleApplyPackageAllocation = (allocatedItems: RabItemPayload[]) => {
+    const newItems = allocatedItems.map((payload) => ({
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      wbsCategory: payload.wbsCategory,
+      type: payload.type,
+      description: payload.description,
+      qty: payload.qty,
+      unitPrice: payload.unitPrice,
+      wasteFactor: payload.wasteFactor || 0,
+    }));
+    setItems((prev) => [...prev, ...newItems]);
+    setIsPackageModalOpen(false);
+    setSelectedPackage(null);
+  };
+
   return (
     <div className="bg-surface border border-border rounded-lg overflow-hidden">
       <div className="px-5 py-4 border-b border-border bg-surface-hover flex items-center justify-between">
@@ -358,6 +392,29 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
         {/* Left Col - Input Form */}
         <div className="lg:col-span-1 space-y-6">
           
+          <div className="bg-background border border-border rounded-lg p-4 mb-6">
+            <h4 className="font-bold text-sm text-text border-b border-border pb-2 mb-3">Pilih Paket Barang Jadi (BOM)</h4>
+            <div className="flex flex-col gap-2">
+              <select
+                className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-primary transition"
+                onChange={(e) => {
+                  const pkg = packages.find(p => p.id === e.target.value);
+                  if (pkg) {
+                    setSelectedPackage(pkg);
+                    setIsPackageModalOpen(true);
+                  }
+                  e.target.value = ''; // Reset select
+                }}
+                value=""
+              >
+                <option value="" disabled>-- Pilih Paket BOM --</option>
+                {packages.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-text-muted mb-2 font-mono">WBS Category</label>
             <select
@@ -596,6 +653,18 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {selectedPackage && (
+        <PackageAllocationModal
+          packageData={selectedPackage}
+          isOpen={isPackageModalOpen}
+          onClose={() => {
+            setIsPackageModalOpen(false);
+            setSelectedPackage(null);
+          }}
+          onApply={handleApplyPackageAllocation}
+        />
       )}
     </div>
   );
