@@ -3,10 +3,12 @@ import { useAuth } from '../context/AuthContext';
 import { BarChart3, AlertTriangle, ShieldCheck, Factory, LogOut, Package, Settings } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useTranslation } from 'react-i18next';
+import { PackageManager } from '../components/PackageManager';
 
 export const AdminDashboardPage: React.FC = () => {
   const { t } = useTranslation();
   const { profile, signOut } = useAuth();
+  const [mainTab, setMainTab] = useState<'dashboard' | 'bom'>('dashboard');
   const [spks, setSpks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -102,13 +104,28 @@ export const AdminDashboardPage: React.FC = () => {
       {/* Main Content */}
       <main className="flex-1 p-6 lg:p-8 space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold font-display text-text">{t('admin.dashboard_title')}</h2>
-          <div className="bg-primary/20 text-primary text-xs font-mono px-2 py-1 rounded">
+          <div className="flex gap-4 border-b border-border w-full max-w-xl">
+            <button 
+              onClick={() => setMainTab('dashboard')}
+              className={`pb-2 text-lg font-bold font-display transition border-b-2 ${mainTab === 'dashboard' ? 'border-primary text-text' : 'border-transparent text-text-muted hover:text-text'}`}
+            >
+              {t('admin.dashboard_title')}
+            </button>
+            <button 
+              onClick={() => setMainTab('bom')}
+              className={`pb-2 text-lg font-bold font-display transition border-b-2 ${mainTab === 'bom' ? 'border-primary text-text' : 'border-transparent text-text-muted hover:text-text'}`}
+            >
+              Paket Produk (BOM)
+            </button>
+          </div>
+          <div className="bg-primary/20 text-primary text-xs font-mono px-2 py-1 rounded shrink-0">
             {t('admin.live_telemetry')}
           </div>
         </div>
 
-        {/* Top Metric Cards */}
+        {mainTab === 'dashboard' ? (
+          <>
+            {/* Top Metric Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-surface border border-border rounded-lg p-5">
             <div className="flex items-start justify-between">
@@ -310,6 +327,12 @@ export const AdminDashboardPage: React.FC = () => {
             </table>
           </div>
         </div>
+          </>
+        ) : (
+          <div className="mt-4">
+            <PackageManager />
+          </div>
+        )}
       </main>
     </div>
   );

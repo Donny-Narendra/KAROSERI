@@ -7,9 +7,11 @@ import { AmendmentManager } from '../components/AmendmentManager';
 import { RabCalculator } from '../components/RabCalculator';
 import { CancelSpkModal } from '../components/CancelSpkModal';
 import { spkService } from '../services/spkService';
+import { PackageManager } from '../components/PackageManager';
 
 export const ServiceAdvisorDashboard: React.FC = () => {
   const { profile, signOut } = useAuth();
+  const [mainTab, setMainTab] = useState<'spk' | 'bom'>('spk');
   const [spks, setSpks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -77,11 +79,24 @@ export const ServiceAdvisorDashboard: React.FC = () => {
       {/* Main Content */}
       <main className="flex-1 p-6 lg:p-8 space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold font-display text-text">Vehicle Check-in</h2>
-          {!showForm && (
+          <div className="flex gap-4 border-b border-border w-full max-w-xl">
+            <button 
+              onClick={() => setMainTab('spk')}
+              className={`pb-2 text-lg font-bold font-display transition border-b-2 ${mainTab === 'spk' ? 'border-primary text-text' : 'border-transparent text-text-muted hover:text-text'}`}
+            >
+              Vehicle Check-in
+            </button>
+            <button 
+              onClick={() => setMainTab('bom')}
+              className={`pb-2 text-lg font-bold font-display transition border-b-2 ${mainTab === 'bom' ? 'border-primary text-text' : 'border-transparent text-text-muted hover:text-text'}`}
+            >
+              Katalog Paket (BOM)
+            </button>
+          </div>
+          {!showForm && mainTab === 'spk' && (
             <button
               onClick={() => setShowForm(true)}
-              className="bg-primary hover:bg-primary-hover text-background font-bold py-2 px-4 rounded transition flex items-center gap-2"
+              className="bg-primary hover:bg-primary-hover text-background font-bold py-2 px-4 rounded transition flex items-center gap-2 shrink-0"
             >
               <Plus className="w-4 h-4" />
               New SPK
@@ -89,7 +104,11 @@ export const ServiceAdvisorDashboard: React.FC = () => {
           )}
         </div>
 
-        {showForm ? (
+        {mainTab === 'bom' ? (
+          <div className="mt-4">
+            <PackageManager />
+          </div>
+        ) : showForm ? (
           <div>
             <button 
               onClick={() => setShowForm(false)}
