@@ -28,7 +28,7 @@ const WBS_CATEGORIES = [
 
 type AllocationState = {
   [itemIndex: number]: {
-    [category: string]: number;
+    [category: string]: string;
   };
 };
 
@@ -46,7 +46,7 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
       packageData.items.forEach((_, idx) => {
         initial[idx] = {};
         WBS_CATEGORIES.forEach((cat) => {
-          initial[idx][cat] = 0;
+          initial[idx][cat] = '';
         });
       });
       setAllocations(initial);
@@ -58,18 +58,17 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
   const items = packageData.items || [];
 
   const handleAllocationChange = (itemIdx: number, cat: string, val: string) => {
-    const num = parseFloat(val) || 0;
     setAllocations((prev) => ({
       ...prev,
       [itemIdx]: {
         ...prev[itemIdx],
-        [cat]: num,
+        [cat]: val,
       },
     }));
   };
 
   const isAllAllocated = items.every((item, idx) => {
-    const totalAllocated = WBS_CATEGORIES.reduce((sum, cat) => sum + (allocations[idx]?.[cat] || 0), 0);
+    const totalAllocated = WBS_CATEGORIES.reduce((sum, cat) => sum + (parseFloat(allocations[idx]?.[cat]) || 0), 0);
     // Use a small epsilon for floating point comparison
     return Math.abs(totalAllocated - item.quantity) < 0.001;
   });
@@ -81,7 +80,7 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
 
     items.forEach((item, idx) => {
       WBS_CATEGORIES.forEach((cat) => {
-        const qty = allocations[idx]?.[cat] || 0;
+        const qty = parseFloat(allocations[idx]?.[cat]) || 0;
         if (qty > 0) {
           payload.push({
             wbsCategory: cat,
@@ -128,7 +127,7 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
               </thead>
               <tbody className="divide-y divide-border">
                 {items.map((item, idx) => {
-                  const totalAllocated = WBS_CATEGORIES.reduce((sum, cat) => sum + (allocations[idx]?.[cat] || 0), 0);
+                  const totalAllocated = WBS_CATEGORIES.reduce((sum, cat) => sum + (parseFloat(allocations[idx]?.[cat]) || 0), 0);
                   const remaining = item.quantity - totalAllocated;
                   const isZero = Math.abs(remaining) < 0.001;
 
