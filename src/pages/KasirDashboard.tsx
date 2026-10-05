@@ -21,6 +21,7 @@ interface MockSPK {
   qcStatus: 'PENDING' | 'PASS' | 'FAIL';
   paymentStatus: 'NO_INVOICE' | 'UNPAID' | 'LUNAS';
   allocationStatus?: string;
+  amendmentCost: number;
 }
 
 export const KasirDashboard: React.FC = () => {
@@ -56,7 +57,8 @@ export const KasirDashboard: React.FC = () => {
       qc_inspections ( status, inspected_at ),
       invoices ( status, created_at ),
       rab_estimations ( id, total_labor_cost, total_overhead_cost, total_estimated_cost ),
-      inventory_transactions ( quantity_issued, custom_unit_price, materials ( unit_price, is_customer_supplied ) )
+      inventory_transactions ( quantity_issued, custom_unit_price, materials ( unit_price, is_customer_supplied ) ),
+      spk_amendments ( status, cost_adjustment )
     `).neq('status', 'CANCELLED').order('created_at', { ascending: false });
 
     if (data) {
@@ -105,6 +107,8 @@ export const KasirDashboard: React.FC = () => {
            actualMaterialCost = totalEstimatedCost - actualLaborCost - overheadCost;
         }
 
+        const amendmentCost = d.spk_amendments?.filter((a: any) => a.status === 'APPROVED').reduce((acc: number, curr: any) => acc + (Number(curr.cost_adjustment) || 0), 0) || 0;
+
         return {
           id: d.spk_no,
           dbId: d.id,
@@ -119,6 +123,7 @@ export const KasirDashboard: React.FC = () => {
           qcStatus: qcStatus as any,
           paymentStatus: paymentStatus as any,
           allocationStatus: d.allocation_status,
+          amendmentCost,
         };
       });
       setSpks(formatted);
@@ -135,7 +140,7 @@ export const KasirDashboard: React.FC = () => {
   const handleGenerateInvoice = async () => {
     if (!selectedSpk) return;
     
-    const totalAmount = Math.max(0, (selectedSpk.materialCost + selectedSpk.jasaCost) - selectedSpk.dpAmount);
+    const totalAmount = Math.max(0, (selectedSpk.materialCost + selectedSpk.jasaCost + selectedSpk.amendmentCost) - selectedSpk.dpAmount);
     
     const { error } = await supabase
       .from('invoices')
@@ -396,10 +401,16 @@ export const KasirDashboard: React.FC = () => {
                   <span className="text-text-muted">Total Labor (Jasa) Cost</span>
                   <span className="font-medium text-text-primary">{formatCurrency(selectedSpk.jasaCost)}</span>
                 </div>
+                {selectedSpk.amendmentCost !== 0 && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-text-muted">Approved Amendments (Change Orders)</span>
+                    <span className="font-medium text-text-primary">{formatCurrency(selectedSpk.amendmentCost)}</span>
+                  </div>
+                )}
                 
                 <div className="border-t border-surface-border/50 pt-3 flex justify-between items-center">
                   <span className="text-sm font-medium text-text-primary">Subtotal (Actual Cost)</span>
-                  <span className="font-medium text-text-primary">{formatCurrency(selectedSpk.materialCost + selectedSpk.jasaCost)}</span>
+                  <span className="font-medium text-text-primary">{formatCurrency(selectedSpk.materialCost + selectedSpk.jasaCost + selectedSpk.amendmentCost)}</span>
                 </div>
 
                 <div className="flex justify-between items-center text-sm text-status-danger">
@@ -412,7 +423,7 @@ export const KasirDashboard: React.FC = () => {
               <div className="bg-primary/5 border border-primary/20 rounded-lg p-5 flex justify-between items-center mb-8">
                 <span className="text-lg font-medium text-text-primary">Final Bill to Customer</span>
                 <span className="text-2xl font-bold text-primary">
-                  {formatCurrency(Math.max(0, (selectedSpk.materialCost + selectedSpk.jasaCost) - selectedSpk.dpAmount))}
+                  {formatCurrency(Math.max(0, (selectedSpk.materialCost + selectedSpk.jasaCost + selectedSpk.amendmentCost) - selectedSpk.dpAmount))}
                 </span>
               </div>
 

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { Check, X, Clock, Plus, AlertCircle } from 'lucide-react';
+import { spkService } from '../services/spkService';
 
 interface AmendmentManagerProps {
   spkId: string;
@@ -74,15 +75,12 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId }) => 
 
   const handleAction = async (id: string, action: 'APPROVED' | 'REJECTED') => {
     try {
-      const { error: updateError } = await supabase
-        .from('spk_amendments')
-        .update({ 
-          status: action,
-          approved_by: profile?.id
-        })
-        .eq('id', id);
-
-      if (updateError) throw updateError;
+      if (action === 'APPROVED') {
+        if (!profile?.id) throw new Error("User ID is missing");
+        await spkService.approveAmendment(id, profile.id);
+      } else {
+        await spkService.rejectAmendment(id);
+      }
       fetchAmendments();
     } catch (err) {
       console.error(`Error updating amendment to ${action}:`, err);
@@ -197,7 +195,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId }) => 
                 </div>
               </div>
 
-              {isOwner && amendment.status === 'PENDING' && (
+              {(isOwner || isSA) && amendment.status === 'PENDING' && (
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleAction(amendment.id, 'APPROVED')}

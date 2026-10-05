@@ -60,5 +60,38 @@ export const spkService = {
     }
 
     return data;
+  },
+
+  async approveAmendment(amendmentId: string, approvedBy: string) {
+    const { data, error } = await supabase
+      .from('spk_amendments')
+      .update({ 
+        status: 'APPROVED',
+        approved_by: approvedBy
+      })
+      .eq('id', amendmentId)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to approve amendment: ${error.message}`);
+    }
+    return data;
+  },
+
+  async rejectAmendment(amendmentId: string) {
+    const { data, error } = await supabase
+      .from('spk_amendments')
+      .update({ 
+        status: 'REJECTED'
+      })
+      .eq('id', amendmentId)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to reject amendment: ${error.message}`);
+    }
+    return data;
   }
 };
