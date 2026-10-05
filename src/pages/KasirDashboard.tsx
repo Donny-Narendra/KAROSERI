@@ -20,6 +20,7 @@ interface MockSPK {
   totalEstimatedCost: number;
   qcStatus: 'PENDING' | 'PASS' | 'FAIL';
   paymentStatus: 'NO_INVOICE' | 'UNPAID' | 'LUNAS';
+  allocationStatus?: string;
 }
 
 export const KasirDashboard: React.FC = () => {
@@ -117,6 +118,7 @@ export const KasirDashboard: React.FC = () => {
           totalEstimatedCost,
           qcStatus: qcStatus as any,
           paymentStatus: paymentStatus as any,
+          allocationStatus: d.allocation_status,
         };
       });
       setSpks(formatted);
@@ -127,7 +129,7 @@ export const KasirDashboard: React.FC = () => {
   const selectedSpk = spks.find(s => s.id === selectedSpkId) || null;
   const draftStatuses = ['DRAFT', 'PENDING_PAYMENT'];
   const displayedSpks = activeTab === 'DP' 
-    ? spks.filter(s => draftStatuses.includes(s.status))
+    ? spks.filter(s => draftStatuses.includes(s.status) && s.allocationStatus !== 'PARTIAL')
     : spks.filter(s => !draftStatuses.includes(s.status));
 
   const handleGenerateInvoice = async () => {

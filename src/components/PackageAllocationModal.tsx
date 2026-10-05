@@ -15,7 +15,7 @@ interface PackageAllocationModalProps {
   packageData: ProductPackage;
   isOpen: boolean;
   onClose: () => void;
-  onApply: (allocatedItems: RabItemPayload[]) => void;
+  onApply: (allocatedItems: RabItemPayload[], isComplete: boolean) => void;
   existingItems?: {
     wbsCategory: string;
     type: 'material' | 'labor' | 'overhead';
@@ -77,14 +77,24 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
     }));
   };
 
-  const isAllAllocated = items.every((item, idx) => {
+  const isComplete = items.every((item, idx) => {
     const totalAllocated = WBS_CATEGORIES.reduce((sum, cat) => sum + (parseFloat(allocations[idx]?.[cat]) || 0), 0);
     // Use a small epsilon for floating point comparison
     return Math.abs(totalAllocated - item.quantity) < 0.001;
   });
 
+  const hasNegativeRemainder = items.some((item, idx) => {
+    const totalAllocated = WBS_CATEGORIES.reduce((sum, cat) => sum + (parseFloat(allocations[idx]?.[cat]) || 0), 0);
+    return item.quantity - totalAllocated < -0.001;
+  });
+
+  const totalAllocatedSum = items.reduce((total, _, idx) => {
+    const itemTotal = WBS_CATEGORIES.reduce((sum, cat) => sum + (parseFloat(allocations[idx]?.[cat]) || 0), 0);
+    return total + itemTotal;
+  }, 0);
+
   const handleApply = () => {
-    if (!isAllAllocated) return;
+    if (hasNegativeRemainder || totalAllocatedSum === 0) return;
 
     const payload: RabItemPayload[] = [];
 
@@ -104,7 +114,7 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
       });
     });
 
-    onApply(payload);
+    onApply(payload, isComplete);
   };
 
   return (
@@ -183,10 +193,16 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
         </div>
 
         <div className="px-6 py-4 border-t border-border bg-surface flex justify-end gap-3 shrink-0 items-center">
-          {!isAllAllocated && (
+          {!isComplete && !hasNegativeRemainder && (
             <div className="text-sm text-status-warning flex items-center gap-2 mr-auto font-medium">
               <AlertTriangle className="w-4 h-4" />
-              Sisa kuota semua material harus 0 sebelum diterapkan
+              Perhatian: Paket akan disimpan sebagai Draf Parsial dan belum dapat ditagihkan ke Kasir sampai alokasi tuntas.
+            </div>
+          )}
+          {hasNegativeRemainder && (
+            <div className="text-sm text-status-danger flex items-center gap-2 mr-auto font-medium">
+              <AlertTriangle className="w-4 h-4" />
+              Terdapat item yang dialokasikan melebihi kuota.
             </div>
           )}
           <button 
@@ -197,7 +213,7 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
           </button>
           <button 
             onClick={handleApply}
-            disabled={!isAllAllocated}
+            disabled={hasNegativeRemainder || totalAllocatedSum === 0}
             className="bg-primary hover:bg-primary-hover text-white px-5 py-2 rounded font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Terapkan ke RAB

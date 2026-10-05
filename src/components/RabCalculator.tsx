@@ -30,6 +30,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   const [packages, setPackages] = useState<ProductPackage[]>([]);
   const [isPackageModalOpen, setIsPackageModalOpen] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<ProductPackage | null>(null);
+  const [allocationStatus, setAllocationStatus] = useState<'PARTIAL' | 'COMPLETE'>('COMPLETE');
   
   const [newItem, setNewItem] = useState<Partial<RabItem>>({
     type: 'material',
@@ -62,6 +63,11 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
         .select('id')
         .eq('spk_id', spkId)
         .single();
+        
+      const { data: spkData } = await supabase.from('spk').select('allocation_status').eq('id', spkId).single();
+      if (spkData?.allocation_status) {
+         setAllocationStatus(spkData.allocation_status);
+      }
         
       if (!estError && estData) {
         const { data: itemsData, error: itemsError } = await supabase
@@ -339,7 +345,10 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       }
 
       // 3. Update SPK total cost
-      const { error: spkError } = await supabase.from('spk').update({ total_estimated_cost: totalCost }).eq('id', spkId);
+      const { error: spkError } = await supabase.from('spk').update({ 
+        total_estimated_cost: totalCost,
+        allocation_status: allocationStatus
+      }).eq('id', spkId);
       if (spkError) throw spkError;
 
       if (!silent) alert('Estimation saved successfully!');
@@ -349,7 +358,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     }
   };
 
-  const handleApplyPackageAllocation = (allocatedItems: RabItemPayload[]) => {
+  const handleApplyPackageAllocation = (allocatedItems: RabItemPayload[], isComplete: boolean) => {
     if (!selectedPackage) return;
     const pkgId = selectedPackage.id;
 
@@ -368,6 +377,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       ...prev.filter(i => i.packageId !== pkgId),
       ...newItems
     ]);
+    setAllocationStatus(isComplete ? 'COMPLETE' : 'PARTIAL');
     setIsPackageModalOpen(false);
     setSelectedPackage(null);
   };
@@ -435,7 +445,14 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
 
           {appliedPackagesData.length > 0 && (
             <div className="bg-surface border border-border rounded-lg p-4 mb-6">
-              <h4 className="font-bold text-sm text-text border-b border-border pb-2 mb-3">Paket BOM Diterapkan</h4>
+              <h4 className="font-bold text-sm text-text border-b border-border pb-2 mb-3 flex items-center gap-2">
+                Paket BOM Diterapkan
+                {allocationStatus === 'PARTIAL' && (
+                  <span className="bg-status-warning/20 text-status-warning text-[10px] px-2 py-0.5 rounded-full font-bold">
+                    Alokasi Sebagian (Perlu Dilengkapi)
+                  </span>
+                )}
+              </h4>
               <div className="space-y-2">
                 {appliedPackagesData.map(pkg => (
                   <div key={pkg.id} className="flex items-center justify-between bg-background p-2 rounded border border-border">
