@@ -226,7 +226,7 @@
 ---
 
 ### Phase 16: Pemecahan Kuota Material ke WBS 1-5 pada RAB Calculator
-**Status**: ? Not Started
+**Status**: ✅ Complete
 **Objective**: Implementasi Fitur "Pilih Paket Barang Jadi & Pemecahan Kuota Material ke WBS 1-5" pada RAB Calculator
 **Depends on**: Phase 15
 
