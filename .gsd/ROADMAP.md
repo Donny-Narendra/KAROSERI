@@ -284,3 +284,12 @@
 
 **Gaps to Close:**
 - [x] Tambahkan aksi Approve dan Reject pada Change Orders SPK
+
+---
+
+### Phase 22: Gap Closure (Integrasi Amandemen SPK ke Billing Calculator Kasir)
+**Status**: ⬜ Not Started
+**Objective**: Address gaps from milestone audit (Integrasikan Amandemen SPK Approved ke Billing Calculator Kasir)
+
+**Gaps to Close:**
+- [ ] Tarik spk_amendments approved dan integrasikan ke perhitungan kasir
