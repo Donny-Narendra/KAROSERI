@@ -109,6 +109,8 @@ export const KasirDashboard: React.FC = () => {
 
         const amendmentCost = d.spk_amendments?.filter((a: any) => a.status === 'APPROVED').reduce((acc: number, curr: any) => acc + (Number(curr.cost_adjustment) || 0), 0) || 0;
 
+        totalEstimatedCost += amendmentCost;
+
         return {
           id: d.spk_no,
           dbId: d.id,

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { BarChart3, AlertTriangle, ShieldCheck, Factory, LogOut, Package, Settings } from 'lucide-react';
+import { BarChart3, AlertTriangle, ShieldCheck, Factory, LogOut, Package, Settings, Bell, Check, X } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useTranslation } from 'react-i18next';
 import { PackageManager } from '../components/PackageManager';
+import { spkService } from '../services/spkService';
 
 export const AdminDashboardPage: React.FC = () => {
   const { t } = useTranslation();
@@ -11,6 +12,7 @@ export const AdminDashboardPage: React.FC = () => {
   const [mainTab, setMainTab] = useState<'dashboard' | 'bom'>('dashboard');
   const [spks, setSpks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showApprovalsModal, setShowApprovalsModal] = useState(false);
 
   useEffect(() => {
     fetchSpks();
@@ -21,7 +23,8 @@ export const AdminDashboardPage: React.FC = () => {
     const { data, error } = await supabase.from('spk').select(`
       *,
       rab_estimations ( total_estimated_cost, total_labor_cost, total_overhead_cost ),
-      inventory_transactions ( quantity_issued, custom_unit_price, materials ( unit_price, is_customer_supplied ) )
+      inventory_transactions ( quantity_issued, custom_unit_price, materials ( unit_price, is_customer_supplied ) ),
+      spk_amendments ( id, description, cost_adjustment, status, created_at, spk_id )
     `).order('created_at', { ascending: false });
     if (data) setSpks(data);
     if (error) console.error('Error fetching SPKs:', error);
@@ -31,6 +34,23 @@ export const AdminDashboardPage: React.FC = () => {
   const activeSpks = spks.filter(s => s.status === 'ACTIVE');
   const activeBays = activeSpks.length;
   const totalBays = 20;
+
+  const pendingAmendments = spks.flatMap(s => (s.spk_amendments || []).map((a: any) => ({...a, spk_no: s.spk_no, customer_name: s.customer_name}))).filter((a: any) => a.status === 'PENDING');
+  const pendingAmendmentsCount = pendingAmendments.length;
+
+  const handleApprovalAction = async (id: string, action: 'APPROVED' | 'REJECTED') => {
+    try {
+      if (action === 'APPROVED') {
+        if (!profile?.id) throw new Error("User ID is missing");
+        await spkService.approveAmendment(id, profile.id);
+      } else {
+        await spkService.rejectAmendment(id);
+      }
+      fetchSpks(); // refresh data
+    } catch (err) {
+      console.error(`Error updating amendment to ${action}:`, err);
+    }
+  };
 
   const totalWipValue = activeSpks.reduce((sum, spk) => sum + (Number(spk.total_estimated_cost) || 0), 0);
   const formattedWip = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(totalWipValue);
@@ -83,6 +103,18 @@ export const AdminDashboardPage: React.FC = () => {
           <h1 className="font-display font-bold text-xl text-text">RobelKaroseri Admin</h1>
         </div>
         <div className="flex items-center gap-4">
+          <button
+            onClick={() => setShowApprovalsModal(true)}
+            className="relative p-2 text-text-muted hover:text-text transition bg-surface-hover rounded-full"
+            title="Pending Approvals"
+          >
+            <Bell className="w-5 h-5" />
+            {pendingAmendmentsCount > 0 && (
+              <span className="absolute top-0 right-0 w-4 h-4 bg-status-danger text-background text-[10px] font-bold flex items-center justify-center rounded-full border border-surface">
+                {pendingAmendmentsCount}
+              </span>
+            )}
+          </button>
           <span className="text-sm text-text-muted font-mono">{profile?.full_name} ({profile?.role})</span>
           <button 
             onClick={() => window.location.href = '/admin/settings'}
@@ -334,6 +366,76 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
         )}
       </main>
+
+      {/* Pending Approvals Modal */}
+      {showApprovalsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+          <div className="bg-surface border border-border rounded-lg shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="flex justify-between items-center p-4 border-b border-border bg-surface-hover">
+              <h2 className="font-bold text-lg font-display flex items-center gap-2">
+                <Bell className="w-5 h-5 text-status-warning" />
+                Pending Approvals ({pendingAmendmentsCount})
+              </h2>
+              <button onClick={() => setShowApprovalsModal(false)} className="text-text-muted hover:text-text transition p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-4 overflow-y-auto flex-1">
+              {pendingAmendments.length === 0 ? (
+                <div className="text-center py-8 text-text-muted text-sm">
+                  Tidak ada daftar approval yang tertunda.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {pendingAmendments.map((amendment: any) => (
+                    <div key={amendment.id} className="border border-border rounded p-4 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between bg-surface-hover/30">
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-text text-sm font-mono">{amendment.spk_no}</span>
+                          <span className="text-xs px-2 py-0.5 rounded bg-surface-active text-text-muted">{amendment.customer_name}</span>
+                        </div>
+                        <p className="text-sm text-text">{amendment.description}</p>
+                        <div className="flex items-center gap-3 text-xs text-text-muted font-mono">
+                          <span className={amendment.cost_adjustment > 0 ? "text-status-danger" : "text-text"}>
+                            {amendment.cost_adjustment >= 0 ? '+' : ''}
+                            {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(amendment.cost_adjustment || 0)}
+                          </span>
+                          <span>{new Date(amendment.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2 w-full md:w-auto shrink-0 mt-2 md:mt-0">
+                        <button
+                          onClick={() => handleApprovalAction(amendment.id, 'APPROVED')}
+                          className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-status-success/10 hover:bg-status-success/20 text-status-success rounded text-sm font-medium transition"
+                        >
+                          <Check className="w-4 h-4" /> Approve
+                        </button>
+                        <button
+                          onClick={() => handleApprovalAction(amendment.id, 'REJECTED')}
+                          className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-status-danger/10 hover:bg-status-danger/20 text-status-danger rounded text-sm font-medium transition"
+                        >
+                          <X className="w-4 h-4" /> Reject
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div className="p-4 border-t border-border bg-surface-hover flex justify-end">
+              <button
+                onClick={() => setShowApprovalsModal(false)}
+                className="px-4 py-2 border border-border text-text rounded hover:bg-surface-active transition text-sm font-medium"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
