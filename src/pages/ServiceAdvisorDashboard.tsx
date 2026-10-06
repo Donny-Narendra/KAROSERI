@@ -90,7 +90,7 @@ export const ServiceAdvisorDashboard: React.FC = () => {
               onClick={() => setMainTab('bom')}
               className={`pb-2 text-lg font-bold font-display transition border-b-2 ${mainTab === 'bom' ? 'border-primary text-text' : 'border-transparent text-text-muted hover:text-text'}`}
             >
-              Katalog Paket (BOM)
+              Katalog Paket (Assembly List)
             </button>
           </div>
           {!showForm && mainTab === 'spk' && (

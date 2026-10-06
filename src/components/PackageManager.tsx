@@ -196,7 +196,7 @@ export const PackageManager: React.FC = () => {
     <div className="bg-surface border border-border rounded-lg overflow-hidden flex flex-col font-sans">
       <div className="p-5 border-b border-border bg-surface-hover flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h3 className="font-bold text-text font-display flex items-center gap-2">
-          Paket Barang Jadi (BOM)
+          Paket Barang Jadi (Assembly List)
         </h3>
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <div className="relative flex-1 sm:flex-none">
@@ -307,7 +307,7 @@ export const PackageManager: React.FC = () => {
           <div className="bg-surface border border-border rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
             <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-background shrink-0">
               <h3 className="font-bold text-lg text-text">
-                {editingPackage ? 'Edit Paket (BOM)' : 'Buat Paket Baru (BOM)'}
+                {editingPackage ? 'Edit Paket (Assembly List)' : 'Buat Paket Baru (Assembly List)'}
               </h3>
               <button 
                 onClick={() => setIsModalOpen(false)}

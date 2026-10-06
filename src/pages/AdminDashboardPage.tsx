@@ -147,7 +147,7 @@ export const AdminDashboardPage: React.FC = () => {
               onClick={() => setMainTab('bom')}
               className={`pb-2 text-lg font-bold font-display transition border-b-2 ${mainTab === 'bom' ? 'border-primary text-text' : 'border-transparent text-text-muted hover:text-text'}`}
             >
-              Paket Produk (BOM)
+              Paket Produk (Assembly List)
             </button>
           </div>
           <div className="bg-primary/20 text-primary text-xs font-mono px-2 py-1 rounded shrink-0">

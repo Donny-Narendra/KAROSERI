@@ -361,7 +361,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
         <div className="lg:col-span-1 space-y-6">
           
           <div className="bg-background border border-border rounded-lg p-4 mb-6">
-            <h4 className="font-bold text-sm text-text border-b border-border pb-2 mb-3">Pilih Paket Barang Jadi (BOM)</h4>
+            <h4 className="font-bold text-sm text-text border-b border-border pb-2 mb-3">Pilih Paket Barang Jadi (Assembly List)</h4>
             <div className="flex flex-col gap-2">
               <select
                 className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-primary transition"
