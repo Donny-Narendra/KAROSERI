@@ -306,7 +306,7 @@
 ---
 
 ### Phase 24: Gap Closure (Perbaikan Formula Pelunasan Akhir Kasir dengan Mengikutsertakan Nilai Change Order Approved)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Sertakan change order approved ke kalkulasi subtotal dan final bill kasir
 
 **Gaps to Close:**
