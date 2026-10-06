@@ -524,3 +524,25 @@ User requested `/pause`.
 
 ### Handoff Notes
 Roadmap tasks for the current milestone are fully completed. Run `/complete-milestone` to archive it.
+
+---
+
+## Session: 2026-10-06 07:26
+
+### Objective
+Execute Gap Closure Plans for Phase 23 and 24 to fix Kasir Dashboard Billing calculation and UI.
+
+### Accomplished
+- Validated that `KasirDashboard.tsx` correctly fetches `spk_amendments` with status `APPROVED` and calculates `amendmentCost`.
+- Updated the Cost Breakdown UI in `KasirDashboard.tsx` to explicitly separate "Subtotal (Actual Cost)" (Material + Labor) from "Total Akhir Proyek" (Subtotal + Amendment).
+- Verified the build and verified the Final Bill calculation accurately deducts DP.
+
+### Verification
+- [x] Phase 23 gap closure (Calculation verification) completed and verified.
+- [x] Phase 24 gap closure (UI updates) completed and verified.
+
+### Paused Because
+User requested `/pause`. Task is complete.
+
+### Handoff Notes
+Gap fixes are complete. Run `/complete-milestone` to archive this milestone if there are no more tasks.
