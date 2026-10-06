@@ -302,3 +302,12 @@
 
 **Gaps to Close:**
 - [ ] Biaya Change Order yang disetujui terhitung di pelunasan kasir secara akurat.
+
+---
+
+### Phase 24: Gap Closure (Perbaikan Formula Pelunasan Akhir Kasir dengan Mengikutsertakan Nilai Change Order Approved)
+**Status**: ⬜ Not Started
+**Objective**: Sertakan change order approved ke kalkulasi subtotal dan final bill kasir
+
+**Gaps to Close:**
+- [ ] Penagihan pelunasan akhir di kasir menghitung seluruh pekerjaan tambahan yang telah disetujui owner secara akurat.
