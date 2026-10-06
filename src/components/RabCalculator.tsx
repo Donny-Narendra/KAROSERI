@@ -375,7 +375,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                 }}
                 value=""
               >
-                <option value="" disabled>-- Pilih Paket BOM --</option>
+                <option value="" disabled>-- Pilih Paket Assembly List --</option>
                 {packages.map(p => {
                   const isApplied = items.some(i => i.packageId === p.id);
                   return (
@@ -391,7 +391,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
           {appliedPackagesData.length > 0 && (
             <div className="bg-surface border border-border rounded-lg p-4 mb-6">
               <h4 className="font-bold text-sm text-text border-b border-border pb-2 mb-3 flex items-center gap-2">
-                Paket BOM Diterapkan
+                Paket Assembly List Diterapkan
                 {allocationStatus === 'PARTIAL' && (
                   <span className="bg-status-warning/20 text-status-warning text-[10px] px-2 py-0.5 rounded-full font-bold">
                     Alokasi Sebagian (Perlu Dilengkapi)

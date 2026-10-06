@@ -485,7 +485,7 @@ export const PackageManager: React.FC = () => {
                 className="bg-primary hover:bg-primary-hover text-white px-5 py-2 rounded font-medium transition flex items-center gap-2 disabled:opacity-50"
               >
                 <Save className="w-4 h-4" />
-                {isSubmitting ? 'Menyimpan...' : 'Simpan Paket BOM'}
+                {isSubmitting ? 'Menyimpan...' : 'Simpan Paket Assembly List'}
               </button>
             </div>
           </div>
@@ -501,7 +501,7 @@ export const PackageManager: React.FC = () => {
             </div>
             <h3 className="font-bold text-lg text-text mb-2">Hapus Paket?</h3>
             <p className="text-text-muted mb-6">
-              Tindakan ini tidak dapat dibatalkan. Paket beserta resep BOM-nya akan dihapus permanen.
+              Tindakan ini tidak dapat dibatalkan. Paket beserta resep Assembly List-nya akan dihapus permanen.
             </p>
             <div className="flex justify-center gap-3">
               <button 
