@@ -297,7 +297,7 @@
 ---
 
 ### Phase 23: Gap Closure (Perbaikan Integrasi Biaya Change Order Approved pada Penagihan Kasir SPK)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Sertakan amandemen disetujui ke dalam query dan formula kalkulasi kasir
 
 **Gaps to Close:**
