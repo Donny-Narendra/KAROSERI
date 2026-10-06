@@ -403,16 +403,22 @@ export const KasirDashboard: React.FC = () => {
                   <span className="text-text-muted">Total Labor (Jasa) Cost</span>
                   <span className="font-medium text-text-primary">{formatCurrency(selectedSpk.jasaCost)}</span>
                 </div>
-                {selectedSpk.amendmentCost !== 0 && (
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-text-muted">Approved Amendments (Change Orders)</span>
-                    <span className="font-medium text-text-primary">{formatCurrency(selectedSpk.amendmentCost)}</span>
-                  </div>
-                )}
                 
                 <div className="border-t border-surface-border/50 pt-3 flex justify-between items-center">
                   <span className="text-sm font-medium text-text-primary">Subtotal (Actual Cost)</span>
-                  <span className="font-medium text-text-primary">{formatCurrency(selectedSpk.materialCost + selectedSpk.jasaCost + selectedSpk.amendmentCost)}</span>
+                  <span className="font-medium text-text-primary">{formatCurrency(selectedSpk.materialCost + selectedSpk.jasaCost)}</span>
+                </div>
+
+                {selectedSpk.amendmentCost !== 0 && (
+                  <div className="flex justify-between items-center text-sm text-secondary">
+                    <span>Change Orders (Disetujui)</span>
+                    <span className="font-medium">+ {formatCurrency(selectedSpk.amendmentCost)}</span>
+                  </div>
+                )}
+
+                <div className="border-t border-surface-border/50 pt-3 flex justify-between items-center">
+                  <span className="text-sm font-bold text-text-primary">Total Akhir Proyek</span>
+                  <span className="font-bold text-text-primary">{formatCurrency(selectedSpk.materialCost + selectedSpk.jasaCost + selectedSpk.amendmentCost)}</span>
                 </div>
 
                 <div className="flex justify-between items-center text-sm text-status-danger">
