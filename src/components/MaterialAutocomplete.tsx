@@ -124,9 +124,12 @@ export const MaterialAutocomplete: React.FC<MaterialAutocompleteProps> = ({
             return (
               <li
                 key={material.id}
-                onClick={() => handleSelect(material)}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  handleSelect(material);
+                }}
                 onMouseEnter={() => setHighlightedIndex(index)}
-                className={`px-3 py-2 cursor-pointer border-b border-border last:border-b-0 transition-colors ${
+                className={`w-full block cursor-pointer select-none px-3 py-2 border-b border-border last:border-b-0 transition-colors ${
                   isHighlighted ? 'bg-primary/20 text-primary font-medium' : 'text-text hover:bg-surface-hover'
                 }`}
               >
