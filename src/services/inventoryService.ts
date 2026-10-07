@@ -206,5 +206,22 @@ export const inventoryService = {
       .eq('id', issueId);
       
     if (error) throw error;
+  },
+
+  async getIssuedMaterialsBySpk(spkId: string) {
+    const { data, error } = await supabase
+      .from('inventory_transactions')
+      .select('material_id, quantity_issued')
+      .eq('spk_id', spkId);
+      
+    if (error) throw error;
+    
+    const totals: Record<string, number> = {};
+    if (data) {
+      data.forEach((tx: any) => {
+        totals[tx.material_id] = (totals[tx.material_id] || 0) + Number(tx.quantity_issued);
+      });
+    }
+    return totals;
   }
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Edit2, Trash2, AlertCircle, Save, X, Search, CheckCircle2, PlusCircle, Calculator } from 'lucide-react';
+import { Plus, Edit2, Trash2, AlertCircle, Save, X, Search, CheckCircle2, Calculator } from 'lucide-react';
 import { packageService } from '../services/packageService';
 import { inventoryService, type Material } from '../services/inventoryService';
 import type { ProductPackage, PackageItem } from '../types/package';
@@ -80,17 +80,35 @@ export const PackageManager: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleAddItem = (type: 'MATERIAL' | 'LABOR') => {
-    setItems([
-      ...items,
-      {
-        item_type: type,
-        material_id: type === 'MATERIAL' ? '' : null,
-        labor_name: type === 'LABOR' ? '' : null,
-        quantity: 1,
-        cost_per_unit: 0,
+  const handleAddNewMaterialRow = (material: Material) => {
+    setItems((prevItems) => {
+      const existingIndex = prevItems.findIndex(
+        (item) => item.item_type === 'MATERIAL' && item.material_id === material.id
+      );
+
+      if (existingIndex > -1) {
+        const updatedItems = [...prevItems];
+        const targetItem = updatedItems[existingIndex];
+        const newQty = Number(targetItem.quantity || 0) + 1;
+        
+        updatedItems[existingIndex] = {
+          ...targetItem,
+          quantity: newQty,
+        };
+        return updatedItems;
       }
-    ]);
+
+      return [
+        ...prevItems,
+        {
+          item_type: 'MATERIAL',
+          material_id: material.id,
+          labor_name: null,
+          quantity: 1,
+          cost_per_unit: material.unit_price || 0,
+        }
+      ];
+    });
   };
 
   const handleRemoveItem = (index: number) => {
@@ -343,25 +361,16 @@ export const PackageManager: React.FC = () => {
                 </div>
               </div>
 
-              <div className="mb-4 flex items-center justify-between">
-                <h4 className="font-medium text-text">Rincian Komponen (Bill of Materials)</h4>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleAddItem('MATERIAL')}
-                    className="text-xs bg-surface-hover hover:bg-border text-text border border-border px-2 py-1.5 rounded flex items-center gap-1 transition"
-                  >
-                    <PlusCircle className="w-3.5 h-3.5" />
-                    Bahan (Material)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAddItem('LABOR')}
-                    className="text-xs bg-surface-hover hover:bg-border text-text border border-border px-2 py-1.5 rounded flex items-center gap-1 transition"
-                  >
-                    <PlusCircle className="w-3.5 h-3.5" />
-                    Upah (Jasa)
-                  </button>
+              <div className="flex flex-col md:flex-row md:items-center justify-start gap-4 mb-3">
+                <h4 className="font-medium text-text shrink-0">Inventory</h4>
+                <div className="w-full max-w-sm relative z-50">
+                  <MaterialAutocomplete
+                    materials={materials}
+                    initialValue=""
+                    onSelect={handleAddNewMaterialRow}
+                    placeholder="Ketik & pilih bahan baku..."
+                    clearOnSelect={true}
+                  />
                 </div>
               </div>
 
@@ -381,7 +390,7 @@ export const PackageManager: React.FC = () => {
                     {items.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="px-3 py-6 text-center text-text-muted text-sm">
-                          Belum ada komponen. Klik tambah Bahan/Upah di atas.
+                          Belum ada komponen. Cari dan pilih bahan baku inventaris di atas.
                         </td>
                       </tr>
                     ) : items.map((item, index) => (
@@ -395,11 +404,9 @@ export const PackageManager: React.FC = () => {
                         </td>
                         <td className="px-3 py-2">
                           {item.item_type === 'MATERIAL' ? (
-                            <MaterialAutocomplete
-                              materials={materials}
-                              initialValue={materials.find(m => m.id === item.material_id)?.name || ''}
-                              onSelect={(material) => handleItemChange(index, 'material_id', material.id)}
-                            />
+                            <span className="text-sm font-medium">
+                              {materials.find(m => m.id === item.material_id)?.name || 'Material tidak ditemukan'}
+                            </span>
                           ) : (
                             <input
                               type="text"

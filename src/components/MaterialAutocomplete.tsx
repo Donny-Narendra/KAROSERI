@@ -6,13 +6,15 @@ interface MaterialAutocompleteProps {
   onSelect: (material: Material) => void;
   placeholder?: string;
   initialValue?: string;
+  clearOnSelect?: boolean;
 }
 
 export const MaterialAutocomplete: React.FC<MaterialAutocompleteProps> = ({
   materials,
   onSelect,
   placeholder = 'Cari material...',
-  initialValue = ''
+  initialValue = '',
+  clearOnSelect = false
 }) => {
   const [query, setQuery] = useState(initialValue);
   const [isOpen, setIsOpen] = useState(false);
@@ -78,7 +80,11 @@ export const MaterialAutocomplete: React.FC<MaterialAutocompleteProps> = ({
   };
 
   const handleSelect = (material: Material) => {
-    setQuery(material.name);
+    if (clearOnSelect) {
+      setQuery('');
+    } else {
+      setQuery(material.name);
+    }
     setIsOpen(false);
     onSelect(material);
   };

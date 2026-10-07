@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Package, CheckCircle2, Lock } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
+import { inventoryService } from '../services/inventoryService';
 
 interface GoodsIssueFormProps {
   onSuccess?: () => void;
@@ -87,19 +88,11 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
       setRabMaterials(mats);
     }
 
-    const { data: invData, error: invError } = await supabase
-      .from('inventory_transactions')
-      .select('material_id, quantity_issued')
-      .eq('spk_id', spkId);
-
-    if (invError) {
-      console.error('Error fetching inventory:', invError);
-    } else if (invData) {
-      const totals: Record<string, number> = {};
-      invData.forEach((tx: any) => {
-        totals[tx.material_id] = (totals[tx.material_id] || 0) + Number(tx.quantity_issued);
-      });
+    try {
+      const totals = await inventoryService.getIssuedMaterialsBySpk(spkId);
       setInventoryTotals(totals);
+    } catch (invError) {
+      console.error('Error fetching inventory:', invError);
     }
   };
 
@@ -131,6 +124,13 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Guardrail: Double Issuance Check
+    if (inventoryTotals[selectedMaterial] && inventoryTotals[selectedMaterial] > 0) {
+      alert('Material ini sudah pernah dikeluarkan untuk SPK ini dan tidak dapat diambil kembali.');
+      return;
+    }
+
     if (!isOverbudget && requestQty && user) {
       const qty = parseFloat(requestQty);
       const { error } = await supabase
@@ -194,9 +194,12 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
               <option value="">-- Choose Material --</option>
               {masterMaterials.map(mat => {
                 const isRab = rabMaterials.some(r => r.material_id === mat.id);
+                const issuedQty = inventoryTotals[mat.id] || 0;
+                const hasBeenIssued = issuedQty > 0;
+                
                 return (
-                  <option key={mat.id} value={mat.id}>
-                    {mat.name} {isRab ? '(RAB)' : ''} (Stok: {mat.current_stock || 0} {mat.unit || ''})
+                  <option key={mat.id} value={mat.id} disabled={hasBeenIssued}>
+                    {mat.name} {isRab ? '(RAB)' : ''} (Stok: {mat.current_stock || 0} {mat.unit || ''}) {hasBeenIssued ? ' - (Sudah Diambil)' : ''}
                   </option>
                 );
               })}
