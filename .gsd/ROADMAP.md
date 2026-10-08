@@ -358,3 +358,19 @@
 - Tombol aksi muncul di tabel, nonaktif jika tak ada foto.
 - Modal terbuka menampilkan grid foto dengan label, memuat gambar dari Cloudinary CDN.
 - Fitur lightbox dapat menampilkan gambar resolusi tinggi tanpa error.
+
+---
+
+### Phase 28: Upload Foto 360° Langsung dari Modal Galeri SPK
+**Status**: ⏳ Pending
+**Objective**: Implementasikan fitur Direct Upload foto 360° ke Cloudinary langsung dari dalam modal "Galeri Foto 360°" pada SPK terkait di portal Service Advisor (`/service-advisor`), serta simpan URL dan public_id acak (randomized) ke database Supabase.
+**Depends on**: Phase 27
+
+**Tasks**:
+- [ ] 28.1: Antarmuka Upload di Dalam Modal Galeri dan Direct Upload Client-to-Cloudinary
+- [ ] 28.2: Penyimpanan Metadata ke Database Supabase dan Validasi
+
+**Verification**:
+- Pengguna dapat melakukan drag-and-drop / klik tombol unggah foto baru dari modal galeri.
+- File gambar diunggah ke Cloudinary dan disajikan melalui URL kompresi responsif.
+- Data metadata foto yang diunggah disimpan di Supabase, dan galeri modal di-refresh secara otomatis tanpa menutup modal.
