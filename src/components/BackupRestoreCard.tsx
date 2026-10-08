@@ -39,7 +39,12 @@ export const BackupRestoreCard: React.FC = () => {
       });
       
       if (!response.ok) {
-        throw new Error('Gagal mengunduh backup');
+        let errMessage = 'Gagal mengunduh backup';
+        try {
+          const errData = await response.clone().json();
+          if (errData?.error) errMessage += `: ${errData.error}`;
+        } catch(e) {}
+        throw new Error(errMessage);
       }
 
       // Create a blob from the response stream and trigger download
