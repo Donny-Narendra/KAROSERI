@@ -25,8 +25,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } }
     );
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    if (!user) throw new Error('Invalid token');
+    const token = authHeader.replace('Bearer ', '').trim();
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+    if (!user || authError) throw new Error(`Invalid token: ${authError?.message || 'unknown'}`);
 
     const { data: profile } = await supabaseClient
       .from('profiles')
