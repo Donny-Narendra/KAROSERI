@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
-import { Camera, Upload, X, Loader2 } from 'lucide-react';
+import { Camera, Upload, Loader2 } from 'lucide-react';
+import { CloudinaryUploader, UploadedImage } from './ui/CloudinaryUploader';
 
 interface SpkFormProps {
   onSuccess?: () => void;
@@ -20,16 +21,14 @@ export const SpkForm: React.FC<SpkFormProps> = ({ onSuccess }) => {
   const [vehicleEngine, setVehicleEngine] = useState('');
   const [targetDate, setTargetDate] = useState('');
   
-  const [files, setFiles] = useState<File[]>([]);
+  const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setFiles(Array.from(e.target.files));
-    }
+  const handleUploadSuccess = (image: UploadedImage) => {
+    setUploadedImages((prev) => [...prev, image]);
   };
 
-  const removeFile = (index: number) => {
-    setFiles(files.filter((_, i) => i !== index));
+  const handleUploadRemove = (publicId: string) => {
+    setUploadedImages((prev) => prev.filter((img) => img.public_id !== publicId));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -54,7 +53,8 @@ export const SpkForm: React.FC<SpkFormProps> = ({ onSuccess }) => {
           vehicle_vin: vehicleVin || null,
           vehicle_engine: vehicleEngine || null,
           target_date: targetDate || null,
-          created_by: profile.id
+          created_by: profile.id,
+          vehicle_photos: uploadedImages // Store Cloudinary images directly as JSONB
         })
         .select()
         .single();
@@ -64,29 +64,7 @@ export const SpkForm: React.FC<SpkFormProps> = ({ onSuccess }) => {
 
       const spkId = spkData.id;
 
-      // 2. Upload files and create asset records
-      for (const file of files) {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-        const filePath = `${spkId}/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('spk-assets')
-          .upload(filePath, file);
-
-        if (uploadError) throw uploadError;
-
-        const { error: assetError } = await supabase
-          .from('spk_assets')
-          .insert({
-            spk_id: spkId,
-            file_url: filePath,
-            description: file.name,
-            uploaded_by: profile.id
-          });
-
-        if (assetError) throw assetError;
-      }
+      // Create dummy assets for legacy compatibility if needed, or skip. We skip for now.
 
       // Reset form
       setSpkNo(`SPK-${Math.floor(1000 + Math.random() * 9000)}`);
@@ -95,7 +73,7 @@ export const SpkForm: React.FC<SpkFormProps> = ({ onSuccess }) => {
       setVehicleVin('');
       setVehicleEngine('');
       setTargetDate('');
-      setFiles([]);
+      setUploadedImages([]);
       
       if (onSuccess) onSuccess();
 
@@ -191,35 +169,11 @@ export const SpkForm: React.FC<SpkFormProps> = ({ onSuccess }) => {
 
         <div>
           <label className="block text-sm font-mono text-text-muted mb-2">VEHICLE 360° PHOTOS</label>
-          <div className="border-2 border-dashed border-border rounded-lg p-6 flex flex-col items-center justify-center bg-background/50 hover:bg-background transition relative">
-            <input
-              type="file"
-              multiple
-              accept="image/*"
-              onChange={handleFileChange}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            />
-            <Camera className="w-8 h-8 text-text-muted mb-3" />
-            <p className="text-text font-medium">Click or drag photos to upload</p>
-            <p className="text-text-muted text-sm mt-1">Capture all angles of the incoming vehicle</p>
-          </div>
-
-          {files.length > 0 && (
-            <div className="mt-4 space-y-2">
-              {files.map((file, idx) => (
-                <div key={idx} className="flex items-center justify-between bg-surface-hover px-4 py-2 rounded border border-border">
-                  <span className="text-sm text-text truncate max-w-[80%]">{file.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeFile(idx)}
-                    className="text-text-muted hover:text-status-danger transition"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+          <CloudinaryUploader 
+            onUploadSuccess={handleUploadSuccess} 
+            onUploadRemove={handleUploadRemove} 
+            uploadedImages={uploadedImages} 
+          />
         </div>
 
         <div className="flex justify-end pt-4 border-t border-border">
