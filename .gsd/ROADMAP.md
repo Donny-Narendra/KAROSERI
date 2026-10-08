@@ -311,3 +311,17 @@
 
 **Gaps to Close:**
 - [ ] Penagihan pelunasan akhir di kasir menghitung seluruh pekerjaan tambahan yang telah disetujui owner secara akurat.
+
+---
+
+### Phase 25: Backup dan Restore Database (Owner)
+**Status**: ✅ Complete
+**Objective**: Implementasikan fitur Backup dan Restore database menyeluruh khusus untuk role Owner dengan format `.sql.gz` (Zero Residu Server).
+**Depends on**: Phase 24
+
+**Tasks**:
+- [ ] 25.1: Backend Endpoint Backup & Restore (In-Memory Streaming)
+- [ ] 25.2: UI Dashboard Owner Backup & Restore
+
+**Verification**:
+- Skenario end-to-end backup dan restore tanpa file residu.
