@@ -2,16 +2,17 @@ import React, { useState, useEffect } from 'react';
 
 import { 
   Settings, Users, Plus, Edit2, KeyRound, 
-  Save, Globe, DollarSign, Calculator, Factory, Percent, ArrowLeft 
+  Save, Globe, DollarSign, Calculator, Factory, Percent, ArrowLeft, Database 
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { BackupRestoreCard } from '../components/BackupRestoreCard';
 import { supabase } from '../lib/supabaseClient';
 import { useTranslation } from 'react-i18next';
 
 export const AdminSettingsPage: React.FC = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'users' | 'workshop'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'workshop' | 'database'>('users');
   const [users, setUsers] = useState<any[]>([]);
 
   // Form State for New User
@@ -127,10 +128,18 @@ export const AdminSettingsPage: React.FC = () => {
           >
             <Factory className="w-4 h-4" /> {t('settings.workshop_config')}
           </button>
+          <button
+            onClick={() => setActiveTab('database')}
+            className={`px-4 py-2 font-medium flex items-center gap-2 border-b-2 transition-colors ${
+              activeTab === 'database' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-text'
+            }`}
+          >
+            <Database className="w-4 h-4" /> Manajemen Data
+          </button>
         </div>
 
         {/* Tab Content */}
-        {activeTab === 'users' ? (
+        {activeTab === 'users' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-4">
               <div className="bg-surface border border-border rounded-lg p-5">
@@ -237,7 +246,9 @@ export const AdminSettingsPage: React.FC = () => {
               </div>
             </div>
           </div>
-        ) : (
+        )}
+        
+        {activeTab === 'workshop' && (
           <div className="bg-surface border border-border rounded-lg p-6 max-w-3xl">
             <h3 className="font-bold text-text mb-6 font-display flex items-center gap-2 text-xl">
               <Factory className="w-6 h-6 text-primary" /> Master Parameter Operasional & Finansial
@@ -335,6 +346,12 @@ export const AdminSettingsPage: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        )}
+
+        {activeTab === 'database' && (
+          <div className="max-w-4xl">
+            <BackupRestoreCard />
           </div>
         )}
       </main>
