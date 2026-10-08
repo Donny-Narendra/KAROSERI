@@ -346,7 +346,7 @@
 ---
 
 ### Phase 27: Implementasi Tombol Aksi dan Modal Pratinjau "Galeri Foto 360°"
-**Status**: ⏳ Planned
+**Status**: ✅ Complete
 **Objective**: Implementasikan tombol aksi dan modal pratinjau Galeri Foto 360° pada daftar Recent SPK di halaman `/service-advisor`.
 **Depends on**: Phase 26
 

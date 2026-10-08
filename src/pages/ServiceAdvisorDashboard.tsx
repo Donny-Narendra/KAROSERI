@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, FileText, Plus, ClipboardList } from 'lucide-react';
+import { LogOut, FileText, Plus, ClipboardList, Camera } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { SpkForm } from '../components/SpkForm';
 import { AmendmentManager } from '../components/AmendmentManager';
 import { RabCalculator } from '../components/RabCalculator';
 import { CancelSpkModal } from '../components/CancelSpkModal';
+import { SpkGalleryModal } from '../components/spk/SpkGalleryModal';
 import { spkService } from '../services/spkService';
 import { PackageManager } from '../components/PackageManager';
 
@@ -19,6 +20,7 @@ export const ServiceAdvisorDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'amendments' | 'rab'>('rab');
   const [listTab, setListTab] = useState<'active' | 'cancelled'>('active');
   const [cancellingSpkId, setCancellingSpkId] = useState<string | null>(null);
+  const [viewingGallerySpk, setViewingGallerySpk] = useState<any | null>(null);
 
   const fetchSpks = async () => {
     setLoading(true);
@@ -212,6 +214,14 @@ export const ServiceAdvisorDashboard: React.FC = () => {
                         </td>
                         <td className="px-5 py-4 text-right flex justify-end gap-3 items-center">
                           <button
+                            title={(!spk.vehicle_photos || spk.vehicle_photos.length === 0) ? "Belum ada foto" : "Lihat Foto 360°"}
+                            disabled={!spk.vehicle_photos || spk.vehicle_photos.length === 0}
+                            onClick={() => setViewingGallerySpk(spk)}
+                            className={`p-1.5 rounded transition ${(!spk.vehicle_photos || spk.vehicle_photos.length === 0) ? 'text-border cursor-not-allowed' : 'text-text-muted hover:text-primary hover:bg-surface-active'}`}
+                          >
+                            <Camera className="w-5 h-5" />
+                          </button>
+                          <button
                             onClick={() => setSelectedSpkId(spk.id)}
                             className="text-primary hover:text-primary-hover text-sm font-medium transition"
                           >
@@ -241,6 +251,12 @@ export const ServiceAdvisorDashboard: React.FC = () => {
         onClose={() => setCancellingSpkId(null)}
         onConfirm={handleCancelSpk}
         spkNo={spks.find(s => s.id === cancellingSpkId)?.spk_no || ''}
+      />
+      
+      <SpkGalleryModal
+        isOpen={!!viewingGallerySpk}
+        onClose={() => setViewingGallerySpk(null)}
+        spk={viewingGallerySpk}
       />
     </div>
   );

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
-import { Camera, Upload, Loader2 } from 'lucide-react';
-import { CloudinaryUploader, UploadedImage } from './ui/CloudinaryUploader';
+import { Upload, Loader2 } from 'lucide-react';
+import { CloudinaryUploader } from './ui/CloudinaryUploader';
+import type { UploadedImage } from './ui/CloudinaryUploader';
 
 interface SpkFormProps {
   onSuccess?: () => void;
@@ -62,8 +63,7 @@ export const SpkForm: React.FC<SpkFormProps> = ({ onSuccess }) => {
       if (spkError) throw spkError;
       if (!spkData) throw new Error("Failed to create SPK");
 
-      const spkId = spkData.id;
-
+      // spkId is not used since Cloudinary directly handles the images
       // Create dummy assets for legacy compatibility if needed, or skip. We skip for now.
 
       // Reset form

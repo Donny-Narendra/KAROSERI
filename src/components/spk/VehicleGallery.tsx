@@ -1,6 +1,6 @@
 import React from 'react';
 import { getOptimizedImageUrl } from '../../lib/cloudinary';
-import { UploadedImage } from '../ui/CloudinaryUploader';
+import type { UploadedImage } from '../ui/CloudinaryUploader';
 
 interface VehicleGalleryProps {
   photos?: UploadedImage[];
