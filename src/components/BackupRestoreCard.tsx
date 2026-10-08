@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Download, Upload, AlertTriangle, Loader2 } from 'lucide-react';
+import { supabase } from '../lib/supabaseClient';
 
 export const BackupRestoreCard: React.FC = () => {
   const [isBackingUp, setIsBackingUp] = useState(false);
@@ -12,29 +13,23 @@ export const BackupRestoreCard: React.FC = () => {
   const PROJECT_URL = import.meta.env.VITE_SUPABASE_URL || '';
   const API_URL = `${PROJECT_URL}/functions/v1`;
 
-  const getSessionToken = () => {
-    // In a real app, retrieve the actual Supabase session token
-    // For demo purposes, we're assuming a valid token exists
-    const storageKey = Object.keys(localStorage).find(key => key.includes('supabase.auth.token'));
-    if (storageKey) {
-      try {
-        const session = JSON.parse(localStorage.getItem(storageKey) || '{}');
-        return session.access_token;
-      } catch (e) {
-        return 'mock-owner-token';
-      }
+  const getSessionToken = async () => {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) {
+      return data.session.access_token;
     }
-    return 'mock-owner-token';
+    throw new Error('Sesi tidak ditemukan atau kedaluwarsa. Silakan login ulang.');
   };
 
   const handleBackup = async () => {
     setIsBackingUp(true);
     setMessage(null);
     try {
+      const token = await getSessionToken();
       const response = await fetch(`${API_URL}/backup`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${getSessionToken()}`
+          'Authorization': `Bearer ${token}`
         }
       });
       
@@ -87,10 +82,11 @@ export const BackupRestoreCard: React.FC = () => {
     formData.append('file', selectedFile);
 
     try {
+      const token = await getSessionToken();
       const response = await fetch(`${API_URL}/restore`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${getSessionToken()}`
+          'Authorization': `Bearer ${token}`
         },
         body: formData
       });
