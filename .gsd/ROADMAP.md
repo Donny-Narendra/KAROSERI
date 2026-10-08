@@ -342,3 +342,19 @@
 - Klien browser mengunggah file gambar ke Cloudinary tanpa masuk ke backend.
 - Komponen menggunakan parameter transformasi Cloudinary (`f_auto`, `q_auto`, `c_limit`).
 - Metadata foto disimpan dengan sukses di Supabase.
+
+---
+
+### Phase 27: Implementasi Tombol Aksi dan Modal Pratinjau "Galeri Foto 360°"
+**Status**: ⏳ Planned
+**Objective**: Implementasikan tombol aksi dan modal pratinjau Galeri Foto 360° pada daftar Recent SPK di halaman `/service-advisor`.
+**Depends on**: Phase 26
+
+**Tasks**:
+- [ ] 27.1: Implementasi Modal Galeri dan Tombol Aksi di SPK List.
+- [ ] 27.2: Fitur Lightbox / Fullscreen Viewer untuk Insfeksi Detail.
+
+**Verification**:
+- Tombol aksi muncul di tabel, nonaktif jika tak ada foto.
+- Modal terbuka menampilkan grid foto dengan label, memuat gambar dari Cloudinary CDN.
+- Fitur lightbox dapat menampilkan gambar resolusi tinggi tanpa error.
