@@ -362,7 +362,7 @@
 ---
 
 ### Phase 28: Upload Foto 360° Langsung dari Modal Galeri SPK
-**Status**: ⏳ Pending
+**Status**: ✅ Complete
 **Objective**: Implementasikan fitur Direct Upload foto 360° ke Cloudinary langsung dari dalam modal "Galeri Foto 360°" pada SPK terkait di portal Service Advisor (`/service-advisor`), serta simpan URL dan public_id acak (randomized) ke database Supabase.
 **Depends on**: Phase 27
 
