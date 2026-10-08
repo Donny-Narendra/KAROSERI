@@ -1,6 +1,9 @@
+// @ts-ignore
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+// @ts-ignore
 import pg from "npm:pg@8.11.3";
 const { Client } = pg;
+// @ts-ignore
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
@@ -8,7 +11,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -20,7 +23,9 @@ serve(async (req) => {
     }
 
     const supabaseClient = createClient(
+      // @ts-ignore
       Deno.env.get('SUPABASE_URL') ?? '',
+      // @ts-ignore
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } }
     );
@@ -65,6 +70,7 @@ serve(async (req) => {
     const sqlQuery = new TextDecoder().decode(combined);
 
     // Run SQL against Database
+    // @ts-ignore
     const client = new Client({ connectionString: Deno.env.get('SUPABASE_DB_URL') });
     await client.connect();
     

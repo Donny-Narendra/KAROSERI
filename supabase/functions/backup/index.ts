@@ -1,6 +1,9 @@
+// @ts-ignore
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+// @ts-ignore
 import pg from "npm:pg@8.11.3";
 const { Client } = pg;
+// @ts-ignore
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
@@ -8,7 +11,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -21,7 +24,9 @@ serve(async (req) => {
 
     // Verify token and role
     const supabaseClient = createClient(
+      // @ts-ignore
       Deno.env.get('SUPABASE_URL') ?? '',
+      // @ts-ignore
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } }
     );
@@ -40,10 +45,11 @@ serve(async (req) => {
     }
 
     // Gunakan SUPABASE_DB_URL otomatis dari environment
+    // @ts-ignore
     const client = new Client({ connectionString: Deno.env.get('SUPABASE_DB_URL') });
     await client.connect();
 
-    let controller: ReadableStreamDefaultController;
+    let controller: ReadableStreamDefaultController = null as any;
     const body = new ReadableStream({
       start(c) {
         controller = c;
@@ -56,7 +62,7 @@ serve(async (req) => {
       try {
         const encoder = new TextEncoder();
         const tablesRes = await client.query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'");
-        const tables = tablesRes.rows.map(r => r.table_name);
+        const tables = tablesRes.rows.map((r: any) => r.table_name);
         
         for (const table of tables) {
           const { rows } = await client.query(`SELECT * FROM "${table}"`);
