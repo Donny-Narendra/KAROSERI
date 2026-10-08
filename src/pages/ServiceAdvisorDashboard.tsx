@@ -214,10 +214,9 @@ export const ServiceAdvisorDashboard: React.FC = () => {
                         </td>
                         <td className="px-5 py-4 text-right flex justify-end gap-3 items-center">
                           <button
-                            title={(!spk.vehicle_photos || spk.vehicle_photos.length === 0) ? "Belum ada foto" : "Lihat Foto 360°"}
-                            disabled={!spk.vehicle_photos || spk.vehicle_photos.length === 0}
+                            title="Lihat Foto 360°"
                             onClick={() => setViewingGallerySpk(spk)}
-                            className={`p-1.5 rounded transition ${(!spk.vehicle_photos || spk.vehicle_photos.length === 0) ? 'text-border cursor-not-allowed' : 'text-text-muted hover:text-primary hover:bg-surface-active'}`}
+                            className={`p-1.5 rounded transition ${(!spk.vehicle_photos || spk.vehicle_photos.length === 0) ? 'text-text-muted hover:text-primary hover:bg-surface-active' : 'text-primary hover:bg-surface-active'}`}
                           >
                             <Camera className="w-5 h-5" />
                           </button>
@@ -256,6 +255,10 @@ export const ServiceAdvisorDashboard: React.FC = () => {
       <SpkGalleryModal
         isOpen={!!viewingGallerySpk}
         onClose={() => setViewingGallerySpk(null)}
+        onPhotoAdded={(updatedSpk) => {
+          setViewingGallerySpk(updatedSpk);
+          setSpks(prev => prev.map(s => s.id === updatedSpk.id ? updatedSpk : s));
+        }}
         spk={viewingGallerySpk}
       />
     </div>
