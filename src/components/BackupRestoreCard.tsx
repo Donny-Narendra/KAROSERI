@@ -8,8 +8,9 @@ export const BackupRestoreCard: React.FC = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
 
-  // You can replace this with your actual endpoint logic
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  // Use Supabase Edge Functions URL
+  const PROJECT_URL = import.meta.env.VITE_SUPABASE_URL || '';
+  const API_URL = `${PROJECT_URL}/functions/v1`;
 
   const getSessionToken = () => {
     // In a real app, retrieve the actual Supabase session token
@@ -30,7 +31,7 @@ export const BackupRestoreCard: React.FC = () => {
     setIsBackingUp(true);
     setMessage(null);
     try {
-      const response = await fetch(`${API_URL}/api/backup`, {
+      const response = await fetch(`${API_URL}/backup`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${getSessionToken()}`
@@ -81,7 +82,7 @@ export const BackupRestoreCard: React.FC = () => {
     formData.append('file', selectedFile);
 
     try {
-      const response = await fetch(`${API_URL}/api/restore`, {
+      const response = await fetch(`${API_URL}/restore`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${getSessionToken()}`
