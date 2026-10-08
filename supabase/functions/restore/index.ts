@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { Client } from "npm:pg@8.11.3";
+import pg from "npm:pg@8.11.3";
+const { Client } = pg;
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
