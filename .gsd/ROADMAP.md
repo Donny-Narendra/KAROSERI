@@ -325,3 +325,20 @@
 
 **Verification**:
 - Skenario end-to-end backup dan restore tanpa file residu.
+
+---
+
+### Phase 26: Integrasi Cloudinary Direct Upload untuk Foto Kendaraan 360° (Check-in)
+**Status**: ⏳ Planned
+**Objective**: Implementasikan pengunggahan dan penyajian foto kendaraan langsung dari klien (Zero Server Bandwidth) menggunakan Cloudinary.
+**Depends on**: Phase 25
+
+**Tasks**:
+- [ ] 26.1: Konfigurasi utilitas dan Cloudinary di sisi klien.
+- [ ] 26.2: Implementasi form upload langsung (Direct Upload) di "Vehicle Check-in".
+- [ ] 26.3: Tampilan galeri foto kendaraan responsif menggunakan CDN.
+
+**Verification**:
+- Klien browser mengunggah file gambar ke Cloudinary tanpa masuk ke backend.
+- Komponen menggunakan parameter transformasi Cloudinary (`f_auto`, `q_auto`, `c_limit`).
+- Metadata foto disimpan dengan sukses di Supabase.
