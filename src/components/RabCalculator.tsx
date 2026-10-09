@@ -619,13 +619,65 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
             </div>
 
             {/* Total Footer */}
-            <div className="bg-surface border-t border-border p-4 flex items-center justify-between">
-               <span className="text-sm font-mono text-text-muted uppercase">Total Estimated Cost</span>
-               <div className="flex items-center gap-2">
-                 <span className="text-xl font-bold text-status-success">Rp</span>
-                 <span className="text-2xl font-bold font-mono text-text">
-                   {totalCost.toLocaleString('id-ID')}
-                 </span>
+            <div className="bg-surface border-t border-border p-4 flex flex-col gap-3">
+               <div className="flex items-center justify-between">
+                 <span className="text-sm font-mono text-text-muted uppercase">Total Estimated Cost (RAB Modal)</span>
+                 <div className="flex items-center gap-2">
+                   <span className="text-xl font-bold text-text-muted">Rp</span>
+                   <span className="text-2xl font-bold font-mono text-text-muted">
+                     {totalCost.toLocaleString('id-ID')}
+                   </span>
+                 </div>
+               </div>
+               
+               <div className="flex items-center justify-between pt-2 border-t border-surface-border">
+                 <span className="text-sm font-mono text-text-muted uppercase">Total Harga Jual (Quotation)</span>
+                 <div className="flex items-center gap-2">
+                   <span className="text-xl font-bold text-status-success">Rp</span>
+                   <span className="text-2xl font-bold font-mono text-status-success">
+                     {(() => {
+                        const uniquePackages = new Map();
+                        let nonPackageCost = 0;
+                        items.forEach(item => {
+                           if (item.packageId) {
+                              const pkg = packages.find(p => p.id === item.packageId);
+                              if (pkg) uniquePackages.set(item.packageId, pkg.sellingPrice);
+                           } else {
+                              nonPackageCost += calculateItemTotal(item);
+                           }
+                        });
+                        let packagePrice = 0;
+                        uniquePackages.forEach(p => packagePrice += Number(p));
+                        const totalJual = packagePrice + nonPackageCost;
+                        return totalJual.toLocaleString('id-ID');
+                     })()}
+                   </span>
+                 </div>
+               </div>
+
+               <div className="flex items-center justify-between">
+                 <span className="text-sm font-mono text-text-muted uppercase">Margin (Profit)</span>
+                 <div className="flex items-center gap-2">
+                   <span className="text-lg font-bold text-primary">Rp</span>
+                   <span className="text-xl font-bold font-mono text-primary">
+                     {(() => {
+                        const uniquePackages = new Map();
+                        let nonPackageCost = 0;
+                        items.forEach(item => {
+                           if (item.packageId) {
+                              const pkg = packages.find(p => p.id === item.packageId);
+                              if (pkg) uniquePackages.set(item.packageId, pkg.sellingPrice);
+                           } else {
+                              nonPackageCost += calculateItemTotal(item);
+                           }
+                        });
+                        let packagePrice = 0;
+                        uniquePackages.forEach(p => packagePrice += Number(p));
+                        const totalJual = packagePrice + nonPackageCost;
+                        return (totalJual - totalCost).toLocaleString('id-ID');
+                     })()}
+                   </span>
+                 </div>
                </div>
             </div>
 
