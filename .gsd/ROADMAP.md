@@ -394,3 +394,15 @@
 - [x] Tambahkan tracking progress percentage di tabel `wbs_checklists` dan UI interaktif (slider/stepper)
 - [x] Hitung total progres proyek SPK secara otomatis
 - [x] Tambahkan field `wbs_category` di tabel `spk_assets` dan fungsionalitas unggah foto bukti pengerjaan per kategori WBS (mandatori untuk set status 100%)
+
+---
+
+### Phase 31: Gap Closure (Hak Akses Edit Laporan Pengerjaan WBS & Galeri Foto untuk Owner dan Service Advisor)
+**Status**: ⬜ Not Started
+**Objective**: Address gaps from milestone audit (Memberikan hak akses edit WBS dan galeri foto ke Owner dan Service Advisor)
+
+**Gaps to Close:**
+- [ ] Izinkan role owner dan service_advisor untuk memperbarui checklist dan progres fisik WBS
+- [ ] Izinkan role owner dan service_advisor untuk mengunggah, melihat, dan mengelola galeri foto WBS
+- [ ] Sesuaikan RLS tabel wbs_checklists dan spk_assets
+- [ ] Sediakan akses antarmuka (komponen/modal) pada dashboard Owner dan Service Advisor
