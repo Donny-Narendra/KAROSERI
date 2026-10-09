@@ -58,38 +58,35 @@ export const KasirDashboard: React.FC = () => {
 
   const fetchSpks = async () => {
     let fetchedPackages: ProductPackage[] = [];
+    let fetchedEstimations: any[] = [];
+    let fetchedItems: any[] = [];
     try {
       fetchedPackages = await packageService.getPackages();
+      const { data: estData } = await supabase.from('rab_estimations').select('id, spk_id, total_labor_cost, total_overhead_cost, total_estimated_cost');
+      if (estData) fetchedEstimations = estData;
+      
+      const { data: itemData } = await supabase.from('rab_items').select('rab_estimation_id, item_total, package_id');
+      if (itemData) fetchedItems = itemData;
     } catch (err) {
-      console.error("Failed to load packages in kasir:", err);
+      console.error("Failed to load flat data in kasir:", err);
     }
 
     const { data, error } = await supabase.from('spk').select(`
       *,
       qc_inspections ( status, inspected_at ),
       invoices ( status, created_at ),
-      rab_estimations ( id, total_labor_cost, total_overhead_cost, total_estimated_cost, rab_items ( item_total, package_id ) ),
       inventory_transactions ( quantity_issued, custom_unit_price, materials ( unit_price, is_customer_supplied ) ),
       spk_amendments ( status, cost_adjustment )
     `).neq('status', 'CANCELLED').order('created_at', { ascending: false });
 
     if (data) {
       const formatted = data.map((d: any) => {
-        // qc status (latest)
-        let qcStatus = 'PENDING';
-        if (d.qc_inspections && d.qc_inspections.length > 0) {
-           const sortedQc = d.qc_inspections.sort((a: any, b: any) => new Date(b.inspected_at).getTime() - new Date(a.inspected_at).getTime());
-           qcStatus = sortedQc[0].status;
-        }
-
-        // payment status (latest invoice)
-        let paymentStatus = 'NO_INVOICE';
-        if (d.invoices && d.invoices.length > 0) {
-           const sortedInv = d.invoices.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-           paymentStatus = sortedInv[0].status;
-        }
-
-        // actual material cost
+        // Manual merge of rab_estimations and rab_items
+        const myEstimations = fetchedEstimations.filter(est => est.spk_id === d.id);
+        
+        const dpInvoices = d.invoices?.filter((i: any) => i.status === 'PAID') || [];
+        const dpAmount = dpInvoices.length > 0 ? Number(d.dp_amount || 0) : 0;
+        
         let actualMaterialCost = 0;
         if (d.inventory_transactions && d.inventory_transactions.length > 0) {
           actualMaterialCost = d.inventory_transactions.reduce((acc: number, curr: any) => {
@@ -102,30 +99,38 @@ export const KasirDashboard: React.FC = () => {
           }, 0);
         }
 
-        // actual labor cost
         let actualLaborCost = 0;
         let overheadCost = 0;
         let totalEstimatedCost = 0;
-        if (d.rab_estimations && d.rab_estimations.length > 0) {
-           actualLaborCost = Number(d.rab_estimations[0].total_labor_cost || 0);
-           overheadCost = Number(d.rab_estimations[0].total_overhead_cost || 0);
-           totalEstimatedCost = Number(d.rab_estimations[0].total_estimated_cost || 0);
+        if (myEstimations && myEstimations.length > 0) {
+           actualLaborCost = Number(myEstimations[0].total_labor_cost || 0);
+           overheadCost = Number(myEstimations[0].total_overhead_cost || 0);
+           totalEstimatedCost = Number(myEstimations[0].total_estimated_cost || 0);
         } else if (d.total_estimated_cost) {
            totalEstimatedCost = Number(d.total_estimated_cost);
            actualLaborCost = totalEstimatedCost * 0.3; // fallback split
         }
 
         if (actualMaterialCost === 0 && totalEstimatedCost > 0) {
-           actualMaterialCost = totalEstimatedCost - actualLaborCost - overheadCost;
+           actualMaterialCost = Math.max(0, totalEstimatedCost - actualLaborCost - overheadCost);
         }
+
+        const qcStatus = d.qc_inspections?.length > 0 
+          ? d.qc_inspections[0].status 
+          : 'PENDING';
+
+        const paymentStatus = d.invoices?.length > 0
+          ? d.invoices[0].status
+          : 'NO_INVOICE';
 
         const amendmentCost = d.spk_amendments?.filter((a: any) => a.status === 'APPROVED').reduce((acc: number, curr: any) => acc + (Number(curr.cost_adjustment) || 0), 0) || 0;
 
         let packageSellingPrice = 0;
         let nonPackageMaterialCost = 0;
         
-        if (d.rab_estimations && d.rab_estimations.length > 0) {
-            const rabItems = d.rab_estimations[0].rab_items || [];
+        if (myEstimations && myEstimations.length > 0) {
+            const estId = myEstimations[0].id;
+            const rabItems = fetchedItems.filter(item => item.rab_estimation_id === estId) || [];
             
             const uniquePackages = new Map();
             rabItems.forEach((item: any) => {
