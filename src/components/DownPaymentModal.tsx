@@ -97,9 +97,9 @@ export const DownPaymentModal: React.FC<DownPaymentModalProps> = ({ isOpen, onCl
               <p className="font-medium text-text-primary">{spk.customerName}</p>
             </div>
             <div className="col-span-2 pt-2 border-t border-surface-border border-dashed mt-1">
-              <p className="text-xs font-mono text-text-muted uppercase tracking-wider mb-1">Estimasi Total RAB</p>
+              <p className="text-xs font-mono text-text-muted uppercase tracking-wider mb-1">Total Tagihan (Final Bill)</p>
               <p className="font-semibold text-lg text-secondary">
-                {formatCurrency(spk.materialCost + spk.jasaCost + spk.overheadCost)}
+                {formatCurrency(suggestedAmount || 0)}
               </p>
             </div>
           </div>
