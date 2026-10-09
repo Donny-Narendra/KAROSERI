@@ -441,3 +441,15 @@
 - [x] Sesuaikan query Supabase agar mencari berdasarkan kolom `spk_no`
 - [x] Perbarui struktur cache key rate limit dari `tracking_limit_{vin}_{date}` menjadi `tracking_limit_{spk_no}_{date}`
 - [x] Perbarui tombol "Salin Tautan Pelacakan" di halaman Kasir agar menggunakan identifier SPK No
+
+---
+
+### Phase 35: Gap Closure (Aksi Pelacakan Konsumen pada Histori DP Kasir)
+**Status**: ⬜ Not Started
+**Objective**: Address gaps from milestone audit (Tampilkan link dan aksi salin/akses tautan pelacakan progres konsumen pada kartu "Riwayat DP Diterima" di halaman `/kasir`)
+
+**Gaps to Close:**
+- [ ] Buat kontainer link pelacakan publik SPK di baris bawah card histori DP
+- [ ] Implementasikan tombol "Salin Link Pelacakan"
+- [ ] Implementasikan tautan "Buka Laporan Progres" (buka tab baru)
+- [ ] Pastikan perlindungan view: hanya muncul jika status bukan DRAFT dan DP sudah lunas/ada nilai
