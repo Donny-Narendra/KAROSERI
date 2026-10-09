@@ -13,43 +13,22 @@ const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function patch() {
-  console.log('Fetching SPKs...');
-  const { data: spks, error: spkError } = await supabase.from('spk').select('id, spk_no').limit(10);
-  if (spkError || !spks) {
-    console.error('SPK error:', spkError);
-    return;
-  }
-  console.log(spks);
-  
-  const spk = spks.find(s => s.spk_no === 'SPK-5902' || s.spk_no.includes('5902'));
-  if (!spk) return;
-  
-  console.log('SPK ID:', spk.id);
-  const { data: est, error: estError } = await supabase.from('rab_estimations').select('id').eq('spk_id', spk.id).single();
-  if (estError || !est) {
-    console.error('Est error:', estError);
+  console.log('Fetching SPK-5902 with rab_estimations and rab_items...');
+  const { data: spk, error: spkError } = await supabase
+    .from('spk')
+    .select(`
+      id, spk_no, 
+      rab_estimations ( id, rab_items ( id, item_total, package_id, product_packages ( id, name, selling_price ) ) )
+    `)
+    .eq('spk_no', 'SPK-5902')
+    .single();
+
+  if (spkError || !spk) {
+    console.error('Error or not found:', spkError);
     return;
   }
   
-  console.log('Estimation ID:', est.id);
-  
-  const packageId = 'a32ab8ed-c7d1-4212-808f-46359e36e377';
-  
-  const { data: items, error: itemsError } = await supabase.from('rab_items').select('*').eq('rab_estimation_id', est.id);
-  if (itemsError) {
-    console.error('Items error:', itemsError);
-    return;
-  }
-  
-  console.log(`Found ${items.length} items`);
-  
-  const { error: updateError } = await supabase.from('rab_items').update({ package_id: packageId }).eq('rab_estimation_id', est.id);
-  if (updateError) {
-    console.error('Update error:', updateError);
-    return;
-  }
-  
-  console.log('Successfully patched package_id');
+  console.log(JSON.stringify(spk, null, 2));
 }
 
 patch();
