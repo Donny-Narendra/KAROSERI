@@ -33,7 +33,7 @@ async function patch() {
   
   console.log('Estimation ID:', est.id);
   
-  const packageId = 'a32ab8ed-c7d1-4212-808f-46359e368735';
+  const packageId = 'a32ab8ed-c7d1-4212-808f-46359e36e377';
   
   const { data: items, error: itemsError } = await supabase.from('rab_items').select('*').eq('rab_estimation_id', est.id);
   if (itemsError) {
