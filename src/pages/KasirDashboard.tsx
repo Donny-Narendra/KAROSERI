@@ -133,10 +133,6 @@ export const KasirDashboard: React.FC = () => {
         }
         
         let quotationAmount = packageSellingPrice + nonPackageMaterialCost;
-        if (quotationAmount === 0 && totalEstimatedCost > 0) {
-            // fallback if no rab_items or packages found
-            quotationAmount = totalEstimatedCost; 
-        }
 
         return {
           id: d.spk_no,
