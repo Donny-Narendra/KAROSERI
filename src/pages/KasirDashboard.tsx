@@ -6,6 +6,8 @@ import { DownPaymentModal } from '../components/DownPaymentModal';
 import { DpHistoryList } from '../components/DpHistoryList';
 import { fetchDPHistory } from '../services/billingService';
 import type { DPHistoryRecord } from '../services/billingService';
+import { packageService } from '../services/packageService';
+import type { ProductPackage } from '../types/package';
 
 interface MockSPK {
   id: string;
@@ -55,11 +57,18 @@ export const KasirDashboard: React.FC = () => {
   };
 
   const fetchSpks = async () => {
+    let fetchedPackages: ProductPackage[] = [];
+    try {
+      fetchedPackages = await packageService.getPackages();
+    } catch (err) {
+      console.error("Failed to load packages in kasir:", err);
+    }
+
     const { data, error } = await supabase.from('spk').select(`
       *,
       qc_inspections ( status, inspected_at ),
       invoices ( status, created_at ),
-      rab_estimations ( id, total_labor_cost, total_overhead_cost, total_estimated_cost, rab_items ( item_total, package_id, product_packages ( id, name, selling_price ) ) ),
+      rab_estimations ( id, total_labor_cost, total_overhead_cost, total_estimated_cost, rab_items ( item_total, package_id ) ),
       inventory_transactions ( quantity_issued, custom_unit_price, materials ( unit_price, is_customer_supplied ) ),
       spk_amendments ( status, cost_adjustment )
     `).neq('status', 'CANCELLED').order('created_at', { ascending: false });
@@ -120,8 +129,11 @@ export const KasirDashboard: React.FC = () => {
             
             const uniquePackages = new Map();
             rabItems.forEach((item: any) => {
-                if (item.package_id && item.product_packages) {
-                    uniquePackages.set(item.package_id, item.product_packages.selling_price);
+                if (item.package_id) {
+                    const pkg = fetchedPackages.find(p => p.id === item.package_id);
+                    if (pkg) {
+                        uniquePackages.set(item.package_id, pkg.selling_price);
+                    }
                 } else {
                     nonPackageMaterialCost += Number(item.item_total || 0);
                 }
@@ -133,6 +145,11 @@ export const KasirDashboard: React.FC = () => {
         }
         
         let quotationAmount = packageSellingPrice + nonPackageMaterialCost;
+        
+        // RE-ADD FALLBACK IN CASE ALL ELSE FAILS
+        if (quotationAmount === 0 && totalEstimatedCost > 0) {
+           quotationAmount = totalEstimatedCost;
+        }
 
         return {
           id: d.spk_no,
