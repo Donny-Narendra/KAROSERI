@@ -62,14 +62,15 @@ export const SpkGalleryModal: React.FC<SpkGalleryModalProps> = ({ isOpen, onClos
 
         canvas.toBlob(
           (blob) => {
-            if (!blob) return reject('Compression failed');
-            resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() }));
+            if (!blob) return reject(new Error('Compression failed (blob is null)'));
+            const fileName = file.name || `camera_${Date.now()}.jpg`;
+            resolve(new File([blob], fileName, { type: 'image/jpeg', lastModified: Date.now() }));
           },
           'image/jpeg',
           0.8
         );
       };
-      img.onerror = (err) => reject(err);
+      img.onerror = () => reject(new Error('Gagal memuat gambar. Format mungkin tidak didukung atau memori HP tidak cukup.'));
     });
   };
 
