@@ -84,8 +84,8 @@ export const KasirDashboard: React.FC = () => {
         // Manual merge of rab_estimations and rab_items
         const myEstimations = fetchedEstimations.filter(est => est.spk_id === d.id);
         
-        const dpInvoices = d.invoices?.filter((i: any) => i.status === 'PAID') || [];
-        const dpAmount = dpInvoices.length > 0 ? Number(d.dp_amount || 0) : 0;
+        // const dpInvoices = d.invoices?.filter((i: any) => i.status === 'PAID') || [];
+        // const dpAmount = dpInvoices.length > 0 ? Number(d.dp_amount || 0) : 0;
         
         let actualMaterialCost = 0;
         if (d.inventory_transactions && d.inventory_transactions.length > 0) {
