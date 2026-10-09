@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useTranslation } from 'react-i18next';
 import { PackageManager } from '../components/PackageManager';
 import { spkService } from '../services/spkService';
+import { WbsChecklist } from '../components/WbsChecklist';
 
 export const AdminDashboardPage: React.FC = () => {
   const { t } = useTranslation();
@@ -13,6 +14,7 @@ export const AdminDashboardPage: React.FC = () => {
   const [spks, setSpks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showApprovalsModal, setShowApprovalsModal] = useState(false);
+  const [selectedWbsSpkId, setSelectedWbsSpkId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSpks();
@@ -293,6 +295,7 @@ export const AdminDashboardPage: React.FC = () => {
                   <th className="px-5 py-3">{t('admin.material_gate')}</th>
                   <th className="px-5 py-3">{t('admin.qc_status')}</th>
                   <th className="px-5 py-3">{t('admin.handover')}</th>
+                  <th className="px-5 py-3 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -320,6 +323,14 @@ export const AdminDashboardPage: React.FC = () => {
                       <span className="text-status-danger font-medium flex items-center gap-1">
                         <Package className="w-4 h-4"/> Locked
                       </span>
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                      <button
+                        onClick={() => setSelectedWbsSpkId(spk.id)}
+                        className="text-primary hover:text-primary-hover text-sm font-medium transition"
+                      >
+                        WBS & QC
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -438,6 +449,27 @@ export const AdminDashboardPage: React.FC = () => {
               >
                 Tutup
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WBS Modal */}
+      {selectedWbsSpkId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+          <div className="bg-surface border border-border rounded-lg shadow-xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center p-4 border-b border-border bg-surface-hover">
+              <h2 className="font-bold text-lg font-display flex items-center gap-2">
+                <Check className="w-5 h-5 text-primary" />
+                WBS & QC Management
+              </h2>
+              <button onClick={() => setSelectedWbsSpkId(null)} className="text-text-muted hover:text-text transition p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-4 overflow-y-auto flex-1 bg-background">
+              <WbsChecklist spkId={selectedWbsSpkId} />
             </div>
           </div>
         </div>

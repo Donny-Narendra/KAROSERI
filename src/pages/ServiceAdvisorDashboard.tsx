@@ -9,6 +9,7 @@ import { CancelSpkModal } from '../components/CancelSpkModal';
 import { SpkGalleryModal } from '../components/spk/SpkGalleryModal';
 import { spkService } from '../services/spkService';
 import { PackageManager } from '../components/PackageManager';
+import { WbsChecklist } from '../components/WbsChecklist';
 
 export const ServiceAdvisorDashboard: React.FC = () => {
   const { profile, signOut } = useAuth();
@@ -17,7 +18,7 @@ export const ServiceAdvisorDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [selectedSpkId, setSelectedSpkId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'amendments' | 'rab'>('rab');
+  const [activeTab, setActiveTab] = useState<'wbs' | 'amendments' | 'rab'>('rab');
   const [listTab, setListTab] = useState<'active' | 'cancelled'>('active');
   const [cancellingSpkId, setCancellingSpkId] = useState<string | null>(null);
   const [viewingGallerySpk, setViewingGallerySpk] = useState<any | null>(null);
@@ -158,13 +159,21 @@ export const ServiceAdvisorDashboard: React.FC = () => {
                  >
                    Change Orders
                  </button>
+                 <button 
+                   onClick={() => setActiveTab('wbs')}
+                   className={`px-4 py-2 text-sm font-medium border-b-2 transition ${activeTab === 'wbs' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-text'}`}
+                 >
+                   WBS & QC
+                 </button>
                </div>
             </div>
             
             {activeTab === 'rab' ? (
               <RabCalculator spkId={selectedSpkId} />
-            ) : (
+            ) : activeTab === 'amendments' ? (
               <AmendmentManager spkId={selectedSpkId} />
+            ) : (
+              <WbsChecklist spkId={selectedSpkId} />
             )}
           </div>
         ) : (
