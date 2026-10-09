@@ -581,6 +581,7 @@ export const KasirDashboard: React.FC = () => {
         isOpen={isDpModalOpen}
         onClose={() => setIsDpModalOpen(false)}
         spk={selectedSpk}
+        suggestedAmount={selectedSpk ? (selectedSpk.quotationAmount + selectedSpk.amendmentCost + (manualAdjustments[selectedSpk.id] || 0)) : 0}
         onSuccess={() => {
           setIsDpModalOpen(false);
           setSelectedSpkId(null);

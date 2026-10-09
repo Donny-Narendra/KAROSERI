@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { X, Receipt } from 'lucide-react';
 
@@ -6,14 +6,21 @@ interface DownPaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
   spk: any;
+  suggestedAmount?: number;
   onSuccess: () => void;
 }
 
-export const DownPaymentModal: React.FC<DownPaymentModalProps> = ({ isOpen, onClose, spk, onSuccess }) => {
+export const DownPaymentModal: React.FC<DownPaymentModalProps> = ({ isOpen, onClose, spk, suggestedAmount, onSuccess }) => {
   const [amount, setAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Transfer Bank');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && suggestedAmount !== undefined) {
+      setAmount(suggestedAmount.toString());
+    }
+  }, [isOpen, suggestedAmount]);
 
   if (!isOpen || !spk) return null;
 
