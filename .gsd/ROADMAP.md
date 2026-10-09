@@ -429,3 +429,15 @@
 - [x] Implementasi Mekanisme Rate Limiting (Maksimal 5x Sehari per VIN)
 - [x] Modul Generator Cetak PDF untuk merender progress bar, daftar WBS, dan grid foto (3 kolom)
 - [x] Integrasi pada Halaman Kasir (`/kasir`) untuk menampilkan tombol Salin Tautan Pelacakan Konsumen
+
+---
+
+### Phase 34: Gap Closure (Refactor Parameter URL Publik Pelacakan Progres ke SPK No)
+**Status**: ⬜ Not Started
+**Objective**: Address gaps from milestone audit (Mengubah identifier pelacakan publik dari VIN/Sasis menjadi Nomor SPK)
+
+**Gaps to Close:**
+- [ ] Ubah definisi route dari `/tracking/:vin` menjadi `/tracking/:spk_no` pada frontend router
+- [ ] Sesuaikan query Supabase agar mencari berdasarkan kolom `spk_no`
+- [ ] Perbarui struktur cache key rate limit dari `tracking_limit_{vin}_{date}` menjadi `tracking_limit_{spk_no}_{date}`
+- [ ] Perbarui tombol "Salin Tautan Pelacakan" di halaman Kasir agar menggunakan identifier SPK No
