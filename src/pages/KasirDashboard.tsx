@@ -253,9 +253,17 @@ export const KasirDashboard: React.FC = () => {
               <p className="font-medium text-text-primary">{profile?.full_name}</p>
               <p className="text-text-muted text-xs capitalize">{profile?.role?.replace('_', ' ')}</p>
             </div>
+            {profile?.role !== 'kasir' && (
+              <button
+                onClick={() => window.location.href = '/'}
+                className="text-xs bg-surface-border hover:bg-surface-border/80 text-text-primary px-3 py-1.5 rounded transition-colors"
+              >
+                Dashboard
+              </button>
+            )}
             <button
               onClick={() => signOut()}
-              className="text-xs bg-surface-border hover:bg-surface-border/80 text-text-primary px-3 py-1.5 rounded transition-colors"
+              className="text-xs bg-surface-border hover:bg-surface-border/80 text-status-danger px-3 py-1.5 rounded transition-colors"
             >
               Sign Out
             </button>
