@@ -417,3 +417,15 @@
 - [x] Filter query list SPK pada Mandor Dashboard agar tidak memunculkan status DRAFT
 - [x] Tambahkan route guard/perlindungan komponen untuk memblokir form WBS/QC bila SPK statusnya DRAFT
 - [x] Tambahkan policy / function db guard untuk menolak insert/update checklist WBS & QC pada SPK DRAFT
+
+---
+
+### Phase 33: Gap Closure (Portal Publik Laporan Progres Pengerjaan Unit via Nomor Rangka & Generator PDF Progres)
+**Status**: ⬜ Not Started
+**Objective**: Address gaps from milestone audit (Memberikan akses publik ke progress report dengan batasan rate limit & PDF eksport)
+
+**Gaps to Close:**
+- [ ] Pembuatan Halaman / Route Publik (`/tracking/:vin`) dengan validasi SPK bukan DRAFT dan DP sudah diverifikasi
+- [ ] Implementasi Mekanisme Rate Limiting (Maksimal 5x Sehari per VIN)
+- [ ] Modul Generator Cetak PDF untuk merender progress bar, daftar WBS, dan grid foto (3 kolom)
+- [ ] Integrasi pada Halaman Kasir (`/kasir`) untuk menampilkan tombol Salin Tautan Pelacakan Konsumen
