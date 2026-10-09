@@ -1,5 +1,5 @@
 import React from 'react';
-import { Printer } from 'lucide-react';
+import { Printer, Copy, ExternalLink, Check } from 'lucide-react';
 import type { DPHistoryRecord } from '../services/billingService';
 
 interface DpHistoryListProps {
@@ -8,6 +8,7 @@ interface DpHistoryListProps {
 }
 
 export const DpHistoryList: React.FC<DpHistoryListProps> = ({ history, loading }) => {
+  const [copiedId, setCopiedId] = React.useState<string | null>(null);
   if (loading) {
     return (
       <div className="text-center p-6 border border-dashed border-surface-border rounded-lg text-text-muted">
@@ -31,6 +32,13 @@ export const DpHistoryList: React.FC<DpHistoryListProps> = ({ history, loading }
   const handlePrintReceipt = (record: DPHistoryRecord) => {
     alert(`Mencetak kuitansi DP untuk SPK: ${record.spk_no}\nNominal: ${formatCurrency(record.dp_amount)}\n\n(Preview Cetak)`);
     window.print();
+  };
+
+  const handleCopyLink = (spkNo: string) => {
+    const url = `${window.location.origin}/tracking/${spkNo}`;
+    navigator.clipboard.writeText(url);
+    setCopiedId(spkNo);
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
   return (
@@ -65,7 +73,38 @@ export const DpHistoryList: React.FC<DpHistoryListProps> = ({ history, loading }
             </div>
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-between items-center mt-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-text-muted font-medium">Pelacakan Progres:</span>
+              <button
+                onClick={() => handleCopyLink(record.spk_no)}
+                className="flex items-center gap-1.5 text-xs bg-secondary/10 hover:bg-secondary/20 text-secondary px-2.5 py-1.5 rounded transition-colors border border-secondary/20"
+                title="Salin Tautan Pelacakan"
+              >
+                {copiedId === record.spk_no ? (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    Tersalin!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    Salin Tautan
+                  </>
+                )}
+              </button>
+              <a
+                href={`/tracking/${record.spk_no}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-xs bg-surface-border hover:bg-surface-border/80 text-text-primary px-2.5 py-1.5 rounded transition-colors"
+                title="Buka Laporan Progres"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Buka
+              </a>
+            </div>
+
             <button
               onClick={() => handlePrintReceipt(record)}
               className="flex items-center gap-2 text-sm bg-surface-border hover:bg-surface-border/80 text-text-primary px-4 py-2 rounded transition-colors"
