@@ -641,7 +641,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                         items.forEach(item => {
                            if (item.packageId) {
                               const pkg = packages.find(p => p.id === item.packageId);
-                              if (pkg) uniquePackages.set(item.packageId, pkg.sellingPrice);
+                              if (pkg) uniquePackages.set(item.packageId, pkg.selling_price);
                            } else {
                               nonPackageCost += calculateItemTotal(item);
                            }
@@ -666,7 +666,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                         items.forEach(item => {
                            if (item.packageId) {
                               const pkg = packages.find(p => p.id === item.packageId);
-                              if (pkg) uniquePackages.set(item.packageId, pkg.sellingPrice);
+                              if (pkg) uniquePackages.set(item.packageId, pkg.selling_price);
                            } else {
                               nonPackageCost += calculateItemTotal(item);
                            }
