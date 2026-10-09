@@ -142,7 +142,7 @@ export const KasirDashboard: React.FC = () => {
   const handleGenerateInvoice = async () => {
     if (!selectedSpk) return;
     
-    const totalAmount = Math.max(0, (selectedSpk.materialCost + selectedSpk.jasaCost + selectedSpk.amendmentCost) - selectedSpk.dpAmount);
+    const totalAmount = Math.max(0, selectedSpk.totalEstimatedCost - selectedSpk.dpAmount);
     
     const { error } = await supabase
       .from('invoices')
@@ -317,7 +317,7 @@ export const KasirDashboard: React.FC = () => {
                 
                 {activeTab === 'DP' && (
                   <div className="mt-3 pt-3 border-t border-surface-border flex justify-between items-center">
-                    <span className="text-xs text-text-muted">Total Estimasi</span>
+                    <span className="text-xs text-text-muted">Harga Jual (Quotation)</span>
                     <span className="text-sm font-semibold text-secondary">{formatCurrency(spk.totalEstimatedCost)}</span>
                   </div>
                 )}
@@ -392,38 +392,49 @@ export const KasirDashboard: React.FC = () => {
               )}
 
               {/* Cost Breakdown */}
-              <div className="bg-background rounded-lg border border-surface-border p-5 mb-6 space-y-4">
-                <h3 className="text-lg font-medium text-text-primary border-b border-surface-border pb-2">Cost Breakdown</h3>
-                
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-text-muted">Total Material Cost</span>
-                  <span className="font-medium text-text-primary">{formatCurrency(selectedSpk.materialCost)}</span>
-                </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-text-muted">Total Labor (Jasa) Cost</span>
-                  <span className="font-medium text-text-primary">{formatCurrency(selectedSpk.jasaCost)}</span>
-                </div>
-                
-                <div className="border-t border-surface-border/50 pt-3 flex justify-between items-center">
-                  <span className="text-sm font-medium text-text-primary">Subtotal (Actual Cost)</span>
-                  <span className="font-medium text-text-primary">{formatCurrency(selectedSpk.materialCost + selectedSpk.jasaCost)}</span>
-                </div>
-
-                {selectedSpk.amendmentCost !== 0 && (
-                  <div className="flex justify-between items-center text-sm text-secondary">
-                    <span>Change Orders (Disetujui)</span>
-                    <span className="font-medium">+ {formatCurrency(selectedSpk.amendmentCost)}</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div className="bg-background rounded-lg border border-surface-border p-5 space-y-4">
+                  <h3 className="text-lg font-medium text-text-primary border-b border-surface-border pb-2">Internal Cost (Modal)</h3>
+                  
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-text-muted">Actual Material Cost</span>
+                    <span className="font-medium text-text-primary">{formatCurrency(selectedSpk.materialCost)}</span>
                   </div>
-                )}
-
-                <div className="border-t border-surface-border/50 pt-3 flex justify-between items-center">
-                  <span className="text-sm font-bold text-text-primary">Total Akhir Proyek</span>
-                  <span className="font-bold text-text-primary">{formatCurrency(selectedSpk.materialCost + selectedSpk.jasaCost + selectedSpk.amendmentCost)}</span>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-text-muted">Actual Labor Cost</span>
+                    <span className="font-medium text-text-primary">{formatCurrency(selectedSpk.jasaCost)}</span>
+                  </div>
+                  
+                  <div className="border-t border-surface-border/50 pt-3 flex justify-between items-center">
+                    <span className="text-sm font-bold text-text-primary">Total Modal (HPP)</span>
+                    <span className="font-bold text-text-primary">{formatCurrency(selectedSpk.materialCost + selectedSpk.jasaCost)}</span>
+                  </div>
                 </div>
 
-                <div className="flex justify-between items-center text-sm text-status-danger">
-                  <span>Down Payment (DP)</span>
-                  <span className="font-medium">- {formatCurrency(selectedSpk.dpAmount)}</span>
+                <div className="bg-background rounded-lg border border-surface-border p-5 space-y-4">
+                  <h3 className="text-lg font-medium text-text-primary border-b border-surface-border pb-2">Customer Billing</h3>
+                  
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-text-muted">Harga Jual (Quotation)</span>
+                    <span className="font-medium text-text-primary">{formatCurrency(selectedSpk.totalEstimatedCost - selectedSpk.amendmentCost)}</span>
+                  </div>
+
+                  {selectedSpk.amendmentCost !== 0 && (
+                    <div className="flex justify-between items-center text-sm text-secondary">
+                      <span>Change Orders (Addendum)</span>
+                      <span className="font-medium">+ {formatCurrency(selectedSpk.amendmentCost)}</span>
+                    </div>
+                  )}
+
+                  <div className="border-t border-surface-border/50 pt-3 flex justify-between items-center">
+                    <span className="text-sm font-bold text-text-primary">Total Harga Jual</span>
+                    <span className="font-bold text-text-primary">{formatCurrency(selectedSpk.totalEstimatedCost)}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-sm text-status-danger">
+                    <span>Down Payment (DP)</span>
+                    <span className="font-medium">- {formatCurrency(selectedSpk.dpAmount)}</span>
+                  </div>
                 </div>
               </div>
 
@@ -431,7 +442,7 @@ export const KasirDashboard: React.FC = () => {
               <div className="bg-primary/5 border border-primary/20 rounded-lg p-5 flex justify-between items-center mb-8">
                 <span className="text-lg font-medium text-text-primary">Final Bill to Customer</span>
                 <span className="text-2xl font-bold text-primary">
-                  {formatCurrency(Math.max(0, (selectedSpk.materialCost + selectedSpk.jasaCost + selectedSpk.amendmentCost) - selectedSpk.dpAmount))}
+                  {formatCurrency(Math.max(0, selectedSpk.totalEstimatedCost - selectedSpk.dpAmount))}
                 </span>
               </div>
 
