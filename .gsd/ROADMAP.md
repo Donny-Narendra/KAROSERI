@@ -374,3 +374,12 @@
 - Pengguna dapat melakukan drag-and-drop / klik tombol unggah foto baru dari modal galeri.
 - File gambar diunggah ke Cloudinary dan disajikan melalui URL kompresi responsif.
 - Data metadata foto yang diunggah disimpan di Supabase, dan galeri modal di-refresh secara otomatis tanpa menutup modal.
+
+---
+
+### Phase 29: Gap Closure (Perbaikan Kalkulasi Total Harga Jual Paket BOM pada Kasir)
+**Status**: ⬜ Not Started
+**Objective**: Address gaps from milestone audit (Perbaikan kalkulasi Total Harga Jual dari Paket Barang Jadi di halaman Kasir)
+
+**Gaps to Close:**
+- [ ] Pada halaman Kasir, "Paket Assembly List" masih menampilkan Rp 0,00 dan "Total Harga Jual" jatuh ke nilai fallback HPP, seharusnya mengambil dari `product_packages.selling_price`.
