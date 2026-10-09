@@ -445,11 +445,11 @@
 ---
 
 ### Phase 35: Gap Closure (Aksi Pelacakan Konsumen pada Histori DP Kasir)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Address gaps from milestone audit (Tampilkan link dan aksi salin/akses tautan pelacakan progres konsumen pada kartu "Riwayat DP Diterima" di halaman `/kasir`)
 
 **Gaps to Close:**
-- [ ] Buat kontainer link pelacakan publik SPK di baris bawah card histori DP
-- [ ] Implementasikan tombol "Salin Link Pelacakan"
-- [ ] Implementasikan tautan "Buka Laporan Progres" (buka tab baru)
-- [ ] Pastikan perlindungan view: hanya muncul jika status bukan DRAFT dan DP sudah lunas/ada nilai
+- [x] Buat kontainer link pelacakan publik SPK di baris bawah card histori DP
+- [x] Implementasikan tombol "Salin Link Pelacakan"
+- [x] Implementasikan tautan "Buka Laporan Progres" (buka tab baru)
+- [x] Pastikan perlindungan view: hanya muncul jika status bukan DRAFT dan DP sudah lunas/ada nilai
