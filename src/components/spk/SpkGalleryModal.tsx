@@ -221,6 +221,7 @@ export const SpkGalleryModal: React.FC<SpkGalleryModalProps> = ({ isOpen, onClos
                   className="hidden"
                 />
                 <button 
+                  type="button"
                   onClick={() => cameraInputRef.current?.click()}
                   disabled={isUploading}
                   className="flex-1 sm:flex-none bg-surface-hover hover:bg-border text-text px-4 py-2 rounded text-sm font-bold flex items-center justify-center gap-2 transition disabled:opacity-70 disabled:cursor-not-allowed border border-border"
@@ -229,6 +230,7 @@ export const SpkGalleryModal: React.FC<SpkGalleryModalProps> = ({ isOpen, onClos
                   Kamera
                 </button>
                 <button 
+                  type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isUploading}
                   className="flex-1 sm:flex-none bg-primary hover:bg-primary-hover text-background px-4 py-2 rounded text-sm font-bold flex items-center justify-center gap-2 transition disabled:opacity-70 disabled:cursor-not-allowed"
