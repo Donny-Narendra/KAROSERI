@@ -59,7 +59,7 @@ export const KasirDashboard: React.FC = () => {
       *,
       qc_inspections ( status, inspected_at ),
       invoices ( status, created_at ),
-      rab_estimations ( id, total_labor_cost, total_overhead_cost, total_estimated_cost, rab_items ( item_total, package_id, product_packages ( id, selling_price ) ) ),
+      rab_estimations ( id, total_labor_cost, total_overhead_cost, total_estimated_cost, rab_items ( item_total, package_id, product_packages ( id, name, selling_price ) ) ),
       inventory_transactions ( quantity_issued, custom_unit_price, materials ( unit_price, is_customer_supplied ) ),
       spk_amendments ( status, cost_adjustment )
     `).neq('status', 'CANCELLED').order('created_at', { ascending: false });
