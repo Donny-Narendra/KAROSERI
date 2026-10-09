@@ -421,11 +421,11 @@
 ---
 
 ### Phase 33: Gap Closure (Portal Publik Laporan Progres Pengerjaan Unit via Nomor Rangka & Generator PDF Progres)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Address gaps from milestone audit (Memberikan akses publik ke progress report dengan batasan rate limit & PDF eksport)
 
 **Gaps to Close:**
-- [ ] Pembuatan Halaman / Route Publik (`/tracking/:vin`) dengan validasi SPK bukan DRAFT dan DP sudah diverifikasi
-- [ ] Implementasi Mekanisme Rate Limiting (Maksimal 5x Sehari per VIN)
-- [ ] Modul Generator Cetak PDF untuk merender progress bar, daftar WBS, dan grid foto (3 kolom)
-- [ ] Integrasi pada Halaman Kasir (`/kasir`) untuk menampilkan tombol Salin Tautan Pelacakan Konsumen
+- [x] Pembuatan Halaman / Route Publik (`/tracking/:vin`) dengan validasi SPK bukan DRAFT dan DP sudah diverifikasi
+- [x] Implementasi Mekanisme Rate Limiting (Maksimal 5x Sehari per VIN)
+- [x] Modul Generator Cetak PDF untuk merender progress bar, daftar WBS, dan grid foto (3 kolom)
+- [x] Integrasi pada Halaman Kasir (`/kasir`) untuk menampilkan tombol Salin Tautan Pelacakan Konsumen
