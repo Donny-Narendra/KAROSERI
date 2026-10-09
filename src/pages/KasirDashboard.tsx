@@ -16,8 +16,10 @@ interface MockSPK {
   dpAmount: number;
   materialCost: number;
   jasaCost: number;
-  overheadCost: number;
-  totalEstimatedCost: number;
+  totalEstimatedCost: number; // RAB HPP
+  quotationAmount: number; // Base Selling Price
+  packageSellingPrice: number;
+  nonPackageMaterialCost: number;
   qcStatus: 'PENDING' | 'PASS' | 'FAIL';
   paymentStatus: 'NO_INVOICE' | 'UNPAID' | 'LUNAS';
   allocationStatus?: string;
@@ -33,6 +35,7 @@ export const KasirDashboard: React.FC = () => {
   const [isDpModalOpen, setIsDpModalOpen] = useState(false);
   const [dpHistory, setDpHistory] = useState<DPHistoryRecord[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [manualAdjustments, setManualAdjustments] = useState<Record<string, number>>({});
 
   useEffect(() => {
     fetchSpks();
@@ -56,7 +59,7 @@ export const KasirDashboard: React.FC = () => {
       *,
       qc_inspections ( status, inspected_at ),
       invoices ( status, created_at ),
-      rab_estimations ( id, total_labor_cost, total_overhead_cost, total_estimated_cost ),
+      rab_estimations ( id, total_labor_cost, total_overhead_cost, total_estimated_cost, rab_items ( item_total, package_id, product_packages ( id, selling_price ) ) ),
       inventory_transactions ( quantity_issued, custom_unit_price, materials ( unit_price, is_customer_supplied ) ),
       spk_amendments ( status, cost_adjustment )
     `).neq('status', 'CANCELLED').order('created_at', { ascending: false });
@@ -109,7 +112,31 @@ export const KasirDashboard: React.FC = () => {
 
         const amendmentCost = d.spk_amendments?.filter((a: any) => a.status === 'APPROVED').reduce((acc: number, curr: any) => acc + (Number(curr.cost_adjustment) || 0), 0) || 0;
 
-        totalEstimatedCost += amendmentCost;
+        let packageSellingPrice = 0;
+        let nonPackageMaterialCost = 0;
+        
+        if (d.rab_estimations && d.rab_estimations.length > 0) {
+            const rabItems = d.rab_estimations[0].rab_items || [];
+            
+            const uniquePackages = new Map();
+            rabItems.forEach((item: any) => {
+                if (item.package_id && item.product_packages) {
+                    uniquePackages.set(item.package_id, item.product_packages.selling_price);
+                } else {
+                    nonPackageMaterialCost += Number(item.item_total || 0);
+                }
+            });
+            
+            uniquePackages.forEach((price) => {
+                packageSellingPrice += Number(price);
+            });
+        }
+        
+        let quotationAmount = packageSellingPrice + nonPackageMaterialCost;
+        if (quotationAmount === 0 && totalEstimatedCost > 0) {
+            // fallback if no rab_items or packages found
+            quotationAmount = totalEstimatedCost; 
+        }
 
         return {
           id: d.spk_no,
@@ -122,6 +149,9 @@ export const KasirDashboard: React.FC = () => {
           jasaCost: actualLaborCost,
           overheadCost,
           totalEstimatedCost,
+          quotationAmount,
+          packageSellingPrice,
+          nonPackageMaterialCost,
           qcStatus: qcStatus as any,
           paymentStatus: paymentStatus as any,
           allocationStatus: d.allocation_status,
@@ -142,7 +172,9 @@ export const KasirDashboard: React.FC = () => {
   const handleGenerateInvoice = async () => {
     if (!selectedSpk) return;
     
-    const totalAmount = Math.max(0, selectedSpk.totalEstimatedCost - selectedSpk.dpAmount);
+    const manualAdj = manualAdjustments[selectedSpk.id] || 0;
+    const totalHargaJual = selectedSpk.quotationAmount + selectedSpk.amendmentCost + manualAdj;
+    const totalAmount = Math.max(0, totalHargaJual - selectedSpk.dpAmount);
     
     const { error } = await supabase
       .from('invoices')
@@ -318,7 +350,7 @@ export const KasirDashboard: React.FC = () => {
                 {activeTab === 'DP' && (
                   <div className="mt-3 pt-3 border-t border-surface-border flex justify-between items-center">
                     <span className="text-xs text-text-muted">Harga Jual (Quotation)</span>
-                    <span className="text-sm font-semibold text-secondary">{formatCurrency(spk.totalEstimatedCost)}</span>
+                    <span className="text-sm font-semibold text-secondary">{formatCurrency(spk.quotationAmount + spk.amendmentCost + (manualAdjustments[spk.id] || 0))}</span>
                   </div>
                 )}
               </div>
@@ -415,8 +447,13 @@ export const KasirDashboard: React.FC = () => {
                   <h3 className="text-lg font-medium text-text-primary border-b border-surface-border pb-2">Customer Billing</h3>
                   
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-text-muted">Harga Jual (Quotation)</span>
-                    <span className="font-medium text-text-primary">{formatCurrency(selectedSpk.totalEstimatedCost - selectedSpk.amendmentCost)}</span>
+                    <span className="text-text-muted">Paket Assembly List</span>
+                    <span className="font-medium text-text-primary">{formatCurrency(selectedSpk.packageSellingPrice)}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-text-muted">Extra Item (Luar Paket)</span>
+                    <span className="font-medium text-text-primary">{formatCurrency(selectedSpk.nonPackageMaterialCost)}</span>
                   </div>
 
                   {selectedSpk.amendmentCost !== 0 && (
@@ -426,9 +463,23 @@ export const KasirDashboard: React.FC = () => {
                     </div>
                   )}
 
+                  <div className="flex items-center justify-between text-sm pt-2">
+                    <span className="text-text-muted font-medium">Penyesuaian (Manual)</span>
+                    <div className="flex items-center gap-2">
+                       <span className="text-xs text-text-muted">Rp</span>
+                       <input 
+                         type="number"
+                         value={manualAdjustments[selectedSpk.id] || ''}
+                         onChange={(e) => setManualAdjustments({...manualAdjustments, [selectedSpk.id]: Number(e.target.value)})}
+                         placeholder="0"
+                         className="w-24 bg-surface border border-surface-border rounded px-2 py-1 text-right text-sm text-text-primary focus:border-primary focus:outline-none"
+                       />
+                    </div>
+                  </div>
+
                   <div className="border-t border-surface-border/50 pt-3 flex justify-between items-center">
                     <span className="text-sm font-bold text-text-primary">Total Harga Jual</span>
-                    <span className="font-bold text-text-primary">{formatCurrency(selectedSpk.totalEstimatedCost)}</span>
+                    <span className="font-bold text-text-primary">{formatCurrency(selectedSpk.quotationAmount + selectedSpk.amendmentCost + (manualAdjustments[selectedSpk.id] || 0))}</span>
                   </div>
 
                   <div className="flex justify-between items-center text-sm text-status-danger">
@@ -442,7 +493,7 @@ export const KasirDashboard: React.FC = () => {
               <div className="bg-primary/5 border border-primary/20 rounded-lg p-5 flex justify-between items-center mb-8">
                 <span className="text-lg font-medium text-text-primary">Final Bill to Customer</span>
                 <span className="text-2xl font-bold text-primary">
-                  {formatCurrency(Math.max(0, selectedSpk.totalEstimatedCost - selectedSpk.dpAmount))}
+                  {formatCurrency(Math.max(0, (selectedSpk.quotationAmount + selectedSpk.amendmentCost + (manualAdjustments[selectedSpk.id] || 0)) - selectedSpk.dpAmount))}
                 </span>
               </div>
 
