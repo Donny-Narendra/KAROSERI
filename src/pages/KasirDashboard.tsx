@@ -405,7 +405,7 @@ export const KasirDashboard: React.FC = () => {
                   {!draftStatuses.includes(selectedSpk.status) && selectedSpk.dpAmount > 0 && (
                     <button
                       onClick={() => {
-                        const url = `${window.location.origin}/tracking/${selectedSpk.vin}`;
+                        const url = `${window.location.origin}/tracking/${selectedSpk.id}`;
                         navigator.clipboard.writeText(url);
                         alert('Tautan pelacakan disalin:\n' + url);
                       }}

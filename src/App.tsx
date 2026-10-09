@@ -60,7 +60,7 @@ function App() {
         <Routes>
           <Route path="/" element={<RootRedirect />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/tracking/:vin" element={<PublicProgressTracking />} />
+          <Route path="/tracking/:spk_no" element={<PublicProgressTracking />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
           
           {/* Protected Routes for Owner */}

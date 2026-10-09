@@ -21,7 +21,7 @@ const WBS_LABELS: Record<string, string> = {
 };
 
 export const PublicProgressTracking: React.FC = () => {
-  const { vin } = useParams<{ vin: string }>();
+  const { spk_no } = useParams<{ spk_no: string }>();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
@@ -34,15 +34,15 @@ export const PublicProgressTracking: React.FC = () => {
   const [rateLimitReached, setRateLimitReached] = useState(false);
 
   useEffect(() => {
-    if (!vin) {
-      setError('Nomor Rangka (VIN) tidak valid.');
+    if (!spk_no) {
+      setError('Nomor SPK tidak valid.');
       setLoading(false);
       return;
     }
 
     // Rate Limiting Logic
     const today = new Date().toISOString().split('T')[0];
-    const limitKey = `tracking_limit_${vin}_${today}`;
+    const limitKey = `tracking_limit_${spk_no}_${today}`;
     const currentHits = parseInt(localStorage.getItem(limitKey) || '0', 10);
 
     if (currentHits >= 5) {
@@ -55,7 +55,7 @@ export const PublicProgressTracking: React.FC = () => {
     localStorage.setItem(limitKey, (currentHits + 1).toString());
 
     fetchProgressData();
-  }, [vin]);
+  }, [spk_no]);
 
   const fetchProgressData = async () => {
     setLoading(true);
@@ -64,10 +64,7 @@ export const PublicProgressTracking: React.FC = () => {
       const { data: spkData, error: spkError } = await supabase
         .from('spk')
         .select('*')
-        .eq('vehicle_plate', vin) // Wait, VIN or Plate? The task says `{vehicle_vin}`.
-        // Wait, SPK doesn't have `vehicle_vin`, it only has `vehicle_plate` and `vehicle_number`.
-        // Let's use `vehicle_number` as VIN/Sasis. Let's check `spk` table.
-        .or(`vehicle_number.eq.${vin},vehicle_plate.eq.${vin}`)
+        .eq('spk_no', spk_no)
         .maybeSingle();
 
       if (spkError) throw spkError;
@@ -137,7 +134,7 @@ export const PublicProgressTracking: React.FC = () => {
           <AlertTriangle className="w-16 h-16 text-status-danger mx-auto mb-4" />
           <h2 className="text-xl font-bold mb-2">Batas Akses Harian Tercapai</h2>
           <p className="text-text-muted mb-6">
-            Batas akses harian untuk nomor rangka ini telah tercapai (maksimal 5 kali per hari). Silakan coba lagi besok.
+            Batas akses harian untuk Nomor SPK ini telah tercapai (maksimal 5 kali per hari). Silakan coba lagi besok.
           </p>
           <button 
             onClick={() => navigate('/')}
