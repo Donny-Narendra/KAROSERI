@@ -82,8 +82,8 @@ function App() {
             <Route path="/mandor" element={<MandorDashboard />} />
           </Route>
           
-          {/* Protected Routes for Kasir & Owner */}
-          <Route element={<ProtectedRoute allowedRoles={['kasir', 'owner']} />}>
+          {/* Protected Routes for Kasir, Service Advisor & Owner */}
+          <Route element={<ProtectedRoute allowedRoles={['kasir', 'owner', 'service_advisor']} />}>
             <Route path="/kasir" element={<KasirDashboard />} />
           </Route>
           

@@ -117,6 +117,12 @@ export const AdminDashboardPage: React.FC = () => {
           </button>
           <span className="text-sm text-text-muted font-mono">{profile?.full_name} ({profile?.role})</span>
           <button 
+            onClick={() => window.location.href = '/kasir'}
+            className="flex items-center gap-2 text-sm bg-surface-hover hover:bg-surface-active px-3 py-1.5 rounded transition text-text"
+          >
+            Kasir / Billing
+          </button>
+          <button 
             onClick={() => window.location.href = '/admin/settings'}
             className="flex items-center gap-2 text-sm bg-surface-hover hover:bg-surface-active px-3 py-1.5 rounded transition text-text"
           >
