@@ -378,8 +378,8 @@
 ---
 
 ### Phase 29: Gap Closure (Perbaikan Kalkulasi Total Harga Jual Paket BOM pada Kasir)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Address gaps from milestone audit (Perbaikan kalkulasi Total Harga Jual dari Paket Barang Jadi di halaman Kasir)
 
 **Gaps to Close:**
-- [ ] Pada halaman Kasir, "Paket Assembly List" masih menampilkan Rp 0,00 dan "Total Harga Jual" jatuh ke nilai fallback HPP, seharusnya mengambil dari `product_packages.selling_price`.
+- [x] Pada halaman Kasir, "Paket Assembly List" masih menampilkan Rp 0,00 dan "Total Harga Jual" jatuh ke nilai fallback HPP, seharusnya mengambil dari `product_packages.selling_price`.
