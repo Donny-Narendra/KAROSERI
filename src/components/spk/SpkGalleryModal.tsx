@@ -1,8 +1,9 @@
 import React, { useState, useRef } from 'react';
-import { X, Loader2, Upload, Camera } from 'lucide-react';
+import { X, Loader2, Upload, Camera, Trash2 } from 'lucide-react';
 import { getOptimizedImageUrl } from '../../lib/cloudinary';
 import type { UploadedImage } from '../ui/CloudinaryUploader';
 import { supabase } from '../../lib/supabaseClient';
+import { useAuth } from '../../context/AuthContext';
 
 interface SpkGalleryModalProps {
   isOpen: boolean;
@@ -18,11 +19,15 @@ interface SpkGalleryModalProps {
 }
 
 export const SpkGalleryModal: React.FC<SpkGalleryModalProps> = ({ isOpen, onClose, onPhotoAdded, spk }) => {
+  const { profile } = useAuth();
   const [lightboxImage, setLightboxImage] = useState<UploadedImage | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const canModifyGallery = profile?.role === 'owner' || profile?.role === 'service_advisor';
 
   if (!isOpen || !spk) return null;
 
@@ -129,9 +134,35 @@ export const SpkGalleryModal: React.FC<SpkGalleryModalProps> = ({ isOpen, onClos
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
+    }
+  };
+
+  const handleDelete = async (photoToDelete: UploadedImage) => {
+    if (!confirm('Apakah Anda yakin ingin menghapus foto ini?')) return;
+
+    try {
+      setError(null);
+      const currentPhotos = spk.vehicle_photos || [];
+      const updatedPhotos = currentPhotos.filter(p => p.public_id !== photoToDelete.public_id);
+
+      const { error: dbError } = await supabase
+        .from('spk')
+        .update({ vehicle_photos: updatedPhotos })
+        .eq('id', spk.id);
+
+      if (dbError) throw dbError;
+
+      if (onPhotoAdded) {
+        onPhotoAdded({ ...spk, vehicle_photos: updatedPhotos });
       }
+      if (lightboxImage?.public_id === photoToDelete.public_id) {
+        setLightboxImage(null);
+      }
+    } catch (err: any) {
+      console.error('Delete Error:', err);
+      setError('Gagal menghapus foto: ' + (err.message || 'Unknown error'));
     }
   };
 
@@ -164,39 +195,58 @@ export const SpkGalleryModal: React.FC<SpkGalleryModalProps> = ({ isOpen, onClos
             </div>
           )}
 
-          <div className="flex justify-between items-center bg-surface p-4 rounded-lg border border-border border-dashed">
-            <div>
-              <p className="text-sm font-medium text-text">Tambah Foto Lainnya</p>
-              <p className="text-xs text-text-muted">Unggah foto tambahan untuk SPK ini (misal: cacat bodi, detail spesifik).</p>
+          {canModifyGallery && (
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-surface p-4 rounded-lg border border-border border-dashed gap-4">
+              <div>
+                <p className="text-sm font-medium text-text">Tambah Foto Lainnya</p>
+                <p className="text-xs text-text-muted">Unggah foto tambahan untuk SPK ini (misal: cacat bodi, detail spesifik).</p>
+              </div>
+              <div className="flex gap-2 w-full sm:w-auto">
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={fileInputRef}
+                  onChange={handleUpload}
+                  disabled={isUploading}
+                  className="hidden"
+                />
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  ref={cameraInputRef}
+                  onChange={handleUpload}
+                  disabled={isUploading}
+                  className="hidden"
+                />
+                <button 
+                  onClick={() => cameraInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="flex-1 sm:flex-none bg-surface-hover hover:bg-border text-text px-4 py-2 rounded text-sm font-bold flex items-center justify-center gap-2 transition disabled:opacity-70 disabled:cursor-not-allowed border border-border"
+                >
+                  <Camera className="w-4 h-4" />
+                  Kamera
+                </button>
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="flex-1 sm:flex-none bg-primary hover:bg-primary-hover text-background px-4 py-2 rounded text-sm font-bold flex items-center justify-center gap-2 transition disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      {uploadProgress}%
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4" />
+                      Galeri
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
-            <div>
-              <input
-                type="file"
-                accept="image/*"
-                ref={fileInputRef}
-                onChange={handleUpload}
-                disabled={isUploading}
-                className="hidden"
-              />
-              <button 
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
-                className="bg-primary hover:bg-primary-hover text-background px-4 py-2 rounded text-sm font-bold flex items-center gap-2 transition disabled:opacity-70 disabled:cursor-not-allowed"
-              >
-                {isUploading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Uploading {uploadProgress}%
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-4 h-4" />
-                    Pilih Foto
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
+          )}
 
           {!spk.vehicle_photos || spk.vehicle_photos.length === 0 ? (
             <div className="text-center py-12 text-text-muted bg-surface/50 rounded-lg border border-border border-dashed">
@@ -207,10 +257,12 @@ export const SpkGalleryModal: React.FC<SpkGalleryModalProps> = ({ isOpen, onClos
               {spk.vehicle_photos.map((photo, index) => (
                 <div 
                   key={index} 
-                  className="border border-border rounded-lg overflow-hidden flex flex-col bg-surface cursor-pointer group"
-                  onClick={() => setLightboxImage(photo)}
+                  className="border border-border rounded-lg overflow-hidden flex flex-col bg-surface relative group"
                 >
-                  <div className="aspect-square bg-surface-hover relative overflow-hidden">
+                  <div 
+                    className="aspect-square bg-surface-hover relative overflow-hidden cursor-pointer"
+                    onClick={() => setLightboxImage(photo)}
+                  >
                     <img
                       src={getOptimizedImageUrl(photo.secure_url, 400)}
                       alt={`Vehicle ${photo.angle}`}
@@ -219,7 +271,24 @@ export const SpkGalleryModal: React.FC<SpkGalleryModalProps> = ({ isOpen, onClos
                     />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
                   </div>
-                  <div className="p-2 text-center border-t border-border bg-surface">
+                  
+                  {canModifyGallery && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(photo);
+                      }}
+                      className="absolute top-2 right-2 p-1.5 bg-status-danger text-white rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-status-danger/80 shadow-md"
+                      title="Hapus Foto"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+
+                  <div 
+                    className="p-2 text-center border-t border-border bg-surface cursor-pointer"
+                    onClick={() => setLightboxImage(photo)}
+                  >
                     <span className="text-xs font-bold text-text-muted uppercase">{photo.angle}</span>
                   </div>
                 </div>
