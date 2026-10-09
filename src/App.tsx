@@ -9,6 +9,7 @@ import { ServiceAdvisorDashboard } from './pages/ServiceAdvisorDashboard';
 import { WarehouseDashboard } from './pages/WarehouseDashboard';
 import { MandorDashboard } from './pages/MandorDashboard';
 import { KasirDashboard } from './pages/KasirDashboard';
+import { PublicProgressTracking } from './pages/PublicProgressTracking';
 
 const RootRedirect: React.FC = () => {
   const { user, profile, loading } = useAuth();
@@ -59,6 +60,7 @@ function App() {
         <Routes>
           <Route path="/" element={<RootRedirect />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/tracking/:vin" element={<PublicProgressTracking />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
           
           {/* Protected Routes for Owner */}

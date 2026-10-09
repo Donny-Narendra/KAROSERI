@@ -26,6 +26,7 @@ interface MockSPK {
   paymentStatus: 'NO_INVOICE' | 'UNPAID' | 'LUNAS';
   allocationStatus?: string;
   amendmentCost: number;
+  vin: string;
 }
 
 export const KasirDashboard: React.FC = () => {
@@ -161,6 +162,7 @@ export const KasirDashboard: React.FC = () => {
           dbId: d.id,
           customerName: d.customer_name,
           vehicleModel: d.vehicle_plate,
+          vin: d.vehicle_number || d.vehicle_plate,
           status: d.status,
           dpAmount: Number(d.dp_amount || 0),
           materialCost: actualMaterialCost,
@@ -399,9 +401,23 @@ export const KasirDashboard: React.FC = () => {
                 <h2 className="text-2xl font-display font-semibold text-text-primary">
                   Billing Calculator
                 </h2>
-                <div className="flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-text-muted" />
-                  <span className="text-sm font-medium text-text-muted">{selectedSpk.id}</span>
+                <div className="flex items-center gap-4">
+                  {!draftStatuses.includes(selectedSpk.status) && selectedSpk.dpAmount > 0 && (
+                    <button
+                      onClick={() => {
+                        const url = `${window.location.origin}/tracking/${selectedSpk.vin}`;
+                        navigator.clipboard.writeText(url);
+                        alert('Tautan pelacakan disalin:\n' + url);
+                      }}
+                      className="text-xs bg-secondary/10 text-secondary hover:bg-secondary/20 px-3 py-1.5 rounded-full font-medium transition-colors"
+                    >
+                      Salin Tautan Pelacakan
+                    </button>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-text-muted" />
+                    <span className="text-sm font-medium text-text-muted">{selectedSpk.id}</span>
+                  </div>
                 </div>
               </div>
 
