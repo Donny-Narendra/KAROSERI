@@ -383,3 +383,14 @@
 
 **Gaps to Close:**
 - [x] Pada halaman Kasir, "Paket Assembly List" masih menampilkan Rp 0,00 dan "Total Harga Jual" jatuh ke nilai fallback HPP, seharusnya mengambil dari `product_packages.selling_price`.
+
+---
+
+### Phase 30: Gap Closure (Modul Progres & Galeri Dokumentasi Lapangan pada Halaman /mandor)
+**Status**: ✅ Complete
+**Objective**: Address gaps from milestone audit (Menyediakan antarmuka bagi Mandor/Kepala Bengkel untuk mencatat progres persentase fisik tiap tahapan WBS (1 s/d 5) serta mengunggah galeri foto bukti pengerjaan per kategori WBS.)
+
+**Gaps to Close:**
+- [x] Tambahkan tracking progress percentage di tabel `wbs_checklists` dan UI interaktif (slider/stepper)
+- [x] Hitung total progres proyek SPK secara otomatis
+- [x] Tambahkan field `wbs_category` di tabel `spk_assets` dan fungsionalitas unggah foto bukti pengerjaan per kategori WBS (mandatori untuk set status 100%)
