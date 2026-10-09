@@ -398,11 +398,11 @@
 ---
 
 ### Phase 31: Gap Closure (Hak Akses Edit Laporan Pengerjaan WBS & Galeri Foto untuk Owner dan Service Advisor)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Address gaps from milestone audit (Memberikan hak akses edit WBS dan galeri foto ke Owner dan Service Advisor)
 
 **Gaps to Close:**
-- [ ] Izinkan role owner dan service_advisor untuk memperbarui checklist dan progres fisik WBS
-- [ ] Izinkan role owner dan service_advisor untuk mengunggah, melihat, dan mengelola galeri foto WBS
-- [ ] Sesuaikan RLS tabel wbs_checklists dan spk_assets
-- [ ] Sediakan akses antarmuka (komponen/modal) pada dashboard Owner dan Service Advisor
+- [x] Izinkan role owner dan service_advisor untuk memperbarui checklist dan progres fisik WBS
+- [x] Izinkan role owner dan service_advisor untuk mengunggah, melihat, dan mengelola galeri foto WBS
+- [x] Sesuaikan RLS tabel wbs_checklists dan spk_assets
+- [x] Sediakan akses antarmuka (komponen/modal) pada dashboard Owner dan Service Advisor
