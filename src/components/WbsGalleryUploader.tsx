@@ -6,6 +6,11 @@ export interface WbsAsset {
   id?: string;
   file_url: string;
   wbs_category: string;
+  created_at?: string;
+  profiles?: {
+    full_name: string;
+    role: string;
+  } | null;
 }
 
 interface WbsGalleryUploaderProps {
@@ -176,6 +181,10 @@ export const WbsGalleryUploader: React.FC<WbsGalleryUploaderProps> = ({
                 >
                   <X className="w-4 h-4" />
                 </button>
+              </div>
+              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-2 text-white text-[10px] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="truncate font-medium">{asset.profiles?.full_name || 'Unknown User'}</div>
+                <div className="text-white/80">{asset.created_at ? new Date(asset.created_at).toLocaleString('id-ID') : 'Baru saja'}</div>
               </div>
             </div>
           ))}

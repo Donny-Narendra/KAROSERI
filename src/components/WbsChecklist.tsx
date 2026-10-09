@@ -59,7 +59,7 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
         // Fetch assets
         const { data: assetData, error: assetError } = await supabase
           .from('spk_assets')
-          .select('id, file_url, wbs_category')
+          .select('id, file_url, wbs_category, created_at, profiles (full_name, role)')
           .eq('spk_id', spkId)
           .not('wbs_category', 'is', null);
           
@@ -84,7 +84,12 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
         if (assetData) {
           assetData.forEach((item) => {
             if (item.wbs_category && newAssets[item.wbs_category]) {
-              newAssets[item.wbs_category].push(item as WbsAsset);
+              // Convert profile from array to object if necessary, or just type assertion
+              const asset = item as unknown as WbsAsset;
+              if (Array.isArray(asset.profiles)) {
+                asset.profiles = asset.profiles[0] as any;
+              }
+              newAssets[item.wbs_category].push(asset);
             }
           });
         }
@@ -173,13 +178,13 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
         file_url: asset.file_url,
         wbs_category: category,
         uploaded_by: user.id
-      }).select().single();
+      }).select('*, profiles (full_name, role)').single();
       
       if (error) throw error;
       
       setAssets(prev => ({
         ...prev,
-        [category]: [...(prev[category] || []), data as WbsAsset]
+        [category]: [...(prev[category] || []), data as unknown as WbsAsset]
       }));
     } catch (err: any) {
       console.error("Error saving asset to DB", err);
