@@ -25,7 +25,6 @@ export const SpkGalleryModal: React.FC<SpkGalleryModalProps> = ({ isOpen, onClos
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const canModifyGallery = profile?.role === 'owner' || profile?.role === 'service_advisor';
 
@@ -136,7 +135,6 @@ export const SpkGalleryModal: React.FC<SpkGalleryModalProps> = ({ isOpen, onClos
       setIsUploading(false);
       setUploadProgress(0);
       if (fileInputRef.current) fileInputRef.current.value = '';
-      if (cameraInputRef.current) cameraInputRef.current.value = '';
     }
   };
 
@@ -211,29 +209,11 @@ export const SpkGalleryModal: React.FC<SpkGalleryModalProps> = ({ isOpen, onClos
                   disabled={isUploading}
                   className="hidden"
                 />
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  ref={cameraInputRef}
-                  onChange={handleUpload}
-                  disabled={isUploading}
-                  className="hidden"
-                />
-                <button 
-                  type="button"
-                  onClick={() => cameraInputRef.current?.click()}
-                  disabled={isUploading}
-                  className="flex-1 sm:flex-none bg-surface-hover hover:bg-border text-text px-4 py-2 rounded text-sm font-bold flex items-center justify-center gap-2 transition disabled:opacity-70 disabled:cursor-not-allowed border border-border"
-                >
-                  <Camera className="w-4 h-4" />
-                  Kamera
-                </button>
                 <button 
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isUploading}
-                  className="flex-1 sm:flex-none bg-primary hover:bg-primary-hover text-background px-4 py-2 rounded text-sm font-bold flex items-center justify-center gap-2 transition disabled:opacity-70 disabled:cursor-not-allowed"
+                  className="w-full sm:w-auto bg-primary hover:bg-primary-hover text-background px-4 py-2 rounded text-sm font-bold flex items-center justify-center gap-2 transition disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                   {isUploading ? (
                     <>
@@ -243,7 +223,7 @@ export const SpkGalleryModal: React.FC<SpkGalleryModalProps> = ({ isOpen, onClos
                   ) : (
                     <>
                       <Upload className="w-4 h-4" />
-                      Galeri
+                      Pilih Foto
                     </>
                   )}
                 </button>
