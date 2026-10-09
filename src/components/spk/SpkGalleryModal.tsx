@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { X, Loader2, Plus, Upload, Camera } from 'lucide-react';
+import { X, Loader2, Upload, Camera } from 'lucide-react';
 import { getOptimizedImageUrl } from '../../lib/cloudinary';
 import type { UploadedImage } from '../ui/CloudinaryUploader';
 import { supabase } from '../../lib/supabaseClient';
