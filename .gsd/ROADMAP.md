@@ -410,10 +410,10 @@
 ---
 
 ### Phase 32: Gap Closure (Batasi Akses Modul WBS dan QC untuk SPK DRAFT)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Address gaps from milestone audit (Mencegah SPK berstatus DRAFT muncul di list WBS/QC dan memblokir akses jika dibuka paksa)
 
 **Gaps to Close:**
-- [ ] Filter query list SPK pada Mandor Dashboard agar tidak memunculkan status DRAFT
-- [ ] Tambahkan route guard/perlindungan komponen untuk memblokir form WBS/QC bila SPK statusnya DRAFT
-- [ ] Tambahkan policy / function db guard untuk menolak insert/update checklist WBS & QC pada SPK DRAFT
+- [x] Filter query list SPK pada Mandor Dashboard agar tidak memunculkan status DRAFT
+- [x] Tambahkan route guard/perlindungan komponen untuk memblokir form WBS/QC bila SPK statusnya DRAFT
+- [x] Tambahkan policy / function db guard untuk menolak insert/update checklist WBS & QC pada SPK DRAFT
