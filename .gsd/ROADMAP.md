@@ -406,3 +406,14 @@
 - [x] Izinkan role owner dan service_advisor untuk mengunggah, melihat, dan mengelola galeri foto WBS
 - [x] Sesuaikan RLS tabel wbs_checklists dan spk_assets
 - [x] Sediakan akses antarmuka (komponen/modal) pada dashboard Owner dan Service Advisor
+
+---
+
+### Phase 32: Gap Closure (Batasi Akses Modul WBS dan QC untuk SPK DRAFT)
+**Status**: ⬜ Not Started
+**Objective**: Address gaps from milestone audit (Mencegah SPK berstatus DRAFT muncul di list WBS/QC dan memblokir akses jika dibuka paksa)
+
+**Gaps to Close:**
+- [ ] Filter query list SPK pada Mandor Dashboard agar tidak memunculkan status DRAFT
+- [ ] Tambahkan route guard/perlindungan komponen untuk memblokir form WBS/QC bila SPK statusnya DRAFT
+- [ ] Tambahkan policy / function db guard untuk menolak insert/update checklist WBS & QC pada SPK DRAFT
