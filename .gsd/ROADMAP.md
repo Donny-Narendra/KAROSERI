@@ -515,3 +515,15 @@
 - [x] Ubah antarmuka "Add Estimation Item" menjadi matriks WBS 1 s/d 5 pengganti dropdown kategori WBS.
 - [x] Implementasikan validasi *real-time* (Sisa / Over) dan pembatasan "PASSED" untuk bisa disubmit.
 - [x] Refactor logika pe-nyimpanan item manual agar meng-*insert* baris majemuk berdasarkan nilai alokasi matriks yang valid.
+
+---
+
+### Phase 42: Gap Closure (Perbaikan Ketinggian & Penambahan Responsiveness Modal Terima DP)
+**Status**: ⬜ Not Started
+**Objective**: Address gaps from milestone audit (Memperbaiki layout dan scrolling modal Terima DP agar tidak terpotong di layar yang lebih kecil)
+
+**Gaps to Close:**
+- [ ] Implementasikan container modal dengan `max-h-[90vh]` dan `flex flex-col`.
+- [ ] Terapkan Sticky Header dan Sticky Footer agar tombol aksi dan judul tidak ikut terscroll.
+- [ ] Ubah struktur konten menjadi scrollable body (`overflow-y-auto`).
+- [ ] Rampingkan margin, padding, dan area textarea agar lebih padat (*compact*).
