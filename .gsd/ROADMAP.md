@@ -457,8 +457,17 @@
 ---
 
 ### Phase 36: Gap Closure (Modul Manajemen Inventory & Audit Log di Service Advisor)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Address gaps from milestone audit (Modul Manajemen Inventory & Audit Log Perubahan di Halaman /service-advisor)
 
 **Gaps to Close:**
-- [ ] Modul Manajemen Inventory & Audit Log Perubahan di Halaman /service-advisor
+- [x] Modul Manajemen Inventory & Audit Log Perubahan di Halaman /service-advisor
+
+---
+
+### Phase 37: Gap Closure (Restocking Cepat Material Inventory dengan Pencatatan Audit Log di /warehouse)
+**Status**: ⬜ Not Started
+**Objective**: Address gaps from milestone audit (Restocking Cepat Material Inventory dengan Pencatatan Audit Log di /warehouse)
+
+**Gaps to Close:**
+- [ ] Fitur Restocking Cepat Material Inventory dengan Pencatatan Audit Log di /warehouse
