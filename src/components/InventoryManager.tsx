@@ -3,7 +3,9 @@ import { Plus, Edit2, Trash2, AlertCircle, Save, X, Search, CheckCircle2, Downlo
 import { inventoryService, type Material } from '../services/inventoryService';
 import { exportMaterialsToExcel } from '../utils/excelExport';
 import { ImportInventoryModal } from './ImportInventoryModal';
-import { Upload } from 'lucide-react';
+import { RestockModal } from './RestockModal';
+import { MaterialAuditModal } from './MaterialAuditModal';
+import { Upload, PackagePlus, History } from 'lucide-react';
 
 export const InventoryManager: React.FC = () => {
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -21,6 +23,8 @@ export const InventoryManager: React.FC = () => {
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
+  const [auditMaterial, setAuditMaterial] = useState<Material | null>(null);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -218,6 +222,14 @@ export const InventoryManager: React.FC = () => {
             <Upload className="w-4 h-4" />
             Import
           </button>
+          <button 
+            onClick={() => setIsRestockModalOpen(true)}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded text-sm font-medium transition flex items-center gap-1.5 shrink-0"
+            title="Restock Material"
+          >
+            <PackagePlus className="w-4 h-4" />
+            Restock
+          </button>
           {selectedMaterialIds.length > 0 && (
             <button 
               onClick={() => setIsBulkDeleteModalOpen(true)}
@@ -305,6 +317,13 @@ export const InventoryManager: React.FC = () => {
                   </td>
                   <td className="px-4 py-3 text-right text-text-muted font-mono">{m.waste_factor_percentage}%</td>
                   <td className="px-4 py-3 flex justify-center gap-2">
+                    <button 
+                      onClick={() => setAuditMaterial(m)}
+                      className="text-blue-500 hover:text-blue-700 p-1 rounded transition"
+                      title="Riwayat Audit"
+                    >
+                      <History className="w-4 h-4" />
+                    </button>
                     <button 
                       onClick={() => handleOpenModal(m)}
                       className="text-primary hover:text-primary-hover p-1 rounded transition"
@@ -520,6 +539,26 @@ export const InventoryManager: React.FC = () => {
             loadMaterials();
           }}
           existingMaterials={materials}
+        />
+      )}
+
+      {/* Restock Modal */}
+      <RestockModal 
+        isOpen={isRestockModalOpen}
+        onClose={() => setIsRestockModalOpen(false)}
+        onSuccess={(msg) => {
+          showMessage(msg);
+          loadMaterials();
+        }}
+        materials={materials}
+      />
+
+      {/* Audit Modal */}
+      {auditMaterial && (
+        <MaterialAuditModal
+          isOpen={true}
+          onClose={() => setAuditMaterial(null)}
+          material={auditMaterial}
         />
       )}
 
