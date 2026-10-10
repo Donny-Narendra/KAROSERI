@@ -73,8 +73,8 @@ export const DownPaymentModal: React.FC<DownPaymentModalProps> = ({ isOpen, onCl
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-surface rounded-xl shadow-2xl border border-surface-border w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
-        <div className="flex justify-between items-center p-5 border-b border-surface-border bg-surface-hover/50">
+      <div className="bg-surface rounded-xl shadow-2xl border border-surface-border w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200 max-h-[90vh] flex flex-col">
+        <div className="flex justify-between items-center p-4 border-b border-surface-border bg-surface shrink-0 z-10">
           <div className="flex items-center gap-3">
             <div className="bg-primary/20 p-2 rounded-lg">
               <Receipt className="w-5 h-5 text-primary" />
@@ -86,8 +86,9 @@ export const DownPaymentModal: React.FC<DownPaymentModalProps> = ({ isOpen, onCl
           </button>
         </div>
         
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          <div className="bg-background rounded-lg p-4 border border-surface-border grid grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="bg-background rounded-lg p-3 border border-surface-border grid grid-cols-2 gap-3">
             <div>
               <p className="text-xs font-mono text-text-muted uppercase tracking-wider mb-1">Nomor SPK</p>
               <p className="font-medium text-text-primary">{spk.id}</p>
@@ -140,13 +141,14 @@ export const DownPaymentModal: React.FC<DownPaymentModalProps> = ({ isOpen, onCl
             <textarea 
               value={notes} 
               onChange={e => setNotes(e.target.value)} 
-              rows={3} 
-              className="w-full bg-background border border-surface-border rounded-lg px-4 py-2.5 text-text-primary outline-none focus:border-primary transition-all resize-none" 
+              rows={2} 
+              className="w-full bg-background border border-surface-border rounded-lg px-4 py-2 text-text-primary outline-none focus:border-primary transition-all resize-none" 
               placeholder="Contoh: Transfer BCA an Budi, No Ref: 12345678"
             ></textarea>
           </div>
+        </div>
 
-          <div className="pt-2 flex justify-end gap-3">
+        <div className="shrink-0 p-4 border-t border-surface-border bg-surface flex justify-end gap-3 z-10">
             <button 
               type="button" 
               onClick={onClose} 

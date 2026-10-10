@@ -519,11 +519,11 @@
 ---
 
 ### Phase 42: Gap Closure (Perbaikan Ketinggian & Penambahan Responsiveness Modal Terima DP)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Address gaps from milestone audit (Memperbaiki layout dan scrolling modal Terima DP agar tidak terpotong di layar yang lebih kecil)
 
 **Gaps to Close:**
-- [ ] Implementasikan container modal dengan `max-h-[90vh]` dan `flex flex-col`.
-- [ ] Terapkan Sticky Header dan Sticky Footer agar tombol aksi dan judul tidak ikut terscroll.
-- [ ] Ubah struktur konten menjadi scrollable body (`overflow-y-auto`).
-- [ ] Rampingkan margin, padding, dan area textarea agar lebih padat (*compact*).
+- [x] Implementasikan container modal dengan `max-h-[90vh]` dan `flex flex-col`.
+- [x] Terapkan Sticky Header dan Sticky Footer agar tombol aksi dan judul tidak ikut terscroll.
+- [x] Ubah struktur konten menjadi scrollable body (`overflow-y-auto`).
+- [x] Rampingkan margin, padding, dan area textarea agar lebih padat (*compact*).
