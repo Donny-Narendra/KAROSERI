@@ -17,6 +17,14 @@ export const RestockModal: React.FC<RestockModalProps> = ({ isOpen, onClose, onS
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const handleClose = () => {
+    setSelectedMaterial(null);
+    setAddedQuantity(0);
+    setNotes('');
+    setError(null);
+    onClose();
+  };
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -35,7 +43,7 @@ export const RestockModal: React.FC<RestockModalProps> = ({ isOpen, onClose, onS
     try {
       await inventoryService.restockMaterial(selectedMaterial.id, addedQuantity, notes);
       onSuccess(`Berhasil restock ${selectedMaterial.name} sebanyak ${addedQuantity} ${selectedMaterial.unit}`);
-      onClose();
+      handleClose();
     } catch (err: any) {
       setError(err.message || 'Gagal menambahkan stok.');
     } finally {
@@ -48,12 +56,12 @@ export const RestockModal: React.FC<RestockModalProps> = ({ isOpen, onClose, onS
       <div className="bg-surface border border-border rounded-lg shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
         <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-background">
           <h3 className="font-bold text-lg text-text">Restock Material</h3>
-          <button onClick={onClose} className="text-text-muted hover:text-text">
+          <button onClick={handleClose} className="text-text-muted hover:text-text">
             <X className="w-5 h-5" />
           </button>
         </div>
         
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-6 overflow-visible">
           {error && (
             <div className="mb-4 p-3 bg-status-danger/10 border border-status-danger/30 rounded text-status-danger text-sm flex items-start gap-2">
               <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
@@ -65,9 +73,11 @@ export const RestockModal: React.FC<RestockModalProps> = ({ isOpen, onClose, onS
             <div>
               <label className="block text-sm font-medium text-text-muted mb-1">Cari Material</label>
               <MaterialAutocomplete 
+                key={isOpen ? 'open' : 'closed'} // Force remount to reset internal state when reopened
                 materials={materials}
                 onSelect={(m) => setSelectedMaterial(m)}
                 placeholder="Ketik nama material..."
+                initialValue={selectedMaterial ? selectedMaterial.name : ''}
               />
             </div>
 
@@ -118,7 +128,7 @@ export const RestockModal: React.FC<RestockModalProps> = ({ isOpen, onClose, onS
           <div className="mt-8 flex justify-end gap-3">
             <button 
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="px-4 py-2 text-text-muted hover:text-text font-medium transition"
               disabled={isSubmitting}
             >
