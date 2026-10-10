@@ -4,10 +4,10 @@
 - **Status**: Verified
 
 ## Gap Closure Mode
-Addressing 1 gaps from milestone audit (Restocking Cepat Material Inventory dengan Pencatatan Audit Log di /warehouse).
+Addressing 1 gap from milestone audit (Perbaikan UX & Alur Modal Restock Material di /warehouse).
 
 ## Last Session Summary
-Phase 37 executed successfully. 4 tasks completed. Quick restock modal and audit logs added to Warehouse portal.
+Created Phase 38 plan for fixing Restock Material modal UX and state.
 
 ## In-Progress Work
 None.

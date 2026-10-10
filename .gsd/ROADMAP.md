@@ -471,3 +471,14 @@
 
 **Gaps to Close:**
 - [ ] Fitur Restocking Cepat Material Inventory dengan Pencatatan Audit Log di /warehouse
+
+---
+
+### Phase 38: Gap Closure (Perbaikan UX & Alur Modal Restock Material di /warehouse)
+**Status**: ⬜ Not Started
+**Objective**: Konsolidasi langkah pencarian dan form input pada Modal Restock, dukungan autocomplete keyboard & scroll, dan reset state saat dibatalkan.
+
+**Gaps to Close:**
+- [ ] Konsolidasi modal pencarian material & pengisian menjadi satu modal tunggal
+- [ ] Perbaikan max-height dan z-index serta navigasi keyboard pada dropdown autocomplete
+- [ ] Reset state form sepenuhnya ketika modal ditutup atau dibatalkan
