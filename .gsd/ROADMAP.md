@@ -475,10 +475,10 @@
 ---
 
 ### Phase 38: Gap Closure (Perbaikan UX & Alur Modal Restock Material di /warehouse)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Konsolidasi langkah pencarian dan form input pada Modal Restock, dukungan autocomplete keyboard & scroll, dan reset state saat dibatalkan.
 
 **Gaps to Close:**
-- [ ] Konsolidasi modal pencarian material & pengisian menjadi satu modal tunggal
-- [ ] Perbaikan max-height dan z-index serta navigasi keyboard pada dropdown autocomplete
-- [ ] Reset state form sepenuhnya ketika modal ditutup atau dibatalkan
+- [x] Konsolidasi modal pencarian material & pengisian menjadi satu modal tunggal
+- [x] Perbaikan max-height dan z-index serta navigasi keyboard pada dropdown autocomplete
+- [x] Reset state form sepenuhnya ketika modal ditutup atau dibatalkan
