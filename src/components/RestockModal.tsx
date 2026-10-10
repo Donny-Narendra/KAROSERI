@@ -81,48 +81,46 @@ export const RestockModal: React.FC<RestockModalProps> = ({ isOpen, onClose, onS
               />
             </div>
 
-            {selectedMaterial && (
-              <>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-text-muted mb-1">Stok Saat Ini</label>
-                    <div className="w-full bg-surface-hover border border-border rounded px-3 py-2 text-text font-mono">
-                      {selectedMaterial.current_stock} {selectedMaterial.unit}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-text-muted mb-1">Jumlah Penambahan</label>
-                    <input 
-                      type="number" 
-                      required
-                      min="0.01"
-                      step="0.01"
-                      value={addedQuantity || ''}
-                      onChange={e => setAddedQuantity(parseFloat(e.target.value) || 0)}
-                      className="w-full bg-background border border-border rounded px-3 py-2 text-text focus:outline-none focus:border-primary font-mono"
-                    />
-                  </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-text-muted mb-1">Stok Saat Ini</label>
+                <div className="w-full bg-surface-hover border border-border rounded px-3 py-2 text-text font-mono">
+                  {selectedMaterial ? `${selectedMaterial.current_stock} ${selectedMaterial.unit}` : '-'}
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-text-muted mb-1">Jumlah Penambahan</label>
+                <input 
+                  type="number" 
+                  required
+                  min="0.01"
+                  step="0.01"
+                  value={addedQuantity || ''}
+                  onChange={e => setAddedQuantity(parseFloat(e.target.value) || 0)}
+                  disabled={!selectedMaterial}
+                  className="w-full bg-background border border-border rounded px-3 py-2 text-text focus:outline-none focus:border-primary font-mono disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+              </div>
+            </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-text-muted mb-1">Stok Baru (Estimasi)</label>
-                  <div className="w-full bg-status-success/10 border border-status-success/30 rounded px-3 py-2 text-status-success font-mono font-bold">
-                    {(selectedMaterial.current_stock + addedQuantity).toFixed(2)} {selectedMaterial.unit}
-                  </div>
-                </div>
+            <div>
+              <label className="block text-sm font-medium text-text-muted mb-1">Stok Baru (Estimasi)</label>
+              <div className={`w-full border rounded px-3 py-2 font-mono font-bold ${selectedMaterial ? 'bg-status-success/10 border-status-success/30 text-status-success' : 'bg-surface-hover border-border text-text-muted'}`}>
+                {selectedMaterial ? `${(selectedMaterial.current_stock + addedQuantity).toFixed(2)} ${selectedMaterial.unit}` : '-'}
+              </div>
+            </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-text-muted mb-1">Catatan / Referensi (Opsional)</label>
-                  <input 
-                    type="text" 
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                    placeholder="Contoh: Surat Jalan SJ-12345"
-                    className="w-full bg-background border border-border rounded px-3 py-2 text-text focus:outline-none focus:border-primary"
-                  />
-                </div>
-              </>
-            )}
+            <div>
+              <label className="block text-sm font-medium text-text-muted mb-1">Catatan / Referensi (Opsional)</label>
+              <input 
+                type="text" 
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Contoh: Surat Jalan SJ-12345"
+                disabled={!selectedMaterial}
+                className="w-full bg-background border border-border rounded px-3 py-2 text-text focus:outline-none focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+            </div>
           </div>
           
           <div className="mt-8 flex justify-end gap-3">
