@@ -161,31 +161,36 @@ export const WbsGalleryUploader: React.FC<WbsGalleryUploaderProps> = ({
       ) : (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
           {assets.map((asset, idx) => (
-            <div key={asset.id || idx} className="border border-border rounded overflow-hidden relative group aspect-square bg-surface">
-              <img 
-                src={getOptimizedImageUrl(asset.file_url, 200)}
-                alt="WBS asset"
-                className="w-full h-full object-cover cursor-pointer"
+            <div key={asset.id || idx} className="flex flex-col border border-border rounded overflow-hidden bg-surface">
+              <div 
+                className="relative aspect-square group cursor-pointer"
                 onClick={() => setPreviewImage(asset.file_url)}
-              />
-              <div className="absolute top-2 right-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+              >
+                <img 
+                  src={getOptimizedImageUrl(asset.file_url, 200)}
+                  alt="WBS asset"
+                  className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                  <div className="bg-black/50 text-white p-2 rounded-full backdrop-blur-sm">
+                    <Eye className="w-6 h-6" />
+                  </div>
+                </div>
+                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-2 text-white text-[10px] pointer-events-none">
+                  <div className="truncate font-medium">{asset.profiles?.full_name || 'Unknown User'}</div>
+                  <div className="text-white/80">{asset.created_at ? new Date(asset.created_at).toLocaleString('id-ID') : 'Baru saja'}</div>
+                </div>
+              </div>
+              <div className="border-t border-border bg-background">
                 <button 
                   type="button"
                   onClick={(e) => { e.stopPropagation(); setDeleteConfirmationUrl(asset.file_url); }}
-                  className="bg-status-danger text-white p-2 rounded-full shadow-md hover:bg-status-danger/90 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-2 text-status-danger hover:bg-status-danger/10 transition-colors min-h-[44px]"
                   aria-label="Hapus Foto"
                 >
-                  <Trash2 className="w-5 h-5" />
+                  <Trash2 className="w-4 h-4" />
+                  <span className="text-xs font-semibold">Hapus</span>
                 </button>
-              </div>
-              <div className="absolute top-2 left-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity pointer-events-none">
-                 <div className="bg-black/50 text-white p-2 rounded-full backdrop-blur-sm min-w-[44px] min-h-[44px] flex items-center justify-center">
-                    <Eye className="w-5 h-5" />
-                 </div>
-              </div>
-              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-2 text-white text-[10px] pointer-events-none">
-                <div className="truncate font-medium">{asset.profiles?.full_name || 'Unknown User'}</div>
-                <div className="text-white/80">{asset.created_at ? new Date(asset.created_at).toLocaleString('id-ID') : 'Baru saja'}</div>
               </div>
             </div>
           ))}
