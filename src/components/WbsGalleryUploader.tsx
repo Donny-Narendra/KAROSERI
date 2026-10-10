@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Camera, Loader2, X, Maximize2, Trash2, Eye } from 'lucide-react';
+import { Camera, Loader2, X, Trash2, Eye } from 'lucide-react';
 import { getOptimizedImageUrl } from '../lib/cloudinary';
 
 export interface WbsAsset {
