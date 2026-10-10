@@ -29,6 +29,7 @@ interface RabMaterial {
 }
 
 export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCategory, onClose }) => {
+  const cleanWbsCategory = wbsCategory.replace(/^WBS\s*\d+:\s*/i, '').trim();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [records, setRecords] = useState<SpkBorongan[]>([]);
@@ -57,7 +58,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
       .from('spk_borongan')
       .select('*')
       .eq('spk_id', spkId)
-      .eq('wbs_category', wbsCategory)
+      .eq('wbs_category', cleanWbsCategory)
       .order('created_at', { ascending: false });
       
     if (data) setRecords(data as SpkBorongan[]);
@@ -89,7 +90,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
           )
         `)
         .eq('rab_estimation_id', rabData.id)
-        .eq('wbs_category', wbsCategory);
+        .eq('wbs_category', cleanWbsCategory);
 
       if (itemsError) {
         console.error('Error fetching RAB items:', itemsError);
@@ -106,7 +107,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
     setLoading(true);
     const { error } = await supabase.from('spk_borongan').insert({
       spk_id: spkId,
-      wbs_category: wbsCategory,
+      wbs_category: cleanWbsCategory,
       worker_name: workerName,
       task_description: taskDescription,
       contract_value: Number(contractValue),
