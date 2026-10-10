@@ -10,10 +10,11 @@ import { SpkGalleryModal } from '../components/spk/SpkGalleryModal';
 import { spkService } from '../services/spkService';
 import { PackageManager } from '../components/PackageManager';
 import { WbsChecklist } from '../components/WbsChecklist';
+import { SAInventoryPanel } from '../components/SAInventoryPanel';
 
 export const ServiceAdvisorDashboard: React.FC = () => {
   const { profile, signOut } = useAuth();
-  const [mainTab, setMainTab] = useState<'spk' | 'bom'>('spk');
+  const [mainTab, setMainTab] = useState<'spk' | 'bom' | 'inventory'>('spk');
   const [spks, setSpks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -101,6 +102,12 @@ export const ServiceAdvisorDashboard: React.FC = () => {
             >
               Katalog Paket (Assembly List)
             </button>
+            <button 
+              onClick={() => setMainTab('inventory')}
+              className={`pb-2 text-lg font-bold font-display transition border-b-2 ${mainTab === 'inventory' ? 'border-primary text-text' : 'border-transparent text-text-muted hover:text-text'}`}
+            >
+              Inventory & Audit
+            </button>
           </div>
           {!showForm && mainTab === 'spk' && (
             <button
@@ -113,7 +120,11 @@ export const ServiceAdvisorDashboard: React.FC = () => {
           )}
         </div>
 
-        {mainTab === 'bom' ? (
+        {mainTab === 'inventory' ? (
+          <div className="mt-4">
+            <SAInventoryPanel />
+          </div>
+        ) : mainTab === 'bom' ? (
           <div className="mt-4">
             <PackageManager />
           </div>
