@@ -497,10 +497,10 @@
 ---
 
 ### Phase 40: Gap Closure (Penyatuan Input Tenaga Kerja ke Dalam Pencarian Material RAB)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Address gaps from milestone audit (Menghapus opsi radio "Labor" dan menyatukan pencarian jasa/tenaga kerja ke kotak pencarian material)
 
 **Gaps to Close:**
-- [ ] Hapus Radio Button Opsi "Labor" pada form Add Estimation Item di RAB Calculator
-- [ ] Satukan input tenaga kerja melalui Master Material (tabel `materials`)
-- [ ] Sesuaikan handler insert agar semua item jasa dan bahan fisik masuk ke `rab_items` menggunakan relasi `material_id`
+- [x] Hapus Radio Button Opsi "Labor" pada form Add Estimation Item di RAB Calculator
+- [x] Satukan input tenaga kerja melalui Master Material (tabel `materials`)
+- [x] Sesuaikan handler insert agar semua item jasa dan bahan fisik masuk ke `rab_items` menggunakan relasi `material_id`

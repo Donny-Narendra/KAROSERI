@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Calculator, Plus, Trash2, Edit2, Download, Printer } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
+import { inventoryService } from '../services/inventoryService';
+import type { Material } from '../services/inventoryService';
+import { MaterialAutocomplete } from './MaterialAutocomplete';
+
 import { packageService } from '../services/packageService';
 import type { ProductPackage } from '../types/package';
 import { PackageAllocationModal } from './PackageAllocationModal';
@@ -11,12 +15,13 @@ import { exportRabToExcel, printRabQuotation } from '../utils/rabExport';
 interface RabItem {
   id: string;
   wbsCategory: string;
-  type: 'material' | 'labor' | 'overhead';
+  type: 'material' | 'overhead';
   description: string;
   qty: number;
   unitPrice: number;
   wasteFactor?: number; // percentage (0-100)
   packageId?: string;
+  materialId?: string;
 }
 
 export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
@@ -30,6 +35,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
 
   // Package BOM state
   const [packages, setPackages] = useState<ProductPackage[]>([]);
+  const [materials, setMaterials] = useState<Material[]>([]);
   const [isPackageModalOpen, setIsPackageModalOpen] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<ProductPackage | null>(null);
   const [allocationStatus, setAllocationStatus] = useState<'PARTIAL' | 'COMPLETE'>('COMPLETE');
@@ -82,12 +88,12 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
           
         if (!itemsError && itemsData) {
           const loadedItems = itemsData.map((dbItem: any) => {
-            let type: 'material' | 'labor' | 'overhead' = 'material';
+            let type: 'material' | 'overhead' = 'material';
             let qty = 0;
             let unitPrice = 0;
             
             if (dbItem.labor_hours > 0) {
-              type = 'labor';
+              type = 'material';
               qty = Number(dbItem.labor_hours);
               unitPrice = Number(dbItem.labor_rate);
             } else if (dbItem.overhead_hours > 0) {
@@ -109,7 +115,8 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
               qty,
               unitPrice,
               wasteFactor: 0,
-              packageId: dbItem.package_id
+              packageId: dbItem.package_id,
+              materialId: dbItem.material_id || undefined
             };
           });
           setItems(loadedItems);
@@ -126,8 +133,18 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       }
     };
 
+    const fetchMaterials = async () => {
+      try {
+        const mats = await inventoryService.getMaterials();
+        setMaterials(mats);
+      } catch (err) {
+        console.error("Failed to load materials:", err);
+      }
+    };
+
     fetchSettings();
     fetchPackages();
+    fetchMaterials();
     fetchExistingRab().finally(() => {
       setIsInitialLoad(false);
     });
@@ -153,11 +170,12 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
           ? {
               ...item,
               wbsCategory,
-              type: newItem.type as 'material' | 'labor' | 'overhead',
+              type: newItem.type as 'material' | 'overhead',
               description: newItem.description as string,
               qty: newItem.qty as number,
               unitPrice: newItem.unitPrice as number,
               wasteFactor: newItem.type === 'material' ? newItem.wasteFactor : 0,
+              materialId: newItem.materialId,
             }
           : item
       ));
@@ -168,11 +186,12 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
         {
           id: Date.now().toString(),
           wbsCategory,
-          type: newItem.type as 'material' | 'labor' | 'overhead',
+          type: newItem.type as 'material' | 'overhead',
           description: newItem.description as string,
           qty: newItem.qty as number,
           unitPrice: newItem.unitPrice as number,
           wasteFactor: newItem.type === 'material' ? newItem.wasteFactor : 0,
+          materialId: newItem.materialId,
         }
       ]);
     }
@@ -210,6 +229,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       qty: item.qty,
       unitPrice: item.unitPrice,
       wasteFactor: item.wasteFactor,
+      materialId: item.materialId,
     });
     setWbsCategory(item.wbsCategory);
     setEditingId(item.id);
@@ -236,7 +256,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
 
   const totalCost = items.reduce((sum, item) => sum + calculateItemTotal(item), 0);
   const totalMaterialCost = items.filter(i => i.type === 'material').reduce((sum, i) => sum + calculateItemTotal(i), 0);
-  const totalLaborCost = items.filter(i => i.type === 'labor').reduce((sum, i) => sum + calculateItemTotal(i), 0);
+  const totalLaborCost = 0; // Labor cost is integrated into materials
   const totalOverheadCost = items.filter(i => i.type === 'overhead').reduce((sum, i) => sum + calculateItemTotal(i), 0);
 
   const handleSaveEstimation = async (silent = false) => {
@@ -266,12 +286,13 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
           wbs_category: item.wbsCategory,
           description: item.description,
           quantity: item.type === 'material' ? item.qty : 0,
-          labor_hours: item.type === 'labor' ? item.qty : 0,
-          labor_rate: item.type === 'labor' ? item.unitPrice : 0,
+          labor_hours: 0,
+          labor_rate: 0,
           overhead_hours: item.type === 'overhead' ? item.qty * 8 : 0,
           overhead_rate: item.type === 'overhead' ? item.unitPrice / 8 : 0,
           item_total: calculateItemTotal(item),
-          package_id: item.packageId || null
+          package_id: item.packageId || null,
+          material_id: item.materialId || null
         }));
 
         const { error: itemsError } = await supabase.from('rab_items').insert(itemsToInsert);
@@ -443,18 +464,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                   onChange={() => setNewItem({...newItem, type: 'material'})}
                   className="accent-primary"
                 />
-                Material
-              </label>
-              <label className="flex items-center gap-2 text-sm text-text cursor-pointer">
-                <input 
-                  type="radio" 
-                  name="type" 
-                  value="labor"
-                  checked={newItem.type === 'labor'}
-                  onChange={() => setNewItem({...newItem, type: 'labor', wasteFactor: 0})}
-                  className="accent-primary"
-                />
-                Labor
+                Material / Tenaga Kerja
               </label>
               <label className="flex items-center gap-2 text-sm text-text cursor-pointer">
                 <input 
@@ -470,15 +480,26 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">Description</label>
-              <input
-                type="text"
-                required
-                value={newItem.description || ''}
-                onChange={(e) => setNewItem({...newItem, description: e.target.value})}
-                placeholder={newItem.type === 'material' ? 'e.g. Steel Plate 2mm' : newItem.type === 'labor' ? 'e.g. Welding Specialist' : 'e.g. Workshop Bay Overhead'}
-                className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
-              />
+              <label className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
+                {newItem.type === 'material' ? 'Item (Bahan/Jasa)' : 'Description'}
+              </label>
+              {newItem.type === 'material' ? (
+                <MaterialAutocomplete
+                  materials={materials}
+                  initialValue={newItem.description || ''}
+                  onSelect={(m) => setNewItem({...newItem, description: m.name, unitPrice: m.unit_price || 0, materialId: m.id})}
+                  placeholder="Cari material atau jasa..."
+                />
+              ) : (
+                <input
+                  type="text"
+                  required
+                  value={newItem.description || ''}
+                  onChange={(e) => setNewItem({...newItem, description: e.target.value})}
+                  placeholder="e.g. Workshop Bay Overhead"
+                  className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
+                />
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -578,7 +599,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                       <tr key={item.id} className="hover:bg-surface-hover/30 transition">
                         <td className="px-4 py-3 font-medium">{item.description}</td>
                         <td className="px-4 py-3">
-                          <span className={`px-2 py-0.5 rounded text-xs font-mono ${item.type === 'material' ? 'bg-status-info/10 text-status-info border border-status-info/20' : item.type === 'labor' ? 'bg-status-warning/10 text-status-warning border border-status-warning/20' : 'bg-status-danger/10 text-status-danger border border-status-danger/20'}`}>
+                          <span className={`px-2 py-0.5 rounded text-xs font-mono ${item.type === 'material' ? 'bg-status-info/10 text-status-info border border-status-info/20' : 'bg-status-danger/10 text-status-danger border border-status-danger/20'}`}>
                             {item.type}
                           </span>
                         </td>
