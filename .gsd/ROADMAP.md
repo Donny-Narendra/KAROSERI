@@ -453,3 +453,12 @@
 - [x] Implementasikan tombol "Salin Link Pelacakan"
 - [x] Implementasikan tautan "Buka Laporan Progres" (buka tab baru)
 - [x] Pastikan perlindungan view: hanya muncul jika status bukan DRAFT dan DP sudah lunas/ada nilai
+
+---
+
+### Phase 36: Gap Closure (Modul Manajemen Inventory & Audit Log di Service Advisor)
+**Status**: ⬜ Not Started
+**Objective**: Address gaps from milestone audit (Modul Manajemen Inventory & Audit Log Perubahan di Halaman /service-advisor)
+
+**Gaps to Close:**
+- [ ] Modul Manajemen Inventory & Audit Log Perubahan di Halaman /service-advisor
