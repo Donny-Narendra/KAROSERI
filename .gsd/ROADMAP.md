@@ -508,10 +508,10 @@
 ---
 
 ### Phase 41: Gap Closure (Matriks Alokasi Multi-WBS pada Penambahan Item Manual RAB)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Address gaps from milestone audit (Ganti Dropdown WBS Tunggal Menjadi Alokasi Matriks Multi-WBS dengan Dukungan Desimal dan Validasi PASSED)
 
 **Gaps to Close:**
-- [ ] Ubah antarmuka "Add Estimation Item" menjadi matriks WBS 1 s/d 5 pengganti dropdown kategori WBS.
-- [ ] Implementasikan validasi *real-time* (Sisa / Over) dan pembatasan "PASSED" untuk bisa disubmit.
-- [ ] Refactor logika pe-nyimpanan item manual agar meng-*insert* baris majemuk berdasarkan nilai alokasi matriks yang valid.
+- [x] Ubah antarmuka "Add Estimation Item" menjadi matriks WBS 1 s/d 5 pengganti dropdown kategori WBS.
+- [x] Implementasikan validasi *real-time* (Sisa / Over) dan pembatasan "PASSED" untuk bisa disubmit.
+- [x] Refactor logika pe-nyimpanan item manual agar meng-*insert* baris majemuk berdasarkan nilai alokasi matriks yang valid.

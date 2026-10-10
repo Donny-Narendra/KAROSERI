@@ -26,7 +26,7 @@ interface RabItem {
 
 export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   const [items, setItems] = useState<RabItem[]>([]);
-  const [wbsCategory, setWbsCategory] = useState('Pembongkaran');
+  const [manualAllocations, setManualAllocations] = useState<Record<string, string>>({});
   const [bayHourlyRate, setBayHourlyRate] = useState<number>(0);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
@@ -164,37 +164,33 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     e.preventDefault();
     if (!newItem.description || !newItem.qty || newItem.unitPrice === undefined) return;
     
-    if (editingId) {
-      setItems(items.map(item => 
-        item.id === editingId 
-          ? {
-              ...item,
-              wbsCategory,
-              type: newItem.type as 'material' | 'overhead',
-              description: newItem.description as string,
-              qty: newItem.qty as number,
-              unitPrice: newItem.unitPrice as number,
-              wasteFactor: newItem.type === 'material' ? newItem.wasteFactor : 0,
-              materialId: newItem.materialId,
-            }
-          : item
-      ));
-      setEditingId(null);
-    } else {
-      setItems([
-        ...items,
-        {
-          id: Date.now().toString(),
-          wbsCategory,
-          type: newItem.type as 'material' | 'overhead',
-          description: newItem.description as string,
-          qty: newItem.qty as number,
-          unitPrice: newItem.unitPrice as number,
-          wasteFactor: newItem.type === 'material' ? newItem.wasteFactor : 0,
-          materialId: newItem.materialId,
-        }
-      ]);
-    }
+    const totalManualAllocated = wbsCategories.reduce((sum, cat) => sum + (parseFloat(manualAllocations[cat.id]) || 0), 0);
+    const manualRemaining = (newItem.qty || 0) - totalManualAllocated;
+    const isAllocationPassed = Math.abs(manualRemaining) < 0.001;
+    
+    if (!isAllocationPassed || newItem.qty <= 0) return;
+
+    const newItemsToPush: RabItem[] = [];
+    wbsCategories.forEach(cat => {
+       const wbsQty = parseFloat(manualAllocations[cat.id]) || 0;
+       if (wbsQty > 0) {
+          newItemsToPush.push({
+             id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+             wbsCategory: cat.id,
+             type: newItem.type as 'material' | 'overhead',
+             description: newItem.description as string,
+             qty: wbsQty,
+             unitPrice: newItem.unitPrice as number,
+             wasteFactor: newItem.type === 'material' ? newItem.wasteFactor : 0,
+             materialId: newItem.materialId,
+          });
+       }
+    });
+
+    const baseItems = editingId ? items.filter(i => i.id !== editingId) : items;
+    setItems([...baseItems, ...newItemsToPush]);
+    setEditingId(null);
+    setManualAllocations({});
     
     setNewItem({
       type: newItem.type,
@@ -231,7 +227,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       wasteFactor: item.wasteFactor,
       materialId: item.materialId,
     });
-    setWbsCategory(item.wbsCategory);
+    setManualAllocations({ [item.wbsCategory]: String(item.qty) });
     setEditingId(item.id);
   };
 
@@ -352,6 +348,10 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
 
   const appliedPackagesData = packages.filter(p => items.some(i => i.packageId === p.id));
 
+  const totalManualAllocated = wbsCategories.reduce((sum, cat) => sum + (parseFloat(manualAllocations[cat.id]) || 0), 0);
+  const manualRemaining = (newItem.qty || 0) - totalManualAllocated;
+  const isAllocationPassed = Math.abs(manualRemaining) < 0.001;
+
   return (
     <div className="bg-surface border border-border rounded-lg overflow-hidden">
       <div className="px-5 py-4 border-b border-border bg-surface-hover flex items-center justify-between">
@@ -437,19 +437,6 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
               </div>
             </div>
           )}
-
-          <div>
-            <label className="block text-sm font-medium text-text-muted mb-2 font-mono">WBS Category</label>
-            <select
-              value={wbsCategory}
-              onChange={(e) => setWbsCategory(e.target.value)}
-              className="w-full bg-background border border-border rounded px-3 py-2 text-text focus:outline-none focus:border-primary transition"
-            >
-              {wbsCategories.map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.label}</option>
-              ))}
-            </select>
-          </div>
 
           <form onSubmit={handleAddItem} className="bg-background border border-border rounded-lg p-4 space-y-4">
             <h4 className="font-bold text-sm text-text border-b border-border pb-2">Add Estimation Item</h4>
@@ -544,9 +531,57 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
               </div>
             )}
 
+            {/* Multi-WBS Allocation Matrix */}
+            <div className="border border-border rounded-lg overflow-hidden mt-2">
+              <div className="bg-surface px-3 py-2 border-b border-border">
+                <span className="text-xs font-bold text-text uppercase font-mono">Alokasi WBS</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm whitespace-nowrap">
+                  <thead className="bg-background text-text-muted text-[10px] uppercase border-b border-border">
+                    <tr>
+                      <th className="px-2 py-2 text-center border-r border-border bg-surface-hover/50">Total Qty</th>
+                      {wbsCategories.map((cat, i) => (
+                        <th key={cat.id} className="px-1 py-2 text-center" title={cat.label}>WBS {i+1}</th>
+                      ))}
+                      <th className="px-2 py-2 text-center border-l border-border bg-surface-hover/50">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-surface">
+                    <tr>
+                      <td className="px-2 py-3 font-mono font-bold text-center text-primary border-r border-border bg-surface-hover/50">
+                        {newItem.qty || 0}
+                      </td>
+                      {wbsCategories.map((cat) => (
+                        <td key={cat.id} className="px-1 py-3 text-center">
+                          <input
+                            type="number"
+                            min="0"
+                            step="any"
+                            value={manualAllocations[cat.id] || ''}
+                            onChange={(e) => setManualAllocations({...manualAllocations, [cat.id]: e.target.value})}
+                            className="w-14 mx-auto block bg-background border border-border rounded px-1 py-1 text-center font-mono focus:border-primary focus:outline-none text-xs"
+                            placeholder="0"
+                          />
+                        </td>
+                      ))}
+                      <td className="px-2 py-3 text-center border-l border-border bg-surface-hover/50">
+                        <span className={`inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                          isAllocationPassed ? 'bg-status-success/20 text-status-success' : 'bg-status-danger/20 text-status-danger'
+                        }`}>
+                          {isAllocationPassed ? 'PASSED' : (manualRemaining > 0 ? `Sisa: ${manualRemaining.toFixed(2)}` : `Over: ${Math.abs(manualRemaining).toFixed(2)}`)}
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
             <button
               type="submit"
-              className="w-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-bold py-2 px-4 rounded text-sm transition flex items-center justify-center gap-2 mt-2"
+              disabled={!isAllocationPassed || !newItem.qty || newItem.qty <= 0}
+              className="w-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-bold py-2 px-4 rounded text-sm transition flex items-center justify-center gap-2 mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4" />
               {editingId ? 'Update Item' : 'Add Item'}
@@ -556,6 +591,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                 type="button"
                 onClick={() => {
                   setEditingId(null);
+                  setManualAllocations({});
                   setNewItem({
                     type: 'material',
                     qty: 1,
