@@ -504,3 +504,14 @@
 - [x] Hapus Radio Button Opsi "Labor" pada form Add Estimation Item di RAB Calculator
 - [x] Satukan input tenaga kerja melalui Master Material (tabel `materials`)
 - [x] Sesuaikan handler insert agar semua item jasa dan bahan fisik masuk ke `rab_items` menggunakan relasi `material_id`
+
+---
+
+### Phase 41: Gap Closure (Matriks Alokasi Multi-WBS pada Penambahan Item Manual RAB)
+**Status**: ⬜ Not Started
+**Objective**: Address gaps from milestone audit (Ganti Dropdown WBS Tunggal Menjadi Alokasi Matriks Multi-WBS dengan Dukungan Desimal dan Validasi PASSED)
+
+**Gaps to Close:**
+- [ ] Ubah antarmuka "Add Estimation Item" menjadi matriks WBS 1 s/d 5 pengganti dropdown kategori WBS.
+- [ ] Implementasikan validasi *real-time* (Sisa / Over) dan pembatasan "PASSED" untuk bisa disubmit.
+- [ ] Refactor logika pe-nyimpanan item manual agar meng-*insert* baris majemuk berdasarkan nilai alokasi matriks yang valid.
