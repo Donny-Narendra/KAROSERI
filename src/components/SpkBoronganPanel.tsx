@@ -23,6 +23,7 @@ interface RabMaterial {
   id: string;
   quantity: number;
   wbs_category: string;
+  description?: string;
   materials: {
     id: string;
     name: string;
@@ -94,6 +95,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
         id,
         quantity,
         wbs_category,
+        description,
         materials (
           id,
           name,
@@ -208,7 +210,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
   };
 
   const filteredMaterials = rabMaterials.filter(m => 
-    m.materials?.name?.toLowerCase().includes(searchMaterial.toLowerCase())
+    (m.materials?.name || m.description || '').toLowerCase().includes(searchMaterial.toLowerCase())
   );
 
   return (
@@ -365,16 +367,21 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {filteredMaterials.map((item) => (
-                        <tr key={item.id} className="hover:bg-surface/50">
-                          <td className="px-4 py-3 text-text">
-                            {item.materials?.name || 'Unknown'}
-                          </td>
-                          <td className="px-4 py-3 text-text text-right whitespace-nowrap">
-                            {item.quantity} <span className="text-text-muted text-xs">{item.materials?.unit || '-'}</span>
-                          </td>
-                        </tr>
-                      ))}
+                      {filteredMaterials.map((item) => {
+                        const itemName = item.materials?.name || item.description || 'Item Pekerjaan';
+                        const itemUnit = item.materials?.unit || 'item';
+                        
+                        return (
+                          <tr key={item.id} className="hover:bg-surface/50">
+                            <td className="px-4 py-3 text-text">
+                              {itemName}
+                            </td>
+                            <td className="px-4 py-3 text-text text-right whitespace-nowrap">
+                              {item.quantity} <span className="text-text-muted text-xs">{itemUnit}</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 )}
