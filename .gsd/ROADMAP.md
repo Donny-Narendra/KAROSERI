@@ -531,7 +531,7 @@
 ---
 
 ### Phase 43: Gap Closure (Cetak Surat Tugas SPK Borongan dengan Nomor Surat Resmi)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Address gaps from milestone audit (Mencetak dokumen resmi penugasan SPK Borongan dengan penomoran unik yang tersimpan di Supabase)
 
 **Gaps to Close:**
