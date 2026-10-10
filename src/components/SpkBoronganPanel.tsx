@@ -22,7 +22,9 @@ interface SpkBorongan {
 interface RabMaterial {
   id: string;
   quantity: number;
+  wbs_category: string;
   materials: {
+    id: string;
     name: string;
     unit: string;
   } | null;
@@ -67,7 +69,8 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
   };
 
   const fetchRabMaterials = async () => {
-    const { data: rabData, error: rabError } = await supabase
+    // Langkah 1: Dapatkan rab_estimation_id milik SPK
+    const { data: rabEst, error: rabError } = await supabase
       .from('rab_estimations')
       .select('id')
       .eq('spk_id', spkId)
@@ -75,28 +78,36 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
 
     if (rabError) {
       console.error('Error fetching RAB estimation:', rabError);
+      setRabMaterials([]);
       return;
     }
     
-    if (rabData) {
-      const { data: itemsData, error: itemsError } = await supabase
-        .from('rab_items')
-        .select(`
-          id,
-          quantity,
-          materials (
-            name,
-            unit
-          )
-        `)
-        .eq('rab_estimation_id', rabData.id)
-        .eq('wbs_category', cleanWbsCategory);
+    if (!rabEst) {
+      setRabMaterials([]);
+      return;
+    }
 
-      if (itemsError) {
-        console.error('Error fetching RAB items:', itemsError);
-      } else if (itemsData) {
-        setRabMaterials(itemsData as unknown as RabMaterial[]);
-      }
+    // Langkah 2: Ambil items dari rab_items join materials
+    const { data: itemsData, error: itemsError } = await supabase
+      .from('rab_items')
+      .select(`
+        id,
+        quantity,
+        wbs_category,
+        materials (
+          id,
+          name,
+          unit
+        )
+      `)
+      .eq('rab_estimation_id', rabEst.id)
+      .eq('wbs_category', cleanWbsCategory);
+
+    if (itemsError) {
+      console.error('Error fetching RAB items:', itemsError);
+      setRabMaterials([]);
+    } else if (itemsData) {
+      setRabMaterials(itemsData as unknown as RabMaterial[]);
     }
   };
 
