@@ -14,7 +14,7 @@ export interface Material {
 export interface InventoryAuditLog {
   id: string;
   material_id: string;
-  action_type: 'STOCK_ADJUSTMENT' | 'PRICE_CHANGE' | 'DETAIL_UPDATE' | 'MATERIAL_CREATE';
+  action_type: 'STOCK_ADJUSTMENT' | 'PRICE_CHANGE' | 'DETAIL_UPDATE' | 'MATERIAL_CREATE' | 'RESTOCK';
   previous_data: any;
   new_data: any;
   notes: string;
@@ -89,6 +89,49 @@ export const inventoryService = {
         previous_data: previousData,
         new_data: material,
         notes: notes,
+        changed_by: userData.user.id
+      }]);
+      
+    if (auditError) throw auditError;
+    
+    return updatedMaterial as Material;
+  },
+
+  async restockMaterial(materialId: string, addedQuantity: number, notes?: string) {
+    const { data: userData, error: authError } = await supabase.auth.getUser();
+    if (authError) throw authError;
+
+    // Fetch current material to get the old stock
+    const { data: currentMaterial, error: fetchError } = await supabase
+      .from('materials')
+      .select('current_stock')
+      .eq('id', materialId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    const oldStock = Number(currentMaterial.current_stock);
+    const newStock = oldStock + addedQuantity;
+
+    // Perform the update on material
+    const { data: updatedMaterial, error: updateError } = await supabase
+      .from('materials')
+      .update({ current_stock: newStock })
+      .eq('id', materialId)
+      .select()
+      .single();
+      
+    if (updateError) throw updateError;
+
+    // Log the audit
+    const { error: auditError } = await supabase
+      .from('inventory_audit_logs')
+      .insert([{
+        material_id: materialId,
+        action_type: 'RESTOCK',
+        previous_data: { current_stock: oldStock },
+        new_data: { current_stock: newStock, added_quantity: addedQuantity },
+        notes: notes || '',
         changed_by: userData.user.id
       }]);
       
