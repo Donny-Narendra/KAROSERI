@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 export const useIdleTimer = (timeoutMs: number = 15 * 60 * 1000) => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleLogout = async () => {
     try {
