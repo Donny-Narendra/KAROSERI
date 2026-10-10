@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { Factory, ShieldCheck, TerminalSquare, Badge, Key } from 'lucide-react';
 
@@ -7,8 +7,9 @@ export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
+  const [error, setError] = useState<string | null>(location.state?.message || null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,7 +21,7 @@ export const LoginPage: React.FC = () => {
         password,
       });
       if (error) throw error;
-      navigate('/');
+      navigate('/', { replace: true });
     } catch (err: any) {
       setError(err.message);
     } finally {

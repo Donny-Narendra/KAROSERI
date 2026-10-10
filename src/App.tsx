@@ -2,7 +2,10 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { GuestRoute } from './components/GuestRoute';
 import { LoginPage } from './pages/LoginPage';
+import { useIdleTimer } from './hooks/useIdleTimer';
+
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { AdminSettingsPage } from './pages/AdminSettingsPage';
 import { ServiceAdvisorDashboard } from './pages/ServiceAdvisorDashboard';
@@ -53,13 +56,21 @@ const UnauthorizedPage: React.FC = () => (
   </div>
 );
 
+const IdleTimeoutManager: React.FC = () => {
+  useIdleTimer();
+  return null;
+};
+
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <IdleTimeoutManager />
         <Routes>
           <Route path="/" element={<RootRedirect />} />
-          <Route path="/login" element={<LoginPage />} />
+          <Route element={<GuestRoute />}>
+            <Route path="/login" element={<LoginPage />} />
+          </Route>
           <Route path="/tracking/:spk_no" element={<PublicProgressTracking />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
           

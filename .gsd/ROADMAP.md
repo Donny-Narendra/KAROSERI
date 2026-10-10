@@ -486,10 +486,10 @@
 ---
 
 ### Phase 39: Gap Closure (Perbaikan Keamanan Navigasi Login & Idle Timeout)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Address gaps from milestone audit (Cegah Akses Halaman Login Ketika Sesi Masih Aktif & Auto Idle Timeout)
 
 **Gaps to Close:**
-- [ ] Guest Route Guard pada Halaman Login untuk mencegah akses saat sesi aktif (redirect ke role dashboard)
-- [ ] Penyesuaian navigasi pasca login (replace history)
-- [ ] Mekanisme Auto Idle Session Timeout (15 menit tanpa aktivitas, auto logout)
+- [x] Guest Route Guard pada Halaman Login untuk mencegah akses saat sesi aktif (redirect ke role dashboard)
+- [x] Penyesuaian navigasi pasca login (replace history)
+- [x] Mekanisme Auto Idle Session Timeout (15 menit tanpa aktivitas, auto logout)
