@@ -16,7 +16,14 @@ interface SpkBorongan {
   contract_value: number;
   status: SpkBoronganStatus;
   progress_percentage: number;
+  assignment_letter_no?: string;
   created_at: string;
+}
+
+interface SpkDetail {
+  spk_no: string;
+  customer_name: string;
+  vehicle_plate: string;
 }
 
 interface RabMaterial {
@@ -49,11 +56,24 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
   // Cut-off state
   const [cutOffId, setCutOffId] = useState<string | null>(null);
   const [progress, setProgress] = useState<number | ''>('');
+  
+  const [spkDetail, setSpkDetail] = useState<SpkDetail | null>(null);
 
   useEffect(() => {
+    fetchSpkDetail();
     fetchRecords();
     fetchRabMaterials();
   }, [spkId, wbsCategory]);
+
+  const fetchSpkDetail = async () => {
+    const { data, error } = await supabase
+      .from('spk')
+      .select('spk_no, customer_name, vehicle_plate')
+      .eq('id', spkId)
+      .single();
+    if (data) setSpkDetail(data as SpkDetail);
+    if (error) console.error('Error fetching SPK:', error);
+  };
 
   const fetchRecords = async () => {
     setLoading(true);
@@ -162,42 +182,91 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
     setLoading(false);
   };
 
-  const handlePrint = (record: SpkBorongan) => {
+  const handlePrint = async (record: SpkBorongan) => {
+    let letterNo = record.assignment_letter_no;
+    
+    if (!letterNo) {
+      const wbsCode = wbsCategory.split(':')[0].replace(/\s+/g, '-').toUpperCase();
+      const sortedRecords = [...records].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      const counterIndex = sortedRecords.findIndex(r => r.id === record.id) + 1;
+      const counterString = counterIndex.toString().padStart(2, '0');
+      letterNo = `ST-BORONG/${spkDetail?.spk_no || 'UNKNOWN'}/${wbsCode}/${counterString}`;
+
+      const { error } = await supabase
+        .from('spk_borongan')
+        .update({ assignment_letter_no: letterNo })
+        .eq('id', record.id);
+        
+      if (error) {
+        console.error('Error updating assignment letter no:', error);
+        alert('Gagal membuat nomor surat tugas.');
+        return;
+      }
+      
+      record.assignment_letter_no = letterNo;
+      setRecords(prev => prev.map(r => r.id === record.id ? { ...r, assignment_letter_no: letterNo } : r));
+    }
+
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
     printWindow.document.write(`
       <html>
         <head>
-          <title>SPK Borongan - ${record.worker_name}</title>
+          <title>Surat Tugas Borongan - ${letterNo}</title>
           <style>
-            body { font-family: sans-serif; padding: 2rem; }
-            .header { text-align: center; border-bottom: 2px solid #000; margin-bottom: 2rem; padding-bottom: 1rem; }
-            .details { margin-bottom: 2rem; }
-            .details div { margin-bottom: 0.5rem; }
+            @media print {
+              @page { size: A4 portrait; margin: 20mm; }
+              body { margin: 0; padding: 0; }
+            }
+            body { font-family: sans-serif; padding: 2rem; color: #000; }
+            .header { text-align: center; border-bottom: 2px solid #000; margin-bottom: 1.5rem; padding-bottom: 1rem; }
+            .header h1 { margin: 0 0 0.5rem 0; font-size: 1.5rem; }
+            .header h2 { margin: 0; font-size: 1.25rem; font-weight: bold; text-decoration: underline; }
+            .header p { margin: 0.5rem 0 0 0; font-weight: bold; }
+            .section { margin-bottom: 1.5rem; }
+            .section-title { font-weight: bold; margin-bottom: 0.5rem; border-bottom: 1px solid #ccc; padding-bottom: 0.25rem; }
+            .row { display: flex; margin-bottom: 0.25rem; }
+            .label { width: 150px; font-weight: bold; }
+            .value { flex: 1; }
+            .signatures { margin-top: 4rem; display: flex; justify-content: space-between; }
+            .sig-box { text-align: center; width: 200px; }
+            .sig-name { margin-top: 5rem; font-weight: bold; text-decoration: underline; }
           </style>
         </head>
         <body>
           <div class="header">
-            <h2>SURAT PERINTAH KERJA (BORONGAN)</h2>
+            <h1>RobelKaroseri</h1>
+            <h2>SURAT TUGAS PENGERJAAN BORONGAN</h2>
+            <p>Nomor: ${letterNo}</p>
           </div>
-          <div class="details">
-            <div><strong>WBS Kategori:</strong> ${wbsCategory}</div>
-            <div><strong>Nama Pekerja:</strong> ${record.worker_name}</div>
-            <div><strong>Tugas/Uraian:</strong> ${record.task_description || '-'}</div>
-            <div><strong>Nilai Kontrak:</strong> Rp ${record.contract_value.toLocaleString('id-ID')}</div>
-            <div><strong>Tanggal:</strong> ${new Date(record.created_at).toLocaleDateString('id-ID')}</div>
-            <div><strong>Status:</strong> ${record.status}</div>
+          
+          <div class="section">
+            <div class="section-title">A. Dasar Penugasan</div>
+            <div class="row"><div class="label">Nomor SPK Induk</div><div class="value">: ${spkDetail?.spk_no || '-'}</div></div>
+            <div class="row"><div class="label">Pelanggan</div><div class="value">: ${spkDetail?.customer_name || '-'}</div></div>
+            <div class="row"><div class="label">Kendaraan</div><div class="value">: ${spkDetail?.vehicle_plate || '-'}</div></div>
+            <div class="row"><div class="label">Tahapan WBS</div><div class="value">: ${wbsCategory}</div></div>
           </div>
-          <div style="margin-top: 4rem; display: flex; justify-content: space-between;">
-            <div style="text-align: center;">
-              <p>Pemberi Kerja</p>
-              <br/><br/><br/>
-              <p>( Mandor )</p>
+          
+          <div class="section">
+            <div class="section-title">B. Detail Instruksi & Penugasan</div>
+            <div class="row"><div class="label">Nama Pekerja</div><div class="value">: ${record.worker_name}</div></div>
+            <div class="row"><div class="label">Uraian Tugas</div><div class="value">: ${record.task_description || '-'}</div></div>
+            <div class="row"><div class="label">Tanggal Dibuat</div><div class="value">: ${new Date(record.created_at).toLocaleDateString('id-ID')}</div></div>
+          </div>
+
+          <p style="margin-top: 2rem;">Demikian surat tugas ini dibuat untuk dapat dilaksanakan dengan penuh tanggung jawab sesuai target kualitas bengkel.</p>
+          
+          <div class="signatures">
+            <div class="sig-box">
+              <div>Pemberi Tugas</div>
+              <div>( Kepala Bengkel / Mandor )</div>
+              <div class="sig-name">....................................</div>
             </div>
-            <div style="text-align: center;">
-              <p>Penerima Kerja</p>
-              <br/><br/><br/>
-              <p>( ${record.worker_name} )</p>
+            <div class="sig-box">
+              <div>Penerima Tugas</div>
+              <div>( Pekerja Borong )</div>
+              <div class="sig-name">${record.worker_name}</div>
             </div>
           </div>
         </body>
@@ -205,8 +274,10 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
     `);
     printWindow.document.close();
     printWindow.focus();
-    printWindow.print();
-    printWindow.close();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
   };
 
   const filteredMaterials = rabMaterials.filter(m => 
