@@ -11,6 +11,21 @@ export interface Material {
   is_customer_supplied?: boolean;
 }
 
+export interface InventoryAuditLog {
+  id: string;
+  material_id: string;
+  action_type: 'STOCK_ADJUSTMENT' | 'PRICE_CHANGE' | 'DETAIL_UPDATE' | 'MATERIAL_CREATE';
+  previous_data: any;
+  new_data: any;
+  notes: string;
+  changed_by: string;
+  created_at: string;
+  profiles?: {
+    full_name: string;
+    role: string;
+  };
+}
+
 export const inventoryService = {
   async getMaterials() {
     const { data, error } = await supabase
@@ -43,6 +58,58 @@ export const inventoryService = {
       
     if (error) throw error;
     return data as Material;
+  },
+
+  async updateMaterialWithAudit(
+    id: string, 
+    material: Partial<Omit<Material, 'id'>>, 
+    actionType: 'STOCK_ADJUSTMENT' | 'PRICE_CHANGE' | 'DETAIL_UPDATE',
+    notes: string,
+    previousData: Partial<Material>
+  ) {
+    const { data: userData, error: authError } = await supabase.auth.getUser();
+    if (authError) throw authError;
+
+    // Perform the update on material
+    const { data: updatedMaterial, error: updateError } = await supabase
+      .from('materials')
+      .update(material)
+      .eq('id', id)
+      .select()
+      .single();
+      
+    if (updateError) throw updateError;
+
+    // Log the audit
+    const { error: auditError } = await supabase
+      .from('inventory_audit_logs')
+      .insert([{
+        material_id: id,
+        action_type: actionType,
+        previous_data: previousData,
+        new_data: material,
+        notes: notes,
+        changed_by: userData.user.id
+      }]);
+      
+    if (auditError) throw auditError;
+    
+    return updatedMaterial as Material;
+  },
+
+  async getMaterialAuditLogs(materialId?: string) {
+    let query = supabase
+      .from('inventory_audit_logs')
+      .select('*, profiles(full_name, role)')
+      .order('created_at', { ascending: false });
+
+    if (materialId) {
+      query = query.eq('material_id', materialId);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data as InventoryAuditLog[];
   },
 
   async checkMaterialUsage(id: string) {
