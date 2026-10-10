@@ -482,3 +482,14 @@
 - [x] Konsolidasi modal pencarian material & pengisian menjadi satu modal tunggal
 - [x] Perbaikan max-height dan z-index serta navigasi keyboard pada dropdown autocomplete
 - [x] Reset state form sepenuhnya ketika modal ditutup atau dibatalkan
+
+---
+
+### Phase 39: Gap Closure (Perbaikan Keamanan Navigasi Login & Idle Timeout)
+**Status**: ⬜ Not Started
+**Objective**: Address gaps from milestone audit (Cegah Akses Halaman Login Ketika Sesi Masih Aktif & Auto Idle Timeout)
+
+**Gaps to Close:**
+- [ ] Guest Route Guard pada Halaman Login untuk mencegah akses saat sesi aktif (redirect ke role dashboard)
+- [ ] Penyesuaian navigasi pasca login (replace history)
+- [ ] Mekanisme Auto Idle Session Timeout (15 menit tanpa aktivitas, auto logout)
