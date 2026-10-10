@@ -493,3 +493,14 @@
 - [x] Guest Route Guard pada Halaman Login untuk mencegah akses saat sesi aktif (redirect ke role dashboard)
 - [x] Penyesuaian navigasi pasca login (replace history)
 - [x] Mekanisme Auto Idle Session Timeout (15 menit tanpa aktivitas, auto logout)
+
+---
+
+### Phase 40: Gap Closure (Penyatuan Input Tenaga Kerja ke Dalam Pencarian Material RAB)
+**Status**: ⬜ Not Started
+**Objective**: Address gaps from milestone audit (Menghapus opsi radio "Labor" dan menyatukan pencarian jasa/tenaga kerja ke kotak pencarian material)
+
+**Gaps to Close:**
+- [ ] Hapus Radio Button Opsi "Labor" pada form Add Estimation Item di RAB Calculator
+- [ ] Satukan input tenaga kerja melalui Master Material (tabel `materials`)
+- [ ] Sesuaikan handler insert agar semua item jasa dan bahan fisik masuk ke `rab_items` menggunakan relasi `material_id`
