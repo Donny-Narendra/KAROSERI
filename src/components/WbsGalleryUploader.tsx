@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Camera, Loader2, X, Maximize2 } from 'lucide-react';
+import { Camera, Loader2, X, Maximize2, Trash2, Eye } from 'lucide-react';
 import { getOptimizedImageUrl } from '../lib/cloudinary';
 
 export interface WbsAsset {
@@ -30,6 +30,7 @@ export const WbsGalleryUploader: React.FC<WbsGalleryUploaderProps> = ({
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [deleteConfirmationUrl, setDeleteConfirmationUrl] = useState<string | null>(null);
 
   const compressImage = async (file: File): Promise<File> => {
     return new Promise((resolve, reject) => {
@@ -164,25 +165,25 @@ export const WbsGalleryUploader: React.FC<WbsGalleryUploaderProps> = ({
               <img 
                 src={getOptimizedImageUrl(asset.file_url, 200)}
                 alt="WBS asset"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover cursor-pointer"
+                onClick={() => setPreviewImage(asset.file_url)}
               />
-              <div className="absolute inset-0 bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+              <div className="absolute top-2 right-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                 <button 
                   type="button"
-                  onClick={() => setPreviewImage(asset.file_url)}
-                  className="bg-primary/90 text-white p-1.5 rounded-full hover:bg-primary"
+                  onClick={(e) => { e.stopPropagation(); setDeleteConfirmationUrl(asset.file_url); }}
+                  className="bg-status-danger text-white p-2 rounded-full shadow-md hover:bg-status-danger/90 active:scale-95 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                  aria-label="Hapus Foto"
                 >
-                  <Maximize2 className="w-4 h-4" />
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => onUploadRemove(asset.file_url)}
-                  className="bg-status-danger/90 text-white p-1.5 rounded-full hover:bg-status-danger"
-                >
-                  <X className="w-4 h-4" />
+                  <Trash2 className="w-5 h-5" />
                 </button>
               </div>
-              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-2 text-white text-[10px] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="absolute top-2 left-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity pointer-events-none">
+                 <div className="bg-black/50 text-white p-2 rounded-full backdrop-blur-sm min-w-[44px] min-h-[44px] flex items-center justify-center">
+                    <Eye className="w-5 h-5" />
+                 </div>
+              </div>
+              <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-2 text-white text-[10px] pointer-events-none">
                 <div className="truncate font-medium">{asset.profiles?.full_name || 'Unknown User'}</div>
                 <div className="text-white/80">{asset.created_at ? new Date(asset.created_at).toLocaleString('id-ID') : 'Baru saja'}</div>
               </div>
@@ -205,6 +206,39 @@ export const WbsGalleryUploader: React.FC<WbsGalleryUploaderProps> = ({
             alt="Preview" 
             className="max-w-full max-h-[90vh] object-contain rounded"
           />
+        </div>
+      )}
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmationUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setDeleteConfirmationUrl(null)}>
+          <div 
+            className="bg-background rounded-lg shadow-xl w-full max-w-sm overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-5">
+              <h3 className="text-lg font-bold text-text mb-2">Hapus Foto Bukti Pengerjaan?</h3>
+              <p className="text-text-muted text-sm">
+                Apakah Anda yakin ingin menghapus foto ini? Tindakan ini tidak dapat dibatalkan.
+              </p>
+            </div>
+            <div className="bg-surface px-5 py-3 flex justify-end gap-3 border-t border-border">
+              <button
+                onClick={() => setDeleteConfirmationUrl(null)}
+                className="px-4 py-2 text-sm font-medium text-text hover:bg-border/50 rounded transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                onClick={() => {
+                  onUploadRemove(deleteConfirmationUrl);
+                  setDeleteConfirmationUrl(null);
+                }}
+                className="px-4 py-2 text-sm font-medium text-white bg-status-danger hover:bg-status-danger/90 rounded transition-colors"
+              >
+                Ya, Hapus Foto
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
