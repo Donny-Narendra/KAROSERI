@@ -527,3 +527,14 @@
 - [x] Terapkan Sticky Header dan Sticky Footer agar tombol aksi dan judul tidak ikut terscroll.
 - [x] Ubah struktur konten menjadi scrollable body (`overflow-y-auto`).
 - [x] Rampingkan margin, padding, dan area textarea agar lebih padat (*compact*).
+
+---
+
+### Phase 43: Gap Closure (Cetak Surat Tugas SPK Borongan dengan Nomor Surat Resmi)
+**Status**: ⬜ Not Started
+**Objective**: Address gaps from milestone audit (Mencetak dokumen resmi penugasan SPK Borongan dengan penomoran unik yang tersimpan di Supabase)
+
+**Gaps to Close:**
+- [ ] Tambahkan kolom `assignment_letter_no` pada tabel `spk_borongan`.
+- [ ] Implementasikan auto-generate dan update nomor surat tugas sebelum pratinjau cetak.
+- [ ] Desain Template Cetak (Kop Surat, Detail Penugasan, Pengesahan, disembunyikan navigasi dengan `@media print`).
