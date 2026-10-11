@@ -1,19 +1,22 @@
 ## Current Position
-- **Phase**: 47
-- **Task**: Ready to execute plan-47
-- **Status**: Planning Complete
+- **Phase**: 47 (completed)
+- **Task**: All tasks complete
+- **Status**: Verified
 
 ## Gap Closure Mode
-Addressing 1 gap from milestone audit: Pemisahan Tombol Aksi Cetak Dokumen dan Download PDF pada Modal BAST di /kasir.
+Completed gap closure for Phase 47 (Pemisahan Tombol Aksi Cetak Dokumen dan Download PDF pada Modal BAST di Kasir).
 
 ## Last Session Summary
-Dibuat rencana gap closure Phase 47 (.gsd/phases/plan-47.md) untuk memisahkan tombol gabungan pada modal BAST menjadi tombol "Download PDF" mandiri (client-side export dengan jspdf & html2canvas) dan tombol "Cetak Dokumen" (window.print()) dengan class no-print serta loading state yang responsif.
+Eksekusi Phase 47 selesai: Memisahkan tombol aksi gabungan pada modal "Pratinjau Berita Acara Serah Terima (BAST)" di /kasir menjadi dua tombol terpisah:
+1. Tombol "Download PDF" (aksen emerald, ikon Download) yang merender elemen `#printable-bast` menggunakan `jspdf` & `html2canvas` secara instan dengan penamaan `BAST-{spk_no}.pdf` dan visual loading state (`isDownloadingPdf`).
+2. Tombol "Cetak Dokumen" (aksen oranye, ikon Printer) yang memanggil `window.print()` dengan layout 1 lembar A4 portrait bersih.
+Kedua tombol disematkan class `no-print` di header toolbar modal. Validasi TypeScript, build bundler, dan linting (0 error) telah diverifikasi.
 
 ## In-Progress Work
-- Phase 47 plan created.
+None.
 
 ## Blockers
 None.
 
 ## Next Steps
-1. Jalankan `/execute 47 --gaps-only` untuk mengeksekusi rencana Phase 47.
+1. Menunggu instruksi atau perencanaan milestone selanjutnya.

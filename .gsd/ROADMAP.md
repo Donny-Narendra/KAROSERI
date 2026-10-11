@@ -577,11 +577,11 @@
 ---
 
 ### Phase 47: Gap Closure (Pemisahan Tombol Aksi Cetak Dokumen dan Download PDF pada Modal BAST di Kasir)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Address gaps from milestone audit (Pemisahan tombol aksi gabungan menjadi dua tombol terpisah: "Download PDF" langsung via client-side PDF renderer dan "Cetak Dokumen" via browser print dialog)
 
 **Gaps to Close:**
-- [ ] Instalasi dan konfigurasi library client-side PDF (`jspdf` dan `html2canvas`) untuk mengonversi `#printable-bast` menjadi berkas `BAST-{spk_no}.pdf`.
-- [ ] Pemisahan antarmuka header modal di `src/components/BastModal.tsx` menjadi dua tombol berdampingan ("Download PDF" beraksen emerald/teal dan "Cetak Dokumen" beraksen oranye/primer).
-- [ ] Penanganan state loading `isDownloadingPdf` dan integrasi class `no-print` pada kedua tombol aksi.
-- [ ] Verifikasi type checking, build validation, dan commit atomik.
+- [x] Instalasi dan konfigurasi library client-side PDF (`jspdf` dan `html2canvas`) untuk mengonversi `#printable-bast` menjadi berkas `BAST-{spk_no}.pdf`.
+- [x] Pemisahan antarmuka header modal di `src/components/BastModal.tsx` menjadi dua tombol berdampingan ("Download PDF" beraksen emerald/teal dan "Cetak Dokumen" beraksen oranye/primer).
+- [x] Penanganan state loading `isDownloadingPdf` dan integrasi class `no-print` pada kedua tombol aksi.
+- [x] Verifikasi type checking, build validation, dan commit atomik.
