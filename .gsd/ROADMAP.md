@@ -562,3 +562,14 @@
 - [x] Terapkan styling CSS cetak (@media print) standar A4 portrait 1 lembar tanpa overflow, menyembunyikan background gelap dan tombol dashboard.
 - [x] Hubungkan aksi "Release Vehicle & Print BAST" di `/kasir` untuk mengupdate status SPK menjadi `COMPLETED` dan membuka modal pratinjau BAST.
 - [x] Verifikasi type checking, build, dan pengujian alur pada SPK-9846.
+
+---
+
+### Phase 46: Gap Closure (Perbaikan Print Layout 1 Halaman A4 Dokumen BAST di Kasir)
+**Status**: ⬜ Not Started
+**Objective**: Address gaps from milestone audit (Memperbaiki print preview modal BAST di /kasir agar pas 1 lembar A4 portrait bersih tanpa halaman kosong atau terpotong)
+
+**Gaps to Close:**
+- [ ] Isolasi layout cetak menggunakan `#print-root` React portal dan sembunyikan seluruh flow `#root` dengan `body > *:not(#print-root) { display: none !important; }`.
+- [ ] Netralkan positioning modal pada media cetak (`position: static !important`, `transform: none !important`, `margin: 0 auto !important`).
+- [ ] Kompresi dimensi vertikal, padding tabel, dan margin internal `#printable-bast` (`padding: 8mm 12mm !important`, `@page { size: A4 portrait; margin: 8mm; }`) agar pas dalam 1 lembar A4.
