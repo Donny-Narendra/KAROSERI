@@ -655,3 +655,15 @@
 - [x] Utilitas Shared Availability Filter (`isRabItemAllocated`): Normalisasi teks case-insensitive, substring matching deskripsi tugas, dan validasi ID material cross-module.
 - [x] Terapkan Filter di Kedua Modal: Saring panel "Alokasi RAB (WBS Terkait)" pada `MaterialRequisitionForm.tsx` dan panel "Panduan Material (RAB)" pada `SpkBoronganPanel.tsx` beserta counter reaktif.
 - [x] Verifikasi Type Checking, Build (`npm run build`, `npx oxlint`), dan Commit Atomik (`fix(mandor): synchronize mutual exclusion between requisition and spk borongan material lists`).
+
+---
+
+### Phase 54: Gap Closure (Resolusi Foreign Key Mapping material_id pada Submit Requisition Material Mandor)
+**Status**: ⬜ Not Started
+**Objective**: Address gaps from operational feedback (Resolusi Foreign Key Mapping material_id pada Submit Requisition Material Mandor)
+
+**Gaps to Close:**
+- [ ] Migrasi Skema Database: Kolom `material_id` nullable, penambahan kolom `rab_item_id`, `material_name`, `unit` pada `material_requisition_items`.
+- [ ] Audit & Perbaikan Payload Submit Requisition: Pemetaan `material_id` ke ID material master yang valid (atau null) dan `rab_item_id` ke ID item RAB asli pada `MaterialRequisitionForm.tsx`.
+- [ ] Penyelarasan Cross-Module: Dukungan `rab_item_id` dan fallback nama/unit material pada `rabItemAllocation.ts`, `SpkBoronganPanel.tsx`, dan `RequisitionApproval.tsx`.
+- [ ] Verifikasi Type Checking, Build (`npm run build`, `npx oxlint`), Database Insertion Test, dan Commit Atomik (`fix(mandor): resolve material_id foreign key mapping on material requisition submit`).
