@@ -679,3 +679,14 @@
 - [x] Dialog Konfirmasi Pembatalan/Pengembalian: Konfirmasi dialog saat menekan tombol hapus (ikon tong sampah) atau tombol transfer `>>`, serta sinkronisasi penghapusan record di Supabase jika item sudah tersimpan.
 - [x] Penyempurnaan Submit Requisition: Hanya mengirimkan item baru yang belum tersimpan ke Supabase dan memperbarui state secara reaktif.
 - [x] Verifikasi Type Checking, Build (`npm run build`, `npx oxlint`), End-to-End Test, dan Commit Atomik (`feat(mandor): persist requisition items list and add confirmation dialog on item removal`).
+
+---
+
+### Phase 56: Gap Closure (Perbaikan Render Kartu Material Alokasi RAB vs Form Dropdown Ekstra pada Daftar Permintaan Material di Mandor)
+**Status**: ✅ Complete
+**Objective**: Address gaps from operational feedback (Perbaikan Render Kartu Material Alokasi RAB vs Form Dropdown Ekstra pada Daftar Permintaan Material di Mandor)
+
+**Gaps to Close:**
+- [x] Logika Render Item di Kotak Kiri: Membedakan item statis (RAB/tersimpan/dipilih) sebagai kartu material tetap tebal dengan badge dan estimasi harga, vs formulir dropdown ekstra baru hanya saat "+ Add Item".
+- [x] Hydration State & Re-ordering: Memuat master materials dan RAB items terlebih dahulu, lalu mencocokkan item requisition tersimpan ke RAB item dan menghitung subtotal secara akurat (`isManual: false`, `isPersisted: true`).
+- [x] Verifikasi Type Checking, Build Validation (`npm run build`, `npx oxlint`), UI Check SPK-5902 Pembongkaran, dan Commit Atomik (`fix(mandor): properly render allocated rab material card instead of extra material select in requisition list`).

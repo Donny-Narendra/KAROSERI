@@ -152,7 +152,118 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
       }));
       setMasterMaterials(loadedMaster);
 
-      // 3. Fetch Existing Requisitions for this SPK and WBS (Exclusion & Hydration)
+      // 3. Fetch RAB Estimation & Items for this SPK and WBS Category
+      let sourceList: RabSourceItem[] = [];
+      const { data: rabEst, error: estError } = await supabase
+        .from('rab_estimations')
+        .select('id')
+        .eq('spk_id', spkId)
+        .maybeSingle();
+
+      if (estError) throw estError;
+
+      if (rabEst) {
+        const { data: itemsData, error: itemsError } = await supabase
+          .from('rab_items')
+          .select(`
+            id,
+            quantity,
+            wbs_category,
+            description,
+            item_total,
+            material_id,
+            materials (
+              id,
+              name,
+              unit,
+              unit_price,
+              current_stock
+            )
+          `)
+          .eq('rab_estimation_id', rabEst.id);
+
+        if (itemsError) throw itemsError;
+
+        if (itemsData) {
+          // Filter tolerantly for WBS category
+          const filtered = itemsData.filter((item: any) => {
+            if (!item.wbs_category) return true;
+            const itemCatClean = item.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
+            return (
+              itemCatClean === cleanWbsCategory.toLowerCase() ||
+              item.wbs_category.toLowerCase() === wbsCategory.toLowerCase()
+            );
+          });
+
+          // Map to RabSourceItem
+          sourceList = filtered.map((item: any) => {
+            const rawMat = item.materials;
+            let matchedMat = rawMat;
+            
+            // If rawMat is null or missing id, match by description or material_id in master
+            if (!matchedMat && item.material_id) {
+              matchedMat = loadedMaster.find(m => m.id === item.material_id);
+            }
+            if (!matchedMat && item.description) {
+              const cleanDesc = normalizeText(item.description);
+              matchedMat = loadedMaster.find(m => normalizeText(m.name) === cleanDesc) ||
+                loadedMaster.find(m => {
+                  const normM = normalizeText(m.name);
+                  return (normM.length >= 4 && cleanDesc.includes(normM)) ||
+                         (cleanDesc.length >= 4 && normM.includes(cleanDesc));
+                });
+            }
+
+            // CRITICAL FIX: NEVER fallback to item.id (which is rab_items.id)!
+            const materialId = matchedMat?.id || item.material_id || null;
+            const name = matchedMat?.name || item.description || 'Material Tanpa Nama';
+            const unit = matchedMat?.unit || 'pcs';
+            const unitPrice = Number(matchedMat?.unit_price || 0);
+            const qty = Number(item.quantity || 0);
+            const calculatedSubtotal = item.item_total ? Number(item.item_total) : (qty * unitPrice);
+
+            return {
+              id: item.id,
+              materialId,
+              name,
+              unit,
+              unitPrice,
+              rabQuantity: qty,
+              subtotal: calculatedSubtotal,
+              currentStock: matchedMat ? Number(matchedMat.current_stock || 0) : 0
+            };
+          });
+
+          setRawRabItems(sourceList);
+        }
+      }
+
+      // 4. Fetch Active SPK Borongan Assignments for this SPK and WBS (Exclusion List)
+      try {
+        const { data: spkBData, error: spkBError } = await supabase
+          .from('spk_borongan')
+          .select('*')
+          .eq('spk_id', spkId)
+          .neq('status', 'CUT_OFF');
+
+        if (spkBError) {
+          console.error('Error fetching spk_borongan for exclusion:', spkBError);
+        } else if (spkBData) {
+          const matchingBorong: ActiveSpkBorongan[] = (spkBData as any[]).filter((borong) => {
+            if (!borong.wbs_category) return true;
+            const bCat = borong.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
+            return (
+              bCat === cleanWbsCategory.toLowerCase() ||
+              borong.wbs_category.toLowerCase() === wbsCategory.toLowerCase()
+            );
+          });
+          setActiveSpkBoronganList(matchingBorong);
+        }
+      } catch (spkBErr) {
+        console.error('Error loading spk_borongan for exclusion:', spkBErr);
+      }
+
+      // 5. Fetch Existing Requisitions for this SPK and WBS (Exclusion & Hydration)
       const requisitionIds = new Set<string>();
       const persistedItems: RequisitionItem[] = [];
       try {
@@ -195,34 +306,74 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
 
             if (isMatchingWbs && req.material_requisition_items) {
               req.material_requisition_items.forEach((item: any) => {
-                if (item.material_id) {
-                  requisitionIds.add(item.material_id);
+                const cleanItemName = (item.material_name || item.materials?.name || '').trim();
+                const normItemName = normalizeText(cleanItemName);
+
+                // Check if this requisition item matches a RAB item from sourceList
+                const matchedRab = sourceList.find(r => 
+                  (item.rab_item_id && r.id === item.rab_item_id) ||
+                  (normItemName && normalizeText(r.name) === normItemName) ||
+                  (normItemName && normItemName.length >= 4 && (normalizeText(r.name).includes(normItemName) || normItemName.includes(normalizeText(r.name))))
+                );
+
+                // Check if item matches master materials table
+                const matchedMaster = loadedMaster.find(m => 
+                  (item.material_id && m.id === item.material_id) ||
+                  (normItemName && normalizeText(m.name) === normItemName)
+                );
+
+                const isFromRab = Boolean(matchedRab || item.rab_item_id);
+                const sourceRabId = matchedRab?.id || item.rab_item_id || null;
+                const materialId = item.material_id || item.materials?.id || matchedMaster?.id || matchedRab?.materialId || null;
+                const name = cleanItemName || matchedRab?.name || matchedMaster?.name || 'Material Tanpa Nama';
+                const unit = item.unit || item.materials?.unit || matchedRab?.unit || matchedMaster?.unit || 'pcs';
+                const qty = Number(item.quantity || (matchedRab?.rabQuantity ?? 1));
+
+                // Calculate price and subtotal
+                let unitPrice = Number(item.materials?.unit_price || 0);
+                if (unitPrice === 0 && matchedRab) {
+                  unitPrice = matchedRab.unitPrice || (matchedRab.rabQuantity > 0 ? matchedRab.subtotal / matchedRab.rabQuantity : 0);
                 }
-                if (item.rab_item_id) {
-                  requisitionIds.add(item.rab_item_id);
-                }
-                if (item.material_name) {
-                  requisitionIds.add(item.material_name.toLowerCase().trim());
+                if (unitPrice === 0 && matchedMaster) {
+                  unitPrice = matchedMaster.unit_price;
                 }
 
-                // Hydrate persisted requisition item into Left Box
-                const matPrice = Number(item.materials?.unit_price || 0);
-                const qty = Number(item.quantity || 1);
+                let subtotal = qty * unitPrice;
+                if (subtotal === 0 && matchedRab && matchedRab.subtotal > 0) {
+                  subtotal = matchedRab.subtotal;
+                  if (qty > 0 && unitPrice === 0) {
+                    unitPrice = subtotal / qty;
+                  }
+                }
+
                 persistedItems.push({
                   tempId: `persisted-${item.id}`,
-                  sourceRabId: item.rab_item_id || null,
-                  materialId: item.material_id || item.materials?.id || null,
-                  name: item.material_name || item.materials?.name || 'Material Tanpa Nama',
-                  unit: item.unit || item.materials?.unit || 'pcs',
-                  unitPrice: matPrice,
+                  sourceRabId,
+                  materialId,
+                  name,
+                  unit,
+                  unitPrice,
                   quantity: qty,
-                  subtotal: qty * matPrice,
-                  isManual: !item.rab_item_id,
+                  subtotal,
+                  isManual: !isFromRab,
                   isPersisted: true,
                   dbRequisitionItemId: item.id,
                   dbRequisitionId: req.id,
                   status: req.status || 'PENDING'
                 });
+
+                // Add to exclusion set
+                if (materialId) requisitionIds.add(materialId);
+                if (sourceRabId) requisitionIds.add(sourceRabId);
+                if (item.rab_item_id) requisitionIds.add(item.rab_item_id);
+                if (cleanItemName) {
+                  requisitionIds.add(cleanItemName.toLowerCase());
+                  requisitionIds.add(normalizeText(cleanItemName));
+                }
+                if (name) {
+                  requisitionIds.add(name.toLowerCase());
+                  requisitionIds.add(normalizeText(name));
+                }
               });
             }
           });
@@ -232,117 +383,6 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
       }
       setUsedRequisitionItemIds(requisitionIds);
       setSelectedItems(persistedItems);
-
-      // 4. Fetch Active SPK Borongan Assignments for this SPK and WBS (Exclusion List)
-      try {
-        const { data: spkBData, error: spkBError } = await supabase
-          .from('spk_borongan')
-          .select('*')
-          .eq('spk_id', spkId)
-          .neq('status', 'CUT_OFF');
-
-        if (spkBError) {
-          console.error('Error fetching spk_borongan for exclusion:', spkBError);
-        } else if (spkBData) {
-          const matchingBorong: ActiveSpkBorongan[] = (spkBData as any[]).filter((borong) => {
-            if (!borong.wbs_category) return true;
-            const bCat = borong.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
-            return (
-              bCat === cleanWbsCategory.toLowerCase() ||
-              borong.wbs_category.toLowerCase() === wbsCategory.toLowerCase()
-            );
-          });
-          setActiveSpkBoronganList(matchingBorong);
-        }
-      } catch (spkBErr) {
-        console.error('Error loading spk_borongan for exclusion:', spkBErr);
-      }
-
-      // 5. Fetch RAB Estimation for this SPK
-      const { data: rabEst, error: estError } = await supabase
-        .from('rab_estimations')
-        .select('id')
-        .eq('spk_id', spkId)
-        .maybeSingle();
-
-      if (estError) throw estError;
-
-      if (rabEst) {
-        // 6. Fetch RAB Items matching WBS category
-        const { data: itemsData, error: itemsError } = await supabase
-          .from('rab_items')
-          .select(`
-            id,
-            quantity,
-            wbs_category,
-            description,
-            item_total,
-            material_id,
-            materials (
-              id,
-              name,
-              unit,
-              unit_price,
-              current_stock
-            )
-          `)
-          .eq('rab_estimation_id', rabEst.id);
-
-        if (itemsError) throw itemsError;
-
-        if (itemsData) {
-          // Filter tolerantly for WBS category
-          const filtered = itemsData.filter((item: any) => {
-            if (!item.wbs_category) return true;
-            const itemCatClean = item.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
-            return (
-              itemCatClean === cleanWbsCategory.toLowerCase() ||
-              item.wbs_category.toLowerCase() === wbsCategory.toLowerCase()
-            );
-          });
-
-          // Map to RabSourceItem
-          const sourceList: RabSourceItem[] = filtered.map((item: any) => {
-            const rawMat = item.materials;
-            let matchedMat = rawMat;
-            
-            // If rawMat is null or missing id, match by description or material_id in master
-            if (!matchedMat && item.material_id) {
-              matchedMat = loadedMaster.find(m => m.id === item.material_id);
-            }
-            if (!matchedMat && item.description) {
-              const cleanDesc = normalizeText(item.description);
-              matchedMat = loadedMaster.find(m => normalizeText(m.name) === cleanDesc) ||
-                loadedMaster.find(m => {
-                  const normM = normalizeText(m.name);
-                  return (normM.length >= 4 && cleanDesc.includes(normM)) ||
-                         (cleanDesc.length >= 4 && normM.includes(cleanDesc));
-                });
-            }
-
-            // CRITICAL FIX: NEVER fallback to item.id (which is rab_items.id)!
-            const materialId = matchedMat?.id || item.material_id || null;
-            const name = matchedMat?.name || item.description || 'Material Tanpa Nama';
-            const unit = matchedMat?.unit || 'pcs';
-            const unitPrice = Number(matchedMat?.unit_price || 0);
-            const qty = Number(item.quantity || 0);
-            const calculatedSubtotal = item.item_total ? Number(item.item_total) : (qty * unitPrice);
-
-            return {
-              id: item.id,
-              materialId,
-              name,
-              unit,
-              unitPrice,
-              rabQuantity: qty,
-              subtotal: calculatedSubtotal,
-              currentStock: matchedMat ? Number(matchedMat.current_stock || 0) : 0
-            };
-          });
-
-          setRawRabItems(sourceList);
-        }
-      }
     } catch (err: any) {
       console.error('Error loading requisition data:', err);
       setErrorMessage(err.message || 'Gagal memuat data alokasi RAB');
@@ -681,7 +721,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex-1 min-w-0">
-                                {item.isManual && !item.materialId ? (
+                                {!item.isPersisted && item.isManual && (!item.name || !item.name.trim()) ? (
                                   <div>
                                     <label className="block text-[11px] text-emerald-400 mb-1 font-semibold">
                                       Pilih Material Ekstra:
@@ -703,32 +743,32 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                                 ) : (
                                   <div>
                                     <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className="font-semibold text-xs sm:text-sm text-text break-words">
-                                        {item.name}
+                                      <span className="font-bold text-xs sm:text-sm text-text break-words">
+                                        {item.name || 'Material Tanpa Nama'}
                                       </span>
                                       {item.isPersisted ? (
-                                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30 flex items-center gap-1">
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30 flex items-center gap-1">
                                           <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-                                          {item.status === 'APPROVED' ? 'DISETUJUI' : 'DIAJUKAN'}
+                                          {item.status === 'APPROVED' ? 'DISETUJUI' : 'TERCATAT'}
                                         </span>
                                       ) : (
-                                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30 flex items-center gap-1">
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30 flex items-center gap-1">
                                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                                           BARU
                                         </span>
                                       )}
-                                      {item.isManual ? (
-                                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-primary/20 text-primary font-semibold border border-primary/30">
-                                          Ekstra
+                                      {!item.isManual || item.sourceRabId ? (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 font-semibold border border-blue-500/30">
+                                          RAB
                                         </span>
                                       ) : (
-                                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-500/20 text-slate-300 font-semibold border border-slate-500/30">
-                                          RAB
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/20 text-primary font-semibold border border-primary/30">
+                                          Ekstra
                                         </span>
                                       )}
                                     </div>
                                     <p className="text-[11px] text-text-muted mt-0.5">
-                                      Estimasi: {formatCurrency(item.subtotal)}
+                                      Estimasi: <span className="font-mono font-medium text-emerald-400">{formatCurrency(item.subtotal)}</span>
                                     </p>
                                   </div>
                                 )}
