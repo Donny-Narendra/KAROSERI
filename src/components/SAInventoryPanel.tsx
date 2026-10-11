@@ -1,7 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { Package, History, Edit, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  Package, 
+  History, 
+  Edit, 
+  AlertCircle, 
+  Search, 
+  Filter, 
+  ChevronsLeft, 
+  ChevronLeft, 
+  ChevronRight, 
+  ChevronsRight, 
+  FileText, 
+  Calendar, 
+  Box 
+} from 'lucide-react';
 import { inventoryService } from '../services/inventoryService';
 import type { Material, InventoryAuditLog } from '../services/inventoryService';
+import { AuditDiffTable } from './AuditDiffTable';
 
 export const SAInventoryPanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'materials' | 'audit'>('materials');
@@ -11,6 +26,12 @@ export const SAInventoryPanel: React.FC = () => {
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editMode, setEditMode] = useState<'STOCK' | 'DETAIL'>('DETAIL');
+
+  // Pagination & Filter state for Audit Trail
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [auditSearch, setAuditSearch] = useState('');
+  const [auditActionFilter, setAuditActionFilter] = useState<string>('ALL');
 
   // Form states
   const [formData, setFormData] = useState<Partial<Material>>({});
@@ -46,6 +67,9 @@ export const SAInventoryPanel: React.FC = () => {
     if (activeTab === 'materials') {
       fetchMaterials();
     } else {
+      if (materials.length === 0) {
+        fetchMaterials();
+      }
       fetchLogs();
     }
   }, [activeTab]);
@@ -102,6 +126,83 @@ export const SAInventoryPanel: React.FC = () => {
       setError(e.message || 'Gagal menyimpan data');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Audit filtering & pagination
+  const filteredAuditLogs = useMemo(() => {
+    return auditLogs.filter(log => {
+      // Action filter
+      if (auditActionFilter !== 'ALL' && log.action_type !== auditActionFilter) {
+        return false;
+      }
+      // Search query
+      if (auditSearch.trim()) {
+        const q = auditSearch.toLowerCase();
+        const matName = (
+          log.materials?.name ||
+          materials.find(m => m.id === log.material_id)?.name ||
+          log.new_data?.name ||
+          log.previous_data?.name ||
+          ''
+        ).toLowerCase();
+        const userName = (log.profiles?.full_name || log.changed_by || '').toLowerCase();
+        const userRole = (log.profiles?.role || '').toLowerCase();
+        const notesText = (log.notes || '').toLowerCase();
+        const actionText = log.action_type.toLowerCase();
+        return (
+          matName.includes(q) ||
+          userName.includes(q) ||
+          userRole.includes(q) ||
+          notesText.includes(q) ||
+          actionText.includes(q)
+        );
+      }
+      return true;
+    });
+  }, [auditLogs, auditActionFilter, auditSearch, materials]);
+
+  const totalAuditItems = filteredAuditLogs.length;
+  const totalAuditPages = Math.max(1, Math.ceil(totalAuditItems / pageSize));
+  const safeCurrentPage = Math.min(currentPage, totalAuditPages);
+  const startIndex = (safeCurrentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalAuditItems);
+  const paginatedAuditLogs = useMemo(() => {
+    return filteredAuditLogs.slice(startIndex, endIndex);
+  }, [filteredAuditLogs, startIndex, endIndex]);
+
+  const getActionBadge = (actionType: string) => {
+    switch (actionType) {
+      case 'RESTOCK':
+        return {
+          label: 'Restock Masuk',
+          className: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
+        };
+      case 'STOCK_ADJUSTMENT':
+        return {
+          label: 'Penyesuaian Stok',
+          className: 'bg-amber-500/20 text-amber-300 border border-amber-500/30',
+        };
+      case 'PRICE_CHANGE':
+        return {
+          label: 'Perubahan Harga',
+          className: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
+        };
+      case 'MATERIAL_CREATE':
+        return {
+          label: 'Material Baru',
+          className: 'bg-purple-500/20 text-purple-300 border border-purple-500/30',
+        };
+      case 'DETAIL_UPDATE':
+        return {
+          label: 'Update Detail',
+          className: 'bg-slate-700/60 text-slate-300 border border-slate-600/50',
+        };
+      default:
+        return {
+          label: actionType,
+          className: 'bg-primary/20 text-primary border border-primary/30',
+        };
     }
   };
 
@@ -188,47 +289,214 @@ export const SAInventoryPanel: React.FC = () => {
         )}
 
         {activeTab === 'audit' && (
-          <div>
+          <div className="space-y-4">
+            {/* Filter & Search Toolbar */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-surface-hover/60 border border-border p-3.5 rounded-lg">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                <input
+                  type="text"
+                  placeholder="Cari berdasarkan nama material, staf, catatan, aksi..."
+                  value={auditSearch}
+                  onChange={e => {
+                    setAuditSearch(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full bg-background border border-border rounded pl-9 pr-8 py-1.5 text-xs text-text placeholder:text-text-muted focus:border-primary focus:outline-none transition"
+                />
+                {auditSearch && (
+                  <button
+                    onClick={() => {
+                      setAuditSearch('');
+                      setCurrentPage(1);
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-text-muted hover:text-text p-1"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-text-muted shrink-0" />
+                <select
+                  value={auditActionFilter}
+                  onChange={e => {
+                    setAuditActionFilter(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="bg-background border border-border rounded px-3 py-1.5 text-xs text-text focus:border-primary focus:outline-none transition"
+                >
+                  <option value="ALL">Semua Tipe Aksi</option>
+                  <option value="STOCK_ADJUSTMENT">Penyesuaian Stok</option>
+                  <option value="RESTOCK">Restock Masuk</option>
+                  <option value="PRICE_CHANGE">Perubahan Harga</option>
+                  <option value="DETAIL_UPDATE">Update Detail</option>
+                  <option value="MATERIAL_CREATE">Material Baru</option>
+                </select>
+              </div>
+            </div>
+
             {loading ? (
-              <p className="text-text-muted">Memuat log...</p>
-            ) : auditLogs.length === 0 ? (
-              <p className="text-text-muted text-center py-8">Belum ada aktivitas terekam.</p>
+              <div className="text-center py-12 text-text-muted flex flex-col items-center justify-center gap-2">
+                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-sm">Memuat log audit trail...</p>
+              </div>
+            ) : filteredAuditLogs.length === 0 ? (
+              <div className="text-center py-12 text-text-muted border border-dashed border-border rounded-lg bg-surface/30">
+                <History className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                <p className="text-sm font-medium">Tidak ada aktivitas audit ditemukan.</p>
+                {(auditSearch || auditActionFilter !== 'ALL') && (
+                  <button
+                    onClick={() => {
+                      setAuditSearch('');
+                      setAuditActionFilter('ALL');
+                      setCurrentPage(1);
+                    }}
+                    className="mt-2 text-xs text-primary hover:underline"
+                  >
+                    Reset Filter Pencarian
+                  </button>
+                )}
+              </div>
             ) : (
-              <div className="space-y-4">
-                {auditLogs.map(log => (
-                  <div key={log.id} className="bg-background border border-border rounded p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs bg-primary/20 text-primary px-2 py-0.5 rounded">
-                          {log.action_type}
-                        </span>
-                        <span className="text-sm font-medium text-text">
-                          {log.profiles?.full_name || log.changed_by}
-                        </span>
-                        <span className="text-xs text-text-muted font-mono">
-                          ({log.profiles?.role})
-                        </span>
+              <>
+                <div className="space-y-4">
+                  {paginatedAuditLogs.map(log => {
+                    const actionBadge = getActionBadge(log.action_type);
+                    const matName =
+                      log.materials?.name ||
+                      materials.find(m => m.id === log.material_id)?.name ||
+                      log.new_data?.name ||
+                      log.previous_data?.name ||
+                      'Material #' + (log.material_id ? log.material_id.substring(0, 8) : 'Unknown');
+                    
+                    const unit =
+                      log.materials?.unit ||
+                      materials.find(m => m.id === log.material_id)?.unit ||
+                      log.new_data?.unit ||
+                      log.previous_data?.unit;
+
+                    return (
+                      <div
+                        key={log.id}
+                        className="bg-slate-900/60 border border-slate-700/80 rounded-lg p-4 shadow-sm hover:border-slate-600 transition"
+                      >
+                        {/* Header Kartu Audit */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-800/80">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className={`font-mono text-xs px-2.5 py-0.5 rounded font-medium ${actionBadge.className}`}
+                            >
+                              {actionBadge.label}
+                            </span>
+                            <div className="flex items-center gap-1.5 font-medium text-text text-sm">
+                              <Box className="w-4 h-4 text-primary shrink-0" />
+                              <span>{matName}</span>
+                            </div>
+                            <span className="text-xs text-text-muted font-mono bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700/60">
+                              Oleh: {log.profiles?.full_name || log.changed_by.substring(0, 8)}
+                              {log.profiles?.role ? ` (${log.profiles.role})` : ''}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 text-xs text-text-muted font-mono self-start sm:self-auto">
+                            <Calendar className="w-3.5 h-3.5 shrink-0" />
+                            <span>{new Date(log.created_at).toLocaleString('id-ID')}</span>
+                          </div>
+                        </div>
+
+                        {/* Diff Table */}
+                        <AuditDiffTable
+                          previousData={log.previous_data}
+                          newData={log.new_data}
+                          unit={unit}
+                        />
+
+                        {/* Catatan / Alasan Perubahan di Bagian Footer */}
+                        {log.notes && (
+                          <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex items-start gap-2 text-xs text-slate-300 bg-slate-950/40 p-2.5 rounded border border-slate-800/60">
+                            <FileText className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                            <div>
+                              <span className="text-text-muted font-medium mr-1.5">Catatan / Alasan:</span>
+                              <span className="italic text-slate-200">"{log.notes}"</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <span className="text-xs text-text-muted font-mono">
-                        {new Date(log.created_at).toLocaleString('id-ID')}
-                      </span>
+                    );
+                  })}
+                </div>
+
+                {/* Pagination Controls */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-border mt-6">
+                  <div className="text-xs text-text-muted font-mono">
+                    Menampilkan {totalAuditItems === 0 ? 0 : startIndex + 1} - {endIndex} dari {totalAuditItems} riwayat audit
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-1.5 text-xs text-text-muted font-mono">
+                      <span>Item per halaman:</span>
+                      <select
+                        value={pageSize}
+                        onChange={e => {
+                          setPageSize(Number(e.target.value));
+                          setCurrentPage(1);
+                        }}
+                        className="bg-surface border border-border rounded px-2 py-1 text-text text-xs focus:border-primary focus:outline-none"
+                      >
+                        <option value={5}>5</option>
+                        <option value={10}>10</option>
+                        <option value={20}>20</option>
+                      </select>
                     </div>
-                    
-                    <p className="text-sm text-text-muted mb-3 italic">"{log.notes}"</p>
-                    
-                    <div className="grid grid-cols-2 gap-4 text-sm font-mono bg-surface p-3 rounded">
-                      <div>
-                        <span className="text-text-muted block text-xs mb-1">Sebelum</span>
-                        <pre className="whitespace-pre-wrap text-text">{JSON.stringify(log.previous_data, null, 2)}</pre>
-                      </div>
-                      <div>
-                        <span className="text-text-muted block text-xs mb-1">Sesudah</span>
-                        <pre className="whitespace-pre-wrap text-text">{JSON.stringify(log.new_data, null, 2)}</pre>
-                      </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setCurrentPage(1)}
+                        disabled={safeCurrentPage <= 1}
+                        title="Halaman Pertama"
+                        className="p-1.5 rounded border border-border bg-surface hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition text-text text-xs flex items-center gap-1"
+                      >
+                        <ChevronsLeft className="w-3.5 h-3.5" />
+                        <span className="hidden md:inline">Pertama</span>
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={safeCurrentPage <= 1}
+                        title="Halaman Sebelumnya"
+                        className="p-1.5 rounded border border-border bg-surface hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition text-text text-xs flex items-center gap-1"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                        <span className="hidden md:inline">Sebelumnya</span>
+                      </button>
+
+                      <span className="px-3 py-1 font-mono text-xs text-text bg-surface-hover border border-border rounded">
+                        Halaman {safeCurrentPage} dari {totalAuditPages}
+                      </span>
+
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(totalAuditPages, prev + 1))}
+                        disabled={safeCurrentPage >= totalAuditPages || totalAuditItems === 0}
+                        title="Halaman Berikutnya"
+                        className="p-1.5 rounded border border-border bg-surface hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition text-text text-xs flex items-center gap-1"
+                      >
+                        <span className="hidden md:inline">Berikutnya</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(totalAuditPages)}
+                        disabled={safeCurrentPage >= totalAuditPages || totalAuditItems === 0}
+                        title="Halaman Terakhir"
+                        className="p-1.5 rounded border border-border bg-surface hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition text-text text-xs flex items-center gap-1"
+                      >
+                        <span className="hidden md:inline">Terakhir</span>
+                        <ChevronsRight className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              </>
             )}
           </div>
         )}

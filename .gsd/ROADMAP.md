@@ -757,3 +757,29 @@
 - [x] Penambahan fitur Reset Parameter Bengkel ke Standar Pabrik di `AdminSettingsPage.tsx` dengan modal konfirmasi dialog `ConfirmationModal` (`variant: 'warning'`).
 - [x] Refactor modal konfirmasi pemulihan basis data pada `BackupRestoreCard.tsx` dari raw div ad-hoc menjadi `ConfirmationModal` (`variant: 'danger'`).
 - [x] Penyiapan skrip migrasi SQL penambahan kolom `is_active` pada tabel `profiles` (`supabase/migrations/20261012000003_add_is_active_to_profiles.sql`).
+
+---
+
+### Phase 62: Gap Closure (Transformasi Tampilan Raw JSON Audit Trail Menjadi Tabel Perubahan Diff dengan Paginasi di /service-advisor)
+**Status**: ✅ Complete
+**Objective**: Address gaps from operational feedback (Mengubah tampilan data mentah JSON pada Audit Trail di Service Advisor Portal menjadi tabel perbandingan perubahan data (Diff Table) yang informatif dan terpaginasi)
+
+**Gaps to Close:**
+- [x] Pembuatan modul parser diff nilai JSON `src/utils/auditDiffHelper.ts` dengan fungsi `renderAuditChanges` untuk mengekstrak perubahan parameter, label manusiawi, dan kalkulasi selisih.
+- [x] Pembuatan komponen UI `AuditDiffTable.tsx` untuk menampilkan parameter sebelum, sesudah, dan badge perubahan bergaya dark theme industrial RobelKaroseri.
+- [x] Integrasi `AuditDiffTable` dan pembaruan relasi nama material pada `SAInventoryPanel.tsx` menggantikan blok `<pre>` raw JSON.
+- [x] Implementasi kontrol paginasi lengkap (`currentPage`, `pageSize`, indikator halaman, dan tombol navigasi) beserta filter/pencarian riwayat audit di `SAInventoryPanel.tsx`.
+- [x] Memastikan pemenuhan batasan eksekusi: tanpa auto-verify, tanpa auto-commit, dan tanpa eksekusi langsung migrasi Supabase.
+
+---
+
+### Phase 63: Gap Closure (Implementasi Search Autocomplete Berbasis Keyboard untuk Pemilihan Return Material di /warehouse)
+**Status**: ⬜ Ready for Review
+**Objective**: Address gaps from operational feedback (Mengganti elemen dropdown native `<select>` pada pemilihan barang yang hendak dikembalikan di halaman `/warehouse` tab "Return Material" menjadi input text search autocomplete berbasis keyboard dengan popup saran melayang)
+
+**Gaps to Close:**
+- [x] Pembuatan komponen `IssuedMaterialAutocomplete.tsx` di `src/components/` dengan pencarian real-time case-insensitive, kontrol keyboard (`ArrowDown`, `ArrowUp`, `Enter`, `Escape`), dan pendeteksi klik luar area (click outside).
+- [x] Styling dropdown saran melayang (floating list) konsisten dark mode RobelKaroseri (`bg-slate-900`, `border-slate-700`, highlight `bg-orange-500/20 text-orange-300`, dan badge info kuantitas yang dikeluarkan beserta satuannya).
+- [x] Integrasi `IssuedMaterialAutocomplete` ke `GoodsReturnForm.tsx` untuk menggantikan `<select>` "Select Issued Material".
+- [x] Sinkronisasi pemilihan material: auto-focus ke input "Return Quantity" saat menekan Enter atau memilih item, tampilan batas retur maksimum, dan reset otomatis saat pergantian SPK.
+- [x] Memastikan kepatuhan terhadap batasan eksekusi: tanpa auto-verify, tanpa auto-commit, dan tanpa eksekusi langsung migrasi Supabase.

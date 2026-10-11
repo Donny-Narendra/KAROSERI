@@ -24,6 +24,10 @@ export interface InventoryAuditLog {
     full_name: string;
     role: string;
   };
+  materials?: {
+    name: string;
+    unit: string;
+  } | null;
 }
 
 export const inventoryService = {
@@ -143,7 +147,7 @@ export const inventoryService = {
   async getMaterialAuditLogs(materialId?: string) {
     let query = supabase
       .from('inventory_audit_logs')
-      .select('*, profiles(full_name, role)')
+      .select('*, profiles(full_name, role), materials(name, unit)')
       .order('created_at', { ascending: false });
 
     if (materialId) {

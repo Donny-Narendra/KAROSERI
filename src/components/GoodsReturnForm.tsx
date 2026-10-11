@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { RefreshCcw, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { ConfirmationModal } from './ConfirmationModal';
+import { IssuedMaterialAutocomplete, type IssuedMaterialItem } from './IssuedMaterialAutocomplete';
 
 interface GoodsReturnFormProps {
   onSuccess?: () => void;
@@ -15,7 +16,8 @@ export const GoodsReturnForm: React.FC<GoodsReturnFormProps> = ({ onSuccess }) =
   const [selectedMaterial, setSelectedMaterial] = useState<string>('');
   const [returnQty, setReturnQty] = useState<string>('');
 
-  const [issuedMaterials, setIssuedMaterials] = useState<any[]>([]);
+  const [issuedMaterials, setIssuedMaterials] = useState<IssuedMaterialItem[]>([]);
+  const returnQtyInputRef = useRef<HTMLInputElement>(null);
 
   const [feedbackModal, setFeedbackModal] = useState<{
     isOpen: boolean;
@@ -46,22 +48,26 @@ export const GoodsReturnForm: React.FC<GoodsReturnFormProps> = ({ onSuccess }) =
   const fetchIssuedMaterials = async (spkId: string) => {
     const { data: invData, error: invError } = await supabase
       .from('inventory_transactions')
-      .select('material_id, quantity_issued, materials(id, name)')
+      .select('material_id, quantity_issued, materials(id, name, unit)')
       .eq('spk_id', spkId);
 
     if (invError) {
       console.error('Error fetching inventory:', invError);
       setIssuedMaterials([]);
     } else if (invData) {
-      const totals: Record<string, { total_issued: number, name: string }> = {};
+      const totals: Record<string, { total_issued: number; name: string; unit: string }> = {};
       invData.forEach((tx: any) => {
         if (!totals[tx.material_id]) {
-          totals[tx.material_id] = { total_issued: 0, name: tx.materials?.name || 'Unknown' };
+          totals[tx.material_id] = {
+            total_issued: 0,
+            name: tx.materials?.name || 'Unknown',
+            unit: tx.materials?.unit || 'unit'
+          };
         }
         totals[tx.material_id].total_issued += Number(tx.quantity_issued);
       });
       
-      const issuedArr = Object.entries(totals)
+      const issuedArr: IssuedMaterialItem[] = Object.entries(totals)
         .map(([id, info]) => ({ material_id: id, ...info }))
         .filter(m => m.total_issued > 0);
         
@@ -90,7 +96,7 @@ export const GoodsReturnForm: React.FC<GoodsReturnFormProps> = ({ onSuccess }) =
         setFeedbackModal({
           isOpen: true,
           title: 'Retur Material Berhasil',
-          message: `Berhasil meretur ${qty} unit material kembali ke stok gudang untuk SPK ini.`,
+          message: `Berhasil meretur ${qty} ${selectedMatInfo?.unit || 'unit'} material kembali ke stok gudang untuk SPK ini.`,
           variant: 'success'
         });
         setReturnQty('');
@@ -121,7 +127,11 @@ export const GoodsReturnForm: React.FC<GoodsReturnFormProps> = ({ onSuccess }) =
             <label className="block text-sm text-text-muted mb-1">Select SPK</label>
             <select
               value={selectedSpk}
-              onChange={(e) => setSelectedSpk(e.target.value)}
+              onChange={(e) => {
+                setSelectedSpk(e.target.value);
+                setSelectedMaterial('');
+                setReturnQty('');
+              }}
               className="w-full bg-background border border-border rounded p-2 text-text focus:border-primary focus:outline-none"
             >
               <option value="">-- Choose Active SPK --</option>
@@ -135,39 +145,54 @@ export const GoodsReturnForm: React.FC<GoodsReturnFormProps> = ({ onSuccess }) =
 
           <div>
             <label className="block text-sm text-text-muted mb-1">Select Issued Material</label>
-            <select
-              value={selectedMaterial}
-              onChange={(e) => setSelectedMaterial(e.target.value)}
+            <IssuedMaterialAutocomplete
+              materials={issuedMaterials}
+              selectedMaterialId={selectedMaterial}
+              onSelect={(mat) => {
+                setSelectedMaterial(mat ? mat.material_id : '');
+                if (!mat) {
+                  setReturnQty('');
+                }
+              }}
               disabled={!selectedSpk}
-              className="w-full bg-background border border-border rounded p-2 text-text focus:border-primary focus:outline-none disabled:opacity-50"
-            >
-              <option value="">-- Choose Material to Return --</option>
-              {issuedMaterials.map((mat) => (
-                <option key={mat.material_id} value={mat.material_id}>
-                  {mat.name} (Max return: {mat.total_issued})
-                </option>
-              ))}
-            </select>
+              placeholder="Ketik nama material yang telah dikeluarkan..."
+              onEnterFocusNext={() => {
+                returnQtyInputRef.current?.focus();
+              }}
+            />
           </div>
         </div>
 
         <div>
-          <label className="block text-sm text-text-muted mb-1">Return Quantity</label>
+          <div className="flex justify-between items-center mb-1">
+            <label className="block text-sm text-text-muted">Return Quantity</label>
+            {selectedMatInfo && (
+              <span className="text-xs text-orange-400 font-mono">
+                Maksimal retur: {selectedMatInfo.total_issued} {selectedMatInfo.unit || 'unit'}
+              </span>
+            )}
+          </div>
           <input
+            ref={returnQtyInputRef}
             type="number"
             min="0.1"
+            max={selectedMatInfo?.total_issued}
             step="0.1"
             value={returnQty}
             onChange={(e) => setReturnQty(e.target.value)}
             disabled={!selectedMatInfo}
             className="w-full bg-background border border-border rounded p-2 text-text focus:border-primary focus:outline-none disabled:opacity-50"
-            placeholder="Enter quantity to return..."
+            placeholder={
+              selectedMatInfo
+                ? `Maks. ${selectedMatInfo.total_issued} ${selectedMatInfo.unit || 'unit'}`
+                : 'Pilih material terlebih dahulu...'
+            }
           />
         </div>
 
         {isOverReturn && (
           <div className="text-sm text-status-danger mt-1">
-            Cannot return more than was issued ({selectedMatInfo?.total_issued.toFixed(2)}).
+            Cannot return more than was issued ({selectedMatInfo?.total_issued.toFixed(2)} {selectedMatInfo?.unit || ''}).
           </div>
         )}
 
