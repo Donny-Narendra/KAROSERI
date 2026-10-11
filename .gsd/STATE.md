@@ -1,32 +1,23 @@
 ## Current Position
-- **Phase**: 52 (completed)
-- **Task**: All tasks complete
-- **Status**: Verified
+- **Phase**: 53 (planned)
+- **Task**: Ready for execution
+- **Status**: Planning complete
 
 ## Gap Closure Mode
-Completed gap closure for Phase 52 (Eksklusi Material yang Sudah Digunakan di Minta Material maupun SPK Borongan dari Panel Alokasi RAB pada /mandor).
+Addressing gaps for Phase 53: Sinkronisasi Mutual Exclusion Material Antara Requisition dan SPK Borongan pada /mandor (`src/components/MaterialRequisitionForm.tsx` & `src/components/SpkBoronganPanel.tsx`).
 
 ## Last Session Summary
-Eksekusi Phase 52 selesai: Penyesuaian modal Permintaan Material (`src/components/MaterialRequisitionForm.tsx`):
-1. **Kueri Cross-Module**:
-   - Query `material_requisitions` & `material_requisition_items` (`status !== 'REJECTED'`) untuk SPK & WBS terkait guna mengumpulkan daftar ID material yang sudah diajukan ke logistik gudang.
-   - Query `spk_borongan` (`status !== 'CUT_OFF'`) untuk SPK & WBS terkait guna mengambil penugasan borongan aktif.
-2. **Logika Pemfilteran Panel "Alokasi RAB (WBS Terkait)"**:
-   - Filter `rawRabItems` reaktif via `useMemo` mengecualikan:
-     - Material yang sudah tercatat di Requisition tersimpan di database.
-     - Material yang sedang berada di daftar permintaan modal aktif (`selectedItems`).
-     - Pekerjaan/material yang sudah ditugaskan di SPK Borongan (pencocokan `material_id` maupun kesesuaian deskripsi tugas dengan nama material).
-3. **Sinkronisasi Badge & Indikator Sisa**:
-   - Header badge `{availableItems.length}`, label footer `{availableItems.length} item tersisa`, dan empty state terupdate secara otomatis dan akurat.
-4. **Verifikasi & Build**:
-   - Linter (`npx oxlint` 0 error) dan build (`npm run build` 100% sukses).
-   - Commit atomik: `bbb1fb3` (`fix(mandor): exclude items used in requisitions and spk borongan from rab allocation panel`).
+Rencana Gap Closure Phase 53 dibuat:
+1. **Task 1**: Skema / Data Tracking Penggunaan Item pada `spk_borongan`.
+2. **Task 2**: Pembuatan Utilitas Shared Availability Filter (`src/utils/rabItemAllocation.ts`).
+3. **Task 3**: Terapkan Shared Availability Filter di Kedua Modal (`MaterialRequisitionForm.tsx` & `SpkBoronganPanel.tsx`).
+4. **Task 4**: Verifikasi Linting, Type Checking, Build Validation, dan Commit Atomik (`fix(mandor): synchronize mutual exclusion between requisition and spk borongan material lists`).
 
 ## In-Progress Work
-None.
+Phase 53 plan created (`.gsd/phases/plan-53.md`).
 
 ## Blockers
 None.
 
 ## Next Steps
-1. Menunggu instruksi atau perencanaan fitur selanjutnya.
+1. Jalankan `/execute 53 --gaps-only` untuk mengeksekusi sinkronisasi mutual exclusion material antar modal.

@@ -643,3 +643,15 @@
 - [x] Logika Pemfilteran Panel "Alokasi RAB (WBS Terkait)" untuk mengecualikan material yang sudah diajukan via Requisition atau sudah ditugaskan pada SPK Borongan.
 - [x] Sinkronisasi Badge & Indikator Sisa ("X item tersisa") pada header dan footer panel Alokasi RAB.
 - [x] Verifikasi Type Checking, Build Validation (`npm run build`, `npx oxlint`), dan Commit Atomik (`fix(mandor): exclude items used in requisitions and spk borongan from rab allocation panel`).
+
+---
+
+### Phase 53: Gap Closure (Sinkronisasi Mutual Exclusion Material Antara Requisition dan SPK Borongan di Mandor)
+**Status**: ⬜ Not Started
+**Objective**: Address gaps from operational feedback (Sinkronisasi Mutual Exclusion Material Antara Requisition dan SPK Borongan pada /mandor)
+
+**Gaps to Close:**
+- [ ] Skema / Data Tracking Penggunaan Item: Penambahan tracking `material_id` / `rab_item_id` pada penugasan SPK Borongan yang berasal dari transfer material RAB.
+- [ ] Utilitas Shared Availability Filter (`isRabItemAllocated`): Normalisasi teks case-insensitive, substring matching deskripsi tugas, dan validasi ID material cross-module.
+- [ ] Terapkan Filter di Kedua Modal: Saring panel "Alokasi RAB (WBS Terkait)" pada `MaterialRequisitionForm.tsx` dan panel "Panduan Material (RAB)" pada `SpkBoronganPanel.tsx` beserta counter reaktif.
+- [ ] Verifikasi Type Checking, Build (`npm run build`, `npx oxlint`), dan Commit Atomik (`fix(mandor): synchronize mutual exclusion between requisition and spk borongan material lists`).
