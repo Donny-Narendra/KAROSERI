@@ -27,6 +27,8 @@ interface SpkBorongan {
   status: SpkBoronganStatus;
   progress_percentage: number;
   assignment_letter_no?: string;
+  material_id?: string;
+  rab_item_id?: string;
   created_at: string;
 }
 
@@ -265,6 +267,8 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
       worker_name: workerName.trim(),
       task_description: taskDescription.trim(),
       contract_value: Number(contractValue),
+      material_id: selectedRabItemForAssignment?.materials?.id || selectedRabItemForAssignment?.material_id || null,
+      rab_item_id: selectedRabItemForAssignment?.id || null,
       created_by: user.id
     });
     
