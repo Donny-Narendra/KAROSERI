@@ -1,15 +1,19 @@
 ## Current Position
-- **Phase**: 48 (completed)
-- **Task**: All tasks complete
-- **Status**: Mapped
+- **Phase**: 49
+- **Task**: Ready to execute
+- **Status**: Planning Complete
+
+## Gap Closure Mode
+Addressing 1 gap for Phase 49:
+- Implementasi Dual-List Transfer Box pada Modal "Minta Material (Requisition)" di Halaman /mandor untuk WBS Terpilih.
 
 ## Last Session Summary
-Codebase mapping complete (/map):
-- **38 components & pages** identified and documented (8 pages, 30 UI components, 4 services, 1 context, 1 hook).
-- **36 dependencies** cataloged (20 production packages, 16 dev dependencies).
-- Architecture diagram, data flow, integration points (Supabase DB/Auth, Cloudinary, PDF/Excel utilities), and conventions updated.
-- Technical debt audited: Previous debt items (mocked cashier payments, mock goods issue) confirmed resolved in past phases; remaining debt items (no unit test suite, unused server deps, explicit any casts in nested queries) documented in `ARCHITECTURE.md`.
-- Documentation updated in `.gsd/ARCHITECTURE.md` and `.gsd/STACK.md`.
+Codebase mapping complete and Phase 49 planned:
+- Phase 49 added to `.gsd/ROADMAP.md` and detailed in `.gsd/phases/plan-49.md`.
+- 3 tasks defined:
+  1. State Management & Data Fetching Dual-List pada `MaterialRequisitionForm.tsx` (`availableItems`, `selectedItems`, transfer handlers `<<` dan `>>`).
+  2. Desain Layout UI Dual-List Transfer Box 2 Kolom (Kotak Kiri Hijau Permintaan, Tombol Transfer Tengah, Kotak Kanan Merah Alokasi RAB WBS, Tombol Add Item Manual).
+  3. Integrasi Submit Requisition ke `material_requisitions` & `material_requisition_items`, validasi form, dan build test.
 
 ## In-Progress Work
 None.
@@ -18,4 +22,4 @@ None.
 None.
 
 ## Next Steps
-1. Siap melanjutkan ke `/plan` atau milestone berikutnya dengan konteks arsitektur dan stack yang komprehensif.
+1. Jalankan `/execute 49` untuk mengeksekusi rencana Phase 49.
