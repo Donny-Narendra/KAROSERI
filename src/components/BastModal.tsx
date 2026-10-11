@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Printer, X, CheckCircle, ShieldCheck, FileCheck } from 'lucide-react';
 
@@ -30,12 +30,38 @@ interface BastModalProps {
   autoPrint?: boolean;
 }
 
+const formatBastDate = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  
+  const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+  const monthNames = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+  ];
+  
+  const dayName = dayNames[date.getDay()];
+  const dayNum = date.getDate();
+  const monthName = monthNames[date.getMonth()];
+  const dateStr = `${dayName}, ${dayNum} ${monthName} ${y}`;
+  const timeStr = `${date.toLocaleDateString('id-ID')} ${date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`;
+
+  return {
+    dateFormatted: dateStr,
+    timestampStr: timeStr,
+    year: y,
+    month: m
+  };
+};
+
 export const BastModal: React.FC<BastModalProps> = ({
   isOpen,
   onClose,
   spk,
   autoPrint = false,
 }) => {
+  const [dateInfo] = useState(() => formatBastDate(new Date()));
+
   useEffect(() => {
     if (isOpen && autoPrint) {
       const timer = setTimeout(() => {
@@ -47,21 +73,7 @@ export const BastModal: React.FC<BastModalProps> = ({
 
   if (!isOpen || !spk) return null;
 
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  
-  const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-  const monthNames = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-  ];
-  
-  const dayName = dayNames[now.getDay()];
-  const dayNum = now.getDate();
-  const monthName = monthNames[now.getMonth()];
-  const dateFormatted = `${dayName}, ${dayNum} ${monthName} ${year}`;
-  const timestampStr = `${now.toLocaleDateString('id-ID')} ${now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`;
+  const { dateFormatted, timestampStr, year, month } = dateInfo;
 
   const spkNo = spk.spk_no || spk.id || 'SPK-9846';
   const customerName = spk.customer_name || spk.customerName || 'PT WARA-WIRI';
