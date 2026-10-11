@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Printer, X, CheckCircle, ShieldCheck, FileCheck } from 'lucide-react';
 
 export interface BastSpkData {
@@ -73,7 +74,13 @@ export const BastModal: React.FC<BastModalProps> = ({
     window.print();
   };
 
-  return (
+  const printRoot = typeof document !== 'undefined'
+    ? (document.getElementById('print-root') || document.body)
+    : null;
+
+  if (!printRoot) return null;
+
+  return createPortal(
     <div 
       id="bast-modal-backdrop"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 overflow-y-auto print:static print:inset-auto print:z-auto print:p-0 print:m-0 print:bg-transparent print:overflow-visible print:block"
@@ -375,6 +382,7 @@ export const BastModal: React.FC<BastModalProps> = ({
           }
         }
       ` }} />
-    </div>
+    </div>,
+    printRoot
   );
 };
