@@ -589,11 +589,11 @@
 ---
 
 ### Phase 48: Gap Closure (Menampilkan Kolom Subtotal RAB pada Panel Panduan Material di Modal SPK Borongan)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Address gaps from milestone audit (Menampilkan Kolom Subtotal RAB pada Panel "Panduan Material (RAB)" di Modal SPK Borongan)
 
 **Gaps to Close:**
-- [ ] Penyesuaian Query dan Data Mapping pada `src/components/SpkBoronganPanel.tsx` untuk mengambil `item_total` dan `materials.unit_price`.
-- [ ] Penambahan Kolom Subtotal RAB (format Rupiah Indonesia) pada antarmuka tabel Panduan Material (RAB).
-- [ ] Penanganan edge cases (harga 0/null -> Rp 0, text wrap/lebar kolom) dan responsiveness.
-- [ ] Verifikasi type checking, build validation, dan commit atomik.
+- [x] Penyesuaian Query dan Data Mapping pada `src/components/SpkBoronganPanel.tsx` untuk mengambil `item_total` dan `materials.unit_price`.
+- [x] Penambahan Kolom Subtotal RAB (format Rupiah Indonesia) pada antarmuka tabel Panduan Material (RAB).
+- [x] Penanganan edge cases (harga 0/null -> Rp 0, text wrap/lebar kolom) dan responsiveness.
+- [x] Verifikasi type checking, build validation, dan commit atomik.
