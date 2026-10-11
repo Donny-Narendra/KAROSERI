@@ -7,7 +7,7 @@
 Completed gap closure for Phase 45 (Dokumen BAST Profesional Siap Cetak & Release Vehicle di /kasir).
 
 ## Last Session Summary
-Phase 45 executed successfully. 1 plan, 4 tasks completed. Komponen `BastModal.tsx` telah diimplementasikan dengan template Berita Acara Serah Terima (BAST) resmi A4 portrait siap cetak/simpan PDF, styling CSS `@media print` 1 lembar tanpa overflow, pembaruan status SPK di database menjadi COMPLETED, serta integrasi tombol "Release Vehicle & Print BAST" di `/kasir`.
+Bug fix BAST print preview: Memperbaiki masalah blank/kertas putih saat mencetak dokumen BAST di modal `/kasir`. Kontainer BAST telah diisolasi dengan ID unik `#printable-bast` dan class `bast-document-sheet`. CSS `@media print` diperbarui untuk menyembunyikan background/chrome modal (`body * { visibility: hidden }`) dan mengisolasi penuh `#printable-bast` (`visibility: visible`, `position: absolute`, `padding: 20mm`, `@page { size: A4 portrait; margin: 10mm; }`). Wrapper modal dinetralkan (`position: static`, `overflow: visible`) agar tidak memotong lembar cetak dokumen. SPK-9846 terverifikasi dan tombol pratinjau/cetak BAST dapat diakses secara langsung.
 
 ## In-Progress Work
 None.
