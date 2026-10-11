@@ -66,7 +66,14 @@ export const MandorDashboard: React.FC = () => {
                         : 'border-border bg-background hover:border-primary/50'
                     }`}
                   >
-                    <div className="text-lg font-bold">{spk.spk_no}</div>
+                    <div className="flex items-center justify-between">
+                      <div className="text-lg font-bold">{spk.spk_no}</div>
+                      {spk.qc_status === 'PASS' && (
+                        <span className="text-xs px-2 py-0.5 rounded font-bold bg-green-500/20 text-green-400 border border-green-500/40">
+                          QC PASS
+                        </span>
+                      )}
+                    </div>
                     <div className="text-text-muted">{spk.customer_name}</div>
                     <div className="text-sm mt-2 text-text">
                       <span className="inline-block bg-background px-2 py-1 rounded border border-border mr-2">
@@ -85,7 +92,7 @@ export const MandorDashboard: React.FC = () => {
           {selectedSpk && (
             <>
               <WbsChecklist spkId={selectedSpk} />
-              <QcInspectionForm spkId={selectedSpk} />
+              <QcInspectionForm spkId={selectedSpk} onQcUpdated={fetchSpks} />
             </>
           )}
 

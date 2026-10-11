@@ -11,5 +11,7 @@ export interface Spk {
   cancellation_reason?: string;
   cancelled_at?: string;
   cancelled_by?: string;
+  qc_status?: 'PENDING' | 'PASS' | 'FAIL';
+  final_qc_checklist?: string[];
   [key: string]: any;
 }

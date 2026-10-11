@@ -3,9 +3,17 @@ import { supabase } from '../lib/supabaseClient';
 
 interface QcInspectionFormProps {
   spkId: string;
+  onQcUpdated?: () => void;
 }
 
-export const QcInspectionForm: React.FC<QcInspectionFormProps> = ({ spkId }) => {
+const CHECKLIST_ITEMS = [
+  { key: 'shower_test', label: 'Shower Test Anti Bocor (Water Leaks)' },
+  { key: 'uji_hidrolik', label: 'Uji Hidrolik (Hydraulic Test)' },
+  { key: 'dimensi_kendaraan', label: 'Dimensi Kendaraan (Dimensions Check)' },
+  { key: 'uji_kelistrikan', label: 'Uji Kelistrikan (Electrical Test)' }
+] as const;
+
+export const QcInspectionForm: React.FC<QcInspectionFormProps> = ({ spkId, onQcUpdated }) => {
   const [params, setParams] = useState({
     shower_test: false,
     uji_hidrolik: false,
@@ -23,10 +31,10 @@ export const QcInspectionForm: React.FC<QcInspectionFormProps> = ({ spkId }) => 
     const fetchQcData = async () => {
       setLoading(true);
       try {
-        // Fetch SPK status
+        // Fetch SPK status, qc_status, and final_qc_checklist
         const { data: spkData, error: spkError } = await supabase
           .from('spk')
-          .select('status')
+          .select('status, qc_status, final_qc_checklist')
           .eq('id', spkId)
           .single();
           
@@ -37,28 +45,45 @@ export const QcInspectionForm: React.FC<QcInspectionFormProps> = ({ spkId }) => 
           return;
         }
 
-        const { data, error } = await supabase
-          .from('qc_inspections')
-          .select('*')
-          .eq('spk_id', spkId)
-          .maybeSingle();
+        const checklist = Array.isArray(spkData.final_qc_checklist) ? spkData.final_qc_checklist : [];
+        const currentQcStatus = (spkData.qc_status as 'PENDING' | 'PASS' | 'FAIL') || 'PENDING';
 
-        if (error && error.code !== 'PGRST116') throw error; // PGRST116 is no rows returned
-
-        if (data) {
-          setParams(data.form_data);
-          setStatus(data.status);
-          setSubmitted(true);
-        } else {
-          // Reset if no data found for this SPK
+        if (checklist.length > 0 || currentQcStatus === 'PASS' || currentQcStatus === 'FAIL') {
           setParams({
-            shower_test: false,
-            uji_hidrolik: false,
-            dimensi_kendaraan: false,
-            uji_kelistrikan: false
+            shower_test: checklist.includes('shower_test') || checklist.includes('Shower Test Anti Bocor (Water Leaks)'),
+            uji_hidrolik: checklist.includes('uji_hidrolik') || checklist.includes('Uji Hidrolik (Hydraulic Test)'),
+            dimensi_kendaraan: checklist.includes('dimensi_kendaraan') || checklist.includes('Dimensi Kendaraan (Dimensions Check)'),
+            uji_kelistrikan: checklist.includes('uji_kelistrikan') || checklist.includes('Uji Kelistrikan (Electrical Test)')
           });
-          setStatus('PENDING');
-          setSubmitted(false);
+          setStatus(currentQcStatus);
+          setSubmitted(currentQcStatus === 'PASS');
+        } else {
+          // Fallback to qc_inspections table if spk columns were not populated
+          const { data, error } = await supabase
+            .from('qc_inspections')
+            .select('*')
+            .eq('spk_id', spkId)
+            .order('inspected_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (error && error.code !== 'PGRST116') throw error;
+
+          if (data && data.form_data) {
+            setParams(data.form_data);
+            setStatus(data.status);
+            setSubmitted(data.status === 'PASS');
+          } else {
+            // Reset if no data found for this SPK
+            setParams({
+              shower_test: false,
+              uji_hidrolik: false,
+              dimensi_kendaraan: false,
+              uji_kelistrikan: false
+            });
+            setStatus('PENDING');
+            setSubmitted(false);
+          }
         }
       } catch (err) {
         console.error('Error fetching QC data:', err);
@@ -74,35 +99,45 @@ export const QcInspectionForm: React.FC<QcInspectionFormProps> = ({ spkId }) => 
     e.preventDefault();
     // Require all checks to be true to pass the QC
     const allPassed = params.shower_test && params.uji_hidrolik && params.dimensi_kendaraan && params.uji_kelistrikan;
-    const finalStatus = allPassed ? 'PASS' : 'FAIL';
+    const finalStatus: 'PASS' | 'FAIL' = allPassed ? 'PASS' : 'FAIL';
+    const checkedItems = CHECKLIST_ITEMS.filter(item => params[item.key]).map(item => item.label);
     
+    setLoading(true);
     try {
-      const { error } = await supabase
-        .from('qc_inspections')
-        .insert({
-          spk_id: spkId,
-          form_data: params,
-          status: finalStatus,
-          inspected_at: new Date().toISOString()
-        });
+      // 1. Update spk.qc_status and spk.final_qc_checklist
+      const { error: spkError } = await supabase
+        .from('spk')
+        .update({
+          qc_status: finalStatus,
+          final_qc_checklist: checkedItems
+        })
+        .eq('id', spkId);
 
-      if (error) throw error;
+      if (spkError) throw spkError;
 
-      if (finalStatus === 'PASS') {
-        const { error: spkError } = await supabase
-          .from('spk')
-          .update({ status: 'READY_FOR_HANDOVER' })
-          .eq('id', spkId);
-          
-        if (spkError) throw spkError;
+      // 2. Also record in qc_inspections for inspection audit trail
+      try {
+        await supabase
+          .from('qc_inspections')
+          .insert({
+            spk_id: spkId,
+            form_data: params,
+            status: finalStatus,
+            inspected_at: new Date().toISOString()
+          });
+      } catch (logErr) {
+        console.warn('Logging to qc_inspections failed (non-blocking):', logErr);
       }
 
       setStatus(finalStatus);
-      setSubmitted(true);
+      setSubmitted(finalStatus === 'PASS');
+      onQcUpdated?.();
       alert(`QC Inspection submitted with status: ${finalStatus}`);
     } catch (err: any) {
       console.error('Error submitting QC inspection:', err);
       alert('Failed to submit QC inspection: ' + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -129,7 +164,7 @@ export const QcInspectionForm: React.FC<QcInspectionFormProps> = ({ spkId }) => 
   return (
     <div className="bg-surface p-6 rounded-lg shadow-sm border border-border mt-6">
       <h2 className="text-xl font-display font-semibold mb-4 text-primary">Final QC Inspection</h2>
-      {submitted && (
+      {(submitted || status !== 'PENDING') && (
         <div className={`mb-4 p-3 rounded text-sm font-medium ${status === 'PASS' ? 'bg-green-900/30 text-green-400 border border-green-800' : 'bg-red-900/30 text-red-400 border border-red-800'}`}>
           Current Status: {status}
         </div>

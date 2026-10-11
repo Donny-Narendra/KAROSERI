@@ -535,6 +535,18 @@
 **Objective**: Address gaps from milestone audit (Mencetak dokumen resmi penugasan SPK Borongan dengan penomoran unik yang tersimpan di Supabase)
 
 **Gaps to Close:**
-- [ ] Tambahkan kolom `assignment_letter_no` pada tabel `spk_borongan`.
-- [ ] Implementasikan auto-generate dan update nomor surat tugas sebelum pratinjau cetak.
-- [ ] Desain Template Cetak (Kop Surat, Detail Penugasan, Pengesahan, disembunyikan navigasi dengan `@media print`).
+- [x] Tambahkan kolom `assignment_letter_no` pada tabel `spk_borongan`.
+- [x] Implementasikan auto-generate dan update nomor surat tugas sebelum pratinjau cetak.
+- [x] Desain Template Cetak (Kop Surat, Detail Penugasan, Pengesahan, disembunyikan navigasi dengan `@media print`).
+
+---
+
+### Phase 44: Gap Closure (Penambahan Kolom qc_status & final_qc_checklist pada SPK serta Integrasi State Mandor dan Kasir)
+**Status**: ✅ Complete
+**Objective**: Address gaps from milestone audit (Penambahan kolom qc_status dan final_qc_checklist pada tabel public.spk serta binding hidrasi state pada Mandor Terminal dan Kasir Dashboard Gate 3)
+
+**Gaps to Close:**
+- [x] Tambahkan kolom `qc_status` dan `final_qc_checklist` pada tabel `public.spk` serta sesuaikan RLS untuk role mandor dan kasir.
+- [x] Integrasikan fetching & hydration state checklist dan update `qc_status` pada komponen Final QC Mandor.
+- [x] Integrasikan query billing dan validasi Gate 3 pada halaman Kasir berdasarkan kolom `spk.qc_status`.
+- [x] Verifikasi type checking, build, dan uji alur end-to-end.

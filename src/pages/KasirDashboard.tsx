@@ -116,9 +116,9 @@ export const KasirDashboard: React.FC = () => {
            actualMaterialCost = Math.max(0, totalEstimatedCost - actualLaborCost - overheadCost);
         }
 
-        const qcStatus = d.qc_inspections?.length > 0 
+        const qcStatus = (d.qc_status || (d.qc_inspections?.length > 0 
           ? d.qc_inspections[0].status 
-          : 'PENDING';
+          : 'PENDING')) as 'PENDING' | 'PASS' | 'FAIL';
 
         const paymentStatus = d.invoices?.length > 0
           ? d.invoices[0].status

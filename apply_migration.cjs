@@ -9,7 +9,7 @@ async function run() {
     process.exit(1);
   }
   const sql = fs.readFileSync(filePath, 'utf8');
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  const client = new Client({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
   await client.connect();
   try {
     await client.query(sql);
