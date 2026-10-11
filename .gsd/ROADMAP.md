@@ -783,3 +783,16 @@
 - [x] Integrasi `IssuedMaterialAutocomplete` ke `GoodsReturnForm.tsx` untuk menggantikan `<select>` "Select Issued Material".
 - [x] Sinkronisasi pemilihan material: auto-focus ke input "Return Quantity" saat menekan Enter atau memilih item, tampilan batas retur maksimum, dan reset otomatis saat pergantian SPK.
 - [x] Memastikan kepatuhan terhadap batasan eksekusi: tanpa auto-verify, tanpa auto-commit, dan tanpa eksekusi langsung migrasi Supabase.
+
+---
+
+### Phase 64: Gap Closure (Implementasi Search Autocomplete Berbasis Keyboard untuk Pemilihan Goods Issue Material di /warehouse)
+**Status**: ⬜ Ready for Review
+**Objective**: Address gaps from operational feedback (Mengganti elemen dropdown native `<select>` pada pemilihan material di halaman `/warehouse` tab "Issue Material / Goods Issue" menjadi input text search autocomplete berbasis keyboard dengan popup saran melayang)
+
+**Gaps to Close:**
+- [x] Pembuatan komponen `MaterialSearchAutocomplete.tsx` di `src/components/` dengan pencarian real-time case-insensitive, kontrol keyboard penuh (`ArrowDown`, `ArrowUp`, `Enter`, `Escape`), auto-scroll list, dan click-outside handler.
+- [x] Styling floating autocomplete list bergaya dark mode RobelKaroseri (`bg-slate-900`, `border-slate-700`, `shadow-2xl`, highlight `bg-orange-500/20 text-orange-300`, badge status RAB / Sudah Diambil, dan badge stok tersedia).
+- [x] Integrasi `MaterialSearchAutocomplete` ke `GoodsIssueForm.tsx` menggantikan elemen native `<select>` "Select Material".
+- [x] Integrasi sinkronisasi payload Goods Issue: pengisian `material_id` UUID asli, auto-focus ke input "Request Quantity" saat item dipilih, indikator visual satuan unit material di samping input kuantitas, dan reset state saat SPK berganti.
+- [x] Memastikan kepatuhan terhadap batasan eksekusi: tanpa auto-verify, tanpa auto-commit, dan tanpa eksekusi langsung migrasi Supabase.

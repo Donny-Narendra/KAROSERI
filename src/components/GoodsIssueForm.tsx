@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Package, CheckCircle2, Lock } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { inventoryService } from '../services/inventoryService';
 import { ConfirmationModal } from './ConfirmationModal';
+import { MaterialSearchAutocomplete, type MaterialOption } from './MaterialSearchAutocomplete';
 
 interface GoodsIssueFormProps {
   onSuccess?: () => void;
@@ -15,6 +16,7 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
   const [selectedSpk, setSelectedSpk] = useState<string>('');
   const [selectedMaterial, setSelectedMaterial] = useState<string>('');
   const [requestQty, setRequestQty] = useState<string>('');
+  const requestQtyInputRef = useRef<HTMLInputElement>(null);
 
   const [feedbackModal, setFeedbackModal] = useState<{
     isOpen: boolean;
@@ -46,10 +48,13 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
   useEffect(() => {
     if (selectedSpk) {
       fetchRabAndInventory(selectedSpk);
+      setSelectedMaterial('');
+      setRequestQty('');
     } else {
       setRabMaterials([]);
       setInventoryTotals({});
       setSelectedMaterial('');
+      setRequestQty('');
     }
   }, [selectedSpk]);
 
@@ -167,6 +172,7 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
           variant: 'success'
         });
         setRequestQty('');
+        setSelectedMaterial('');
         fetchRabAndInventory(selectedSpk);
         if (onSuccess) onSuccess();
       } else {
@@ -180,6 +186,22 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
       }
     }
   };
+
+  const autocompleteMaterials: MaterialOption[] = masterMaterials.map(mat => {
+    const isRab = rabMaterials.some(r => r.material_id === mat.id);
+    const issuedQty = inventoryTotals[mat.id] || 0;
+    const hasBeenIssued = issuedQty > 0;
+    return {
+      id: mat.id,
+      name: mat.name,
+      code: (mat as any).code,
+      current_stock: mat.current_stock ?? 0,
+      unit: mat.unit || 'pcs',
+      waste_factor_percentage: mat.waste_factor_percentage,
+      is_rab: isRab,
+      has_been_issued: hasBeenIssued,
+    };
+  });
 
   return (
     <div className="bg-surface border border-border rounded-lg p-6">
@@ -208,25 +230,14 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
 
           <div>
             <label className="block text-sm text-text-muted mb-1">Select Material</label>
-            <select
-              value={selectedMaterial}
-              onChange={(e) => setSelectedMaterial(e.target.value)}
+            <MaterialSearchAutocomplete
+              materials={autocompleteMaterials}
+              selectedMaterialId={selectedMaterial}
+              onSelect={(mat) => setSelectedMaterial(mat ? mat.id : '')}
               disabled={!selectedSpk}
-              className="w-full bg-background border border-border rounded p-2 text-text focus:border-primary focus:outline-none disabled:opacity-50"
-            >
-              <option value="">-- Choose Material --</option>
-              {masterMaterials.map(mat => {
-                const isRab = rabMaterials.some(r => r.material_id === mat.id);
-                const issuedQty = inventoryTotals[mat.id] || 0;
-                const hasBeenIssued = issuedQty > 0;
-                
-                return (
-                  <option key={mat.id} value={mat.id} disabled={hasBeenIssued}>
-                    {mat.name} {isRab ? '(RAB)' : ''} (Stok: {mat.current_stock || 0} {mat.unit || ''}) {hasBeenIssued ? ' - (Sudah Diambil)' : ''}
-                  </option>
-                );
-              })}
-            </select>
+              placeholder="Cari bahan baku, profil besi, sparepart, atau kustom..."
+              onEnterFocusNext={() => requestQtyInputRef.current?.focus()}
+            />
           </div>
         </div>
 
@@ -268,16 +279,26 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
 
         <div>
           <label className="block text-sm text-text-muted mb-1">Request Quantity</label>
-          <input
-            type="number"
-            min="0.1"
-            step="0.1"
-            value={requestQty}
-            onChange={(e) => setRequestQty(e.target.value)}
-            disabled={!selectedMaterial || remainingAllowed <= 0}
-            className="w-full bg-background border border-border rounded p-2 text-text focus:border-primary focus:outline-none disabled:opacity-50"
-            placeholder="Enter quantity..."
-          />
+          <div className="relative">
+            <input
+              ref={requestQtyInputRef}
+              type="number"
+              min="0.1"
+              step="0.1"
+              value={requestQty}
+              onChange={(e) => setRequestQty(e.target.value)}
+              disabled={!selectedMaterial || remainingAllowed <= 0}
+              className={`w-full bg-background border border-border rounded p-2 text-text focus:border-primary focus:outline-none disabled:opacity-50 ${selectedMasterItem?.unit ? 'pr-20' : ''}`}
+              placeholder="Enter quantity..."
+            />
+            {selectedMasterItem?.unit && (
+              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-xs font-mono font-medium text-text-muted">
+                <span className="bg-surface px-2 py-0.5 rounded border border-border">
+                  {selectedMasterItem.unit}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
         {isOverbudget && requestQty && (
