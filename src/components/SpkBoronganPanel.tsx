@@ -31,12 +31,24 @@ interface RabMaterial {
   quantity: number;
   wbs_category: string;
   description?: string;
+  item_total?: number;
+  unit_price?: number;
   materials: {
     id: string;
     name: string;
     unit: string;
+    unit_price?: number;
   } | null;
 }
+
+const formatCurrency = (val: number | null | undefined): string => {
+  if (!val || isNaN(val)) return 'Rp 0';
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    maximumFractionDigits: 0
+  }).format(val);
+};
 
 export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCategory, onClose }) => {
   const cleanWbsCategory = wbsCategory.replace(/^WBS\s*\d+:\s*/i, '').trim();
@@ -116,10 +128,12 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
         quantity,
         wbs_category,
         description,
+        item_total,
         materials (
           id,
           name,
-          unit
+          unit,
+          unit_price
         )
       `)
       .eq('rab_estimation_id', rabEst.id)
@@ -431,24 +445,31 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
                   </div>
                 ) : (
                   <table className="w-full text-left text-sm">
-                    <thead className="bg-surface border-b border-border sticky top-0">
+                    <thead className="bg-surface border-b border-border sticky top-0 z-10">
                       <tr>
                         <th className="px-4 py-2 font-medium text-text">Nama Material</th>
-                        <th className="px-4 py-2 font-medium text-text text-right w-24">Qty</th>
+                        <th className="px-3 py-2 font-medium text-text text-right w-20">Qty</th>
+                        <th className="px-4 py-2 font-medium text-text text-right w-36 whitespace-nowrap">Subtotal RAB</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
                       {filteredMaterials.map((item) => {
                         const itemName = item.materials?.name || item.description || 'Item Pekerjaan';
                         const itemUnit = item.materials?.unit || 'item';
+                        const subtotal = (typeof item.item_total === 'number' && item.item_total > 0)
+                          ? item.item_total
+                          : ((item.quantity || 0) * (item.materials?.unit_price || item.unit_price || 0));
                         
                         return (
                           <tr key={item.id} className="hover:bg-surface/50">
-                            <td className="px-4 py-3 text-text">
+                            <td className="px-4 py-3 text-text break-words min-w-0">
                               {itemName}
                             </td>
-                            <td className="px-4 py-3 text-text text-right whitespace-nowrap">
+                            <td className="px-3 py-3 text-text text-right whitespace-nowrap">
                               {item.quantity} <span className="text-text-muted text-xs">{itemUnit}</span>
+                            </td>
+                            <td className="px-4 py-3 text-text text-right whitespace-nowrap font-medium text-text">
+                              {formatCurrency(subtotal)}
                             </td>
                           </tr>
                         );
