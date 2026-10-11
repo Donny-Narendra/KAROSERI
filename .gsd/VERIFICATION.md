@@ -1,9 +1,9 @@
-## Phase 45 Verification
+## Phase 46 Verification
 
 ### Must-Haves
-- [x] Template cetak dokumen resmi BAST berukuran A4 portrait (`src/components/BastModal.tsx`) lengkap dengan Kop Surat RobelKaroseri, Nomor Surat resmi, tabel spesifikasi kendaraan, status QC & pelunasan, serta 3 kolom pengesahan tanda tangan — VERIFIED (evidence: Komponen `BastModal.tsx` terimplementasi dan lulus uji static markup render test).
-- [x] Styling CSS cetak (@media print) standar A4 portrait 1 lembar tanpa overflow, menyembunyikan background gelap dan tombol dashboard — VERIFIED (evidence: `@page { size: A4 portrait; margin: 15mm; }`, `#bast-print-area` dengan visibility override, dan class `.no-print` terdefinisi).
-- [x] Integrasi aksi "Release Vehicle & Print BAST" di `/kasir` untuk mengupdate status SPK menjadi `COMPLETED` dan membuka modal pratinjau BAST — VERIFIED (evidence: fungsi `handleReleaseVehicle` terhubung di `KasirDashboard.tsx`, memicu update `public.spk` dan menampilkan `BastModal`).
-- [x] Verifikasi type checking dan build — VERIFIED (evidence: `tsc -b && vite build` lolos tanpa error, `npx oxlint` 0 error).
+- [x] Isolasi layout cetak menggunakan `#print-root` React portal dan sembunyikan seluruh flow `#root` dengan `body > *:not(#print-root) { display: none !important; }` — VERIFIED (evidence: Container `<div id="print-root">` terpasang di `index.html`, `BastModal` memount via `createPortal`, dan `#root` disembunyikan sepenuhnya dari flow layout cetak).
+- [x] Netralkan positioning modal pada media cetak (`position: static !important`, `transform: none !important`, `margin: 0 auto !important`) — VERIFIED (evidence: CSS `@media print` di `src/index.css` dan embedded style di `BastModal.tsx` mendefinisikan reset static tanpa offset vertikal/fixed backdrop).
+- [x] Kompresi dimensi vertikal, padding tabel, dan margin internal `#printable-bast` (`padding: 8mm 12mm !important`, `@page { size: A4 portrait; margin: 8mm; }`) agar pas dalam 1 lembar A4 — VERIFIED (evidence: `min-h-[290mm]` dihapus saat print, cell padding dirampingkan `py-1`, tinggi kolom tanda tangan `h-24`, dan `break-inside: avoid` disematkan pada setiap seksi).
+- [x] Validasi Build dan Type Checking — VERIFIED (evidence: `tsc -b && vite build` selesai dalam 350ms tanpa error; `npx oxlint` 0 error dan 0 warning).
 
 ### Verdict: PASS

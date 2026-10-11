@@ -566,10 +566,10 @@
 ---
 
 ### Phase 46: Gap Closure (Perbaikan Print Layout 1 Halaman A4 Dokumen BAST di Kasir)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Address gaps from milestone audit (Memperbaiki print preview modal BAST di /kasir agar pas 1 lembar A4 portrait bersih tanpa halaman kosong atau terpotong)
 
 **Gaps to Close:**
-- [ ] Isolasi layout cetak menggunakan `#print-root` React portal dan sembunyikan seluruh flow `#root` dengan `body > *:not(#print-root) { display: none !important; }`.
-- [ ] Netralkan positioning modal pada media cetak (`position: static !important`, `transform: none !important`, `margin: 0 auto !important`).
-- [ ] Kompresi dimensi vertikal, padding tabel, dan margin internal `#printable-bast` (`padding: 8mm 12mm !important`, `@page { size: A4 portrait; margin: 8mm; }`) agar pas dalam 1 lembar A4.
+- [x] Isolasi layout cetak menggunakan `#print-root` React portal dan sembunyikan seluruh flow `#root` dengan `body > *:not(#print-root) { display: none !important; }`.
+- [x] Netralkan positioning modal pada media cetak (`position: static !important`, `transform: none !important`, `margin: 0 auto !important`).
+- [x] Kompresi dimensi vertikal, padding tabel, dan margin internal `#printable-bast` (`padding: 8mm 12mm !important`, `@page { size: A4 portrait; margin: 8mm; }`) agar pas dalam 1 lembar A4.
