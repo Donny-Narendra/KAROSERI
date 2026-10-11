@@ -431,13 +431,13 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
             </div>
           ) : (
             <>
-              {/* Dual-List Grid Container */}
-              <div className="grid grid-cols-1 lg:grid-cols-[1fr,60px,1fr] gap-3 items-stretch">
+              {/* Dual-List Grid Container: 3 Kolom Bersebelahan pada Tablet (md:) & Desktop */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4 items-stretch">
                 
-                {/* 1. KOTAK KIRI (Hijau Muda): Daftar Permintaan Material Siap Submit */}
-                <div className="flex flex-col rounded-xl border border-emerald-500/30 bg-surface/90 overflow-hidden shadow-sm">
+                {/* 1. KOLOM 1 (Kiri): Daftar Permintaan Material Siap Submit (5 Kolom) */}
+                <div className="md:col-span-5 flex flex-col h-[420px] md:h-[460px] rounded-xl border border-emerald-500/30 bg-surface/90 overflow-hidden shadow-sm">
                   {/* Header Kotak Kiri */}
-                  <div className="p-3 sm:p-3.5 bg-emerald-500/10 border-b border-emerald-500/20 flex items-center justify-between">
+                  <div className="p-3 sm:p-3.5 bg-emerald-500/10 border-b border-emerald-500/20 flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></div>
                       <h3 className="text-sm font-bold text-emerald-400 truncate">
@@ -458,10 +458,10 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                     </button>
                   </div>
 
-                  {/* List Content Kotak Kiri */}
-                  <div className="p-2 sm:p-3 flex-1 overflow-y-auto max-h-[340px] space-y-2">
+                  {/* List Content Kotak Kiri - Scrollable Mandiri */}
+                  <div className="p-2 sm:p-3 flex-1 overflow-y-auto space-y-2">
                     {selectedItems.length === 0 ? (
-                      <div className="h-44 border-2 border-dashed border-emerald-500/20 rounded-lg flex flex-col items-center justify-center p-4 text-center text-text-muted">
+                      <div className="h-full border-2 border-dashed border-emerald-500/20 rounded-lg flex flex-col items-center justify-center p-4 text-center text-text-muted">
                         <Package className="w-8 h-8 text-emerald-500/30 mb-2" />
                         <p className="text-xs sm:text-sm font-medium text-text">Belum ada material yang diminta</p>
                         <p className="text-[11px] text-text-muted mt-1 max-w-xs">
@@ -561,7 +561,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                   </div>
 
                   {/* Footer Kotak Kiri: Subtotal Permintaan */}
-                  <div className="p-2.5 sm:p-3 bg-emerald-500/5 border-t border-emerald-500/20 flex justify-between items-center text-xs">
+                  <div className="p-2.5 sm:p-3 bg-emerald-500/5 border-t border-emerald-500/20 flex justify-between items-center text-xs shrink-0">
                     <span className="text-text-muted">Total Estimasi Material:</span>
                     <span className="font-bold font-mono text-emerald-400 text-sm">
                       {formatCurrency(totalRequisitionCost)}
@@ -569,17 +569,17 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                   </div>
                 </div>
 
-                {/* 2. PANEL TOMBOL KONTROL TRANSFER DI TENGAH */}
-                <div className="flex lg:flex-col items-center justify-center gap-2 py-2 lg:py-0">
+                {/* 2. KOLOM 2 (Tengah): PANEL TOMBOL KONTROL TRANSFER (2 Kolom) */}
+                <div className="md:col-span-2 flex md:flex-col items-center justify-center gap-3 py-2 self-center">
                   <button
                     type="button"
                     onClick={() => handleMoveToRequisition()}
                     disabled={!highlightedSourceId}
-                    className="flex-1 lg:flex-none p-2.5 sm:p-3 bg-emerald-600 hover:bg-emerald-500 active:scale-95 disabled:opacity-30 disabled:pointer-events-none text-white rounded-xl shadow-md transition-all flex items-center justify-center gap-1"
+                    className="flex-1 md:flex-none w-full md:w-auto p-2.5 md:p-3.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 disabled:opacity-30 disabled:pointer-events-none text-white rounded-xl shadow-md transition-all flex items-center justify-center gap-2 group"
                     title="Pindahkan item yang disorot ke Daftar Permintaan (<<)"
                   >
-                    <ChevronsLeft className="w-5 h-5 hidden lg:block" />
-                    <span className="text-xs font-bold lg:hidden flex items-center gap-1">
+                    <ChevronsLeft className="w-5 h-5 hidden md:block" />
+                    <span className="text-xs font-bold md:hidden flex items-center gap-1">
                       <ChevronsLeft className="w-4 h-4" /> Ambil (&lt;&lt;)
                     </span>
                   </button>
@@ -588,20 +588,20 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                     type="button"
                     onClick={() => handleMoveBackToAvailable()}
                     disabled={!highlightedTargetId}
-                    className="flex-1 lg:flex-none p-2.5 sm:p-3 bg-rose-600 hover:bg-rose-500 active:scale-95 disabled:opacity-30 disabled:pointer-events-none text-white rounded-xl shadow-md transition-all flex items-center justify-center gap-1"
+                    className="flex-1 md:flex-none w-full md:w-auto p-2.5 md:p-3.5 bg-rose-600 hover:bg-rose-500 active:scale-95 disabled:opacity-30 disabled:pointer-events-none text-white rounded-xl shadow-md transition-all flex items-center justify-center gap-2 group"
                     title="Kembalikan item yang disorot ke Daftar RAB (>>)"
                   >
-                    <ChevronsRight className="w-5 h-5 hidden lg:block" />
-                    <span className="text-xs font-bold lg:hidden flex items-center gap-1">
+                    <ChevronsRight className="w-5 h-5 hidden md:block" />
+                    <span className="text-xs font-bold md:hidden flex items-center gap-1">
                       Kembalikan (&gt;&gt;) <ChevronsRight className="w-4 h-4" />
                     </span>
                   </button>
                 </div>
 
-                {/* 3. KOTAK KANAN (Merah/Rose): Alokasi Material RAB WBS Terkait */}
-                <div className="flex flex-col rounded-xl border border-rose-500/30 bg-surface/90 overflow-hidden shadow-sm">
+                {/* 3. KOLOM 3 (Kanan): Alokasi Material RAB WBS Terkait (5 Kolom) */}
+                <div className="md:col-span-5 flex flex-col h-[420px] md:h-[460px] rounded-xl border border-rose-500/30 bg-surface/90 overflow-hidden shadow-sm">
                   {/* Header Kotak Kanan */}
-                  <div className="p-3 sm:p-3.5 bg-rose-500/10 border-b border-rose-500/20 flex items-center justify-between">
+                  <div className="p-3 sm:p-3.5 bg-rose-500/10 border-b border-rose-500/20 flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></div>
                       <h3 className="text-sm font-bold text-rose-400 truncate">
@@ -616,10 +616,10 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                     </span>
                   </div>
 
-                  {/* List Content Kotak Kanan */}
-                  <div className="p-2 sm:p-3 flex-1 overflow-y-auto max-h-[340px] space-y-2">
+                  {/* List Content Kotak Kanan - Scrollable Mandiri */}
+                  <div className="p-2 sm:p-3 flex-1 overflow-y-auto space-y-2">
                     {availableItems.length === 0 ? (
-                      <div className="h-44 border-2 border-dashed border-rose-500/20 rounded-lg flex flex-col items-center justify-center p-4 text-center text-text-muted">
+                      <div className="h-full border-2 border-dashed border-rose-500/20 rounded-lg flex flex-col items-center justify-center p-4 text-center text-text-muted">
                         <CheckCircle2 className="w-8 h-8 text-rose-500/30 mb-2" />
                         <p className="text-xs sm:text-sm font-medium text-text">
                           Semua material RAB telah dipindahkan
@@ -673,7 +673,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                   </div>
 
                   {/* Footer Kotak Kanan */}
-                  <div className="p-2.5 sm:p-3 bg-rose-500/5 border-t border-rose-500/20 flex justify-between items-center text-xs text-text-muted">
+                  <div className="p-2.5 sm:p-3 bg-rose-500/5 border-t border-rose-500/20 flex justify-between items-center text-xs text-text-muted shrink-0">
                     <span>Sisa Material di RAB:</span>
                     <span className="font-semibold text-text">
                       {availableItems.length} item tersisa
