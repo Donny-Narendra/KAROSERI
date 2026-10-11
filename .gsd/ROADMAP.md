@@ -612,10 +612,10 @@
 ---
 
 ### Phase 50: Gap Closure (Tata Letak 3 Kolom Bersebelahan Modal Requisition untuk Tampilan Tablet & Desktop di /mandor)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Address gaps from milestone audit (Penataan Ulang Layout Modal Requisition Menjadi 3 Kolom Bersebelahan pada Breakpoint Tablet md: dan Desktop)
 
 **Gaps to Close:**
-- [ ] Penataan Layout Grid Responsif 3 Kolom Bersebelahan pada Breakpoint `md:` (`md:grid-cols-12`: 5 kolom Kiri Permintaan, 2 kolom Tengah Tombol Transfer, 5 kolom Kanan Alokasi RAB).
-- [ ] Penyeragaman Ketinggian Kontainer (`h-[420px] md:h-[460px]`), Scrollbar Mandiri per Kolom, dan Centering Tombol Transfer di Tengah (`self-center`).
-- [ ] Verifikasi Interaktivitas Transfer Dua Arah, Double-Click, Responsiveness Tablet/Desktop, Linter (`npx oxlint`), dan Build (`npm run build`).
+- [x] Penataan Layout Grid Responsif 3 Kolom Bersebelahan pada Breakpoint `md:` (`md:grid-cols-12`: 5 kolom Kiri Permintaan, 2 kolom Tengah Tombol Transfer, 5 kolom Kanan Alokasi RAB).
+- [x] Penyeragaman Ketinggian Kontainer (`h-[420px] md:h-[460px]`), Scrollbar Mandiri per Kolom, dan Centering Tombol Transfer di Tengah (`self-center`).
+- [x] Verifikasi Interaktivitas Transfer Dua Arah, Double-Click, Responsiveness Tablet/Desktop, Linter (`npx oxlint`), dan Build (`npm run build`).

@@ -1,19 +1,25 @@
 ## Current Position
-- **Phase**: 50
-- **Task**: Ready to execute
-- **Status**: Planning Complete
+- **Phase**: 50 (completed)
+- **Task**: All tasks complete
+- **Status**: Verified
 
 ## Gap Closure Mode
-Addressing 1 gap for Phase 50:
-- Tata Letak 3 Kolom Bersebelahan (Permintaan | Tombol << & >> | Alokasi RAB) untuk Tampilan Tablet & Desktop di /mandor.
+Completed gap closure for Phase 50 (Tata Letak 3 Kolom Bersebelahan Modal Requisition untuk Tampilan Tablet & Desktop di /mandor).
 
 ## Last Session Summary
-Phase 49 executed successfully and Phase 50 planned:
-- Phase 50 added to `.gsd/ROADMAP.md` and detailed in `.gsd/phases/plan-50.md`.
-- 3 tasks defined:
-  1. Penataan Layout Grid Responsif 3 Kolom Bersebelahan pada Breakpoint `md:` (`md:grid-cols-12`: 5 kolom Kiri Permintaan, 2 kolom Tengah Tombol Transfer, 5 kolom Kanan Alokasi RAB).
-  2. Penyeragaman Ketinggian Kontainer (`h-[420px] md:h-[460px]`), Scrollbar Mandiri per Kolom, dan Centering Tombol Transfer di Tengah (`self-center`).
-  3. Verifikasi Interaktivitas Transfer Dua Arah, Double-Click, Responsiveness Tablet/Desktop, Linter (`npx oxlint`), dan Build (`npm run build`).
+Eksekusi Phase 50 selesai: Tata letak 3 kolom bersebelahan pada modal "Minta Material (Requisition)" di Mandor Terminal (`src/components/MaterialRequisitionForm.tsx`):
+1. **Grid Responsif Breakpoint Tablet & Desktop (`md:grid-cols-12`)**:
+   - Kolom 1 (Kiri - 5 Kolom): `md:col-span-5` untuk "Daftar Permintaan Material" (dengan tombol "+ Add Item" dan subtotal estimasi).
+   - Kolom 2 (Tengah - 2 Kolom): `md:col-span-2` untuk tombol kontrol `<<` dan `>>` vertikal di tablet/desktop (`self-center`).
+   - Kolom 3 (Kanan - 5 Kolom): `md:col-span-5` untuk "Alokasi RAB (WBS Terkait)" (Nama Material, Stok, Qty RAB, Satuan, dan Subtotal).
+2. **Ketinggian Simetris & Scrollbar Internal**:
+   - Kedua kartu memiliki tinggi seragam `h-[420px] md:h-[460px] flex flex-col`.
+   - Area list konten memiliki `overflow-y-auto flex-1` untuk scrollbar mandiri tanpa memotong header maupun footer.
+   - Tombol transfer `<<` dan `>>` berada persis di tengah ketinggian kartu secara vertikal (`self-center`).
+3. **Interaktivitas & Verifikasi**:
+   - Pemindahan dua arah (klik tombol `<<` / `>>` dan double-click shortcut) tetap berfungsi mulus.
+   - Penambahan material ekstra via "+ Add Item" tetap fleksibel.
+   - Linter (`npx oxlint` 0 error) dan build (`npm run build`) diverifikasi lulus 100%.
 
 ## In-Progress Work
 None.
@@ -22,4 +28,4 @@ None.
 None.
 
 ## Next Steps
-1. Jalankan `/execute 50` untuk mengeksekusi rencana Phase 50.
+1. Menunggu instruksi atau perencanaan fitur selanjutnya.
