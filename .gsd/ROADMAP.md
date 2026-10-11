@@ -619,3 +619,15 @@
 - [x] Penataan Layout Grid Responsif 3 Kolom Bersebelahan pada Breakpoint `md:` (`md:grid-cols-12`: 5 kolom Kiri Permintaan, 2 kolom Tengah Tombol Transfer, 5 kolom Kanan Alokasi RAB).
 - [x] Penyeragaman Ketinggian Kontainer (`h-[420px] md:h-[460px]`), Scrollbar Mandiri per Kolom, dan Centering Tombol Transfer di Tengah (`self-center`).
 - [x] Verifikasi Interaktivitas Transfer Dua Arah, Double-Click, Responsiveness Tablet/Desktop, Linter (`npx oxlint`), dan Build (`npm run build`).
+
+---
+
+### Phase 51: Gap Closure (Pembatalan Penugasan SPK-B, Filter Eksklusi Requisition, dan Transfer Interaktif Material RAB ke Form SPK-B)
+**Status**: ⬜ Not Started
+**Objective**: Address gaps from milestone audit (Fitur Pembatalan Penugasan SPK-B, Eksklusi Material Requisition, dan Transfer Interaktif Material RAB ke Form SPK-B pada /mandor)
+
+**Gaps to Close:**
+- [ ] Tombol Batalkan / Hapus Penugasan pada Riwayat Penugasan SPK-B dengan konfirmasi dan pembersihan record di Supabase.
+- [ ] Filter Eksklusi Material yang Sudah Masuk ke "Daftar Permintaan Material" (Requisition) aktif pada WBS terkait.
+- [ ] Transfer Interaktif Material dari Panduan RAB ke Form Penugasan Baru SPK-B (via Double Click / <<) dengan Kemampuan Rollback.
+- [ ] Verifikasi Type Checking, Build Validation, dan Commit Atomik.

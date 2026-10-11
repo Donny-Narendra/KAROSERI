@@ -1,25 +1,23 @@
 ## Current Position
-- **Phase**: 50 (completed)
-- **Task**: All tasks complete
-- **Status**: Verified
+- **Phase**: 51
+- **Task**: Ready to execute
+- **Status**: Planning Complete
 
 ## Gap Closure Mode
-Completed gap closure for Phase 50 (Tata Letak 3 Kolom Bersebelahan Modal Requisition untuk Tampilan Tablet & Desktop di /mandor).
+Addressing 1 gap for Phase 51:
+- Fitur / Penyesuaian Modal SPK Borongan di Halaman /mandor:
+  1. Tombol Batalkan / Hapus Penugasan pada Riwayat Penugasan SPK-B.
+  2. Filter Eksklusi Material yang Sudah Masuk ke "Daftar Permintaan Material" (Requisition).
+  3. Transfer Interaktif Material dari Panduan RAB ke Form Penugasan Baru SPK-B (via Double Click / <<) dengan Kemampuan Rollback.
 
 ## Last Session Summary
-Eksekusi Phase 50 selesai: Tata letak 3 kolom bersebelahan pada modal "Minta Material (Requisition)" di Mandor Terminal (`src/components/MaterialRequisitionForm.tsx`):
-1. **Grid Responsif Breakpoint Tablet & Desktop (`md:grid-cols-12`)**:
-   - Kolom 1 (Kiri - 5 Kolom): `md:col-span-5` untuk "Daftar Permintaan Material" (dengan tombol "+ Add Item" dan subtotal estimasi).
-   - Kolom 2 (Tengah - 2 Kolom): `md:col-span-2` untuk tombol kontrol `<<` dan `>>` vertikal di tablet/desktop (`self-center`).
-   - Kolom 3 (Kanan - 5 Kolom): `md:col-span-5` untuk "Alokasi RAB (WBS Terkait)" (Nama Material, Stok, Qty RAB, Satuan, dan Subtotal).
-2. **Ketinggian Simetris & Scrollbar Internal**:
-   - Kedua kartu memiliki tinggi seragam `h-[420px] md:h-[460px] flex flex-col`.
-   - Area list konten memiliki `overflow-y-auto flex-1` untuk scrollbar mandiri tanpa memotong header maupun footer.
-   - Tombol transfer `<<` dan `>>` berada persis di tengah ketinggian kartu secara vertikal (`self-center`).
-3. **Interaktivitas & Verifikasi**:
-   - Pemindahan dua arah (klik tombol `<<` / `>>` dan double-click shortcut) tetap berfungsi mulus.
-   - Penambahan material ekstra via "+ Add Item" tetap fleksibel.
-   - Linter (`npx oxlint` 0 error) dan build (`npm run build`) diverifikasi lulus 100%.
+Phase 50 executed successfully and Phase 51 planned:
+- Phase 51 added to `.gsd/ROADMAP.md` and detailed in `.gsd/phases/plan-51.md`.
+- 4 tasks defined:
+  1. Handler Pembatalan/Penghapusan Penugasan pada Riwayat SPK-B (`handleCancelAssignment`).
+  2. Filter Eksklusi Material yang Sudah Diajukan di Requisition pada Panduan Material RAB.
+  3. Transfer Interaktif Material dari Panduan RAB ke Form Penugasan Baru dengan Kemampuan Rollback.
+  4. Verifikasi, Type Checking, dan Build Validation (`npm run build`, `npx oxlint`).
 
 ## In-Progress Work
 None.
@@ -28,4 +26,4 @@ None.
 None.
 
 ## Next Steps
-1. Menunggu instruksi atau perencanaan fitur selanjutnya.
+1. Jalankan `/execute 51` untuk mengeksekusi rencana Phase 51.
