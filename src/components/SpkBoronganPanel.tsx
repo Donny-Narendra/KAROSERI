@@ -2,6 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import type { SpkBoronganStatus } from '../types/database';
+import { 
+  Trash2, 
+  RotateCcw, 
+  ChevronsLeft, 
+  Printer, 
+  X, 
+  AlertCircle, 
+  CheckCircle2, 
+  PackageCheck 
+} from 'lucide-react';
 
 interface SpkBoronganPanelProps {
   spkId: string;
@@ -33,6 +43,7 @@ interface RabMaterial {
   description?: string;
   item_total?: number;
   unit_price?: number;
+  material_id?: string;
   materials: {
     id: string;
     name: string;
@@ -60,6 +71,9 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
   const [rabMaterials, setRabMaterials] = useState<RabMaterial[]>([]);
   const [searchMaterial, setSearchMaterial] = useState('');
   
+  // Interactive transfer state
+  const [selectedRabItemForAssignment, setSelectedRabItemForAssignment] = useState<RabMaterial | null>(null);
+
   // New assignment form
   const [workerName, setWorkerName] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
@@ -120,7 +134,36 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
       return;
     }
 
-    // Langkah 2: Ambil items dari rab_items join materials
+    // Langkah 2: Ambil data Requisition aktif untuk mengecualikan material yang sudah diminta ke gudang
+    const requisitionedMaterialIds = new Set<string>();
+    try {
+      const { data: reqData } = await supabase
+        .from('material_requisitions')
+        .select(`
+          id,
+          status,
+          material_requisition_items (
+            material_id
+          )
+        `)
+        .eq('spk_id', spkId)
+        .eq('wbs_category', cleanWbsCategory)
+        .neq('status', 'REJECTED');
+
+      if (reqData) {
+        reqData.forEach((req: any) => {
+          if (req.material_requisition_items) {
+            req.material_requisition_items.forEach((item: any) => {
+              if (item.material_id) requisitionedMaterialIds.add(item.material_id);
+            });
+          }
+        });
+      }
+    } catch (reqErr) {
+      console.error('Error fetching requisitions for exclusion:', reqErr);
+    }
+
+    // Langkah 3: Ambil items dari rab_items join materials
     const { data: itemsData, error: itemsError } = await supabase
       .from('rab_items')
       .select(`
@@ -129,6 +172,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
         wbs_category,
         description,
         item_total,
+        material_id,
         materials (
           id,
           name,
@@ -136,14 +180,77 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
           unit_price
         )
       `)
-      .eq('rab_estimation_id', rabEst.id)
-      .eq('wbs_category', cleanWbsCategory);
+      .eq('rab_estimation_id', rabEst.id);
 
     if (itemsError) {
       console.error('Error fetching RAB items:', itemsError);
       setRabMaterials([]);
     } else if (itemsData) {
-      setRabMaterials(itemsData as unknown as RabMaterial[]);
+      // Filter kategori WBS yang cocok secara toleran
+      const matchingCategory = (itemsData as any[]).filter(item => {
+        if (!item.wbs_category) return true;
+        const itemCatClean = item.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
+        return (
+          itemCatClean === cleanWbsCategory.toLowerCase() ||
+          item.wbs_category.toLowerCase() === wbsCategory.toLowerCase()
+        );
+      });
+
+      // Filter eksklusi material yang sudah masuk ke Requisition
+      const nonRequisitioned = matchingCategory.filter(item => {
+        const matId = item.materials?.id || item.material_id;
+        if (matId && requisitionedMaterialIds.has(matId)) {
+          return false; // Kecualikan karena sudah diajukan via Requisition
+        }
+        return true;
+      });
+
+      setRabMaterials(nonRequisitioned as unknown as RabMaterial[]);
+    }
+  };
+
+  // Handler Transfer Material dari Panduan RAB ke Form Penugasan Baru
+  const handleSelectMaterialForAssignment = (item: RabMaterial) => {
+    const itemName = item.materials?.name || item.description || 'Pekerjaan Borongan';
+    const subtotal = (typeof item.item_total === 'number' && item.item_total > 0)
+      ? item.item_total
+      : ((item.quantity || 0) * (item.materials?.unit_price || item.unit_price || 0));
+
+    setSelectedRabItemForAssignment(item);
+    setTaskDescription(itemName);
+    setContractValue(subtotal);
+  };
+
+  // Handler Batal Transfer / Reset Form
+  const handleResetTransferredItem = () => {
+    setSelectedRabItemForAssignment(null);
+    setTaskDescription('');
+    setContractValue('');
+  };
+
+  // Handler Pembatalan / Penghapusan Penugasan SPK-B
+  const handleCancelAssignment = async (id: string, workerNameStr: string) => {
+    if (!window.confirm(`Batalkan dan hapus penugasan untuk "${workerNameStr}"? Pekerjaan ini dapat dialihkan kembali ke pekerja lain.`)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('spk_borongan')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      alert(`Penugasan "${workerNameStr}" berhasil dibatalkan.`);
+      await fetchRecords();
+      await fetchRabMaterials();
+    } catch (err: any) {
+      console.error('Error cancelling assignment:', err);
+      alert('Gagal membatalkan penugasan: ' + (err.message || 'Terjadi kesalahan'));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -155,20 +262,22 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
     const { error } = await supabase.from('spk_borongan').insert({
       spk_id: spkId,
       wbs_category: cleanWbsCategory,
-      worker_name: workerName,
-      task_description: taskDescription,
+      worker_name: workerName.trim(),
+      task_description: taskDescription.trim(),
       contract_value: Number(contractValue),
       created_by: user.id
     });
     
     if (error) {
       console.error('Error creating SPK-B:', error);
-      alert('Gagal membuat SPK Borongan');
+      alert('Gagal membuat SPK Borongan: ' + error.message);
     } else {
       setWorkerName('');
       setTaskDescription('');
       setContractValue('');
-      fetchRecords();
+      setSelectedRabItemForAssignment(null);
+      await fetchRecords();
+      await fetchRabMaterials();
     }
     setLoading(false);
   };
@@ -249,38 +358,35 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
         </head>
         <body>
           <div class="header">
-            <h1>RobelKaroseri</h1>
-            <h2>SURAT TUGAS PENGERJAAN BORONGAN</h2>
+            <h1>SURAT PENUGASAN KERJA BORONGAN</h1>
+            <h2>ROBEL KAROSERI</h2>
             <p>Nomor: ${letterNo}</p>
           </div>
-          
+
           <div class="section">
-            <div class="section-title">A. Dasar Penugasan</div>
-            <div class="row"><div class="label">Nomor SPK Induk</div><div class="value">: ${spkDetail?.spk_no || '-'}</div></div>
-            <div class="row"><div class="label">Pelanggan</div><div class="value">: ${spkDetail?.customer_name || '-'}</div></div>
-            <div class="row"><div class="label">Kendaraan</div><div class="value">: ${spkDetail?.vehicle_plate || '-'}</div></div>
-            <div class="row"><div class="label">Tahapan WBS</div><div class="value">: ${wbsCategory}</div></div>
-          </div>
-          
-          <div class="section">
-            <div class="section-title">B. Detail Instruksi & Penugasan</div>
-            <div class="row"><div class="label">Nama Pekerja</div><div class="value">: ${record.worker_name}</div></div>
-            <div class="row"><div class="label">Uraian Tugas</div><div class="value">: ${record.task_description || '-'}</div></div>
-            <div class="row"><div class="label">Tanggal Dibuat</div><div class="value">: ${new Date(record.created_at).toLocaleDateString('id-ID')}</div></div>
+            <div class="section-title">A. INFORMASI SPK UTAMA</div>
+            <div class="row"><div class="label">No. SPK</div><div class="value">: ${spkDetail?.spk_no || '-'}</div></div>
+            <div class="row"><div class="label">Customer</div><div class="value">: ${spkDetail?.customer_name || '-'}</div></div>
+            <div class="row"><div class="label">No. Polisi</div><div class="value">: ${spkDetail?.vehicle_plate || '-'}</div></div>
           </div>
 
-          <p style="margin-top: 2rem;">Demikian surat tugas ini dibuat untuk dapat dilaksanakan dengan penuh tanggung jawab sesuai target kualitas bengkel.</p>
-          
+          <div class="section">
+            <div class="section-title">B. DETAIL PENUGASAN BORONGAN</div>
+            <div class="row"><div class="label">Tahapan WBS</div><div class="value">: ${wbsCategory}</div></div>
+            <div class="row"><div class="label">Nama Pekerja/Mandor</div><div class="value">: <strong>${record.worker_name}</strong></div></div>
+            <div class="row"><div class="label">Tugas/Uraian Kerja</div><div class="value">: ${record.task_description || '-'}</div></div>
+            <div class="row"><div class="label">Nilai Kontrak</div><div class="value">: <strong>Rp ${record.contract_value.toLocaleString('id-ID')}</strong></div></div>
+            <div class="row"><div class="label">Tanggal Dikeluarkan</div><div class="value">: ${new Date(record.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div></div>
+          </div>
+
           <div class="signatures">
             <div class="sig-box">
-              <div>Pemberi Tugas</div>
-              <div>( Kepala Bengkel / Mandor )</div>
-              <div class="sig-name">....................................</div>
+              <p>Pemberi Tugas,</p>
+              <div class="sig-name">MANDOR / BENGKEL</div>
             </div>
             <div class="sig-box">
-              <div>Penerima Tugas</div>
-              <div>( Pekerja Borong )</div>
-              <div class="sig-name">${record.worker_name}</div>
+              <p>Penerima Tugas,</p>
+              <div class="sig-name">${record.worker_name.toUpperCase()}</div>
             </div>
           </div>
         </body>
@@ -294,165 +400,335 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
     }, 250);
   };
 
-  const filteredMaterials = rabMaterials.filter(m => 
-    (m.materials?.name || m.description || '').toLowerCase().includes(searchMaterial.toLowerCase())
-  );
+  // Filter daftar material:
+  // 1. Sembunyikan jika sedang ditransfer ke form penugasan
+  // 2. Sembunyikan jika sudah aktif ditugaskan di riwayat SPK-B
+  // 3. Filter pencarian teks
+  const filteredMaterials = rabMaterials.filter(m => {
+    if (selectedRabItemForAssignment && selectedRabItemForAssignment.id === m.id) {
+      return false;
+    }
+    const itemName = (m.materials?.name || m.description || '').toLowerCase();
+    const isAlreadyAssigned = records.some(r => 
+      r.status === 'ACTIVE' && 
+      r.task_description && 
+      r.task_description.toLowerCase().trim() === itemName.trim()
+    );
+    if (isAlreadyAssigned) {
+      return false;
+    }
+    return itemName.includes(searchMaterial.toLowerCase());
+  });
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-surface rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-border flex justify-between items-center bg-surface">
-          <h2 className="text-lg font-bold text-text">SPK Borongan - {wbsCategory}</h2>
-          <button onClick={onClose} className="text-text-muted hover:text-text">&times;</button>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
+      <div className="bg-surface border border-border rounded-xl shadow-2xl max-w-6xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in duration-200">
+        
+        {/* Modal Header */}
+        <div className="p-4 sm:p-5 border-b border-border flex justify-between items-center bg-surface">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10 text-primary border border-primary/20">
+              <PackageCheck className="w-5 h-5 sm:w-6 sm:h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg sm:text-xl font-bold text-text">SPK Borongan</h2>
+                {spkDetail?.spk_no && (
+                  <span className="text-xs px-2 py-0.5 rounded font-mono font-bold bg-primary/20 text-primary border border-primary/30">
+                    {spkDetail.spk_no}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs sm:text-sm text-text-muted mt-0.5">
+                Tahapan WBS: <strong className="text-text font-semibold">{wbsCategory}</strong>
+              </p>
+            </div>
+          </div>
+          <button 
+            type="button"
+            onClick={onClose} 
+            className="p-1.5 text-text-muted hover:text-text hover:bg-background rounded-lg transition-colors"
+            title="Tutup Modal"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
         
-        <div className="p-6 overflow-y-auto flex-1 bg-background">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Modal Body */}
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 bg-background/50">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
             
-            {/* Bagian Kiri: Penugasan SPK-B */}
-            <div className="space-y-6">
-              <div className="bg-surface p-4 rounded-lg shadow-sm border border-border">
-                <h3 className="font-semibold mb-4 text-text">Riwayat Penugasan SPK-B</h3>
+            {/* Bagian Kiri: Penugasan SPK-B (7 Kolom pada Desktop) */}
+            <div className="lg:col-span-6 space-y-6 flex flex-col">
+              
+              {/* Kotak Riwayat Penugasan SPK-B (Kotak Hijau Muda) */}
+              <div className="bg-surface/90 p-4 sm:p-5 rounded-xl shadow-sm border border-emerald-500/30">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+                    <h3 className="font-bold text-sm sm:text-base text-text">Riwayat Penugasan SPK-B</h3>
+                  </div>
+                  <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">
+                    {records.length} Pekerja
+                  </span>
+                </div>
+
                 {records.length === 0 ? (
-                  <p className="text-sm text-text-muted">Belum ada penugasan borongan untuk WBS ini.</p>
+                  <div className="p-4 text-center text-xs sm:text-sm text-text-muted border border-dashed border-emerald-500/20 rounded-lg">
+                    Belum ada penugasan borongan untuk tahapan WBS ini.
+                  </div>
                 ) : (
-                  <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2">
+                  <div className="space-y-3 max-h-[30vh] overflow-y-auto pr-1">
                     {records.map(record => (
-                      <div key={record.id} className="border border-border rounded p-4 flex flex-col gap-3 bg-background">
-                        <div>
-                          <p className="font-bold text-text">{record.worker_name}</p>
-                          <p className="text-sm text-text-muted mt-1"><span className="font-medium">Tugas:</span> {record.task_description || '-'}</p>
-                          <p className="text-sm text-text-muted mt-1"><span className="font-medium">Nilai Kontrak:</span> Rp {record.contract_value.toLocaleString('id-ID')}</p>
-                          <p className="text-sm text-text-muted mt-1"><span className="font-medium">Status:</span> <span className="font-medium text-primary">{record.status}</span></p>
-                          {record.status === 'CUT_OFF' && (
-                            <p className="text-sm text-text-muted mt-1"><span className="font-medium">Progress Cut-Off:</span> {record.progress_percentage}%</p>
-                          )}
+                      <div 
+                        key={record.id} 
+                        className="border border-border/80 rounded-lg p-3.5 flex flex-col gap-2.5 bg-background/80 hover:border-emerald-500/40 transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="font-bold text-sm text-text">{record.worker_name}</p>
+                            <p className="text-xs text-text-muted mt-0.5">
+                              <span className="font-medium text-text">Tugas:</span> {record.task_description || '-'}
+                            </p>
+                            <p className="text-xs text-text-muted mt-0.5">
+                              <span className="font-medium text-text">Nilai Kontrak:</span> <strong className="text-primary font-mono">{formatCurrency(record.contract_value)}</strong>
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${
+                                record.status === 'ACTIVE' 
+                                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                  : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                              }`}>
+                                {record.status}
+                              </span>
+                              {record.assignment_letter_no && (
+                                <span className="text-[10px] font-mono text-text-muted">
+                                  {record.assignment_letter_no}
+                                </span>
+                              )}
+                            </div>
+                            {record.status === 'CUT_OFF' && (
+                              <p className="text-xs text-status-warning mt-1 font-semibold">
+                                Progress Cut-Off: {record.progress_percentage}%
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Tombol Aksi Cetak & Batalkan */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handlePrint(record)}
+                              className="px-2.5 py-1 bg-surface border border-primary/40 text-primary rounded text-xs hover:bg-primary/10 flex items-center gap-1 transition-colors font-medium shadow-sm"
+                              title="Cetak Surat Tugas"
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                              <span>Cetak</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleCancelAssignment(record.id, record.worker_name)}
+                              className="px-2.5 py-1 bg-surface border border-rose-500/40 text-rose-400 rounded text-xs hover:bg-rose-500/10 hover:border-rose-500 flex items-center gap-1 transition-colors font-medium shadow-sm"
+                              title="Batalkan / Hapus penugasan ini"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Batalkan</span>
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            onClick={() => handlePrint(record)}
-                            className="px-3 py-1 bg-surface border border-primary text-primary rounded text-sm hover:bg-primary/10"
-                          >
-                            Cetak
-                          </button>
-                          {record.status === 'ACTIVE' && (
-                            cutOffId === record.id ? (
-                              <div className="flex flex-col gap-2 border border-border p-2 rounded bg-surface w-full mt-2">
+
+                        {/* Opname Fisik Cut-Off Modal / Form */}
+                        {record.status === 'ACTIVE' && (
+                          <div className="pt-2 border-t border-border/60">
+                            {cutOffId === record.id ? (
+                              <div className="flex flex-col gap-2 p-2 rounded bg-surface border border-border">
+                                <span className="text-xs text-text-muted">Input Persentase Fisik Saat Ini:</span>
                                 <input 
                                   type="number" 
                                   placeholder="% Selesai" 
-                                  className="px-2 py-1 border border-border rounded text-sm text-text bg-background"
+                                  className="px-2 py-1 border border-border rounded text-xs text-text bg-background font-mono font-bold"
                                   value={progress}
                                   onChange={(e) => setProgress(e.target.value === '' ? '' : Number(e.target.value))}
                                   min="0" max="100"
                                 />
                                 <div className="flex gap-2">
-                                  <button onClick={() => handleCutOff(record.id)} className="flex-1 bg-primary text-white text-xs py-1 rounded">Simpan</button>
+                                  <button onClick={() => handleCutOff(record.id)} className="flex-1 bg-primary text-white text-xs py-1 rounded font-semibold">Simpan</button>
                                   <button onClick={() => setCutOffId(null)} className="flex-1 bg-surface border border-border text-text text-xs py-1 rounded">Batal</button>
                                 </div>
                               </div>
                             ) : (
                               <button
+                                type="button"
                                 onClick={() => { setCutOffId(record.id); setProgress(''); }}
-                                className="px-3 py-1 bg-surface border border-status-warning text-status-warning rounded text-sm hover:bg-status-warning/10"
+                                className="px-2.5 py-1 bg-surface border border-status-warning/40 text-status-warning rounded text-xs hover:bg-status-warning/10 transition-colors"
                               >
                                 Opname Fisik
                               </button>
-                            )
-                          )}
-                        </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
                 )}
               </div>
 
-              <div className="bg-surface p-4 rounded-lg shadow-sm border border-border">
-                <h3 className="font-semibold mb-4 text-text">Penugasan Baru SPK-B</h3>
-                {records.some(r => r.status === 'ACTIVE') && (
-                  <div className="bg-status-warning/10 border border-status-warning text-status-warning p-3 rounded mb-4 text-sm">
-                    Peringatan: Masih ada SPK Borongan aktif. Pastikan cut-off/opname fisik jika pekerja diganti.
+              {/* Kotak Form Penugasan Baru SPK-B (Kotak Merah) */}
+              <div className="bg-surface/90 p-4 sm:p-5 rounded-xl shadow-sm border border-rose-500/30 flex-1 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-rose-500"></div>
+                      <h3 className="font-bold text-sm sm:text-base text-text">Penugasan Baru SPK-B</h3>
+                    </div>
+                    {selectedRabItemForAssignment && (
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-primary/20 text-primary border border-primary/30 flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> Auto-Fill RAB
+                      </span>
+                    )}
                   </div>
-                )}
-                <form onSubmit={handleCreate} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-text mb-1">Nama Pekerja / Mandor Borong</label>
-                    <input
-                      type="text"
-                      required
-                      className="w-full bg-background border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
-                      value={workerName}
-                      onChange={(e) => setWorkerName(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-text mb-1">Tugas / Uraian Pekerjaan</label>
-                    <textarea
-                      required
-                      rows={2}
-                      className="w-full bg-background border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-primary resize-none"
-                      value={taskDescription}
-                      onChange={(e) => setTaskDescription(e.target.value)}
-                      placeholder="Contoh: Pengelasan rangka bak..."
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-text mb-1">Nilai Kontrak Borongan (Rp)</label>
-                    <input
-                      type="number"
-                      required
-                      min="0"
-                      className="w-full bg-background border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
-                      value={contractValue}
-                      onChange={(e) => setContractValue(Number(e.target.value))}
-                    />
-                  </div>
+
+                  {/* Banner Transfer RAB */}
+                  {selectedRabItemForAssignment && (
+                    <div className="bg-primary/10 border border-primary/30 p-2.5 rounded-lg flex items-center justify-between text-xs mb-3 animate-in fade-in">
+                      <div className="min-w-0 flex-1 pr-2">
+                        <span className="text-[11px] text-text-muted">Item Terpilih dari Panduan RAB:</span>
+                        <p className="font-bold text-primary truncate mt-0.5">
+                          {selectedRabItemForAssignment.materials?.name || selectedRabItemForAssignment.description}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleResetTransferredItem}
+                        className="px-2 py-1 bg-surface border border-border hover:bg-background text-text-muted hover:text-rose-400 rounded flex items-center gap-1 transition-colors text-xs shrink-0"
+                        title="Batal transfer & kembalikan item ke Panduan Material"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Reset</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {records.some(r => r.status === 'ACTIVE') && (
+                    <div className="bg-status-warning/10 border border-status-warning/30 text-status-warning p-2.5 rounded-lg mb-3 text-xs flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>Perhatian: Masih ada SPK-B aktif. Pastikan cut-off fisik jika pekerja diganti.</span>
+                    </div>
+                  )}
+
+                  <form id="spk-b-form" onSubmit={handleCreate} className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-text mb-1">
+                        Nama Pekerja / Mandor Borong
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-xs sm:text-sm text-text focus:outline-none focus:border-primary"
+                        value={workerName}
+                        onChange={(e) => setWorkerName(e.target.value)}
+                        placeholder="Contoh: Adi Las, Budi Ketok..."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-text mb-1">
+                        Tugas / Uraian Pekerjaan
+                      </label>
+                      <textarea
+                        required
+                        rows={2}
+                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-xs sm:text-sm text-text focus:outline-none focus:border-primary resize-none"
+                        value={taskDescription}
+                        onChange={(e) => setTaskDescription(e.target.value)}
+                        placeholder="Contoh: TUKANG LAS DUDUKAN SLEBOR..."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-text mb-1">
+                        Nilai Kontrak Borongan (Rp)
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        min="0"
+                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-xs sm:text-sm font-mono font-bold text-text focus:outline-none focus:border-primary"
+                        value={contractValue}
+                        onChange={(e) => setContractValue(e.target.value === '' ? '' : Number(e.target.value))}
+                        placeholder="0"
+                      />
+                    </div>
+                  </form>
+                </div>
+
+                <div className="pt-3 mt-3 border-t border-border">
                   <button
                     type="submit"
+                    form="spk-b-form"
                     disabled={loading || !workerName || !taskDescription || contractValue === ''}
-                    className="w-full py-2 bg-primary text-white rounded font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                    className="w-full py-2.5 bg-primary text-white rounded-lg font-semibold text-xs sm:text-sm hover:bg-primary/90 disabled:opacity-40 transition-colors shadow-sm flex items-center justify-center gap-1.5"
                   >
                     {loading ? 'Menyimpan...' : 'Buat SPK Borongan'}
                   </button>
-                </form>
+                </div>
               </div>
+
             </div>
 
-            {/* Bagian Kanan: Material Terencana (RAB) */}
-            <div className="bg-surface p-4 rounded-lg shadow-sm border border-border h-full flex flex-col">
-              <div className="mb-4">
-                <h3 className="font-semibold text-text mb-2">Panduan Material (RAB)</h3>
-                <p className="text-sm text-text-muted mb-4">
-                  Daftar material yang telah dialokasikan untuk {wbsCategory}.
+            {/* Bagian Kanan: Panduan Material (RAB) (Kotak Biru / 6 Kolom pada Desktop) */}
+            <div className="lg:col-span-6 bg-surface/90 p-4 sm:p-5 rounded-xl shadow-sm border border-blue-500/30 flex flex-col h-[480px] lg:h-[580px]">
+              
+              <div className="mb-3">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
+                    <h3 className="font-bold text-sm sm:text-base text-blue-400">Panduan Material (RAB)</h3>
+                  </div>
+                  <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-blue-500/20 text-blue-300">
+                    {filteredMaterials.length} Tersedia
+                  </span>
+                </div>
+                <p className="text-xs text-text-muted mb-2">
+                  Daftar material yang dialokasikan untuk {wbsCategory}. Item yang sudah diajukan via Requisition otomatis dikecualikan.
                 </p>
-                <input
-                  type="text"
-                  placeholder="Cari nama material..."
-                  className="w-full bg-background border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
-                  value={searchMaterial}
-                  onChange={(e) => setSearchMaterial(e.target.value)}
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Cari nama material..."
+                    className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-xs sm:text-sm text-text focus:outline-none focus:border-blue-500"
+                    value={searchMaterial}
+                    onChange={(e) => setSearchMaterial(e.target.value)}
+                  />
+                  <span className="text-[11px] text-text-muted hidden sm:inline shrink-0">
+                    Double-click atau klik &quot;&lt;&lt;&quot;
+                  </span>
+                </div>
               </div>
               
-              <div className="flex-1 overflow-y-auto border border-border rounded bg-background">
+              {/* Tabel Scrollable Mandiri */}
+              <div className="flex-1 overflow-y-auto border border-border/80 rounded-lg bg-background/80">
                 {rabMaterials.length === 0 ? (
-                  <div className="p-4 text-center text-sm text-text-muted">
-                    Tidak ada material terencana untuk WBS ini.
+                  <div className="p-8 text-center text-xs sm:text-sm text-text-muted flex flex-col items-center justify-center h-full">
+                    <CheckCircle2 className="w-8 h-8 text-blue-500/30 mb-2" />
+                    <p className="font-semibold text-text">Tidak ada material tersisa untuk WBS ini.</p>
+                    <p className="text-xs text-text-muted mt-1 max-w-xs">
+                      Seluruh material mungkin telah diajukan ke gudang (Requisition) atau belum dialokasikan di estimasi.
+                    </p>
                   </div>
                 ) : filteredMaterials.length === 0 ? (
-                  <div className="p-4 text-center text-sm text-text-muted">
-                    Material tidak ditemukan.
+                  <div className="p-8 text-center text-xs sm:text-sm text-text-muted flex flex-col items-center justify-center h-full">
+                    <p>Tidak ada material yang cocok dengan filter atau pencarian.</p>
                   </div>
                 ) : (
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-surface border-b border-border sticky top-0 z-10">
+                  <table className="w-full text-left text-xs sm:text-sm">
+                    <thead className="bg-surface border-b border-border sticky top-0 z-10 text-xs">
                       <tr>
-                        <th className="px-4 py-2 font-medium text-text">Nama Material</th>
-                        <th className="px-3 py-2 font-medium text-text text-right w-20">Qty</th>
-                        <th className="px-4 py-2 font-medium text-text text-right w-36 whitespace-nowrap">Subtotal RAB</th>
+                        <th className="px-3.5 py-2.5 font-bold text-text">Nama Material / Item</th>
+                        <th className="px-2.5 py-2.5 font-bold text-text text-right w-16">Qty</th>
+                        <th className="px-3 py-2.5 font-bold text-text text-right w-28 whitespace-nowrap">Subtotal</th>
+                        <th className="px-2 py-2.5 font-bold text-center w-12">Aksi</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-border">
+                    <tbody className="divide-y divide-border/60">
                       {filteredMaterials.map((item) => {
                         const itemName = item.materials?.name || item.description || 'Item Pekerjaan';
                         const itemUnit = item.materials?.unit || 'item';
@@ -461,15 +737,33 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
                           : ((item.quantity || 0) * (item.materials?.unit_price || item.unit_price || 0));
                         
                         return (
-                          <tr key={item.id} className="hover:bg-surface/50">
-                            <td className="px-4 py-3 text-text break-words min-w-0">
-                              {itemName}
+                          <tr 
+                            key={item.id} 
+                            onDoubleClick={() => handleSelectMaterialForAssignment(item)}
+                            className="hover:bg-blue-500/10 cursor-pointer transition-colors group"
+                            title="Double click atau klik tombol '<<' untuk transfer ke Form Penugasan"
+                          >
+                            <td className="px-3.5 py-2.5 text-text break-words min-w-0">
+                              <span className="font-semibold">{itemName}</span>
                             </td>
-                            <td className="px-3 py-3 text-text text-right whitespace-nowrap">
-                              {item.quantity} <span className="text-text-muted text-xs">{itemUnit}</span>
+                            <td className="px-2.5 py-2.5 text-text text-right whitespace-nowrap font-mono">
+                              {item.quantity} <span className="text-text-muted text-[10px]">{itemUnit}</span>
                             </td>
-                            <td className="px-4 py-3 text-text text-right whitespace-nowrap font-medium text-text">
+                            <td className="px-3 py-2.5 text-right whitespace-nowrap font-semibold font-mono text-blue-400">
                               {formatCurrency(subtotal)}
+                            </td>
+                            <td className="px-2 py-2.5 text-center">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSelectMaterialForAssignment(item);
+                                }}
+                                className="p-1 bg-blue-600 hover:bg-blue-500 text-white rounded shadow-sm transition-all"
+                                title="Pindahkan ke form penugasan (<<)"
+                              >
+                                <ChevronsLeft className="w-3.5 h-3.5" />
+                              </button>
                             </td>
                           </tr>
                         );
@@ -478,10 +772,20 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
                   </table>
                 )}
               </div>
+
+              {/* Footer Panel Kanan */}
+              <div className="pt-2.5 mt-2 flex justify-between items-center text-xs text-text-muted">
+                <span>Material RAB Tersedia:</span>
+                <span className="font-bold text-text font-mono">
+                  {filteredMaterials.length} Item
+                </span>
+              </div>
+
             </div>
 
           </div>
         </div>
+
       </div>
     </div>
   );
