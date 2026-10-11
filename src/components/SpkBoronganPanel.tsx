@@ -12,6 +12,7 @@ import {
   CheckCircle2, 
   PackageCheck 
 } from 'lucide-react';
+import { isRabItemAllocated } from '../utils/rabItemAllocation';
 
 interface SpkBoronganPanelProps {
   spkId: string;
@@ -137,7 +138,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
     }
 
     // Langkah 2: Ambil data Requisition aktif untuk mengecualikan material yang sudah diminta ke gudang
-    const requisitionedMaterialIds = new Set<string>();
+    let requisitionList: any[] = [];
     try {
       const { data: reqData } = await supabase
         .from('material_requisitions')
@@ -145,7 +146,8 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
           id,
           status,
           material_requisition_items (
-            material_id
+            material_id,
+            materials ( name )
           )
         `)
         .eq('spk_id', spkId)
@@ -153,19 +155,36 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
         .neq('status', 'REJECTED');
 
       if (reqData) {
-        reqData.forEach((req: any) => {
-          if (req.material_requisition_items) {
-            req.material_requisition_items.forEach((item: any) => {
-              if (item.material_id) requisitionedMaterialIds.add(item.material_id);
-            });
-          }
-        });
+        requisitionList = reqData;
       }
     } catch (reqErr) {
       console.error('Error fetching requisitions for exclusion:', reqErr);
     }
 
-    // Langkah 3: Ambil items dari rab_items join materials
+    // Langkah 3: Ambil penugasan SPK Borongan aktif untuk mengecualikan material yang sudah ditugaskan ke pekerja
+    let activeAssignments: any[] = [];
+    try {
+      const { data: spkBData } = await supabase
+        .from('spk_borongan')
+        .select('id, material_id, rab_item_id, task_description, status, wbs_category')
+        .eq('spk_id', spkId)
+        .neq('status', 'CUT_OFF');
+
+      if (spkBData) {
+        activeAssignments = spkBData.filter((item: any) => {
+          if (!item.wbs_category) return true;
+          const bCat = item.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
+          return (
+            bCat === cleanWbsCategory.toLowerCase() ||
+            item.wbs_category.toLowerCase() === wbsCategory.toLowerCase()
+          );
+        });
+      }
+    } catch (spkBErr) {
+      console.error('Error fetching SPK-B for exclusion:', spkBErr);
+    }
+
+    // Langkah 4: Ambil items dari rab_items join materials
     const { data: itemsData, error: itemsError } = await supabase
       .from('rab_items')
       .select(`
@@ -198,16 +217,12 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
         );
       });
 
-      // Filter eksklusi material yang sudah masuk ke Requisition
-      const nonRequisitioned = matchingCategory.filter(item => {
-        const matId = item.materials?.id || item.material_id;
-        if (matId && requisitionedMaterialIds.has(matId)) {
-          return false; // Kecualikan karena sudah diajukan via Requisition
-        }
-        return true;
+      // Filter eksklusi material yang sudah masuk ke Requisition atau sudah ditugaskan di SPK Borongan
+      const nonAllocated = matchingCategory.filter(item => {
+        return !isRabItemAllocated(item, requisitionList, activeAssignments);
       });
 
-      setRabMaterials(nonRequisitioned as unknown as RabMaterial[]);
+      setRabMaterials(nonAllocated as unknown as RabMaterial[]);
     }
   };
 
@@ -405,22 +420,21 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
   };
 
   // Filter daftar material:
-  // 1. Sembunyikan jika sedang ditransfer ke form penugasan
-  // 2. Sembunyikan jika sudah aktif ditugaskan di riwayat SPK-B
+  // 1. Sembunyikan jika sedang ditransfer ke form penugasan saat ini
+  // 2. Sembunyikan jika sudah aktif ditugaskan di riwayat SPK-B (reaktif terhadap state lokal)
   // 3. Filter pencarian teks
   const filteredMaterials = rabMaterials.filter(m => {
-    if (selectedRabItemForAssignment && selectedRabItemForAssignment.id === m.id) {
+    if (selectedRabItemForAssignment && (
+      selectedRabItemForAssignment.id === m.id || 
+      (selectedRabItemForAssignment.materials?.id && selectedRabItemForAssignment.materials.id === m.materials?.id)
+    )) {
       return false;
     }
-    const itemName = (m.materials?.name || m.description || '').toLowerCase();
-    const isAlreadyAssigned = records.some(r => 
-      r.status === 'ACTIVE' && 
-      r.task_description && 
-      r.task_description.toLowerCase().trim() === itemName.trim()
-    );
+    const isAlreadyAssigned = isRabItemAllocated(m, null, records);
     if (isAlreadyAssigned) {
       return false;
     }
+    const itemName = (m.materials?.name || m.description || '').toLowerCase();
     return itemName.includes(searchMaterial.toLowerCase());
   });
 
@@ -692,7 +706,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
                   </span>
                 </div>
                 <p className="text-xs text-text-muted mb-2">
-                  Daftar material yang dialokasikan untuk {wbsCategory}. Item yang sudah diajukan via Requisition otomatis dikecualikan.
+                  Daftar material yang dialokasikan untuk {wbsCategory}. Item yang sudah diajukan via Requisition atau ditugaskan di SPK Borongan otomatis dikecualikan.
                 </p>
                 <div className="flex items-center gap-2">
                   <input
@@ -715,7 +729,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
                     <CheckCircle2 className="w-8 h-8 text-blue-500/30 mb-2" />
                     <p className="font-semibold text-text">Tidak ada material tersisa untuk WBS ini.</p>
                     <p className="text-xs text-text-muted mt-1 max-w-xs">
-                      Seluruh material mungkin telah diajukan ke gudang (Requisition) atau belum dialokasikan di estimasi.
+                      Seluruh material mungkin telah diajukan ke gudang (Requisition), ditugaskan di SPK Borongan, atau belum dialokasikan di estimasi.
                     </p>
                   </div>
                 ) : filteredMaterials.length === 0 ? (

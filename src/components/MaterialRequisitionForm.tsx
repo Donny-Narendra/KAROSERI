@@ -12,6 +12,7 @@ import {
   X,
   FileText
 } from 'lucide-react';
+import { isRabItemAllocated } from '../utils/rabItemAllocation';
 
 interface MasterMaterial {
   id: string;
@@ -47,6 +48,7 @@ interface RequisitionItem {
 interface ActiveSpkBorongan {
   id: string;
   material_id?: string;
+  rab_item_id?: string;
   task_description?: string;
   status: string;
 }
@@ -89,39 +91,19 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
   const [highlightedTargetId, setHighlightedTargetId] = useState<string | null>(null);
 
   // Filtered available RAB items:
-  // Mengecualikan:
+  // Mengecualikan secara terpadu melalui shared availability filter:
   // 1. Material yang sudah ada di Requisition tersimpan di database untuk SPK & WBS ini
   // 2. Material yang sedang ada di daftar permintaan lokal (selectedItems)
   // 3. Pekerjaan / material yang sudah ditugaskan ke pekerja di SPK Borongan (status !== 'CUT_OFF')
   const availableItems = useMemo(() => {
     return rawRabItems.filter((item) => {
-      // 1. Cek apakah sudah masuk ke daftar permintaan material tersimpan (database)
-      const alreadyInSavedRequisition = 
-        usedRequisitionItemIds.has(item.id) || 
-        usedRequisitionItemIds.has(item.materialId);
-
-      // 2. Cek apakah sedang berada di daftar permintaan material lokal
-      const alreadyInLocalRequisition = selectedItems.some((req) => 
-        (req.sourceRabId && req.sourceRabId === item.id) ||
-        req.tempId === item.id ||
-        (req.materialId && req.materialId === item.materialId)
+      const isAllocated = isRabItemAllocated(
+        item,
+        usedRequisitionItemIds,
+        activeSpkBoronganList,
+        selectedItems
       );
-
-      // 3. Cek apakah sudah ditugaskan di SPK Borongan
-      const alreadyInSpkBorongan = activeSpkBoronganList.some((borong) => {
-        if (borong.status === 'CUT_OFF') return false;
-        const matIdMatch = Boolean(
-          borong.material_id && 
-          (borong.material_id === item.materialId || borong.material_id === item.id)
-        );
-        const itemDesc = (item.name || '').trim().toLowerCase();
-        const borongDesc = (borong.task_description || '').trim().toLowerCase();
-        const descMatch = Boolean(borongDesc && itemDesc && borongDesc === itemDesc);
-
-        return matIdMatch || descMatch;
-      });
-
-      return !alreadyInSavedRequisition && !alreadyInLocalRequisition && !alreadyInSpkBorongan;
+      return !isAllocated;
     });
   }, [rawRabItems, usedRequisitionItemIds, selectedItems, activeSpkBoronganList]);
 
