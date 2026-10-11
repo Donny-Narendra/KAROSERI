@@ -352,33 +352,82 @@ export const BastModal: React.FC<BastModalProps> = ({
       {/* Embedded CSS for Exact A4 Single Page Print */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
-          /* Sembunyikan seluruh elemen di luar dokumen BAST */
-          body * {
-            visibility: hidden;
+          /* Sembunyikan seluruh UI luar dari aliran cetak */
+          html, body {
+            height: auto !important;
+            overflow: visible !important;
+            background: white !important;
+            color: black !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
-          /* Tampilkan kembali hanya kontainer dokumen BAST */
-          #printable-bast,
-          #printable-bast * {
-            visibility: visible;
+
+          body > *:not(#print-root) {
+            display: none !important;
           }
-          #printable-bast {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
+
+          /* Jika modal berada di portal atau di dalam DOM biasa */
+          .modal-backdrop,
+          header,
+          nav,
+          button,
+          .no-print {
+            display: none !important;
+          }
+
+          /* Netralkan wrapper container di dalam #print-root */
+          #print-root {
+            display: block !important;
+            position: static !important;
             width: 100% !important;
             margin: 0 !important;
-            padding: 20mm !important;
+            padding: 0 !important;
+            background: transparent !important;
+          }
+
+          #bast-modal-backdrop,
+          #bast-modal-backdrop > div,
+          #bast-modal-backdrop > div > div {
+            display: block !important;
+            position: static !important;
+            inset: auto !important;
+            transform: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            box-shadow: none !important;
+            border: none !important;
+            background: transparent !important;
+            overflow: visible !important;
+          }
+
+          /* Kontainer kertas BAST */
+          #printable-bast {
+            display: block !important;
+            visibility: visible !important;
+            position: static !important;
+            transform: none !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 auto !important;
+            padding: 8mm 12mm !important;
+            box-shadow: none !important;
+            border: none !important;
             background: white !important;
             color: black !important;
             box-sizing: border-box !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
-          /* Hilangkan backdrop modal, tombol navbar, dan header modal */
-          header, nav, button, .modal-backdrop, .no-print {
-            display: none !important;
+
+          #printable-bast * {
+            visibility: visible !important;
           }
+
           @page {
             size: A4 portrait;
-            margin: 10mm;
+            margin: 8mm;
           }
         }
       ` }} />
