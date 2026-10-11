@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Printer, X, CheckCircle, ShieldCheck, FileCheck } from 'lucide-react';
+import { Printer, X, CheckCircle, ShieldCheck, FileCheck, Download, Loader2 } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 export interface BastSpkData {
   id?: string;
@@ -61,6 +63,7 @@ export const BastModal: React.FC<BastModalProps> = ({
   autoPrint = false,
 }) => {
   const [dateInfo] = useState(() => formatBastDate(new Date()));
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   useEffect(() => {
     if (isOpen && autoPrint) {
@@ -86,6 +89,52 @@ export const BastModal: React.FC<BastModalProps> = ({
     window.print();
   };
 
+  const handleDownloadPdf = async () => {
+    const element = document.getElementById('printable-bast');
+    if (!element) return;
+
+    try {
+      setIsDownloadingPdf(true);
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+      });
+
+      const imgData = canvas.toDataURL('image/png', 1.0);
+
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true,
+      });
+
+      const pdfPageWidth = 210;
+      const pdfPageHeight = 297;
+      const contentHeight = (canvas.height * pdfPageWidth) / canvas.width;
+
+      if (contentHeight > pdfPageHeight) {
+        const scaleRatio = pdfPageHeight / contentHeight;
+        const scaledWidth = pdfPageWidth * scaleRatio;
+        const offsetX = (pdfPageWidth - scaledWidth) / 2;
+        pdf.addImage(imgData, 'PNG', offsetX, 0, scaledWidth, pdfPageHeight, undefined, 'FAST');
+      } else {
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfPageWidth, contentHeight, undefined, 'FAST');
+      }
+
+      const safeSpkNo = spkNo.replace(/[^a-zA-Z0-9_-]/g, '_');
+      pdf.save(`BAST-${safeSpkNo}.pdf`);
+    } catch (err) {
+      console.error('Gagal mengunduh dokumen BAST sebagai PDF:', err);
+      alert('Terjadi kesalahan saat memproses unduhan PDF. Silakan gunakan opsi Cetak Dokumen.');
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
   const printRoot = typeof document !== 'undefined'
     ? (document.getElementById('print-root') || document.body)
     : null;
@@ -100,9 +149,9 @@ export const BastModal: React.FC<BastModalProps> = ({
       <div className="relative w-full max-w-4xl bg-surface border border-surface-border rounded-xl shadow-2xl flex flex-col my-auto overflow-hidden print:static print:w-full print:max-w-none print:border-none print:shadow-none print:rounded-none print:bg-transparent print:overflow-visible print:m-0 print:p-0 print:block">
         
         {/* Modal Toolbar (Screen Only) */}
-        <div className="no-print flex items-center justify-between px-6 py-4 bg-surface-hover/80 border-b border-surface-border text-text">
+        <div className="no-print flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-4 bg-surface-hover/80 border-b border-surface-border text-text">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/20 text-primary rounded-lg">
+            <div className="p-2 bg-primary/20 text-primary rounded-lg shrink-0">
               <FileCheck className="w-5 h-5" />
             </div>
             <div>
@@ -114,17 +163,41 @@ export const BastModal: React.FC<BastModalProps> = ({
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">
+            {/* Tombol 1: Download PDF */}
             <button
+              type="button"
+              onClick={handleDownloadPdf}
+              disabled={isDownloadingPdf}
+              className="no-print px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-md shadow-emerald-900/20 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              title="Unduh langsung dokumen BAST dalam format file .pdf"
+            >
+              {isDownloadingPdf ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              <span>{isDownloadingPdf ? 'Mengunduh...' : 'Download PDF'}</span>
+            </button>
+
+            {/* Tombol 2: Cetak Dokumen */}
+            <button
+              type="button"
               onClick={handlePrint}
-              className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-md shadow-primary/25 transition-all cursor-pointer"
+              disabled={isDownloadingPdf}
+              className="no-print px-3.5 py-2 bg-primary hover:bg-primary-hover active:bg-primary-hover/90 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-md shadow-primary/25 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              title="Buka dialog print browser untuk mencetak fisik atau simpan PDF standar"
             >
               <Printer className="w-4 h-4" />
-              Cetak Dokumen / Simpan PDF
+              <span>Cetak Dokumen</span>
             </button>
+
+            {/* Tombol Tutup */}
             <button
+              type="button"
               onClick={onClose}
-              className="p-2 text-text-muted hover:text-text hover:bg-surface-active rounded-lg transition-colors cursor-pointer"
+              disabled={isDownloadingPdf}
+              className="no-print p-2 text-text-muted hover:text-text hover:bg-surface-active rounded-lg transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               title="Tutup Pratinjau"
             >
               <X className="w-5 h-5" />
