@@ -89,6 +89,7 @@ body {
   }
 
   /* Kontainer kertas BAST */
+  #bast-print-area,
   #printable-bast {
     display: block !important;
     visibility: visible !important;
@@ -107,6 +108,7 @@ body {
     break-inside: avoid !important;
   }
 
+  #bast-print-area *,
   #printable-bast * {
     visibility: visible !important;
   }

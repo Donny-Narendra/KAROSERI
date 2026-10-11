@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Printer, X, CheckCircle, ShieldCheck, FileCheck, Download, Loader2 } from 'lucide-react';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
+import html2pdf from 'html2pdf.js';
 
 export interface BastSpkData {
   id?: string;
@@ -89,47 +88,79 @@ export const BastModal: React.FC<BastModalProps> = ({
     window.print();
   };
 
+  const convertColorToRgb = (colorStr: string): string => {
+    if (!colorStr || (!colorStr.includes('oklch') && !colorStr.includes('color-mix') && !colorStr.includes('lab') && !colorStr.includes('lch'))) {
+      return colorStr;
+    }
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1;
+      canvas.height = 1;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return '#000000';
+      ctx.fillStyle = colorStr;
+      ctx.fillRect(0, 0, 1, 1);
+      const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+      return a === 255 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${(a / 255).toFixed(2)})`;
+    } catch {
+      return '#000000';
+    }
+  };
+
+  const sanitizeClonedColors = (clonedDoc: Document) => {
+    const allElements = clonedDoc.querySelectorAll('*');
+    const colorProps = [
+      'color', 'backgroundColor', 
+      'borderColor', 'borderTopColor', 'borderBottomColor', 'borderLeftColor', 'borderRightColor',
+      'outlineColor', 'textDecorationColor'
+    ];
+
+    allElements.forEach(el => {
+      if (!(el instanceof HTMLElement || el instanceof SVGElement)) return;
+      const comp = window.getComputedStyle(el);
+      for (const prop of colorProps) {
+        const val = (comp as any)[prop];
+        if (val && (val.includes('oklch') || val.includes('color-mix') || val.includes('lab') || val.includes('lch'))) {
+          (el.style as any)[prop] = convertColorToRgb(val);
+        }
+      }
+    });
+  };
+
   const handleDownloadPdf = async () => {
-    const element = document.getElementById('printable-bast');
-    if (!element) return;
+    const element = document.getElementById('bast-print-area') || document.getElementById('printable-bast');
+    if (!element) {
+      console.error('Target elemen BAST tidak ditemukan di DOM (#bast-print-area)');
+      return;
+    }
 
     try {
       setIsDownloadingPdf(true);
 
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-      });
-
-      const imgData = canvas.toDataURL('image/png', 1.0);
-
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-        compress: true,
-      });
-
-      const pdfPageWidth = 210;
-      const pdfPageHeight = 297;
-      const contentHeight = (canvas.height * pdfPageWidth) / canvas.width;
-
-      if (contentHeight > pdfPageHeight) {
-        const scaleRatio = pdfPageHeight / contentHeight;
-        const scaledWidth = pdfPageWidth * scaleRatio;
-        const offsetX = (pdfPageWidth - scaledWidth) / 2;
-        pdf.addImage(imgData, 'PNG', offsetX, 0, scaledWidth, pdfPageHeight, undefined, 'FAST');
-      } else {
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfPageWidth, contentHeight, undefined, 'FAST');
-      }
-
       const safeSpkNo = spkNo.replace(/[^a-zA-Z0-9_-]/g, '_');
-      pdf.save(`BAST-${safeSpkNo}.pdf`);
+      const filename = `BAST-${safeSpkNo}.pdf`;
+
+      const opt = {
+        margin: [10, 10, 10, 10] as [number, number, number, number],
+        filename,
+        image: { type: 'jpeg' as const, quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+          onclone: (clonedDoc: Document) => {
+            sanitizeClonedColors(clonedDoc);
+          },
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
+      };
+
+      const html2pdfWorker = ((html2pdf as any).default || html2pdf) as typeof html2pdf;
+      await html2pdfWorker().set(opt).from(element).save();
     } catch (err) {
       console.error('Gagal mengunduh dokumen BAST sebagai PDF:', err);
-      alert('Terjadi kesalahan saat memproses unduhan PDF. Silakan gunakan opsi Cetak Dokumen.');
+      alert('Terjadi kesalahan saat memproses unduhan PDF. Silakan periksa konsol atau gunakan opsi Cetak Dokumen.');
     } finally {
       setIsDownloadingPdf(false);
     }
@@ -210,7 +241,8 @@ export const BastModal: React.FC<BastModalProps> = ({
           
           {/* Printable A4 Document Sheet */}
           <div 
-            id="printable-bast" 
+            id="bast-print-area"
+            data-id="printable-bast" 
             className="bast-document-sheet w-full max-w-[210mm] min-h-[290mm] bg-white text-gray-900 p-8 sm:p-10 shadow-lg border border-gray-200 rounded-sm font-sans flex flex-col justify-between print:w-full print:max-w-none print:min-h-0 print:h-auto print:p-0 print:shadow-none print:border-none print:rounded-none"
           >
             <div>
@@ -488,6 +520,7 @@ export const BastModal: React.FC<BastModalProps> = ({
           }
 
           /* Kontainer kertas BAST */
+          #bast-print-area,
           #printable-bast {
             display: block !important;
             visibility: visible !important;
@@ -506,6 +539,7 @@ export const BastModal: React.FC<BastModalProps> = ({
             break-inside: avoid !important;
           }
 
+          #bast-print-area *,
           #printable-bast * {
             visibility: visible !important;
           }
