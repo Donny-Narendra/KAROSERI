@@ -585,3 +585,15 @@
 - [x] Pemisahan antarmuka header modal di `src/components/BastModal.tsx` menjadi dua tombol berdampingan ("Download PDF" beraksen emerald/teal dan "Cetak Dokumen" beraksen oranye/primer).
 - [x] Penanganan state loading `isDownloadingPdf` dan integrasi class `no-print` pada kedua tombol aksi.
 - [x] Verifikasi type checking, build validation, dan commit atomik.
+
+---
+
+### Phase 48: Gap Closure (Menampilkan Kolom Subtotal RAB pada Panel Panduan Material di Modal SPK Borongan)
+**Status**: ⬜ Not Started
+**Objective**: Address gaps from milestone audit (Menampilkan Kolom Subtotal RAB pada Panel "Panduan Material (RAB)" di Modal SPK Borongan)
+
+**Gaps to Close:**
+- [ ] Penyesuaian Query dan Data Mapping pada `src/components/SpkBoronganPanel.tsx` untuk mengambil `item_total` dan `materials.unit_price`.
+- [ ] Penambahan Kolom Subtotal RAB (format Rupiah Indonesia) pada antarmuka tabel Panduan Material (RAB).
+- [ ] Penanganan edge cases (harga 0/null -> Rp 0, text wrap/lebar kolom) dan responsiveness.
+- [ ] Verifikasi type checking, build validation, dan commit atomik.
