@@ -601,10 +601,10 @@
 ---
 
 ### Phase 49: Gap Closure (Implementasi Dual-List Transfer Box pada Modal Minta Material Requisition Mandor)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Address gaps from milestone audit (Implementasi Dual-List Transfer Box pada Modal "Minta Material (Requisition)" di Halaman /mandor untuk WBS Terpilih)
 
 **Gaps to Close:**
-- [ ] State Management & Data Fetching Dual-List pada `MaterialRequisitionForm.tsx` (`availableItems` dari RAB WBS aktif, `selectedItems` untuk requisition, transfer handlers `<<` dan `>>`).
-- [ ] Desain Layout UI Dual-List Transfer Box 2 Kolom (Kotak Kanan Merah untuk Alokasi RAB WBS, Panel Kontrol Tombol Transfer di Tengah, Kotak Kiri Hijau untuk Permintaan Siap Submit, Tombol "+ Add Item" untuk item ekstra).
-- [ ] Integrasi Submit Requisition ke tabel `material_requisitions` dan `material_requisition_items` dengan status PENDING serta validasi build & linter.
+- [x] State Management & Data Fetching Dual-List pada `MaterialRequisitionForm.tsx` (`availableItems` dari RAB WBS aktif, `selectedItems` untuk requisition, transfer handlers `<<` dan `>>`).
+- [x] Desain Layout UI Dual-List Transfer Box 2 Kolom (Kotak Kanan Merah untuk Alokasi RAB WBS, Panel Kontrol Tombol Transfer di Tengah, Kotak Kiri Hijau untuk Permintaan Siap Submit, Tombol "+ Add Item" untuk item ekstra).
+- [x] Integrasi Submit Requisition ke tabel `material_requisitions` dan `material_requisition_items` dengan status PENDING serta validasi build & linter.
