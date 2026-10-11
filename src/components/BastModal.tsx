@@ -126,58 +126,58 @@ export const BastModal: React.FC<BastModalProps> = ({
           {/* Printable A4 Document Sheet */}
           <div 
             id="printable-bast" 
-            className="bast-document-sheet w-full max-w-[210mm] min-h-[290mm] bg-white text-gray-900 p-8 sm:p-10 shadow-lg border border-gray-200 rounded-sm font-sans flex flex-col justify-between print:w-full print:max-w-none print:min-h-0 print:p-0 print:shadow-none print:border-none print:rounded-none"
+            className="bast-document-sheet w-full max-w-[210mm] min-h-[290mm] bg-white text-gray-900 p-8 sm:p-10 shadow-lg border border-gray-200 rounded-sm font-sans flex flex-col justify-between print:w-full print:max-w-none print:min-h-0 print:h-auto print:p-0 print:shadow-none print:border-none print:rounded-none"
           >
             <div>
               {/* Kop Surat RobelKaroseri */}
-              <div className="border-b-2 border-black pb-2 mb-1">
+              <div className="border-b-2 border-black pb-1.5 mb-0.5 break-inside-avoid">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h1 className="text-xl sm:text-2xl font-black tracking-tight text-black uppercase font-display">
+                    <h1 className="text-xl sm:text-2xl font-black tracking-tight text-black uppercase font-display leading-none">
                       ROBELKAROSERI
                     </h1>
                     <p className="text-xs sm:text-sm font-bold tracking-wide text-gray-800 uppercase mt-0.5">
                       PT ROBEL KAROSERI INDONESIA
                     </p>
-                    <p className="text-[11px] text-gray-600 leading-snug mt-0.5">
+                    <p className="text-[10.5px] text-gray-600 leading-snug mt-0.5">
                       Spesialisasi Pembuatan &amp; Modifikasi Karoseri Kendaraan Komersial
                     </p>
-                    <p className="text-[10px] text-gray-500 leading-snug mt-0.5">
+                    <p className="text-[9.5px] text-gray-500 leading-snug mt-0.5">
                       Kawasan Industri Karoseri Terpadu Kav. 88, Jawa Timur &bull; Telp: (031) 8988-2233 &bull; Email: admin@robelkaroseri.com
                     </p>
                   </div>
                   <div className="text-right flex flex-col items-end">
-                    <span className="inline-block border border-gray-800 text-gray-900 px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase">
+                    <span className="inline-block border border-gray-800 text-gray-900 px-2 py-0.5 rounded text-[9.5px] font-bold tracking-wider uppercase">
                       DOKUMEN RESMI
                     </span>
-                    <span className="text-[10px] text-gray-500 mt-1">Formulir: BAST-KAR-V2</span>
+                    <span className="text-[9.5px] text-gray-500 mt-1">Formulir: BAST-KAR-V2</span>
                   </div>
                 </div>
               </div>
-              <div className="border-b border-black mb-4"></div>
+              <div className="border-b border-black mb-2"></div>
 
               {/* Judul & Nomor Surat */}
-              <div className="text-center my-3">
+              <div className="text-center my-2 break-inside-avoid">
                 <h2 className="text-base sm:text-lg font-bold tracking-wide text-black uppercase underline decoration-1 underline-offset-4">
                   BERITA ACARA SERAH TERIMA KENDARAAN (BAST)
                 </h2>
-                <p className="text-xs font-semibold text-gray-700 tracking-wider mt-1">
+                <p className="text-xs font-semibold text-gray-700 tracking-wider mt-0.5">
                   Nomor: <span className="font-mono text-gray-900">{bastNumber}</span>
                 </p>
               </div>
 
               {/* Paragraf Pembuka / Pernyataan Serah Terima */}
-              <div className="text-[12px] text-gray-800 leading-relaxed text-justify mb-3">
+              <div className="text-[11px] text-gray-800 leading-relaxed text-justify mb-2.5 break-inside-avoid">
                 <p>
                   Pada hari ini, <strong>{dateFormatted}</strong>, bertempat di workshop RobelKaroseri, telah dilaksanakan serah terima fisik unit kendaraan dan dokumen pendukung oleh dan antara pihak-pihak di bawah ini:
                 </p>
-                <div className="my-2 pl-3 space-y-1 text-[11.5px]">
-                  <div className="grid grid-cols-[140px_10px_1fr]">
+                <div className="my-1.5 pl-2.5 space-y-0.5 text-[10.5px]">
+                  <div className="grid grid-cols-[130px_10px_1fr]">
                     <span className="font-semibold text-gray-700">1. Pihak Pertama</span>
                     <span>:</span>
                     <span className="font-bold text-gray-900">RobelKaroseri (Divisi Kasir / Operasional Penyerahan)</span>
                   </div>
-                  <div className="grid grid-cols-[140px_10px_1fr]">
+                  <div className="grid grid-cols-[130px_10px_1fr]">
                     <span className="font-semibold text-gray-700">2. Pihak Kedua</span>
                     <span>:</span>
                     <span className="font-bold text-gray-900">{customerName} (Pemilik / Kuasa Pemilik Kendaraan)</span>
@@ -189,59 +189,59 @@ export const BastModal: React.FC<BastModalProps> = ({
               </div>
 
               {/* Tabel Spesifikasi Kendaraan */}
-              <div className="my-3">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-gray-900 mb-1 flex items-center gap-1.5">
+              <div className="my-2.5 break-inside-avoid">
+                <div className="text-[10.5px] font-bold uppercase tracking-wider text-gray-900 mb-1 flex items-center gap-1.5">
                   <span>A. Spesifikasi &amp; Identitas Kendaraan</span>
                 </div>
-                <table className="w-full border-collapse border border-gray-800 text-[11.5px]">
+                <table className="w-full border-collapse border border-gray-800 text-[11px]">
                   <tbody>
                     <tr className="border-b border-gray-800">
-                      <td className="w-44 bg-gray-100 font-semibold px-3 py-1.5 border-r border-gray-800 text-gray-800">
+                      <td className="w-40 bg-gray-100 font-semibold px-2.5 py-1 border-r border-gray-800 text-gray-800">
                         Nomor SPK Induk
                       </td>
-                      <td className="px-3 py-1.5 font-bold font-mono text-gray-900">
+                      <td className="px-2.5 py-1 font-bold font-mono text-gray-900">
                         {spkNo}
                       </td>
                     </tr>
                     <tr className="border-b border-gray-800">
-                      <td className="bg-gray-100 font-semibold px-3 py-1.5 border-r border-gray-800 text-gray-800">
+                      <td className="bg-gray-100 font-semibold px-2.5 py-1 border-r border-gray-800 text-gray-800">
                         Nama Pelanggan / Perusahaan
                       </td>
-                      <td className="px-3 py-1.5 font-bold text-gray-900">
+                      <td className="px-2.5 py-1 font-bold text-gray-900">
                         {customerName}
                       </td>
                     </tr>
                     <tr className="border-b border-gray-800">
-                      <td className="bg-gray-100 font-semibold px-3 py-1.5 border-r border-gray-800 text-gray-800">
+                      <td className="bg-gray-100 font-semibold px-2.5 py-1 border-r border-gray-800 text-gray-800">
                         Nomor Polisi Kendaraan
                       </td>
-                      <td className="px-3 py-1.5 font-bold text-gray-900">
-                        <span className="inline-block bg-gray-100 border border-gray-400 px-2 py-0.5 rounded text-xs font-mono">
+                      <td className="px-2.5 py-1 font-bold text-gray-900">
+                        <span className="inline-block bg-gray-100 border border-gray-400 px-1.5 py-0.2 rounded text-[10.5px] font-mono">
                           {vehiclePlate}
                         </span>
                       </td>
                     </tr>
                     <tr className="border-b border-gray-800">
-                      <td className="bg-gray-100 font-semibold px-3 py-1.5 border-r border-gray-800 text-gray-800">
+                      <td className="bg-gray-100 font-semibold px-2.5 py-1 border-r border-gray-800 text-gray-800">
                         Nomor Rangka (VIN)
                       </td>
-                      <td className="px-3 py-1.5 font-mono text-gray-900">
+                      <td className="px-2.5 py-1 font-mono text-gray-900">
                         {vehicleVin}
                       </td>
                     </tr>
                     <tr className="border-b border-gray-800">
-                      <td className="bg-gray-100 font-semibold px-3 py-1.5 border-r border-gray-800 text-gray-800">
+                      <td className="bg-gray-100 font-semibold px-2.5 py-1 border-r border-gray-800 text-gray-800">
                         Nomor Mesin
                       </td>
-                      <td className="px-3 py-1.5 font-mono text-gray-900">
+                      <td className="px-2.5 py-1 font-mono text-gray-900">
                         {vehicleEngine}
                       </td>
                     </tr>
                     <tr>
-                      <td className="bg-gray-100 font-semibold px-3 py-1.5 border-r border-gray-800 text-gray-800">
+                      <td className="bg-gray-100 font-semibold px-2.5 py-1 border-r border-gray-800 text-gray-800">
                         Tanggal Penyerahan Unit
                       </td>
-                      <td className="px-3 py-1.5 text-gray-900">
+                      <td className="px-2.5 py-1 text-gray-900">
                         {dateFormatted}
                       </td>
                     </tr>
@@ -250,40 +250,40 @@ export const BastModal: React.FC<BastModalProps> = ({
               </div>
 
               {/* Status Pengujian & Keuangan */}
-              <div className="my-3">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-gray-900 mb-1 flex items-center gap-1.5">
+              <div className="my-2.5 break-inside-avoid">
+                <div className="text-[10.5px] font-bold uppercase tracking-wider text-gray-900 mb-1 flex items-center gap-1.5">
                   <span>B. Pernyataan Kelayakan &amp; Administrasi Keuangan</span>
                 </div>
-                <div className="grid grid-cols-2 gap-3 text-[11px]">
+                <div className="grid grid-cols-2 gap-2.5 text-[10.5px]">
                   
                   {/* Box QC */}
-                  <div className="border border-gray-800 rounded p-2.5 bg-gray-50/60">
+                  <div className="border border-gray-800 rounded p-2 bg-gray-50/60">
                     <div className="flex items-center justify-between pb-1 border-b border-gray-300">
                       <span className="font-bold text-gray-900 flex items-center gap-1">
                         <ShieldCheck className="w-3.5 h-3.5 text-green-700" />
                         Uji Inspeksi Akhir (Final QC)
                       </span>
-                      <span className="bg-green-100 border border-green-800 text-green-900 font-bold px-1.5 py-0.2 rounded text-[10px]">
+                      <span className="bg-green-100 border border-green-800 text-green-900 font-bold px-1.5 py-0.2 rounded text-[9.5px]">
                         LULUS (PASSED)
                       </span>
                     </div>
-                    <p className="text-gray-700 mt-1.5 leading-snug">
+                    <p className="text-gray-700 mt-1 leading-snug text-[10px]">
                       Unit kendaraan telah melalui seluruh pemeriksaan checklist kelaikan akhir (struktur, kelistrikan, dan finishing) serta dinyatakan lulus uji inspeksi QC.
                     </p>
                   </div>
 
                   {/* Box Keuangan */}
-                  <div className="border border-gray-800 rounded p-2.5 bg-gray-50/60">
+                  <div className="border border-gray-800 rounded p-2 bg-gray-50/60">
                     <div className="flex items-center justify-between pb-1 border-b border-gray-300">
                       <span className="font-bold text-gray-900 flex items-center gap-1">
                         <CheckCircle className="w-3.5 h-3.5 text-green-700" />
                         Penyelesaian Pembayaran
                       </span>
-                      <span className="bg-green-100 border border-green-800 text-green-900 font-bold px-1.5 py-0.2 rounded text-[10px]">
+                      <span className="bg-green-100 border border-green-800 text-green-900 font-bold px-1.5 py-0.2 rounded text-[9.5px]">
                         LUNAS (PAID)
                       </span>
                     </div>
-                    <p className="text-gray-700 mt-1.5 leading-snug">
+                    <p className="text-gray-700 mt-1 leading-snug text-[10px]">
                       Seluruh kewajiban pembayaran invoice akhir dan uang muka (DP) telah diterima secara penuh dan diverifikasi lunas oleh Bagian Kasir.
                     </p>
                   </div>
@@ -292,45 +292,45 @@ export const BastModal: React.FC<BastModalProps> = ({
               </div>
 
               {/* Kolom Pengesahan Tanda Tangan */}
-              <div className="my-5 pt-1">
-                <p className="text-[11px] text-gray-700 text-center mb-3">
+              <div className="my-3 pt-0.5 break-inside-avoid">
+                <p className="text-[10px] text-gray-700 text-center mb-2">
                   Demikian Berita Acara Serah Terima ini dibuat dengan sebenarnya dan ditandatangani oleh para pihak untuk dipergunakan sebagaimana mestinya.
                 </p>
-                <div className="grid grid-cols-3 gap-4 text-center text-[11.5px]">
+                <div className="grid grid-cols-3 gap-3 text-center text-[10.5px]">
                   
                   {/* Kolom 1: Kasir */}
-                  <div className="flex flex-col justify-between h-28 border border-dashed border-gray-300 p-2 rounded">
+                  <div className="flex flex-col justify-between h-24 border border-dashed border-gray-300 p-2 rounded">
                     <div>
-                      <p className="font-semibold text-gray-700">Yang Menyerahkan,</p>
-                      <p className="font-bold text-gray-900">RobelKaroseri</p>
+                      <p className="font-semibold text-gray-700 text-[10.5px]">Yang Menyerahkan,</p>
+                      <p className="font-bold text-gray-900 text-[10.5px]">RobelKaroseri</p>
                     </div>
                     <div>
-                      <div className="w-36 mx-auto border-b border-gray-800 mb-1"></div>
-                      <p className="text-[10px] text-gray-600 font-medium">Kasir / Administrasi Bengkel</p>
+                      <div className="w-32 mx-auto border-b border-gray-800 mb-0.5"></div>
+                      <p className="text-[9.5px] text-gray-600 font-medium">Kasir / Administrasi Bengkel</p>
                     </div>
                   </div>
 
                   {/* Kolom 2: Mandor / Kepala Bengkel */}
-                  <div className="flex flex-col justify-between h-28 border border-dashed border-gray-300 p-2 rounded">
+                  <div className="flex flex-col justify-between h-24 border border-dashed border-gray-300 p-2 rounded">
                     <div>
-                      <p className="font-semibold text-gray-700">Mengetahui,</p>
-                      <p className="font-bold text-gray-900">Kepala Bengkel / QC</p>
+                      <p className="font-semibold text-gray-700 text-[10.5px]">Mengetahui,</p>
+                      <p className="font-bold text-gray-900 text-[10.5px]">Kepala Bengkel / QC</p>
                     </div>
                     <div>
-                      <div className="w-36 mx-auto border-b border-gray-800 mb-1"></div>
-                      <p className="text-[10px] text-gray-600 font-medium">Mandor / Inspector QC</p>
+                      <div className="w-32 mx-auto border-b border-gray-800 mb-0.5"></div>
+                      <p className="text-[9.5px] text-gray-600 font-medium">Mandor / Inspector QC</p>
                     </div>
                   </div>
 
                   {/* Kolom 3: Pelanggan */}
-                  <div className="flex flex-col justify-between h-28 border border-dashed border-gray-300 p-2 rounded">
+                  <div className="flex flex-col justify-between h-24 border border-dashed border-gray-300 p-2 rounded">
                     <div>
-                      <p className="font-semibold text-gray-700">Yang Menerima,</p>
-                      <p className="font-bold text-gray-900">Konsumen / Pemilik</p>
+                      <p className="font-semibold text-gray-700 text-[10.5px]">Yang Menerima,</p>
+                      <p className="font-bold text-gray-900 text-[10.5px]">Konsumen / Pemilik</p>
                     </div>
                     <div>
-                      <p className="font-bold text-gray-900 underline text-[11px]">{customerName}</p>
-                      <p className="text-[10px] text-gray-600 font-medium">Pemilik / Kuasa Pemilik</p>
+                      <p className="font-bold text-gray-900 underline text-[10.5px] truncate px-1">{customerName}</p>
+                      <p className="text-[9.5px] text-gray-600 font-medium">Pemilik / Kuasa Pemilik</p>
                     </div>
                   </div>
 
@@ -339,7 +339,7 @@ export const BastModal: React.FC<BastModalProps> = ({
             </div>
 
             {/* Catatan Kaki Legal */}
-            <div className="pt-2 border-t border-gray-400 text-[9.5px] text-gray-500 flex justify-between items-center">
+            <div className="pt-1.5 border-t border-gray-400 text-[9px] text-gray-500 flex justify-between items-center mt-2 break-inside-avoid">
               <span>* BAST ini merupakan bukti sah perpindahan hak operasional dan tanggung jawab kendaraan ke Pihak Kedua.</span>
               <span className="font-mono">Tercetak: {timestampStr}</span>
             </div>
