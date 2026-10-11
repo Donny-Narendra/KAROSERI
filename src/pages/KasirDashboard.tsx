@@ -4,6 +4,7 @@ import { AlertCircle, FileText, CheckCircle, Calculator, Lock, Receipt } from 'l
 import { supabase } from '../lib/supabaseClient';
 import { DownPaymentModal } from '../components/DownPaymentModal';
 import { DpHistoryList } from '../components/DpHistoryList';
+import { BastModal } from '../components/BastModal';
 import { fetchDPHistory } from '../services/billingService';
 import type { DPHistoryRecord } from '../services/billingService';
 import { packageService } from '../services/packageService';
@@ -14,10 +15,14 @@ interface MockSPK {
   dbId: string;
   customerName: string;
   vehicleModel: string;
+  vehiclePlate?: string;
+  vehicleVin?: string;
+  vehicleEngine?: string;
   status: string;
   dpAmount: number;
   materialCost: number;
   jasaCost: number;
+  overheadCost?: number;
   totalEstimatedCost: number; // RAB HPP
   quotationAmount: number; // Base Selling Price
   packageSellingPrice: number;
@@ -36,6 +41,8 @@ export const KasirDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'DP' | 'FINAL'>('DP');
   const [dpSubTab, setDpSubTab] = useState<'PENDING' | 'HISTORY'>('PENDING');
   const [isDpModalOpen, setIsDpModalOpen] = useState(false);
+  const [isBastModalOpen, setIsBastModalOpen] = useState(false);
+  const [selectedBastSpk, setSelectedBastSpk] = useState<MockSPK | null>(null);
   const [dpHistory, setDpHistory] = useState<DPHistoryRecord[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [manualAdjustments, setManualAdjustments] = useState<Record<string, number>>({});
@@ -161,8 +168,11 @@ export const KasirDashboard: React.FC = () => {
           id: d.spk_no,
           dbId: d.id,
           customerName: d.customer_name,
+          vehiclePlate: d.vehicle_plate,
+          vehicleVin: d.vehicle_vin || d.vehicle_number || '-',
+          vehicleEngine: d.vehicle_engine || '-',
           vehicleModel: d.vehicle_plate,
-          vin: d.vehicle_number || d.vehicle_plate,
+          vin: d.vehicle_vin || d.vehicle_number || d.vehicle_plate,
           status: d.status,
           dpAmount: Number(d.dp_amount || 0),
           materialCost: actualMaterialCost,
@@ -256,6 +266,28 @@ export const KasirDashboard: React.FC = () => {
     
     alert('Bill marked as Paid and SPK is COMPLETED.');
     fetchSpks();
+  };
+
+  const handleReleaseVehicle = async () => {
+    if (!selectedSpk) return;
+    try {
+      if (selectedSpk.status !== 'COMPLETED') {
+        const { error: spkError } = await supabase
+          .from('spk')
+          .update({ status: 'COMPLETED' })
+          .eq('id', selectedSpk.dbId);
+        if (spkError) {
+          console.error('Error updating SPK status to COMPLETED:', spkError);
+        } else {
+          setSpks(prev => prev.map(s => s.id === selectedSpk.id ? { ...s, status: 'COMPLETED' } : s));
+        }
+      }
+      setSelectedBastSpk({ ...selectedSpk, status: 'COMPLETED' });
+      setIsBastModalOpen(true);
+    } catch (err: any) {
+      console.error('Failed to release vehicle:', err);
+      alert('Terjadi kesalahan saat memproses BAST: ' + (err?.message || err));
+    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -567,13 +599,10 @@ export const KasirDashboard: React.FC = () => {
                   </button>
                   <button
                     disabled={selectedSpk.paymentStatus !== 'LUNAS'}
-                    onClick={() => {
-                      alert('BAST (Berita Acara Serah Terima) has been printed for ' + selectedSpk.id);
-                      window.print();
-                    }}
+                    onClick={handleReleaseVehicle}
                     className={`px-6 py-3 rounded font-medium flex items-center gap-2 transition-all ${
                       selectedSpk.paymentStatus === 'LUNAS'
-                        ? 'bg-status-success text-white hover:bg-status-success/90 shadow-lg shadow-status-success/20'
+                        ? 'bg-status-success text-white hover:bg-status-success/90 shadow-lg shadow-status-success/20 cursor-pointer'
                         : 'bg-surface-border text-text-muted cursor-not-allowed'
                     }`}
                   >
@@ -603,6 +632,13 @@ export const KasirDashboard: React.FC = () => {
           setSelectedSpkId(null);
           fetchSpks();
         }}
+      />
+      {/* BAST Handover Modal */}
+      <BastModal
+        isOpen={isBastModalOpen}
+        onClose={() => setIsBastModalOpen(false)}
+        spk={selectedBastSpk}
+        autoPrint={true}
       />
     </div>
   );
