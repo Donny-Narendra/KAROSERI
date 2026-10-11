@@ -554,11 +554,11 @@
 ---
 
 ### Phase 45: Gap Closure (Dokumen BAST Profesional Siap Cetak & Release Vehicle di Kasir)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Address gaps from milestone audit (Pembuatan Dokumen Berita Acara Serah Terima (BAST) Profesional Siap Cetak / Download PDF pada Aksi "Release Vehicle & Print BAST" di /kasir)
 
 **Gaps to Close:**
-- [ ] Buat template cetak dokumen resmi BAST berukuran A4 portrait (`src/components/BastModal.tsx`) lengkap dengan Kop Surat RobelKaroseri, Nomor Surat resmi, spesifikasi kendaraan, status QC & pelunasan, serta 3 kolom pengesahan tanda tangan.
-- [ ] Terapkan styling CSS cetak (@media print) standar A4 portrait 1 lembar tanpa overflow, menyembunyikan background gelap dan tombol dashboard.
-- [ ] Hubungkan aksi "Release Vehicle & Print BAST" di `/kasir` untuk mengupdate status SPK menjadi `COMPLETED` dan membuka modal pratinjau BAST.
-- [ ] Verifikasi type checking, build, dan pengujian alur pada SPK-9846.
+- [x] Buat template cetak dokumen resmi BAST berukuran A4 portrait (`src/components/BastModal.tsx`) lengkap dengan Kop Surat RobelKaroseri, Nomor Surat resmi, spesifikasi kendaraan, status QC & pelunasan, serta 3 kolom pengesahan tanda tangan.
+- [x] Terapkan styling CSS cetak (@media print) standar A4 portrait 1 lembar tanpa overflow, menyembunyikan background gelap dan tombol dashboard.
+- [x] Hubungkan aksi "Release Vehicle & Print BAST" di `/kasir` untuk mengupdate status SPK menjadi `COMPLETED` dan membuka modal pratinjau BAST.
+- [x] Verifikasi type checking, build, dan pengujian alur pada SPK-9846.
