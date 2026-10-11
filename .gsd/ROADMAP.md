@@ -671,11 +671,11 @@
 ---
 
 ### Phase 55: Gap Closure (Persistensi Daftar Permintaan Material dan Dialog Konfirmasi Pengembalian di Mandor)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Address gaps from operational feedback (Hydration/Persistensi Daftar Permintaan Material dan Konfirmasi Pembatalan/Pengembalian ke Alokasi RAB pada /mandor)
 
 **Gaps to Close:**
-- [ ] Hydration Daftar Permintaan Material: Memuat item requisition aktif yang sudah tersimpan di database ke Kotak Kiri ("Daftar Permintaan Material") dengan status, quantity, dan unit yang sesuai.
-- [ ] Dialog Konfirmasi Pembatalan/Pengembalian: Konfirmasi dialog saat menekan tombol hapus (ikon tong sampah) atau tombol transfer `>>`, serta sinkronisasi penghapusan record di Supabase jika item sudah tersimpan.
-- [ ] Penyempurnaan Submit Requisition: Hanya mengirimkan item baru yang belum tersimpan ke Supabase dan memperbarui state secara reaktif.
-- [ ] Verifikasi Type Checking, Build (`npm run build`, `npx oxlint`), End-to-End Test, dan Commit Atomik (`feat(mandor): persist requisition items list and add confirmation dialog on item removal`).
+- [x] Hydration Daftar Permintaan Material: Memuat item requisition aktif yang sudah tersimpan di database ke Kotak Kiri ("Daftar Permintaan Material") dengan status, quantity, dan unit yang sesuai.
+- [x] Dialog Konfirmasi Pembatalan/Pengembalian: Konfirmasi dialog saat menekan tombol hapus (ikon tong sampah) atau tombol transfer `>>`, serta sinkronisasi penghapusan record di Supabase jika item sudah tersimpan.
+- [x] Penyempurnaan Submit Requisition: Hanya mengirimkan item baru yang belum tersimpan ke Supabase dan memperbarui state secara reaktif.
+- [x] Verifikasi Type Checking, Build (`npm run build`, `npx oxlint`), End-to-End Test, dan Commit Atomik (`feat(mandor): persist requisition items list and add confirmation dialog on item removal`).
