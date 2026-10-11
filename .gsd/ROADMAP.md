@@ -573,3 +573,15 @@
 - [x] Isolasi layout cetak menggunakan `#print-root` React portal dan sembunyikan seluruh flow `#root` dengan `body > *:not(#print-root) { display: none !important; }`.
 - [x] Netralkan positioning modal pada media cetak (`position: static !important`, `transform: none !important`, `margin: 0 auto !important`).
 - [x] Kompresi dimensi vertikal, padding tabel, dan margin internal `#printable-bast` (`padding: 8mm 12mm !important`, `@page { size: A4 portrait; margin: 8mm; }`) agar pas dalam 1 lembar A4.
+
+---
+
+### Phase 47: Gap Closure (Pemisahan Tombol Aksi Cetak Dokumen dan Download PDF pada Modal BAST di Kasir)
+**Status**: ⬜ Not Started
+**Objective**: Address gaps from milestone audit (Pemisahan tombol aksi gabungan menjadi dua tombol terpisah: "Download PDF" langsung via client-side PDF renderer dan "Cetak Dokumen" via browser print dialog)
+
+**Gaps to Close:**
+- [ ] Instalasi dan konfigurasi library client-side PDF (`jspdf` dan `html2canvas`) untuk mengonversi `#printable-bast` menjadi berkas `BAST-{spk_no}.pdf`.
+- [ ] Pemisahan antarmuka header modal di `src/components/BastModal.tsx` menjadi dua tombol berdampingan ("Download PDF" beraksen emerald/teal dan "Cetak Dokumen" beraksen oranye/primer).
+- [ ] Penanganan state loading `isDownloadingPdf` dan integrasi class `no-print` pada kedua tombol aksi.
+- [ ] Verifikasi type checking, build validation, dan commit atomik.

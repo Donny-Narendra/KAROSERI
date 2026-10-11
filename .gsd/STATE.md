@@ -1,21 +1,19 @@
 ## Current Position
-- **Phase**: 46 (completed)
-- **Task**: All tasks complete
-- **Status**: Verified
+- **Phase**: 47
+- **Task**: Ready to execute plan-47
+- **Status**: Planning Complete
 
 ## Gap Closure Mode
-Completed gap closure for Phase 46 (Perbaikan Print Layout 1 Halaman A4 Dokumen BAST di Kasir).
+Addressing 1 gap from milestone audit: Pemisahan Tombol Aksi Cetak Dokumen dan Download PDF pada Modal BAST di /kasir.
 
 ## Last Session Summary
-Eksekusi Phase 46 selesai: Memperbaiki masalah cetak modal BAST yang sebelumnya terbagi menjadi 3 halaman pada print preview browser. Layout cetak diisolasi menggunakan kontainer `#print-root` di `index.html` dan React `createPortal` di `BastModal.tsx`. CSS `@media print` diselaraskan untuk menyembunyikan `#root` (`body > *:not(#print-root) { display: none !important; }`), menetralisir wrapper modal menjadi `static` & `transform: none`, serta menetapkan `@page { size: A4 portrait; margin: 8mm; }`. Typography dan padding tabel, seksi, dan kolom tanda tangan dikompresi sehingga dokumen pas dalam 1 lembar A4 portrait bersih.
+Dibuat rencana gap closure Phase 47 (.gsd/phases/plan-47.md) untuk memisahkan tombol gabungan pada modal BAST menjadi tombol "Download PDF" mandiri (client-side export dengan jspdf & html2canvas) dan tombol "Cetak Dokumen" (window.print()) dengan class no-print serta loading state yang responsif.
 
 ## In-Progress Work
-None.
+- Phase 47 plan created.
 
 ## Blockers
 None.
 
 ## Next Steps
-1. Menunggu arahan pengguna selanjutnya atau memeriksa ROADMAP.md.
-
-
+1. Jalankan `/execute 47 --gaps-only` untuk mengeksekusi rencana Phase 47.
