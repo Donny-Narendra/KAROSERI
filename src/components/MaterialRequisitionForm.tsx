@@ -44,6 +44,13 @@ interface RequisitionItem {
   isManual?: boolean;
 }
 
+interface ActiveSpkBorongan {
+  id: string;
+  material_id?: string;
+  task_description?: string;
+  status: string;
+}
+
 interface MaterialRequisitionFormProps {
   spkId: string;
   wbsCategory: string;
@@ -71,13 +78,52 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
   const [masterMaterials, setMasterMaterials] = useState<MasterMaterial[]>([]);
   const [spkNo, setSpkNo] = useState<string>('');
 
-  // Dual-list states
-  const [availableItems, setAvailableItems] = useState<RabSourceItem[]>([]);
+  // Dual-list states & Exclusion states
+  const [rawRabItems, setRawRabItems] = useState<RabSourceItem[]>([]);
+  const [usedRequisitionItemIds, setUsedRequisitionItemIds] = useState<Set<string>>(new Set());
+  const [activeSpkBoronganList, setActiveSpkBoronganList] = useState<ActiveSpkBorongan[]>([]);
   const [selectedItems, setSelectedItems] = useState<RequisitionItem[]>([]);
 
   // Selection states for transfer
   const [highlightedSourceId, setHighlightedSourceId] = useState<string | null>(null);
   const [highlightedTargetId, setHighlightedTargetId] = useState<string | null>(null);
+
+  // Filtered available RAB items:
+  // Mengecualikan:
+  // 1. Material yang sudah ada di Requisition tersimpan di database untuk SPK & WBS ini
+  // 2. Material yang sedang ada di daftar permintaan lokal (selectedItems)
+  // 3. Pekerjaan / material yang sudah ditugaskan ke pekerja di SPK Borongan (status !== 'CUT_OFF')
+  const availableItems = useMemo(() => {
+    return rawRabItems.filter((item) => {
+      // 1. Cek apakah sudah masuk ke daftar permintaan material tersimpan (database)
+      const alreadyInSavedRequisition = 
+        usedRequisitionItemIds.has(item.id) || 
+        usedRequisitionItemIds.has(item.materialId);
+
+      // 2. Cek apakah sedang berada di daftar permintaan material lokal
+      const alreadyInLocalRequisition = selectedItems.some((req) => 
+        (req.sourceRabId && req.sourceRabId === item.id) ||
+        req.tempId === item.id ||
+        (req.materialId && req.materialId === item.materialId)
+      );
+
+      // 3. Cek apakah sudah ditugaskan di SPK Borongan
+      const alreadyInSpkBorongan = activeSpkBoronganList.some((borong) => {
+        if (borong.status === 'CUT_OFF') return false;
+        const matIdMatch = Boolean(
+          borong.material_id && 
+          (borong.material_id === item.materialId || borong.material_id === item.id)
+        );
+        const itemDesc = (item.name || '').trim().toLowerCase();
+        const borongDesc = (borong.task_description || '').trim().toLowerCase();
+        const descMatch = Boolean(borongDesc && itemDesc && borongDesc === itemDesc);
+
+        return matIdMatch || descMatch;
+      });
+
+      return !alreadyInSavedRequisition && !alreadyInLocalRequisition && !alreadyInSpkBorongan;
+    });
+  }, [rawRabItems, usedRequisitionItemIds, selectedItems, activeSpkBoronganList]);
 
   // Form states
   const [notes, setNotes] = useState('');
@@ -117,7 +163,73 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
       }));
       setMasterMaterials(loadedMaster);
 
-      // 3. Fetch RAB Estimation for this SPK
+      // 3. Fetch Existing Requisitions for this SPK and WBS (Exclusion List)
+      const requisitionIds = new Set<string>();
+      try {
+        const { data: reqData, error: reqError } = await supabase
+          .from('material_requisitions')
+          .select(`
+            id,
+            wbs_category,
+            status,
+            material_requisition_items (
+              id,
+              material_id
+            )
+          `)
+          .eq('spk_id', spkId)
+          .neq('status', 'REJECTED');
+
+        if (reqError) {
+          console.error('Error fetching material requisitions for exclusion:', reqError);
+        } else if (reqData) {
+          reqData.forEach((req: any) => {
+            const reqCat = (req.wbs_category || '').replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
+            const isMatchingWbs = 
+              !req.wbs_category || 
+              reqCat === cleanWbsCategory.toLowerCase() || 
+              req.wbs_category.toLowerCase() === wbsCategory.toLowerCase();
+
+            if (isMatchingWbs && req.material_requisition_items) {
+              req.material_requisition_items.forEach((item: any) => {
+                if (item.material_id) {
+                  requisitionIds.add(item.material_id);
+                }
+              });
+            }
+          });
+        }
+      } catch (reqErr) {
+        console.error('Error loading requisitions for exclusion:', reqErr);
+      }
+      setUsedRequisitionItemIds(requisitionIds);
+
+      // 4. Fetch Active SPK Borongan Assignments for this SPK and WBS (Exclusion List)
+      try {
+        const { data: spkBData, error: spkBError } = await supabase
+          .from('spk_borongan')
+          .select('*')
+          .eq('spk_id', spkId)
+          .neq('status', 'CUT_OFF');
+
+        if (spkBError) {
+          console.error('Error fetching spk_borongan for exclusion:', spkBError);
+        } else if (spkBData) {
+          const matchingBorong: ActiveSpkBorongan[] = (spkBData as any[]).filter((borong) => {
+            if (!borong.wbs_category) return true;
+            const bCat = borong.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
+            return (
+              bCat === cleanWbsCategory.toLowerCase() ||
+              borong.wbs_category.toLowerCase() === wbsCategory.toLowerCase()
+            );
+          });
+          setActiveSpkBoronganList(matchingBorong);
+        }
+      } catch (spkBErr) {
+        console.error('Error loading spk_borongan for exclusion:', spkBErr);
+      }
+
+      // 5. Fetch RAB Estimation for this SPK
       const { data: rabEst, error: estError } = await supabase
         .from('rab_estimations')
         .select('id')
@@ -127,7 +239,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
       if (estError) throw estError;
 
       if (rabEst) {
-        // 4. Fetch RAB Items matching WBS category
+        // 6. Fetch RAB Items matching WBS category
         const { data: itemsData, error: itemsError } = await supabase
           .from('rab_items')
           .select(`
@@ -192,7 +304,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
             };
           });
 
-          setAvailableItems(sourceList);
+          setRawRabItems(sourceList);
         }
       }
     } catch (err: any) {
@@ -211,10 +323,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
     const sourceItem = availableItems.find(item => item.id === targetId);
     if (!sourceItem) return;
 
-    // Remove from available items
-    setAvailableItems(prev => prev.filter(item => item.id !== targetId));
-
-    // Add to selected items
+    // Add to selected items (availableItems will automatically exclude it via useMemo)
     const newRequisitionItem: RequisitionItem = {
       tempId: `req-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       sourceRabId: sourceItem.id,
@@ -239,25 +348,8 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
     const selectedItem = selectedItems.find(item => item.tempId === targetId);
     if (!selectedItem) return;
 
-    // Remove from selected items
+    // Remove from selected items (reappearing automatically in availableItems if from rawRabItems)
     setSelectedItems(prev => prev.filter(item => item.tempId !== targetId));
-
-    // If item originated from RAB, restore back to available list
-    if (selectedItem.sourceRabId) {
-      const restoredItem: RabSourceItem = {
-        id: selectedItem.sourceRabId,
-        materialId: selectedItem.materialId,
-        name: selectedItem.name,
-        unit: selectedItem.unit,
-        unitPrice: selectedItem.unitPrice,
-        rabQuantity: selectedItem.quantity,
-        subtotal: selectedItem.quantity * selectedItem.unitPrice,
-        currentStock: masterMaterials.find(m => m.id === selectedItem.materialId)?.current_stock || 0
-      };
-
-      setAvailableItems(prev => [...prev, restoredItem]);
-    }
-
     setHighlightedTargetId(null);
   };
 
@@ -574,7 +666,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                   <button
                     type="button"
                     onClick={() => handleMoveToRequisition()}
-                    disabled={!highlightedSourceId}
+                    disabled={!highlightedSourceId || !availableItems.some(i => i.id === highlightedSourceId)}
                     className="flex-1 md:flex-none w-full md:w-auto p-2.5 md:p-3.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 disabled:opacity-30 disabled:pointer-events-none text-white rounded-xl shadow-md transition-all flex items-center justify-center gap-2 group"
                     title="Pindahkan item yang disorot ke Daftar Permintaan (<<)"
                   >
@@ -625,7 +717,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                           Semua material RAB telah dipindahkan
                         </p>
                         <p className="text-[11px] text-text-muted mt-1 max-w-xs">
-                          Seluruh item RAB untuk tahapan WBS ini sudah berada di daftar permintaan atau belum dialokasikan di estimasi.
+                          Seluruh item RAB untuk tahapan WBS ini sudah berada di daftar permintaan, ditugaskan di SPK Borongan, atau belum dialokasikan di estimasi.
                         </p>
                       </div>
                     ) : (
