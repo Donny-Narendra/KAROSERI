@@ -631,3 +631,15 @@
 - [x] Filter Eksklusi Material yang Sudah Masuk ke "Daftar Permintaan Material" (Requisition) aktif pada WBS terkait.
 - [x] Transfer Interaktif Material dari Panduan RAB ke Form Penugasan Baru SPK-B (via Double Click / <<) dengan Kemampuan Rollback.
 - [x] Verifikasi Type Checking, Build Validation, dan Commit Atomik.
+
+---
+
+### Phase 52: Gap Closure (Eksklusi Material yang Sudah Digunakan dari Panel Alokasi RAB pada Modal Minta Material)
+**Status**: ⬜ Not Started
+**Objective**: Address gaps from operational feedback (Eksklusi Material yang Sudah Digunakan di Minta Material maupun SPK Borongan dari Panel Alokasi RAB WBS Terkait pada /mandor)
+
+**Gaps to Close:**
+- [ ] Kueri Data Pembanding Cross-Module (`material_requisitions`/`material_requisition_items` dan `spk_borongan`) untuk SPK & WBS terkait pada modal `MaterialRequisitionForm.tsx`.
+- [ ] Logika Pemfilteran Panel "Alokasi RAB (WBS Terkait)" untuk mengecualikan material yang sudah diajukan via Requisition atau sudah ditugaskan pada SPK Borongan.
+- [ ] Sinkronisasi Badge & Indikator Sisa ("X item tersisa") pada header dan footer panel Alokasi RAB.
+- [ ] Verifikasi Type Checking, Build Validation (`npm run build`, `npx oxlint`), dan Commit Atomik (`fix(mandor): exclude items used in requisitions and spk borongan from rab allocation panel`).
