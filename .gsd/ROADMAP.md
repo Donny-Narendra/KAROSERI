@@ -623,11 +623,11 @@
 ---
 
 ### Phase 51: Gap Closure (Pembatalan Penugasan SPK-B, Filter Eksklusi Requisition, dan Transfer Interaktif Material RAB ke Form SPK-B)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Address gaps from milestone audit (Fitur Pembatalan Penugasan SPK-B, Eksklusi Material Requisition, dan Transfer Interaktif Material RAB ke Form SPK-B pada /mandor)
 
 **Gaps to Close:**
-- [ ] Tombol Batalkan / Hapus Penugasan pada Riwayat Penugasan SPK-B dengan konfirmasi dan pembersihan record di Supabase.
-- [ ] Filter Eksklusi Material yang Sudah Masuk ke "Daftar Permintaan Material" (Requisition) aktif pada WBS terkait.
-- [ ] Transfer Interaktif Material dari Panduan RAB ke Form Penugasan Baru SPK-B (via Double Click / <<) dengan Kemampuan Rollback.
-- [ ] Verifikasi Type Checking, Build Validation, dan Commit Atomik.
+- [x] Tombol Batalkan / Hapus Penugasan pada Riwayat Penugasan SPK-B dengan konfirmasi dan pembersihan record di Supabase.
+- [x] Filter Eksklusi Material yang Sudah Masuk ke "Daftar Permintaan Material" (Requisition) aktif pada WBS terkait.
+- [x] Transfer Interaktif Material dari Panduan RAB ke Form Penugasan Baru SPK-B (via Double Click / <<) dengan Kemampuan Rollback.
+- [x] Verifikasi Type Checking, Build Validation, dan Commit Atomik.
