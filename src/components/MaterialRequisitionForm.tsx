@@ -12,7 +12,7 @@ import {
   X,
   FileText
 } from 'lucide-react';
-import { isRabItemAllocated } from '../utils/rabItemAllocation';
+import { isRabItemAllocated, normalizeText } from '../utils/rabItemAllocation';
 
 interface MasterMaterial {
   id: string;
@@ -24,7 +24,7 @@ interface MasterMaterial {
 
 interface RabSourceItem {
   id: string; // rab_items id
-  materialId: string;
+  materialId?: string | null;
   name: string;
   unit: string;
   unitPrice: number;
@@ -35,8 +35,8 @@ interface RabSourceItem {
 
 interface RequisitionItem {
   tempId: string; // unique row id
-  sourceRabId?: string; // reference to rab_items id if from RAB
-  materialId: string;
+  sourceRabId?: string | null; // reference to rab_items id if from RAB
+  materialId?: string | null;
   name: string;
   unit: string;
   unitPrice: number;
@@ -156,7 +156,9 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
             status,
             material_requisition_items (
               id,
-              material_id
+              material_id,
+              rab_item_id,
+              material_name
             )
           `)
           .eq('spk_id', spkId)
@@ -176,6 +178,12 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
               req.material_requisition_items.forEach((item: any) => {
                 if (item.material_id) {
                   requisitionIds.add(item.material_id);
+                }
+                if (item.rab_item_id) {
+                  requisitionIds.add(item.rab_item_id);
+                }
+                if (item.material_name) {
+                  requisitionIds.add(item.material_name.toLowerCase().trim());
                 }
               });
             }
@@ -264,10 +272,17 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
               matchedMat = loadedMaster.find(m => m.id === item.material_id);
             }
             if (!matchedMat && item.description) {
-              matchedMat = loadedMaster.find(m => m.name.toLowerCase() === item.description.toLowerCase());
+              const cleanDesc = normalizeText(item.description);
+              matchedMat = loadedMaster.find(m => normalizeText(m.name) === cleanDesc) ||
+                loadedMaster.find(m => {
+                  const normM = normalizeText(m.name);
+                  return (normM.length >= 4 && cleanDesc.includes(normM)) ||
+                         (cleanDesc.length >= 4 && normM.includes(cleanDesc));
+                });
             }
 
-            const materialId = matchedMat?.id || item.material_id || item.id;
+            // CRITICAL FIX: NEVER fallback to item.id (which is rab_items.id)!
+            const materialId = matchedMat?.id || item.material_id || null;
             const name = matchedMat?.name || item.description || 'Material Tanpa Nama';
             const unit = matchedMat?.unit || 'pcs';
             const unitPrice = Number(matchedMat?.unit_price || 0);
@@ -309,7 +324,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
     const newRequisitionItem: RequisitionItem = {
       tempId: `req-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       sourceRabId: sourceItem.id,
-      materialId: sourceItem.materialId,
+      materialId: sourceItem.materialId || null,
       name: sourceItem.name,
       unit: sourceItem.unit,
       unitPrice: sourceItem.unitPrice,
@@ -396,15 +411,15 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
       return;
     }
 
-    // Validation
-    const validItems = selectedItems.filter(item => item.materialId && item.quantity > 0);
+    // Validation: Require at least 1 item with quantity > 0
+    const validItems = selectedItems.filter(item => (item.materialId || (item.name && item.name.trim())) && item.quantity > 0);
     if (validItems.length === 0) {
       alert('Harap pilih minimal 1 material dengan kuantitas lebih dari 0.');
       return;
     }
 
-    // Check if any manual item has not selected a material
-    const unselectedManual = selectedItems.find(item => item.isManual && !item.materialId);
+    // Check if any manual item has not selected a material and has no name
+    const unselectedManual = selectedItems.find(item => item.isManual && !item.materialId && !item.name.trim());
     if (unselectedManual) {
       alert('Terdapat item manual yang belum dipilih materialnya. Silakan pilih material atau hapus item tersebut.');
       return;
@@ -431,8 +446,11 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
       // 2. Insert Material Requisition Items
       const itemsToInsert = validItems.map(item => ({
         requisition_id: reqData.id,
-        material_id: item.materialId,
-        quantity: item.quantity
+        material_id: item.materialId || null,
+        rab_item_id: item.sourceRabId || null,
+        material_name: item.name || 'Material Tanpa Nama',
+        quantity: Number(item.quantity) || 1,
+        unit: item.unit || 'pcs'
       }));
 
       const { error: itemsError } = await supabase
@@ -564,7 +582,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                                       Pilih Material Ekstra:
                                     </label>
                                     <select
-                                      value={item.materialId}
+                                      value={item.materialId || ''}
                                       onChange={(e) => handleManualMaterialSelect(item.tempId, e.target.value)}
                                       className="w-full p-1.5 bg-surface border border-border rounded text-xs text-text focus:border-emerald-500 focus:outline-none"
                                       autoFocus

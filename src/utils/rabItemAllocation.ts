@@ -29,6 +29,8 @@ export interface RequisitionItemLike {
   } | null;
   material_requisition_items?: Array<{
     material_id?: string | null;
+    rab_item_id?: string | null;
+    material_name?: string | null;
     materials?: {
       id?: string;
       name?: string;
@@ -86,6 +88,7 @@ export function isRabItemAllocated(
     if (requisitions instanceof Set) {
       if (rabItemId && requisitions.has(rabItemId)) return true;
       if (materialId && requisitions.has(materialId)) return true;
+      if (normalizedItemName && (requisitions.has(normalizedItemName) || requisitions.has(itemName.toLowerCase()))) return true;
     } else if (Array.isArray(requisitions)) {
       const matchInReq = requisitions.some((req) => {
         if (!req) return false;
@@ -96,10 +99,11 @@ export function isRabItemAllocated(
         if (Array.isArray(req.material_requisition_items) && req.material_requisition_items.length > 0) {
           return req.material_requisition_items.some((subItem) => {
             const subMatId = subItem.materials?.id || subItem.material_id;
+            const subRabId = subItem.rab_item_id;
             if (materialId && subMatId === materialId) return true;
-            if (rabItemId && subMatId === rabItemId) return true;
+            if (rabItemId && (subMatId === rabItemId || subRabId === rabItemId)) return true;
 
-            const subName = (subItem.materials?.name || '').trim();
+            const subName = (subItem.materials?.name || subItem.material_name || '').trim();
             const normSubName = normalizeText(subName);
             if (normSubName && normalizedItemName) {
               if (normSubName === normalizedItemName) return true;

@@ -30,6 +30,9 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({ onSucc
             id,
             material_id,
             quantity,
+            rab_item_id,
+            material_name,
+            unit,
             materials ( name, unit )
           )
         `)
@@ -55,19 +58,23 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({ onSucc
 
     setProcessingId(requisition.id);
     try {
-      // 1. Insert inventory transactions for each item
-      const transactions = requisition.material_requisition_items.map((item: any) => ({
-        spk_id: requisition.spk.id,
-        material_id: item.material_id,
-        quantity_issued: item.quantity,
-        issued_by: user.id
-      }));
+      // 1. Insert inventory transactions for items with valid material_id
+      const transactions = (requisition.material_requisition_items || [])
+        .filter((item: any) => Boolean(item.material_id))
+        .map((item: any) => ({
+          spk_id: requisition.spk.id,
+          material_id: item.material_id,
+          quantity_issued: item.quantity,
+          issued_by: user.id
+        }));
 
-      const { error: txError } = await supabase
-        .from('inventory_transactions')
-        .insert(transactions);
-        
-      if (txError) throw txError;
+      if (transactions.length > 0) {
+        const { error: txError } = await supabase
+          .from('inventory_transactions')
+          .insert(transactions);
+          
+        if (txError) throw txError;
+      }
 
       // 2. Update requisition status
       const { error: reqError } = await supabase
@@ -166,9 +173,11 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({ onSucc
                         <tbody className="divide-y divide-border">
                           {req.material_requisition_items?.map((item: any) => (
                             <tr key={item.id}>
-                              <td className="px-4 py-2">{item.materials?.name}</td>
+                              <td className="px-4 py-2">
+                                {item.materials?.name || item.material_name || 'Material Non-Stok'}
+                              </td>
                               <td className="px-4 py-2 text-right font-medium">
-                                {item.quantity} {item.materials?.unit}
+                                {item.quantity} {item.materials?.unit || item.unit || 'pcs'}
                               </td>
                             </tr>
                           ))}
