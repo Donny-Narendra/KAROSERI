@@ -1,9 +1,9 @@
-## Phase 46 Verification
+## Phase 53 Verification: Sinkronisasi Mutual Exclusion Material Antara Requisition dan SPK Borongan di Mandor
 
 ### Must-Haves
-- [x] Isolasi layout cetak menggunakan `#print-root` React portal dan sembunyikan seluruh flow `#root` dengan `body > *:not(#print-root) { display: none !important; }` — VERIFIED (evidence: Container `<div id="print-root">` terpasang di `index.html`, `BastModal` memount via `createPortal`, dan `#root` disembunyikan sepenuhnya dari flow layout cetak).
-- [x] Netralkan positioning modal pada media cetak (`position: static !important`, `transform: none !important`, `margin: 0 auto !important`) — VERIFIED (evidence: CSS `@media print` di `src/index.css` dan embedded style di `BastModal.tsx` mendefinisikan reset static tanpa offset vertikal/fixed backdrop).
-- [x] Kompresi dimensi vertikal, padding tabel, dan margin internal `#printable-bast` (`padding: 8mm 12mm !important`, `@page { size: A4 portrait; margin: 8mm; }`) agar pas dalam 1 lembar A4 — VERIFIED (evidence: `min-h-[290mm]` dihapus saat print, cell padding dirampingkan `py-1`, tinggi kolom tanda tangan `h-24`, dan `break-inside: avoid` disematkan pada setiap seksi).
-- [x] Validasi Build dan Type Checking — VERIFIED (evidence: `tsc -b && vite build` selesai dalam 350ms tanpa error; `npx oxlint` 0 error dan 0 warning).
+- [x] Skema / Data Tracking Penggunaan Item: Penambahan tracking `material_id` / `rab_item_id` pada tabel `public.spk_borongan` dan penyimpanan referensi saat transfer dari RAB — VERIFIED (evidence: Migrasi `20261011201500_add_material_tracking_to_spk_borongan.sql` sukses diterapkan ke database dengan indeks dan backfill data; `SpkBoronganPanel.tsx` menyimpan `material_id` dan `rab_item_id` saat `handleCreate`).
+- [x] Utilitas Shared Availability Filter (`isRabItemAllocated`): Normalisasi teks case-insensitive, substring matching deskripsi tugas, dan validasi ID material cross-module — VERIFIED (evidence: File `src/utils/rabItemAllocation.ts` lulus unit test komprehensif untuk pencocokan ID, status exclusions, dan substring matching mandor notes).
+- [x] Terapkan Filter di Kedua Modal: Saring panel "Alokasi RAB (WBS Terkait)" pada `MaterialRequisitionForm.tsx` dan panel "Panduan Material (RAB)" pada `SpkBoronganPanel.tsx` beserta counter reaktif — VERIFIED (evidence: Kedua modal mengimpor dan menerapkan `isRabItemAllocated`; pengujian langsung dengan database real memvalidasi bahwa "TUKANG LAS DUDUKAN SLEBOR" pada SPK-5902 Pembongkaran tereksklusi dari kedua panel).
+- [x] Verifikasi Type Checking, Build, dan Linting — VERIFIED (evidence: `npm run build` berhasil 100% tanpa error dalam 474ms; `npx oxlint` 0 error).
 
 ### Verdict: PASS

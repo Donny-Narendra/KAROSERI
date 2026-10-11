@@ -647,11 +647,11 @@
 ---
 
 ### Phase 53: Gap Closure (Sinkronisasi Mutual Exclusion Material Antara Requisition dan SPK Borongan di Mandor)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Address gaps from operational feedback (Sinkronisasi Mutual Exclusion Material Antara Requisition dan SPK Borongan pada /mandor)
 
 **Gaps to Close:**
-- [ ] Skema / Data Tracking Penggunaan Item: Penambahan tracking `material_id` / `rab_item_id` pada penugasan SPK Borongan yang berasal dari transfer material RAB.
-- [ ] Utilitas Shared Availability Filter (`isRabItemAllocated`): Normalisasi teks case-insensitive, substring matching deskripsi tugas, dan validasi ID material cross-module.
-- [ ] Terapkan Filter di Kedua Modal: Saring panel "Alokasi RAB (WBS Terkait)" pada `MaterialRequisitionForm.tsx` dan panel "Panduan Material (RAB)" pada `SpkBoronganPanel.tsx` beserta counter reaktif.
-- [ ] Verifikasi Type Checking, Build (`npm run build`, `npx oxlint`), dan Commit Atomik (`fix(mandor): synchronize mutual exclusion between requisition and spk borongan material lists`).
+- [x] Skema / Data Tracking Penggunaan Item: Penambahan tracking `material_id` / `rab_item_id` pada penugasan SPK Borongan yang berasal dari transfer material RAB.
+- [x] Utilitas Shared Availability Filter (`isRabItemAllocated`): Normalisasi teks case-insensitive, substring matching deskripsi tugas, dan validasi ID material cross-module.
+- [x] Terapkan Filter di Kedua Modal: Saring panel "Alokasi RAB (WBS Terkait)" pada `MaterialRequisitionForm.tsx` dan panel "Panduan Material (RAB)" pada `SpkBoronganPanel.tsx` beserta counter reaktif.
+- [x] Verifikasi Type Checking, Build (`npm run build`, `npx oxlint`), dan Commit Atomik (`fix(mandor): synchronize mutual exclusion between requisition and spk borongan material lists`).

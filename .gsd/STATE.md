@@ -1,23 +1,17 @@
 ## Current Position
-- **Phase**: 53 (planned)
-- **Task**: Ready for execution
-- **Status**: Planning complete
-
-## Gap Closure Mode
-Addressing gaps for Phase 53: Sinkronisasi Mutual Exclusion Material Antara Requisition dan SPK Borongan pada /mandor (`src/components/MaterialRequisitionForm.tsx` & `src/components/SpkBoronganPanel.tsx`).
+- **Phase**: 53 (completed)
+- **Task**: All tasks complete
+- **Status**: Verified
 
 ## Last Session Summary
-Rencana Gap Closure Phase 53 dibuat:
-1. **Task 1**: Skema / Data Tracking Penggunaan Item pada `spk_borongan`.
-2. **Task 2**: Pembuatan Utilitas Shared Availability Filter (`src/utils/rabItemAllocation.ts`).
-3. **Task 3**: Terapkan Shared Availability Filter di Kedua Modal (`MaterialRequisitionForm.tsx` & `SpkBoronganPanel.tsx`).
-4. **Task 4**: Verifikasi Linting, Type Checking, Build Validation, dan Commit Atomik (`fix(mandor): synchronize mutual exclusion between requisition and spk borongan material lists`).
-
-## In-Progress Work
-Phase 53 plan created (`.gsd/phases/plan-53.md`).
+Phase 53 (Gap Closure: Sinkronisasi Mutual Exclusion Material Antara Requisition dan SPK Borongan di Mandor) dieksekusi dan diverifikasi dengan sukses:
+1. Skema / Data Tracking: Kolom `material_id` dan `rab_item_id` berhasil ditambahkan ke `spk_borongan`, diindeks, dibackfill, dan disimpan otomatis saat pembuatan SPK Borongan dari transfer RAB.
+2. Shared Availability Filter: Utilitas `src/utils/rabItemAllocation.ts` (`isRabItemAllocated`) berhasil diimplementasikan dengan dukungan normalisasi teks, substring matching untuk catatan mandor, dan validasi ID cross-module.
+3. Penerapan di Kedua Modal: Modal "Minta Material" (`MaterialRequisitionForm.tsx`) dan "SPK Borongan" (`SpkBoronganPanel.tsx`) saling menyaring item yang telah dialokasikan secara konsisten dan reaktif.
+4. Verifikasi & Build: `npx oxlint` 0 error, `npm run build` sukses 100%, dan pengujian real-data membuktikan material "TUKANG LAS DUDUKAN SLEBOR" pada SPK-5902 Pembongkaran tereksklusi dari kedua modal.
 
 ## Blockers
 None.
 
 ## Next Steps
-1. Jalankan `/execute 53 --gaps-only` untuk mengeksekusi sinkronisasi mutual exclusion material antar modal.
+1. Sesi pengerjaan Phase 53 tuntas.
