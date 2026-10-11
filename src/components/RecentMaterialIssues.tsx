@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ClipboardList, Search, Loader2, Trash2, Edit2, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { inventoryService } from '../services/inventoryService';
+import { ConfirmationModal } from './ConfirmationModal';
 
 interface RecentMaterialIssuesProps {
   refreshKey: number;
@@ -12,6 +13,13 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({ refr
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmVoidOpen, setConfirmVoidOpen] = useState(false);
+  const [feedbackModal, setFeedbackModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    variant: 'success' | 'danger' | 'warning' | 'info';
+  } | null>(null);
   
   // Edit state
   const [editingIssue, setEditingIssue] = useState<any | null>(null);
@@ -69,27 +77,44 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({ refr
     }
   };
 
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = () => {
     if (selectedIds.length === 0) return;
     
     // Check if any selected is from COMPLETED SPK locally first
     const invalidSpks = recentIssues.filter(i => selectedIds.includes(i.id) && i.spk?.status === 'COMPLETED');
     if (invalidSpks.length > 0) {
-      alert('Tidak dapat menghapus transaksi dari SPK yang sudah COMPLETED.');
+      setFeedbackModal({
+        isOpen: true,
+        title: 'Transaksi Tidak Dapat Dibatalkan',
+        message: 'Tidak dapat menghapus transaksi dari SPK yang sudah berstatus COMPLETED. Data SPK selesai terkunci untuk audit.',
+        variant: 'warning'
+      });
       return;
     }
 
-    if (!confirm(`Anda yakin ingin membatalkan (void) ${selectedIds.length} pengeluaran material?\n\nStok material akan dikembalikan.`)) {
-      return;
-    }
+    setConfirmVoidOpen(true);
+  };
 
+  const executeBulkDelete = async () => {
     setIsDeleting(true);
     try {
       await inventoryService.deleteIssuesAndRevertStock(selectedIds);
+      setConfirmVoidOpen(false);
       setInternalRefresh(prev => prev + 1);
+      setFeedbackModal({
+        isOpen: true,
+        title: 'Transaksi Berhasil Dibatalkan',
+        message: `${selectedIds.length} transaksi pengeluaran material berhasil dibatalkan (void) dan stok gudang telah dikembalikan.`,
+        variant: 'success'
+      });
     } catch (err: any) {
       console.error(err);
-      alert(err.message || 'Gagal menghapus transaksi');
+      setFeedbackModal({
+        isOpen: true,
+        title: 'Gagal Membatalkan Transaksi',
+        message: err.message || 'Gagal menghapus transaksi',
+        variant: 'danger'
+      });
     } finally {
       setIsDeleting(false);
     }
@@ -307,6 +332,33 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({ refr
             </div>
           </div>
         </div>
+      )}
+
+      {/* Confirm Void Modal */}
+      <ConfirmationModal
+        isOpen={confirmVoidOpen}
+        title="Batalkan (Void) Pengeluaran Material?"
+        message={`Anda yakin ingin membatalkan (void) ${selectedIds.length} transaksi pengeluaran material?\n\nStok material di gudang akan otomatis dikembalikan sesuai kuantitas yang dibatalkan.`}
+        confirmText={`Ya, Void ${selectedIds.length} Transaksi`}
+        cancelText="Batal"
+        variant="danger"
+        isLoading={isDeleting}
+        onConfirm={executeBulkDelete}
+        onCancel={() => setConfirmVoidOpen(false)}
+      />
+
+      {/* Feedback Modal */}
+      {feedbackModal && (
+        <ConfirmationModal
+          isOpen={feedbackModal.isOpen}
+          title={feedbackModal.title}
+          message={feedbackModal.message}
+          confirmText="Tutup"
+          hideCancel={true}
+          variant={feedbackModal.variant}
+          onConfirm={() => setFeedbackModal(null)}
+          onCancel={() => setFeedbackModal(null)}
+        />
       )}
     </div>
   );

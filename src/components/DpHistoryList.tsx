@@ -1,6 +1,7 @@
 import React from 'react';
 import { Printer, Copy, ExternalLink, Check } from 'lucide-react';
 import type { DPHistoryRecord } from '../services/billingService';
+import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
 
 interface DpHistoryListProps {
   history: DPHistoryRecord[];
@@ -9,6 +10,24 @@ interface DpHistoryListProps {
 
 export const DpHistoryList: React.FC<DpHistoryListProps> = ({ history, loading }) => {
   const [copiedId, setCopiedId] = React.useState<string | null>(null);
+  const [modalConfig, setModalConfig] = React.useState<{
+    isOpen: boolean;
+    title: string;
+    message?: string;
+    variant?: ConfirmationModalVariant;
+    confirmText?: string;
+    cancelText?: string;
+    hideCancel?: boolean;
+    onConfirm?: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+  });
+
+  const closeModal = () => {
+    setModalConfig(prev => ({ ...prev, isOpen: false }));
+  };
+
   if (loading) {
     return (
       <div className="text-center p-6 border border-dashed border-surface-border rounded-lg text-text-muted">
@@ -30,8 +49,25 @@ export const DpHistoryList: React.FC<DpHistoryListProps> = ({ history, loading }
   };
 
   const handlePrintReceipt = (record: DPHistoryRecord) => {
-    alert(`Mencetak kuitansi DP untuk SPK: ${record.spk_no}\nNominal: ${formatCurrency(record.dp_amount)}\n\n(Preview Cetak)`);
-    window.print();
+    setModalConfig({
+      isOpen: true,
+      title: 'Cetak Kuitansi Pembayaran DP',
+      message: `Konfirmasi pencetakan kuitansi resmi uang muka (DP):\n\n` +
+        `• No. SPK: ${record.spk_no}\n` +
+        `• Pelanggan: ${record.customer_name}\n` +
+        `• Kendaraan: ${record.vehicle_plate}\n` +
+        `• Nominal DP: ${formatCurrency(record.dp_amount)}\n` +
+        `• Metode Pembayaran: ${record.payment_method}\n` +
+        `• Tanggal Pembayaran: ${new Date(record.payment_date).toLocaleString('id-ID')}\n\n` +
+        `Klik "Buka Dialog Cetak" untuk memproses pencetakan dokumen kuitansi.`,
+      variant: 'info',
+      confirmText: 'Buka Dialog Cetak',
+      cancelText: 'Batal',
+      onConfirm: () => {
+        closeModal();
+        window.print();
+      },
+    });
   };
 
   const handleCopyLink = (spkNo: string) => {
@@ -115,6 +151,19 @@ export const DpHistoryList: React.FC<DpHistoryListProps> = ({ history, loading }
           </div>
         </div>
       ))}
+
+      {/* Modal Dialog Konfirmasi Cetak */}
+      <ConfirmationModal
+        isOpen={modalConfig.isOpen}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        variant={modalConfig.variant}
+        confirmText={modalConfig.confirmText}
+        cancelText={modalConfig.cancelText}
+        hideCancel={modalConfig.hideCancel}
+        onConfirm={modalConfig.onConfirm || closeModal}
+        onCancel={closeModal}
+      />
     </div>
   );
 };

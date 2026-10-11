@@ -6,6 +6,7 @@ import { ImportInventoryModal } from './ImportInventoryModal';
 import { RestockModal } from './RestockModal';
 import { MaterialAuditModal } from './MaterialAuditModal';
 import { Upload, PackagePlus, History } from 'lucide-react';
+import { ConfirmationModal } from './ConfirmationModal';
 
 export const InventoryManager: React.FC = () => {
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -502,33 +503,16 @@ export const InventoryManager: React.FC = () => {
       )}
 
       {/* Delete Confirmation Modal */}
-      {deleteConfirmId && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-surface border border-border rounded-lg shadow-xl w-full max-w-sm p-6 text-center">
-            <div className="w-12 h-12 rounded-full bg-status-danger/10 flex items-center justify-center mx-auto mb-4">
-              <AlertCircle className="w-6 h-6 text-status-danger" />
-            </div>
-            <h3 className="font-bold text-lg text-text mb-2">Hapus Material?</h3>
-            <p className="text-text-muted mb-6">
-              Tindakan ini tidak dapat dibatalkan. Data material akan dihapus permanen dari sistem.
-            </p>
-            <div className="flex justify-center gap-3">
-              <button 
-                onClick={() => setDeleteConfirmId(null)}
-                className="px-4 py-2 border border-border rounded text-text-muted hover:text-text hover:bg-surface-hover font-medium transition"
-              >
-                Batal
-              </button>
-              <button 
-                onClick={confirmDelete}
-                className="px-4 py-2 bg-status-danger hover:bg-red-600 text-white rounded font-medium transition"
-              >
-                Ya, Hapus
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmationModal
+        isOpen={Boolean(deleteConfirmId)}
+        title="Hapus Material Master?"
+        message="Tindakan ini tidak dapat dibatalkan. Data master material akan dihapus permanen dari sistem gudang."
+        confirmText="Ya, Hapus Material"
+        cancelText="Batal"
+        variant="danger"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteConfirmId(null)}
+      />
 
       {/* Import Modal */}
       {isImportModalOpen && (
@@ -563,41 +547,23 @@ export const InventoryManager: React.FC = () => {
       )}
 
       {/* Bulk Delete Confirmation Modal */}
-      {isBulkDeleteModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-surface border border-border rounded-lg shadow-xl w-full max-w-sm p-6 text-center">
-            <div className="w-12 h-12 rounded-full bg-status-danger/10 flex items-center justify-center mx-auto mb-4">
-              <AlertCircle className="w-6 h-6 text-status-danger" />
-            </div>
-            <h3 className="font-bold text-lg text-text mb-2">Hapus {selectedMaterialIds.length} Material?</h3>
-            <p className="text-text-muted mb-6">
-              Tindakan ini tidak dapat dibatalkan. Material yang sudah digunakan dalam transaksi tidak akan ikut terhapus.
-            </p>
-            {error && (
-              <div className="mb-4 p-3 bg-status-danger/10 border border-status-danger/30 rounded text-status-danger text-sm text-left flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
-            <div className="flex justify-center gap-3">
-              <button 
-                onClick={() => setIsBulkDeleteModalOpen(false)}
-                className="px-4 py-2 border border-border rounded text-text-muted hover:text-text hover:bg-surface-hover font-medium transition"
-                disabled={isSubmitting}
-              >
-                Batal
-              </button>
-              <button 
-                onClick={confirmBulkDelete}
-                className="px-4 py-2 bg-status-danger hover:bg-red-600 text-white rounded font-medium transition flex items-center gap-2"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? 'Menghapus...' : 'Ya, Hapus'}
-              </button>
-            </div>
+      <ConfirmationModal
+        isOpen={isBulkDeleteModalOpen}
+        title={`Hapus ${selectedMaterialIds.length} Material?`}
+        message="Tindakan ini tidak dapat dibatalkan. Material yang sudah digunakan dalam transaksi tidak akan ikut terhapus."
+        confirmText="Ya, Hapus Semua"
+        cancelText="Batal"
+        variant="danger"
+        isLoading={isSubmitting}
+        onConfirm={confirmBulkDelete}
+        onCancel={() => setIsBulkDeleteModalOpen(false)}
+      >
+        {error && (
+          <div className="mt-2 p-2.5 bg-status-danger/10 border border-status-danger/30 rounded text-status-danger text-xs">
+            {error}
           </div>
-        </div>
-      )}
+        )}
+      </ConfirmationModal>
 
     </div>
   );

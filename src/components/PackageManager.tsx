@@ -4,6 +4,7 @@ import { packageService } from '../services/packageService';
 import { inventoryService, type Material } from '../services/inventoryService';
 import type { ProductPackage, PackageItem } from '../types/package';
 import { MaterialAutocomplete } from './MaterialAutocomplete';
+import { ConfirmationModal } from './ConfirmationModal';
 
 export const PackageManager: React.FC = () => {
   const [packages, setPackages] = useState<ProductPackage[]>([]);
@@ -500,33 +501,16 @@ export const PackageManager: React.FC = () => {
       )}
 
       {/* Delete Confirmation Modal */}
-      {deleteConfirmId && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-surface border border-border rounded-lg shadow-xl w-full max-w-sm p-6 text-center">
-            <div className="w-12 h-12 rounded-full bg-status-danger/10 flex items-center justify-center mx-auto mb-4">
-              <AlertCircle className="w-6 h-6 text-status-danger" />
-            </div>
-            <h3 className="font-bold text-lg text-text mb-2">Hapus Paket?</h3>
-            <p className="text-text-muted mb-6">
-              Tindakan ini tidak dapat dibatalkan. Paket beserta resep Assembly List-nya akan dihapus permanen.
-            </p>
-            <div className="flex justify-center gap-3">
-              <button 
-                onClick={() => setDeleteConfirmId(null)}
-                className="px-4 py-2 border border-border rounded text-text-muted hover:text-text hover:bg-surface-hover font-medium transition"
-              >
-                Batal
-              </button>
-              <button 
-                onClick={confirmDelete}
-                className="px-4 py-2 bg-status-danger hover:bg-red-600 text-white rounded font-medium transition"
-              >
-                Ya, Hapus
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmationModal
+        isOpen={Boolean(deleteConfirmId)}
+        title="Hapus Paket Assembly?"
+        message="Tindakan ini tidak dapat dibatalkan. Paket beserta resep Assembly List-nya akan dihapus permanen."
+        confirmText="Ya, Hapus Paket"
+        cancelText="Batal"
+        variant="danger"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteConfirmId(null)}
+      />
     </div>
   );
 };

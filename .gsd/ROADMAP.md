@@ -702,3 +702,29 @@
 - [x] Refactor pemanggilan `window.confirm` dan `window.alert` pada pembatalan penugasan SPK Borongan di `SpkBoronganPanel.tsx`.
 - [x] Standarisasi dialog konfirmasi pembatalan/pengembalian material dan pesan notifikasi pada `MaterialRequisitionForm.tsx`.
 - [x] Refactor pesan peringatan dan alert pada `WbsChecklist.tsx` dan `QcInspectionForm.tsx`.
+
+---
+
+### Phase 58: Gap Closure (Refactor Seluruh Dialog Konfirmasi Native Browser Menjadi Modal Custom di /warehouse)
+**Status**: ✅ Complete
+**Objective**: Address gaps from operational feedback (Mengganti seluruh dialog window.confirm dan window.alert native browser di modul Warehouse/Gudang menjadi modal dialog konfirmasi custom berbasis React UI)
+
+**Gaps to Close:**
+- [x] Refactor alur Approve & Reject permintaan material di `RequisitionApproval.tsx` menjadi state-driven modal dialog `ConfirmationModal`.
+- [x] Refactor alur Void Transaksi Pengeluaran dan peringatan SPK COMPLETED di `RecentMaterialIssues.tsx` menjadi `ConfirmationModal`.
+- [x] Refactor pesan notifikasi/alert di `GoodsIssueForm.tsx` dan `GoodsReturnForm.tsx` menjadi `ConfirmationModal`.
+- [x] Standarisasi dialog modal hapus master material (single & bulk) di `InventoryManager.tsx` dan paket di `PackageManager.tsx` menggunakan `ConfirmationModal`.
+- [x] Penyiapan skrip migrasi SQL jika status `CANCELLED` dibutuhkan pada `requisition_status` (`20261012000001_add_cancelled_to_requisition_status.sql`).
+
+---
+
+### Phase 59: Gap Closure (Refactor Seluruh Dialog Konfirmasi Native Browser Menjadi Modal Custom di /kasir)
+**Status**: ✅ Complete
+**Objective**: Address gaps from operational feedback (Mengganti seluruh dialog window.confirm dan window.alert native browser di modul Kasir / Billing menjadi modal dialog konfirmasi & notifikasi custom berbasis React UI)
+
+**Gaps to Close:**
+- [x] Refactor titik konfirmasi dan notifikasi pada `KasirDashboard.tsx`: Generate Final Bill (Invoice), Pelunasan (Mark as Paid), Pembatalan Invoice, Serah Terima Kendaraan (Release Vehicle & BAST), dan Salin Tautan Pelacakan menjadi `ConfirmationModal`.
+- [x] Refactor form Penerimaan Uang Muka (DP) pada `DownPaymentModal.tsx` dengan konfirmasi aktivasi SPK dan modal notifikasi validasi/status custom.
+- [x] Refactor aksi Cetak Kuitansi DP pada `DpHistoryList.tsx` menjadi modal konfirmasi cetak custom tanpa `window.alert`.
+- [x] Standarisasi error handling unduhan PDF pada `BastModal.tsx` menggunakan modal notifikasi custom.
+- [x] Penyiapan skrip migrasi SQL penambahan status `CANCELLED` pada tabel `invoices` (`supabase/migrations/20261012000002_add_cancelled_to_invoices_status.sql`).

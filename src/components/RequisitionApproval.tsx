@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { Check, X, ClipboardList, Loader2, AlertTriangle } from 'lucide-react';
+import { ConfirmationModal } from './ConfirmationModal';
 
 interface RequisitionApprovalProps {
   onSuccess?: () => void;
@@ -12,6 +13,24 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({ onSucc
   const [requisitions, setRequisitions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
+
+  // Dialog State
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    type: 'APPROVE' | 'REJECT';
+    requisition: any;
+    title: string;
+    message: string;
+    confirmText: string;
+    variant: 'info' | 'danger';
+  } | null>(null);
+
+  const [feedbackDialog, setFeedbackDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    variant: 'success' | 'danger' | 'info';
+  } | null>(null);
 
   const fetchRequisitions = async () => {
     setLoading(true);
@@ -52,69 +71,113 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({ onSucc
     fetchRequisitions();
   }, []);
 
-  const handleApprove = async (requisition: any) => {
-    if (!user) return;
-    if (!window.confirm('Are you sure you want to approve this requisition and issue the materials?')) return;
-
-    setProcessingId(requisition.id);
-    try {
-      // 1. Insert inventory transactions for items with valid material_id
-      const transactions = (requisition.material_requisition_items || [])
-        .filter((item: any) => Boolean(item.material_id))
-        .map((item: any) => ({
-          spk_id: requisition.spk.id,
-          material_id: item.material_id,
-          quantity_issued: item.quantity,
-          issued_by: user.id
-        }));
-
-      if (transactions.length > 0) {
-        const { error: txError } = await supabase
-          .from('inventory_transactions')
-          .insert(transactions);
-          
-        if (txError) throw txError;
-      }
-
-      // 2. Update requisition status
-      const { error: reqError } = await supabase
-        .from('material_requisitions')
-        .update({ status: 'APPROVED' })
-        .eq('id', requisition.id);
-
-      if (reqError) throw reqError;
-
-      alert('Requisition approved and materials issued.');
-      if (onSuccess) onSuccess();
-      fetchRequisitions();
-    } catch (error: any) {
-      console.error('Error approving requisition:', error);
-      alert(`Failed to approve requisition: ${error.message}`);
-    } finally {
-      setProcessingId(null);
-    }
+  const handleRequestApprove = (requisition: any) => {
+    setConfirmDialog({
+      isOpen: true,
+      type: 'APPROVE',
+      requisition,
+      title: 'Setujui Permintaan Material',
+      message: `Apakah Anda yakin ingin menyetujui permintaan material untuk SPK ${requisition.spk?.spk_no || '-'} dan mengeluarkan material terkait?\n\nKuantitas material akan otomatis dicatat pada transaksi inventaris gudang.`,
+      confirmText: 'Ya, Setujui & Keluarkan',
+      variant: 'info',
+    });
   };
 
-  const handleReject = async (id: string) => {
-    if (!window.confirm('Are you sure you want to reject this requisition?')) return;
+  const handleRequestReject = (requisition: any) => {
+    setConfirmDialog({
+      isOpen: true,
+      type: 'REJECT',
+      requisition,
+      title: 'Tolak Permintaan Material',
+      message: `Apakah Anda yakin ingin menolak permintaan material untuk SPK ${requisition.spk?.spk_no || '-'}?\n\nStatus permintaan ini akan diubah menjadi REJECTED.`,
+      confirmText: 'Ya, Tolak Permintaan',
+      variant: 'danger',
+    });
+  };
 
-    setProcessingId(id);
-    try {
-      const { error } = await supabase
-        .from('material_requisitions')
-        .update({ status: 'REJECTED' })
-        .eq('id', id);
+  const executeConfirmedAction = async () => {
+    if (!confirmDialog) return;
+    const { type, requisition } = confirmDialog;
+    setConfirmDialog(null);
 
-      if (error) throw error;
+    if (type === 'APPROVE') {
+      if (!user) return;
+      setProcessingId(requisition.id);
+      try {
+        // 1. Insert inventory transactions for items with valid material_id
+        const transactions = (requisition.material_requisition_items || [])
+          .filter((item: any) => Boolean(item.material_id))
+          .map((item: any) => ({
+            spk_id: requisition.spk.id,
+            material_id: item.material_id,
+            quantity_issued: item.quantity,
+            issued_by: user.id
+          }));
 
-      alert('Requisition rejected.');
-      if (onSuccess) onSuccess();
-      fetchRequisitions();
-    } catch (error: any) {
-      console.error('Error rejecting requisition:', error);
-      alert(`Failed to reject requisition: ${error.message}`);
-    } finally {
-      setProcessingId(null);
+        if (transactions.length > 0) {
+          const { error: txError } = await supabase
+            .from('inventory_transactions')
+            .insert(transactions);
+            
+          if (txError) throw txError;
+        }
+
+        // 2. Update requisition status
+        const { error: reqError } = await supabase
+          .from('material_requisitions')
+          .update({ status: 'APPROVED' })
+          .eq('id', requisition.id);
+
+        if (reqError) throw reqError;
+
+        setFeedbackDialog({
+          isOpen: true,
+          title: 'Persetujuan Berhasil',
+          message: 'Permintaan material telah disetujui dan transaksi pengeluaran barang berhasil dicatat.',
+          variant: 'success'
+        });
+        if (onSuccess) onSuccess();
+        fetchRequisitions();
+      } catch (error: any) {
+        console.error('Error approving requisition:', error);
+        setFeedbackDialog({
+          isOpen: true,
+          title: 'Gagal Menyetujui Permintaan',
+          message: `Terjadi kendala saat memproses persetujuan: ${error.message || 'Kesalahan sistem'}`,
+          variant: 'danger'
+        });
+      } finally {
+        setProcessingId(null);
+      }
+    } else if (type === 'REJECT') {
+      setProcessingId(requisition.id);
+      try {
+        const { error } = await supabase
+          .from('material_requisitions')
+          .update({ status: 'REJECTED' })
+          .eq('id', requisition.id);
+
+        if (error) throw error;
+
+        setFeedbackDialog({
+          isOpen: true,
+          title: 'Permintaan Ditolak',
+          message: 'Permintaan material telah berhasil ditolak (status diubah menjadi REJECTED).',
+          variant: 'info'
+        });
+        if (onSuccess) onSuccess();
+        fetchRequisitions();
+      } catch (error: any) {
+        console.error('Error rejecting requisition:', error);
+        setFeedbackDialog({
+          isOpen: true,
+          title: 'Gagal Menolak Permintaan',
+          message: `Terjadi kendala saat menolak permintaan: ${error.message || 'Kesalahan sistem'}`,
+          variant: 'danger'
+        });
+      } finally {
+        setProcessingId(null);
+      }
     }
   };
 
@@ -197,7 +260,7 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({ onSucc
                   {/* Actions Section */}
                   <div className="flex lg:flex-col justify-end gap-2 lg:min-w-[120px]">
                     <button
-                      onClick={() => handleApprove(req)}
+                      onClick={() => handleRequestApprove(req)}
                       disabled={processingId !== null}
                       className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-status-success hover:bg-status-success/90 text-white px-4 py-2 rounded transition disabled:opacity-50"
                     >
@@ -205,7 +268,7 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({ onSucc
                       Approve
                     </button>
                     <button
-                      onClick={() => handleReject(req.id)}
+                      onClick={() => handleRequestReject(req)}
                       disabled={processingId !== null}
                       className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-surface hover:bg-status-danger/10 text-status-danger border border-border hover:border-status-danger/30 px-4 py-2 rounded transition disabled:opacity-50"
                     >
@@ -219,6 +282,34 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({ onSucc
           </div>
         )}
       </div>
+
+      {/* Confirmation Modal */}
+      {confirmDialog && (
+        <ConfirmationModal
+          isOpen={confirmDialog.isOpen}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          confirmText={confirmDialog.confirmText}
+          cancelText="Batal"
+          variant={confirmDialog.variant}
+          onConfirm={executeConfirmedAction}
+          onCancel={() => setConfirmDialog(null)}
+        />
+      )}
+
+      {/* Feedback / Alert Modal */}
+      {feedbackDialog && (
+        <ConfirmationModal
+          isOpen={feedbackDialog.isOpen}
+          title={feedbackDialog.title}
+          message={feedbackDialog.message}
+          confirmText="Tutup"
+          hideCancel={true}
+          variant={feedbackDialog.variant}
+          onConfirm={() => setFeedbackDialog(null)}
+          onCancel={() => setFeedbackDialog(null)}
+        />
+      )}
     </div>
   );
 };

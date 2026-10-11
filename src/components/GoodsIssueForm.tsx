@@ -3,6 +3,7 @@ import { Package, CheckCircle2, Lock } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { inventoryService } from '../services/inventoryService';
+import { ConfirmationModal } from './ConfirmationModal';
 
 interface GoodsIssueFormProps {
   onSuccess?: () => void;
@@ -14,6 +15,13 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
   const [selectedSpk, setSelectedSpk] = useState<string>('');
   const [selectedMaterial, setSelectedMaterial] = useState<string>('');
   const [requestQty, setRequestQty] = useState<string>('');
+
+  const [feedbackModal, setFeedbackModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    variant: 'success' | 'danger' | 'warning' | 'info';
+  } | null>(null);
 
   const [rabMaterials, setRabMaterials] = useState<any[]>([]);
   const [masterMaterials, setMasterMaterials] = useState<any[]>([]);
@@ -127,7 +135,12 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
     
     // Guardrail: Double Issuance Check
     if (inventoryTotals[selectedMaterial] && inventoryTotals[selectedMaterial] > 0) {
-      alert('Material ini sudah pernah dikeluarkan untuk SPK ini dan tidak dapat diambil kembali.');
+      setFeedbackModal({
+        isOpen: true,
+        title: 'Material Pernah Dikeluarkan',
+        message: 'Material ini sudah pernah dikeluarkan untuk SPK ini dan tidak dapat diambil kembali.',
+        variant: 'warning'
+      });
       return;
     }
 
@@ -147,12 +160,22 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
         const currentStock = selectedMasterItem?.current_stock || 0;
         await supabase.from('materials').update({ current_stock: currentStock - qty }).eq('id', selectedMaterial);
 
-        alert(`Berhasil mengeluarkan ${qty} unit material`);
+        setFeedbackModal({
+          isOpen: true,
+          title: 'Material Berhasil Dikeluarkan',
+          message: `Berhasil mengeluarkan ${qty} unit material untuk SPK ini. Stok inventaris gudang telah disesuaikan.`,
+          variant: 'success'
+        });
         setRequestQty('');
         fetchRabAndInventory(selectedSpk);
         if (onSuccess) onSuccess();
       } else {
-        alert('Gagal mengeluarkan material');
+        setFeedbackModal({
+          isOpen: true,
+          title: 'Gagal Mengeluarkan Material',
+          message: error.message || 'Gagal mengeluarkan material ke SPK.',
+          variant: 'danger'
+        });
         console.error(error);
       }
     }
@@ -281,6 +304,20 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
           </button>
         </div>
       </form>
+
+      {/* Feedback / Alert Modal */}
+      {feedbackModal && (
+        <ConfirmationModal
+          isOpen={feedbackModal.isOpen}
+          title={feedbackModal.title}
+          message={feedbackModal.message}
+          confirmText="Tutup"
+          hideCancel={true}
+          variant={feedbackModal.variant}
+          onConfirm={() => setFeedbackModal(null)}
+          onCancel={() => setFeedbackModal(null)}
+        />
+      )}
     </div>
   );
 };

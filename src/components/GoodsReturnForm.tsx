@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { RefreshCcw, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
+import { ConfirmationModal } from './ConfirmationModal';
 
 interface GoodsReturnFormProps {
   onSuccess?: () => void;
@@ -15,6 +16,13 @@ export const GoodsReturnForm: React.FC<GoodsReturnFormProps> = ({ onSuccess }) =
   const [returnQty, setReturnQty] = useState<string>('');
 
   const [issuedMaterials, setIssuedMaterials] = useState<any[]>([]);
+
+  const [feedbackModal, setFeedbackModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    variant: 'success' | 'danger' | 'warning' | 'info';
+  } | null>(null);
 
   useEffect(() => {
     fetchSpks();
@@ -79,12 +87,22 @@ export const GoodsReturnForm: React.FC<GoodsReturnFormProps> = ({ onSuccess }) =
         });
         
       if (!error) {
-        alert(`Berhasil meretur ${qty} unit material`);
+        setFeedbackModal({
+          isOpen: true,
+          title: 'Retur Material Berhasil',
+          message: `Berhasil meretur ${qty} unit material kembali ke stok gudang untuk SPK ini.`,
+          variant: 'success'
+        });
         setReturnQty('');
         fetchIssuedMaterials(selectedSpk);
         if (onSuccess) onSuccess();
       } else {
-        alert('Gagal meretur material');
+        setFeedbackModal({
+          isOpen: true,
+          title: 'Gagal Meretur Material',
+          message: error.message || 'Gagal memproses retur material ke database.',
+          variant: 'danger'
+        });
         console.error(error);
       }
     }
@@ -103,48 +121,35 @@ export const GoodsReturnForm: React.FC<GoodsReturnFormProps> = ({ onSuccess }) =
             <label className="block text-sm text-text-muted mb-1">Select SPK</label>
             <select
               value={selectedSpk}
-              onChange={(e) => {
-                setSelectedSpk(e.target.value);
-              }}
+              onChange={(e) => setSelectedSpk(e.target.value)}
               className="w-full bg-background border border-border rounded p-2 text-text focus:border-primary focus:outline-none"
             >
-              <option value="">-- Choose SPK --</option>
-              {spks.map(spk => (
-                <option key={spk.id} value={spk.id}>{spk.spk_no} - {spk.customer_name}</option>
+              <option value="">-- Choose Active SPK --</option>
+              {spks.map((spk) => (
+                <option key={spk.id} value={spk.id}>
+                  {spk.spk_no} - {spk.customer_name} ({spk.vehicle_plate})
+                </option>
               ))}
             </select>
           </div>
 
           <div>
-            <label className="block text-sm text-text-muted mb-1">Select Material</label>
+            <label className="block text-sm text-text-muted mb-1">Select Issued Material</label>
             <select
               value={selectedMaterial}
               onChange={(e) => setSelectedMaterial(e.target.value)}
-              disabled={!selectedSpk || issuedMaterials.length === 0}
+              disabled={!selectedSpk}
               className="w-full bg-background border border-border rounded p-2 text-text focus:border-primary focus:outline-none disabled:opacity-50"
             >
-              <option value="">-- Choose Material --</option>
-              {issuedMaterials.map(mat => (
-                <option key={mat.material_id} value={mat.material_id}>{mat.name}</option>
+              <option value="">-- Choose Material to Return --</option>
+              {issuedMaterials.map((mat) => (
+                <option key={mat.material_id} value={mat.material_id}>
+                  {mat.name} (Max return: {mat.total_issued})
+                </option>
               ))}
             </select>
           </div>
         </div>
-
-        {selectedMatInfo && (
-          <div className="bg-background border border-border p-4 rounded-lg grid grid-cols-2 gap-4">
-            <div>
-              <div className="text-xs text-text-muted uppercase font-mono">Total Issued</div>
-              <div className="font-medium">{selectedMatInfo.total_issued.toFixed(2)}</div>
-            </div>
-            <div>
-              <div className="text-xs text-text-muted uppercase font-mono">Return Limit</div>
-              <div className="font-medium text-status-warning">
-                {selectedMatInfo.total_issued.toFixed(2)}
-              </div>
-            </div>
-          </div>
-        )}
 
         <div>
           <label className="block text-sm text-text-muted mb-1">Return Quantity</label>
@@ -177,6 +182,20 @@ export const GoodsReturnForm: React.FC<GoodsReturnFormProps> = ({ onSuccess }) =
           </button>
         </div>
       </form>
+
+      {/* Feedback / Alert Modal */}
+      {feedbackModal && (
+        <ConfirmationModal
+          isOpen={feedbackModal.isOpen}
+          title={feedbackModal.title}
+          message={feedbackModal.message}
+          confirmText="Tutup"
+          hideCancel={true}
+          variant={feedbackModal.variant}
+          onConfirm={() => setFeedbackModal(null)}
+          onCancel={() => setFeedbackModal(null)}
+        />
+      )}
     </div>
   );
 };

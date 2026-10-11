@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Printer, X, CheckCircle, ShieldCheck, FileCheck, Download, Loader2 } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
+import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
 
 export interface BastSpkData {
   id?: string;
@@ -63,6 +64,23 @@ export const BastModal: React.FC<BastModalProps> = ({
 }) => {
   const [dateInfo] = useState(() => formatBastDate(new Date()));
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message?: string;
+    variant?: ConfirmationModalVariant;
+    confirmText?: string;
+    cancelText?: string;
+    hideCancel?: boolean;
+    onConfirm?: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+  });
+
+  const closeModal = () => {
+    setModalConfig(prev => ({ ...prev, isOpen: false }));
+  };
 
   useEffect(() => {
     if (isOpen && autoPrint) {
@@ -174,7 +192,15 @@ export const BastModal: React.FC<BastModalProps> = ({
       await html2pdfWorker().set(opt).from(element).save();
     } catch (err) {
       console.error('Gagal mengunduh dokumen BAST sebagai PDF:', err);
-      alert('Terjadi kesalahan saat memproses unduhan PDF. Silakan periksa konsol atau gunakan opsi Cetak Dokumen.');
+      setModalConfig({
+        isOpen: true,
+        title: 'Gagal Mengunduh Dokumen BAST',
+        message: 'Terjadi kesalahan sistem saat memproses unduhan dokumen PDF BAST. Silakan gunakan tombol "Cetak Dokumen" untuk mencetak fisik atau menyimpan PDF langsung melalui dialog peramban.',
+        variant: 'danger',
+        hideCancel: true,
+        confirmText: 'Mengerti',
+        onConfirm: closeModal,
+      });
     } finally {
       window.getComputedStyle = origWindowGetComputedStyle;
       // Clean up any stray html2pdf overlays that could block user clicks
@@ -569,6 +595,19 @@ export const BastModal: React.FC<BastModalProps> = ({
           }
         }
       ` }} />
+
+      {/* Modal Dialog Notifikasi / Konfirmasi Error */}
+      <ConfirmationModal
+        isOpen={modalConfig.isOpen}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        variant={modalConfig.variant}
+        confirmText={modalConfig.confirmText}
+        cancelText={modalConfig.cancelText}
+        hideCancel={modalConfig.hideCancel}
+        onConfirm={modalConfig.onConfirm || closeModal}
+        onCancel={closeModal}
+      />
     </div>,
     printRoot
   );

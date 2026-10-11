@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { X, Receipt } from 'lucide-react';
+import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
 
 interface DownPaymentModalProps {
   isOpen: boolean;
@@ -15,6 +16,24 @@ export const DownPaymentModal: React.FC<DownPaymentModalProps> = ({ isOpen, onCl
   const [paymentMethod, setPaymentMethod] = useState('Transfer Bank');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message?: string;
+    variant?: ConfirmationModalVariant;
+    confirmText?: string;
+    cancelText?: string;
+    hideCancel?: boolean;
+    isLoading?: boolean;
+    onConfirm?: () => void | Promise<void>;
+  }>({
+    isOpen: false,
+    title: '',
+  });
+
+  const closeModal = () => {
+    setModalConfig(prev => ({ ...prev, isOpen: false, isLoading: false }));
+  };
 
   useEffect(() => {
     if (isOpen && suggestedAmount !== undefined) {
@@ -24,14 +43,41 @@ export const DownPaymentModal: React.FC<DownPaymentModalProps> = ({ isOpen, onCl
 
   if (!isOpen || !spk) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const dpAmount = Number(amount);
     if (isNaN(dpAmount) || dpAmount <= 0) {
-      alert('Nominal DP tidak valid');
+      setModalConfig({
+        isOpen: true,
+        title: 'Nominal DP Tidak Valid',
+        message: 'Harap masukkan nominal uang muka (DP) yang valid lebih besar dari Rp 0.',
+        variant: 'warning',
+        hideCancel: true,
+        confirmText: 'Mengerti',
+        onConfirm: closeModal,
+      });
       return;
     }
 
+    setModalConfig({
+      isOpen: true,
+      title: 'Konfirmasi Penerimaan Uang Muka (DP)',
+      variant: 'warning',
+      confirmText: 'Ya, Terima DP & Aktifkan SPK',
+      cancelText: 'Periksa Kembali',
+      message: `Apakah Anda yakin ingin membukukan penerimaan uang muka (DP) berikut?\n\n` +
+        `• No. SPK: ${spk.id}\n` +
+        `• Konsumen: ${spk.customerName}\n` +
+        `• Nominal DP: ${formatCurrency(dpAmount)}\n` +
+        `• Metode Pembayaran: ${paymentMethod}\n` +
+        (notes ? `• Catatan/Referensi: ${notes}\n\n` : '\n') +
+        `Tindakan ini akan mencatat transaksi pembayaran dan mengubah status SPK menjadi ACTIVE agar pengerjaan produksi dapat dimulai.`,
+      onConfirm: () => executeSubmitDp(dpAmount),
+    });
+  };
+
+  const executeSubmitDp = async (dpAmount: number) => {
+    setModalConfig(prev => ({ ...prev, isLoading: true }));
     setIsSubmitting(true);
     try {
       // 1. Simpan catatan pembayaran ke tabel payments
@@ -56,12 +102,30 @@ export const DownPaymentModal: React.FC<DownPaymentModalProps> = ({ isOpen, onCl
 
       if (spkError) throw spkError;
       
-      alert('DP berhasil dicatat dan SPK sekarang berstatus ACTIVE.');
-      onSuccess();
-      onClose();
+      setModalConfig({
+        isOpen: true,
+        title: 'DP Berhasil Dicatat',
+        message: `Penerimaan DP sebesar ${formatCurrency(dpAmount)} telah berhasil dibukukan.\n\nStatus SPK ${spk.id} kini resmi berubah menjadi ACTIVE.`,
+        variant: 'success',
+        hideCancel: true,
+        confirmText: 'Selesai',
+        onConfirm: () => {
+          closeModal();
+          onSuccess();
+          onClose();
+        },
+      });
     } catch (err: any) {
       console.error(err);
-      alert('Gagal memproses DP: ' + err.message);
+      setModalConfig({
+        isOpen: true,
+        title: 'Gagal Memproses DP',
+        message: 'Terjadi kesalahan sistem saat memproses DP: ' + (err?.message || 'Unknown error'),
+        variant: 'danger',
+        hideCancel: true,
+        confirmText: 'Tutup',
+        onConfirm: closeModal,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -166,6 +230,19 @@ export const DownPaymentModal: React.FC<DownPaymentModalProps> = ({ isOpen, onCl
           </div>
         </form>
       </div>
+      {/* Confirmation & Notification Modal */}
+      <ConfirmationModal
+        isOpen={modalConfig.isOpen}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        variant={modalConfig.variant}
+        confirmText={modalConfig.confirmText}
+        cancelText={modalConfig.cancelText}
+        hideCancel={modalConfig.hideCancel}
+        isLoading={modalConfig.isLoading}
+        onConfirm={modalConfig.onConfirm || closeModal}
+        onCancel={closeModal}
+      />
     </div>
   );
-}
+};

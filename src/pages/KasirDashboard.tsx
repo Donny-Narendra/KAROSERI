@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabaseClient';
 import { DownPaymentModal } from '../components/DownPaymentModal';
 import { DpHistoryList } from '../components/DpHistoryList';
 import { BastModal } from '../components/BastModal';
+import { ConfirmationModal, type ConfirmationModalVariant } from '../components/ConfirmationModal';
 import { fetchDPHistory } from '../services/billingService';
 import type { DPHistoryRecord } from '../services/billingService';
 import { packageService } from '../services/packageService';
@@ -46,6 +47,25 @@ export const KasirDashboard: React.FC = () => {
   const [dpHistory, setDpHistory] = useState<DPHistoryRecord[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [manualAdjustments, setManualAdjustments] = useState<Record<string, number>>({});
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message?: string;
+    variant?: ConfirmationModalVariant;
+    confirmText?: string;
+    cancelText?: string;
+    hideCancel?: boolean;
+    isLoading?: boolean;
+    onConfirm?: () => void | Promise<void>;
+    children?: React.ReactNode;
+  }>({
+    isOpen: false,
+    title: '',
+  });
+
+  const closeModal = () => {
+    setModalConfig(prev => ({ ...prev, isOpen: false, isLoading: false }));
+  };
 
   useEffect(() => {
     fetchSpks();
@@ -127,8 +147,9 @@ export const KasirDashboard: React.FC = () => {
           ? d.qc_inspections[0].status 
           : 'PENDING')) as 'PENDING' | 'PASS' | 'FAIL';
 
-        const paymentStatus = d.invoices?.length > 0
-          ? d.invoices[0].status
+        const validInvoices = d.invoices?.filter((i: any) => i.status !== 'CANCELLED') || [];
+        const paymentStatus = validInvoices.length > 0
+          ? validInvoices[0].status
           : 'NO_INVOICE';
 
         const amendmentCost = d.spk_amendments?.filter((a: any) => a.status === 'APPROVED').reduce((acc: number, curr: any) => acc + (Number(curr.cost_adjustment) || 0), 0) || 0;
@@ -199,12 +220,34 @@ export const KasirDashboard: React.FC = () => {
     ? spks.filter(s => draftStatuses.includes(s.status) && s.allocationStatus !== 'PARTIAL')
     : spks.filter(s => !draftStatuses.includes(s.status));
 
-  const handleGenerateInvoice = async () => {
+  const requestGenerateInvoice = () => {
     if (!selectedSpk) return;
     
     const manualAdj = manualAdjustments[selectedSpk.id] || 0;
     const totalHargaJual = selectedSpk.quotationAmount + selectedSpk.amendmentCost + manualAdj;
     const totalAmount = Math.max(0, totalHargaJual - selectedSpk.dpAmount);
+    
+    setModalConfig({
+      isOpen: true,
+      title: 'Konfirmasi Penerbitan Faktur Akhir (Invoice)',
+      variant: 'info',
+      confirmText: 'Ya, Terbitkan Invoice',
+      cancelText: 'Batal',
+      message: `Anda akan menerbitkan faktur tagihan akhir untuk SPK ${selectedSpk.id} (${selectedSpk.customerName}):\n\n` +
+        `• Harga Jual Dasar: ${formatCurrency(selectedSpk.quotationAmount)}\n` +
+        (selectedSpk.amendmentCost !== 0 ? `• Perubahan Addendum: ${formatCurrency(selectedSpk.amendmentCost)}\n` : '') +
+        (manualAdj !== 0 ? `• Penyesuaian Manual: ${manualAdj > 0 ? '+' : ''}${formatCurrency(manualAdj)}\n` : '') +
+        `• Total Harga Jual: ${formatCurrency(totalHargaJual)}\n` +
+        `• Uang Muka (DP): -${formatCurrency(selectedSpk.dpAmount)}\n` +
+        `• Sisa Tagihan Akhir: ${formatCurrency(totalAmount)}\n\n` +
+        `Faktur ini akan diterbitkan dengan status UNPAID. Lanjutkan proses ini?`,
+      onConfirm: () => executeGenerateInvoice(totalAmount),
+    });
+  };
+
+  const executeGenerateInvoice = async (totalAmount: number) => {
+    if (!selectedSpk) return;
+    setModalConfig(prev => ({ ...prev, isLoading: true }));
     
     const { error } = await supabase
       .from('invoices')
@@ -219,16 +262,49 @@ export const KasirDashboard: React.FC = () => {
       
     if (error) {
       console.error('Error generating invoice:', error);
-      alert('Failed to generate invoice');
+      setModalConfig({
+        isOpen: true,
+        title: 'Gagal Menerbitkan Invoice',
+        message: 'Terjadi kesalahan sistem saat membuat data invoice: ' + (error.message || 'Unknown error'),
+        variant: 'danger',
+        hideCancel: true,
+        confirmText: 'Tutup',
+        onConfirm: closeModal,
+      });
     } else {
-      alert('Invoice generated successfully.');
-      window.print();
-      fetchSpks();
+      await fetchSpks();
+      setModalConfig({
+        isOpen: true,
+        title: 'Faktur Akhir Berhasil Diterbitkan',
+        message: `Faktur tagihan untuk SPK ${selectedSpk.id} berhasil diterbitkan dengan status UNPAID.\n\nAnda dapat mencetak tagihan ini atau melanjutkan proses pelunasan ketika pembayaran diterima.`,
+        variant: 'success',
+        confirmText: 'Cetak Dokumen Sekarang',
+        cancelText: 'Tutup',
+        hideCancel: false,
+        onConfirm: () => {
+          closeModal();
+          window.print();
+        },
+      });
     }
   };
 
-  const handleMarkAsPaid = async () => {
+  const requestMarkAsPaid = () => {
     if (!selectedSpk) return;
+    setModalConfig({
+      isOpen: true,
+      title: 'Konfirmasi Pelunasan Tagihan Akhir',
+      message: `Apakah Anda yakin ingin menandai tagihan untuk SPK ${selectedSpk.id} (${selectedSpk.customerName}) sebagai LUNAS?\n\nTindakan ini akan mengonfirmasi pelunasan penuh dan memperbarui status SPK menjadi COMPLETED.`,
+      variant: 'warning',
+      confirmText: 'Ya, Tandai Lunas',
+      cancelText: 'Batal',
+      onConfirm: () => executeMarkAsPaid(),
+    });
+  };
+
+  const executeMarkAsPaid = async () => {
+    if (!selectedSpk) return;
+    setModalConfig(prev => ({ ...prev, isLoading: true }));
     
     const { data: invoices, error: fetchError } = await supabase
       .from('invoices')
@@ -240,7 +316,15 @@ export const KasirDashboard: React.FC = () => {
       
     if (fetchError || !invoices || invoices.length === 0) {
       console.error('Error finding invoice:', fetchError);
-      alert('Could not find unpaid invoice for this SPK. Generate invoice first.');
+      setModalConfig({
+        isOpen: true,
+        title: 'Faktur Belum Ditemukan',
+        message: 'Tidak ditemukan faktur dengan status UNPAID untuk SPK ini. Harap terbitkan faktur terlebih dahulu sebelum melakukan pelunasan.',
+        variant: 'warning',
+        hideCancel: true,
+        confirmText: 'Mengerti',
+        onConfirm: closeModal,
+      });
       return;
     }
     
@@ -253,7 +337,15 @@ export const KasirDashboard: React.FC = () => {
       
     if (invError) {
       console.error('Error updating invoice:', invError);
-      alert('Failed to mark invoice as paid.');
+      setModalConfig({
+        isOpen: true,
+        title: 'Gagal Memperbarui Faktur',
+        message: 'Terjadi kesalahan saat memperbarui status faktur: ' + (invError.message || 'Unknown error'),
+        variant: 'danger',
+        hideCancel: true,
+        confirmText: 'Tutup',
+        onConfirm: closeModal,
+      });
       return;
     }
     
@@ -264,12 +356,105 @@ export const KasirDashboard: React.FC = () => {
       
     if (spkError) console.error('Error updating SPK status:', spkError);
     
-    alert('Bill marked as Paid and SPK is COMPLETED.');
-    fetchSpks();
+    await fetchSpks();
+    setModalConfig({
+      isOpen: true,
+      title: 'Pelunasan Berhasil',
+      message: `Tagihan untuk SPK ${selectedSpk.id} berhasil ditandai LUNAS dan SPK telah berstatus COMPLETED.\n\nUnit kendaraan kini siap dirilis ke konsumen melalui BAST.`,
+      variant: 'success',
+      hideCancel: true,
+      confirmText: 'Selesai',
+      onConfirm: closeModal,
+    });
   };
 
-  const handleReleaseVehicle = async () => {
+  const requestCancelInvoice = () => {
     if (!selectedSpk) return;
+    setModalConfig({
+      isOpen: true,
+      title: 'Konfirmasi Pembatalan Faktur (Invoice)',
+      message: `Apakah Anda yakin ingin membatalkan faktur UNPAID untuk SPK ${selectedSpk.id} (${selectedSpk.customerName})?\n\nFaktur ini akan dibatalkan/dihapus sehingga Anda dapat merevisi penyesuaian nilai atau rincian biaya sebelum menerbitkan ulang faktur final.`,
+      variant: 'danger',
+      confirmText: 'Ya, Batalkan Invoice',
+      cancelText: 'Kembali',
+      onConfirm: () => executeCancelInvoice(),
+    });
+  };
+
+  const executeCancelInvoice = async () => {
+    if (!selectedSpk) return;
+    setModalConfig(prev => ({ ...prev, isLoading: true }));
+    try {
+      // Coba tandai status menjadi CANCELLED
+      const { error: updateError } = await supabase
+        .from('invoices')
+        .update({ status: 'CANCELLED' })
+        .eq('spk_id', selectedSpk.dbId)
+        .eq('status', 'UNPAID');
+
+      // Jika check constraint belum dimigrasi di database, fallback hapus baris unpaid invoice
+      if (updateError) {
+        console.warn('Update status to CANCELLED failed, falling back to delete invoice:', updateError);
+        const { error: deleteError } = await supabase
+          .from('invoices')
+          .delete()
+          .eq('spk_id', selectedSpk.dbId)
+          .eq('status', 'UNPAID');
+
+        if (deleteError) throw deleteError;
+      }
+
+      await fetchSpks();
+      setModalConfig({
+        isOpen: true,
+        title: 'Faktur Berhasil Dibatalkan',
+        message: `Faktur UNPAID untuk SPK ${selectedSpk.id} telah berhasil dibatalkan. Status tagihan kembali menjadi Belum Ada Faktur (NO_INVOICE).`,
+        variant: 'success',
+        hideCancel: true,
+        confirmText: 'Mengerti',
+        onConfirm: closeModal,
+      });
+    } catch (err: any) {
+      console.error('Error cancelling invoice:', err);
+      setModalConfig({
+        isOpen: true,
+        title: 'Gagal Membatalkan Faktur',
+        message: 'Terjadi kesalahan saat membatalkan faktur: ' + (err?.message || err),
+        variant: 'danger',
+        hideCancel: true,
+        confirmText: 'Tutup',
+        onConfirm: closeModal,
+      });
+    }
+  };
+
+  const requestReleaseVehicle = () => {
+    if (!selectedSpk) return;
+    
+    if (selectedSpk.status === 'COMPLETED') {
+      setSelectedBastSpk(selectedSpk);
+      setIsBastModalOpen(true);
+      return;
+    }
+
+    setModalConfig({
+      isOpen: true,
+      title: 'Konfirmasi Serah Terima Unit (BAST)',
+      message: `Apakah Anda yakin ingin memproses serah terima fisik unit kendaraan untuk SPK ${selectedSpk.id} (${selectedSpk.customerName})?\n\n` +
+        `• Nomor Polisi: ${selectedSpk.vehiclePlate || '-'}\n` +
+        `• No. Rangka / VIN: ${selectedSpk.vin}\n` +
+        `• Status Pembayaran: LUNAS\n\n` +
+        `Unit akan dinyatakan resmi diserahterimakan (COMPLETED) dan formulir BAST resmi siap dicetak.`,
+      variant: 'info',
+      confirmText: 'Ya, Rilis & Buka BAST',
+      cancelText: 'Batal',
+      onConfirm: () => executeReleaseVehicle(),
+    });
+  };
+
+  const executeReleaseVehicle = async () => {
+    if (!selectedSpk) return;
+    setModalConfig(prev => ({ ...prev, isLoading: true }));
     try {
       if (selectedSpk.status !== 'COMPLETED') {
         const { error: spkError } = await supabase
@@ -277,17 +462,40 @@ export const KasirDashboard: React.FC = () => {
           .update({ status: 'COMPLETED' })
           .eq('id', selectedSpk.dbId);
         if (spkError) {
-          console.error('Error updating SPK status to COMPLETED:', spkError);
+          throw spkError;
         } else {
           setSpks(prev => prev.map(s => s.id === selectedSpk.id ? { ...s, status: 'COMPLETED' } : s));
         }
       }
       setSelectedBastSpk({ ...selectedSpk, status: 'COMPLETED' });
+      closeModal();
       setIsBastModalOpen(true);
     } catch (err: any) {
       console.error('Failed to release vehicle:', err);
-      alert('Terjadi kesalahan saat memproses BAST: ' + (err?.message || err));
+      setModalConfig({
+        isOpen: true,
+        title: 'Gagal Memproses Serah Terima',
+        message: 'Terjadi kesalahan saat memproses BAST: ' + (err?.message || err),
+        variant: 'danger',
+        hideCancel: true,
+        confirmText: 'Tutup',
+        onConfirm: closeModal,
+      });
     }
+  };
+
+  const handleCopyTrackingLink = (spkNo: string) => {
+    const url = `${window.location.origin}/tracking/${spkNo}`;
+    navigator.clipboard.writeText(url);
+    setModalConfig({
+      isOpen: true,
+      title: 'Tautan Pelacakan Tersalin',
+      message: `Tautan pelacakan publik untuk SPK ${spkNo} berhasil disalin ke papan klip:\n\n${url}`,
+      variant: 'info',
+      hideCancel: true,
+      confirmText: 'Tutup',
+      onConfirm: closeModal,
+    });
   };
 
   const formatCurrency = (amount: number) => {
@@ -436,12 +644,9 @@ export const KasirDashboard: React.FC = () => {
                 <div className="flex items-center gap-4">
                   {!draftStatuses.includes(selectedSpk.status) && selectedSpk.dpAmount > 0 && (
                     <button
-                      onClick={() => {
-                        const url = `${window.location.origin}/tracking/${selectedSpk.id}`;
-                        navigator.clipboard.writeText(url);
-                        alert('Tautan pelacakan disalin:\n' + url);
-                      }}
-                      className="text-xs bg-secondary/10 text-secondary hover:bg-secondary/20 px-3 py-1.5 rounded-full font-medium transition-colors"
+                      type="button"
+                      onClick={() => handleCopyTrackingLink(selectedSpk.id)}
+                      className="text-xs bg-secondary/10 text-secondary hover:bg-secondary/20 px-3 py-1.5 rounded-full font-medium transition-colors cursor-pointer"
                     >
                       Salin Tautan Pelacakan
                     </button>
@@ -573,13 +778,22 @@ export const KasirDashboard: React.FC = () => {
 
               {/* Actions - Only in FINAL Tab */}
               {activeTab === 'FINAL' && (
-                <div className="flex justify-end gap-4">
+                <div className="flex flex-wrap justify-end gap-3 sm:gap-4">
+                  {selectedSpk.paymentStatus === 'UNPAID' && (
+                    <button
+                      type="button"
+                      onClick={requestCancelInvoice}
+                      className="px-4 py-2.5 rounded font-medium flex items-center gap-2 border border-rose-500/40 text-rose-400 hover:bg-rose-500/10 hover:border-rose-500 transition-all text-sm cursor-pointer"
+                    >
+                      Batalkan Invoice
+                    </button>
+                  )}
                   <button
                     disabled={selectedSpk.qcStatus !== 'PASS' || selectedSpk.paymentStatus !== 'UNPAID'}
-                    onClick={handleMarkAsPaid}
-                    className={`px-4 py-2 rounded font-medium flex items-center gap-2 transition-all ${
+                    onClick={requestMarkAsPaid}
+                    className={`px-4 py-2.5 rounded font-medium flex items-center gap-2 transition-all ${
                       selectedSpk.qcStatus === 'PASS' && selectedSpk.paymentStatus === 'UNPAID'
-                        ? 'bg-secondary text-secondary-foreground hover:bg-secondary/90'
+                        ? 'bg-secondary text-secondary-foreground hover:bg-secondary/90 shadow-md cursor-pointer'
                         : 'hidden'
                     }`}
                   >
@@ -587,10 +801,10 @@ export const KasirDashboard: React.FC = () => {
                   </button>
                   <button
                     disabled={selectedSpk.qcStatus !== 'PASS' || selectedSpk.paymentStatus !== 'NO_INVOICE'}
-                    onClick={handleGenerateInvoice}
+                    onClick={requestGenerateInvoice}
                     className={`px-6 py-3 rounded font-medium flex items-center gap-2 transition-all ${
                       selectedSpk.qcStatus === 'PASS' && selectedSpk.paymentStatus === 'NO_INVOICE'
-                        ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20'
+                        ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 cursor-pointer'
                         : 'bg-surface-border text-text-muted cursor-not-allowed'
                     }`}
                   >
@@ -599,7 +813,7 @@ export const KasirDashboard: React.FC = () => {
                   </button>
                   <button
                     disabled={selectedSpk.paymentStatus !== 'LUNAS' && selectedSpk.status !== 'COMPLETED'}
-                    onClick={handleReleaseVehicle}
+                    onClick={requestReleaseVehicle}
                     className={`px-6 py-3 rounded font-medium flex items-center gap-2 transition-all ${
                       selectedSpk.paymentStatus === 'LUNAS' || selectedSpk.status === 'COMPLETED'
                         ? 'bg-status-success text-white hover:bg-status-success/90 shadow-lg shadow-status-success/20 cursor-pointer'
@@ -640,6 +854,21 @@ export const KasirDashboard: React.FC = () => {
         spk={selectedBastSpk}
         autoPrint={false}
       />
+      {/* Confirmation & Notification Modal */}
+      <ConfirmationModal
+        isOpen={modalConfig.isOpen}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        variant={modalConfig.variant}
+        confirmText={modalConfig.confirmText}
+        cancelText={modalConfig.cancelText}
+        hideCancel={modalConfig.hideCancel}
+        isLoading={modalConfig.isLoading}
+        onConfirm={modalConfig.onConfirm || closeModal}
+        onCancel={closeModal}
+      >
+        {modalConfig.children}
+      </ConfirmationModal>
     </div>
   );
 };
