@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { Check, X, Clock, Plus, AlertCircle } from 'lucide-react';
 import { spkService } from '../services/spkService';
+import { ConfirmationModal } from './ConfirmationModal';
 
 interface AmendmentManagerProps {
   spkId: string;
@@ -19,6 +20,16 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId }) => 
   const [costAdjustment, setCostAdjustment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Modal confirmation state
+  const [actionTarget, setActionTarget] = useState<{
+    id: string;
+    description: string;
+    costAdjustment: number;
+    action: 'APPROVED' | 'REJECTED';
+  } | null>(null);
+  const [isProcessingAction, setIsProcessingAction] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const isOwner = profile?.role === 'owner';
   const isSA = profile?.role === 'service_advisor';
@@ -73,17 +84,34 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId }) => 
     }
   };
 
-  const handleAction = async (id: string, action: 'APPROVED' | 'REJECTED') => {
+  const handleActionClick = (amendment: any, action: 'APPROVED' | 'REJECTED') => {
+    setActionError(null);
+    setActionTarget({
+      id: amendment.id,
+      description: amendment.description,
+      costAdjustment: amendment.cost_adjustment || 0,
+      action,
+    });
+  };
+
+  const executeAction = async () => {
+    if (!actionTarget) return;
     try {
-      if (action === 'APPROVED') {
+      setIsProcessingAction(true);
+      setActionError(null);
+      if (actionTarget.action === 'APPROVED') {
         if (!profile?.id) throw new Error("User ID is missing");
-        await spkService.approveAmendment(id, profile.id);
+        await spkService.approveAmendment(actionTarget.id, profile.id);
       } else {
-        await spkService.rejectAmendment(id);
+        await spkService.rejectAmendment(actionTarget.id);
       }
+      setActionTarget(null);
       fetchAmendments();
-    } catch (err) {
-      console.error(`Error updating amendment to ${action}:`, err);
+    } catch (err: any) {
+      console.error(`Error updating amendment to ${actionTarget.action}:`, err);
+      setActionError(err.message || 'Gagal memproses permohonan amandemen');
+    } finally {
+      setIsProcessingAction(false);
     }
   };
 
@@ -198,14 +226,14 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId }) => 
               {(isOwner || isSA) && amendment.status === 'PENDING' && (
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => handleAction(amendment.id, 'APPROVED')}
+                    onClick={() => handleActionClick(amendment, 'APPROVED')}
                     className="p-1.5 bg-status-success/10 text-status-success hover:bg-status-success/20 rounded transition"
                     title="Approve"
                   >
                     <Check className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => handleAction(amendment.id, 'REJECTED')}
+                    onClick={() => handleActionClick(amendment, 'REJECTED')}
                     className="p-1.5 bg-status-danger/10 text-status-danger hover:bg-status-danger/20 rounded transition"
                     title="Reject"
                   >
@@ -217,6 +245,31 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId }) => 
           ))}
         </div>
       )}
+
+      {/* Confirmation Modal for Amendment Approval / Rejection */}
+      <ConfirmationModal
+        isOpen={!!actionTarget}
+        title={actionTarget?.action === 'APPROVED' ? 'Setujui Change Order' : 'Tolak Change Order'}
+        message={actionTarget ? (
+          actionTarget.action === 'APPROVED'
+            ? `Apakah Anda yakin ingin MENYETUJUI permohonan Change Order "${actionTarget.description}" dengan penyesuaian biaya sebesar Rp ${actionTarget.costAdjustment.toLocaleString('id-ID')}? Biaya ini akan ditambahkan ke kalkulasi tagihan SPK.`
+            : `Apakah Anda yakin ingin MENOLAK permohonan Change Order "${actionTarget.description}"? Permohonan ini tidak akan dimasukkan ke dalam kalkulasi tagihan SPK.`
+        ) : ''}
+        confirmText={actionTarget?.action === 'APPROVED' ? 'Ya, Setujui' : 'Ya, Tolak'}
+        cancelText="Batal"
+        variant={actionTarget?.action === 'APPROVED' ? 'info' : 'danger'}
+        isLoading={isProcessingAction}
+        onConfirm={executeAction}
+        onCancel={() => {
+          if (!isProcessingAction) setActionTarget(null);
+        }}
+      >
+        {actionError && (
+          <div className="bg-status-danger/10 border border-status-danger text-status-danger px-3 py-2 rounded text-xs mt-2">
+            {actionError}
+          </div>
+        )}
+      </ConfirmationModal>
     </div>
   );
 };

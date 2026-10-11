@@ -4,6 +4,7 @@ import { getOptimizedImageUrl } from '../../lib/cloudinary';
 import type { UploadedImage } from '../ui/CloudinaryUploader';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
+import { ConfirmationModal } from '../ConfirmationModal';
 
 interface SpkGalleryModalProps {
   isOpen: boolean;
@@ -24,6 +25,8 @@ export const SpkGalleryModal: React.FC<SpkGalleryModalProps> = ({ isOpen, onClos
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [photoToDelete, setPhotoToDelete] = useState<UploadedImage | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const canModifyGallery = profile?.role === 'owner' || profile?.role === 'service_advisor';
@@ -138,10 +141,11 @@ export const SpkGalleryModal: React.FC<SpkGalleryModalProps> = ({ isOpen, onClos
     }
   };
 
-  const handleDelete = async (photoToDelete: UploadedImage) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus foto ini?')) return;
+  const executeDeletePhoto = async () => {
+    if (!photoToDelete) return;
 
     try {
+      setIsDeleting(true);
       setError(null);
       const currentPhotos = spk.vehicle_photos || [];
       const updatedPhotos = currentPhotos.filter(p => p.public_id !== photoToDelete.public_id);
@@ -159,9 +163,12 @@ export const SpkGalleryModal: React.FC<SpkGalleryModalProps> = ({ isOpen, onClos
       if (lightboxImage?.public_id === photoToDelete.public_id) {
         setLightboxImage(null);
       }
+      setPhotoToDelete(null);
     } catch (err: any) {
       console.error('Delete Error:', err);
       setError('Gagal menghapus foto: ' + (err.message || 'Unknown error'));
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -259,7 +266,7 @@ export const SpkGalleryModal: React.FC<SpkGalleryModalProps> = ({ isOpen, onClos
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDelete(photo);
+                        setPhotoToDelete(photo);
                       }}
                       className="absolute top-2 right-2 p-1.5 bg-status-danger text-white rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-status-danger/80 shadow-md"
                       title="Hapus Foto"
@@ -280,6 +287,21 @@ export const SpkGalleryModal: React.FC<SpkGalleryModalProps> = ({ isOpen, onClos
           )}
         </div>
       </div>
+
+      {/* Confirmation Modal for Photo Deletion */}
+      <ConfirmationModal
+        isOpen={!!photoToDelete}
+        title="Hapus Foto Kendaraan"
+        message={`Apakah Anda yakin ingin menghapus foto "${photoToDelete?.angle || 'kendaraan'}" ini dari galeri check-in? Tindakan ini tidak dapat dibatalkan.`}
+        confirmText="Ya, Hapus Foto"
+        cancelText="Batal"
+        variant="danger"
+        isLoading={isDeleting}
+        onConfirm={executeDeletePhoto}
+        onCancel={() => {
+          if (!isDeleting) setPhotoToDelete(null);
+        }}
+      />
 
       {/* Lightbox Overlay */}
       {lightboxImage && (

@@ -11,6 +11,7 @@ import { spkService } from '../services/spkService';
 import { PackageManager } from '../components/PackageManager';
 import { WbsChecklist } from '../components/WbsChecklist';
 import { SAInventoryPanel } from '../components/SAInventoryPanel';
+import { ConfirmationModal, type ConfirmationModalVariant } from '../components/ConfirmationModal';
 
 export const ServiceAdvisorDashboard: React.FC = () => {
   const { profile, signOut } = useAuth();
@@ -23,6 +24,12 @@ export const ServiceAdvisorDashboard: React.FC = () => {
   const [listTab, setListTab] = useState<'active' | 'cancelled'>('active');
   const [cancellingSpkId, setCancellingSpkId] = useState<string | null>(null);
   const [viewingGallerySpk, setViewingGallerySpk] = useState<any | null>(null);
+  const [feedbackModal, setFeedbackModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    variant: ConfirmationModalVariant;
+  } | null>(null);
 
   const fetchSpks = async () => {
     setLoading(true);
@@ -52,8 +59,25 @@ export const ServiceAdvisorDashboard: React.FC = () => {
 
   const handleCancelSpk = async (reason: string) => {
     if (!cancellingSpkId || !profile) return;
-    await spkService.cancelSpk({ spkId: cancellingSpkId, reason, userId: profile.id });
-    fetchSpks();
+    const spkCancelled = spks.find(s => s.id === cancellingSpkId);
+    try {
+      await spkService.cancelSpk({ spkId: cancellingSpkId, reason, userId: profile.id });
+      fetchSpks();
+      setFeedbackModal({
+        isOpen: true,
+        title: 'SPK Berhasil Dibatalkan',
+        message: `SPK ${spkCancelled?.spk_no || cancellingSpkId} telah dibatalkan dengan alasan: "${reason}".`,
+        variant: 'warning',
+      });
+    } catch (err: any) {
+      console.error('Cancel SPK Error:', err);
+      setFeedbackModal({
+        isOpen: true,
+        title: 'Gagal Membatalkan SPK',
+        message: err.message || 'Terjadi kesalahan saat membatalkan SPK.',
+        variant: 'danger',
+      });
+    }
   };
 
   const filteredSpks = spks.filter(s => 
@@ -287,6 +311,20 @@ export const ServiceAdvisorDashboard: React.FC = () => {
         }}
         spk={viewingGallerySpk}
       />
+
+      {/* Modal Notifikasi / Feedback FeedbackModal */}
+      {feedbackModal && (
+        <ConfirmationModal
+          isOpen={feedbackModal.isOpen}
+          title={feedbackModal.title}
+          message={feedbackModal.message}
+          confirmText="Mengerti"
+          variant={feedbackModal.variant}
+          hideCancel={true}
+          onConfirm={() => setFeedbackModal(null)}
+          onCancel={() => setFeedbackModal(null)}
+        />
+      )}
     </div>
   );
 };

@@ -728,3 +728,16 @@
 - [x] Refactor aksi Cetak Kuitansi DP pada `DpHistoryList.tsx` menjadi modal konfirmasi cetak custom tanpa `window.alert`.
 - [x] Standarisasi error handling unduhan PDF pada `BastModal.tsx` menggunakan modal notifikasi custom.
 - [x] Penyiapan skrip migrasi SQL penambahan status `CANCELLED` pada tabel `invoices` (`supabase/migrations/20261012000002_add_cancelled_to_invoices_status.sql`).
+
+---
+
+### Phase 60: Gap Closure (Refactor Seluruh Dialog Konfirmasi Native Browser Menjadi Modal Custom di /service-advisor)
+**Status**: ✅ Complete
+**Objective**: Address gaps from operational feedback (Mengganti seluruh dialog window.confirm dan window.alert native browser di modul Service Advisor menjadi modal dialog konfirmasi & notifikasi custom berbasis React UI)
+
+**Gaps to Close:**
+- [x] Refactor titik konfirmasi penghapusan baris item bahan atau jasa pada tabel kalkulasi RAB (`RabCalculator.tsx`) menggunakan `ConfirmationModal`.
+- [x] Refactor pemanggilan alert pada penyimpanan estimasi RAB (`RabCalculator.tsx`) dan penanganan error/sukses menjadi dialog modal custom (`hideCancel: true`).
+- [x] Refactor dialog konfirmasi native penghapusan foto kendaraan dari galeri check-in (`SpkGalleryModal.tsx`) menjadi modal dialog konfirmasi custom.
+- [x] Refactor aksi approval & rejection Change Orders (`AmendmentManager.tsx`) dengan modal dialog konfirmasi interaktif.
+- [x] Verifikasi konsistensi tampilan modal dengan tema dark industrial RobelKaroseri dan pastikan tidak ada `window.confirm` / `window.alert`.

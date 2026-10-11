@@ -11,6 +11,7 @@ import type { ProductPackage } from '../types/package';
 import { PackageAllocationModal } from './PackageAllocationModal';
 import type { RabItemPayload } from './PackageAllocationModal';
 import { exportRabToExcel, printRabQuotation } from '../utils/rabExport';
+import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
 
 interface RabItem {
   id: string;
@@ -30,6 +31,12 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   const [bayHourlyRate, setBayHourlyRate] = useState<number>(0);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
+  const [modalFeedback, setModalFeedback] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    variant: ConfirmationModalVariant;
+  } | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [spkDetails, setSpkDetails] = useState<any>(null);
 
@@ -257,7 +264,14 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
 
   const handleSaveEstimation = async (silent = false) => {
     if (!spkId) {
-      if (!silent) alert('SPK ID is missing');
+      if (!silent) {
+        setModalFeedback({
+          isOpen: true,
+          title: 'ID SPK Tidak Ditemukan',
+          message: 'Gagal menyimpan estimasi karena parameter ID SPK tidak ditemukan.',
+          variant: 'danger',
+        });
+      }
       return;
     }
     try {
@@ -302,10 +316,24 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       }).eq('id', spkId);
       if (spkError) throw spkError;
 
-      if (!silent) alert('Estimation saved successfully!');
+      if (!silent) {
+        setModalFeedback({
+          isOpen: true,
+          title: 'Estimasi Berhasil Disimpan',
+          message: 'Data estimasi RAB dan status alokasi berhasil diperbarui ke database.',
+          variant: 'success',
+        });
+      }
     } catch (err: any) {
       console.error(err);
-      if (!silent) alert('Failed to save estimation: ' + err.message);
+      if (!silent) {
+        setModalFeedback({
+          isOpen: true,
+          title: 'Gagal Menyimpan Estimasi',
+          message: 'Terjadi kesalahan saat menyimpan estimasi: ' + (err.message || 'Unknown error'),
+          variant: 'danger',
+        });
+      }
     }
   };
 
@@ -743,27 +771,35 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
 
       </div>
 
-      {itemToDelete && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-surface border border-border rounded-lg p-6 max-w-sm w-full shadow-xl">
-            <h3 className="text-lg font-bold text-text mb-2">Konfirmasi Hapus</h3>
-            <p className="text-sm text-text-muted mb-6">Apakah Anda yakin ingin menghapus item ini? Tindakan ini tidak dapat dibatalkan.</p>
-            <div className="flex justify-end gap-3">
-              <button 
-                onClick={() => setItemToDelete(null)}
-                className="px-4 py-2 text-sm font-bold text-text-muted bg-surface hover:bg-surface-hover border border-border rounded transition"
-              >
-                Batal
-              </button>
-              <button 
-                onClick={confirmRemoveItem}
-                className="px-4 py-2 text-sm font-bold text-white bg-status-danger hover:bg-red-600 rounded transition"
-              >
-                Hapus
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Modal Konfirmasi Hapus Item RAB */}
+      <ConfirmationModal
+        isOpen={!!itemToDelete}
+        title="Hapus Item RAB"
+        message={(() => {
+          const item = items.find(i => i.id === itemToDelete);
+          return item 
+            ? `Apakah Anda yakin ingin menghapus "${item.description}" (${item.wbsCategory}) dari estimasi RAB? Tindakan ini tidak dapat dibatalkan.`
+            : 'Apakah Anda yakin ingin menghapus item ini dari estimasi RAB? Tindakan ini tidak dapat dibatalkan.';
+        })()}
+        confirmText="Ya, Hapus Item"
+        cancelText="Batal"
+        variant="danger"
+        onConfirm={confirmRemoveItem}
+        onCancel={() => setItemToDelete(null)}
+      />
+
+      {/* Modal Notifikasi / Feedback */}
+      {modalFeedback && (
+        <ConfirmationModal
+          isOpen={modalFeedback.isOpen}
+          title={modalFeedback.title}
+          message={modalFeedback.message}
+          confirmText="Mengerti"
+          variant={modalFeedback.variant}
+          hideCancel={true}
+          onConfirm={() => setModalFeedback(null)}
+          onCancel={() => setModalFeedback(null)}
+        />
       )}
 
       {selectedPackage && (
