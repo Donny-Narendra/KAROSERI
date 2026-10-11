@@ -43,6 +43,10 @@ interface RequisitionItem {
   quantity: number;
   subtotal: number;
   isManual?: boolean;
+  isPersisted?: boolean; // true if already saved in database
+  dbRequisitionItemId?: string; // id in material_requisition_items
+  dbRequisitionId?: string; // id in material_requisitions
+  status?: string; // 'PENDING' | 'APPROVED' | 'REJECTED'
 }
 
 interface ActiveSpkBorongan {
@@ -89,6 +93,9 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
   // Selection states for transfer
   const [highlightedSourceId, setHighlightedSourceId] = useState<string | null>(null);
   const [highlightedTargetId, setHighlightedTargetId] = useState<string | null>(null);
+
+  // Confirmation dialog state for removing / returning item
+  const [confirmItemToRemove, setConfirmItemToRemove] = useState<RequisitionItem | null>(null);
 
   // Filtered available RAB items:
   // Mengecualikan secara terpadu melalui shared availability filter:
@@ -145,8 +152,9 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
       }));
       setMasterMaterials(loadedMaster);
 
-      // 3. Fetch Existing Requisitions for this SPK and WBS (Exclusion List)
+      // 3. Fetch Existing Requisitions for this SPK and WBS (Exclusion & Hydration)
       const requisitionIds = new Set<string>();
+      const persistedItems: RequisitionItem[] = [];
       try {
         const { data: reqData, error: reqError } = await supabase
           .from('material_requisitions')
@@ -154,11 +162,22 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
             id,
             wbs_category,
             status,
+            notes,
+            created_at,
             material_requisition_items (
               id,
               material_id,
               rab_item_id,
-              material_name
+              material_name,
+              quantity,
+              unit,
+              materials (
+                id,
+                name,
+                unit,
+                unit_price,
+                current_stock
+              )
             )
           `)
           .eq('spk_id', spkId)
@@ -185,6 +204,25 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                 if (item.material_name) {
                   requisitionIds.add(item.material_name.toLowerCase().trim());
                 }
+
+                // Hydrate persisted requisition item into Left Box
+                const matPrice = Number(item.materials?.unit_price || 0);
+                const qty = Number(item.quantity || 1);
+                persistedItems.push({
+                  tempId: `persisted-${item.id}`,
+                  sourceRabId: item.rab_item_id || null,
+                  materialId: item.material_id || item.materials?.id || null,
+                  name: item.material_name || item.materials?.name || 'Material Tanpa Nama',
+                  unit: item.unit || item.materials?.unit || 'pcs',
+                  unitPrice: matPrice,
+                  quantity: qty,
+                  subtotal: qty * matPrice,
+                  isManual: !item.rab_item_id,
+                  isPersisted: true,
+                  dbRequisitionItemId: item.id,
+                  dbRequisitionId: req.id,
+                  status: req.status || 'PENDING'
+                });
               });
             }
           });
@@ -193,6 +231,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
         console.error('Error loading requisitions for exclusion:', reqErr);
       }
       setUsedRequisitionItemIds(requisitionIds);
+      setSelectedItems(persistedItems);
 
       // 4. Fetch Active SPK Borongan Assignments for this SPK and WBS (Exclusion List)
       try {
@@ -338,16 +377,70 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
     setHighlightedTargetId(newRequisitionItem.tempId);
   };
 
-  const handleMoveBackToAvailable = (targetIdToMove?: string) => {
-    const targetId = targetIdToMove || highlightedTargetId;
-    if (!targetId) return;
+  // Trigger confirmation dialog for removing / returning item
+  const handlePromptRemove = (item: RequisitionItem) => {
+    setConfirmItemToRemove(item);
+  };
 
-    const selectedItem = selectedItems.find(item => item.tempId === targetId);
-    if (!selectedItem) return;
+  const handlePromptRemoveHighlighted = () => {
+    if (!highlightedTargetId) return;
+    const item = selectedItems.find(i => i.tempId === highlightedTargetId);
+    if (item) {
+      setConfirmItemToRemove(item);
+    }
+  };
 
-    // Remove from selected items (reappearing automatically in availableItems if from rawRabItems)
-    setSelectedItems(prev => prev.filter(item => item.tempId !== targetId));
-    setHighlightedTargetId(null);
+  // Execute Removal after Confirmation
+  const handleExecuteRemove = async (itemToCancel: RequisitionItem) => {
+    setLoading(true);
+    setErrorMessage(null);
+    try {
+      // 1. If item is persisted in database, delete record from Supabase
+      if (itemToCancel.isPersisted && itemToCancel.dbRequisitionItemId) {
+        const { error: delItemErr } = await supabase
+          .from('material_requisition_items')
+          .delete()
+          .eq('id', itemToCancel.dbRequisitionItemId);
+
+        if (delItemErr) throw delItemErr;
+
+        // If parent requisition has no other items left, delete the requisition header
+        if (itemToCancel.dbRequisitionId) {
+          const { data: remainingItems } = await supabase
+            .from('material_requisition_items')
+            .select('id')
+            .eq('requisition_id', itemToCancel.dbRequisitionId);
+
+          if (!remainingItems || remainingItems.length === 0) {
+            await supabase
+              .from('material_requisitions')
+              .delete()
+              .eq('id', itemToCancel.dbRequisitionId);
+          }
+        }
+
+        // Clean up from usedRequisitionItemIds set so item becomes available again in RAB
+        setUsedRequisitionItemIds((prev) => {
+          const next = new Set(prev);
+          if (itemToCancel.materialId) next.delete(itemToCancel.materialId);
+          if (itemToCancel.sourceRabId) next.delete(itemToCancel.sourceRabId);
+          if (itemToCancel.name) next.delete(itemToCancel.name.toLowerCase().trim());
+          return next;
+        });
+      }
+
+      // 2. Remove from selectedItems state
+      setSelectedItems((prev) => prev.filter((i) => i.tempId !== itemToCancel.tempId));
+      if (highlightedTargetId === itemToCancel.tempId) {
+        setHighlightedTargetId(null);
+      }
+      setConfirmItemToRemove(null);
+    } catch (err: any) {
+      console.error('Error removing requisition item:', err);
+      setErrorMessage(err.message || 'Gagal membatalkan item permintaan material.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Add Manual Item (Extra Requisition)
@@ -389,7 +482,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
   const handleQuantityChange = (tempId: string, newQty: number) => {
     const validQty = isNaN(newQty) || newQty < 0 ? 0 : newQty;
     setSelectedItems(prev => prev.map(item => {
-      if (item.tempId !== tempId) return item;
+      if (item.tempId !== tempId || item.isPersisted) return item;
       return {
         ...item,
         quantity: validQty,
@@ -403,7 +496,12 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
     return selectedItems.reduce((acc, curr) => acc + (curr.subtotal || 0), 0);
   }, [selectedItems]);
 
-  // Submit Requisition
+  // Count unpersisted new items
+  const newItemsCount = useMemo(() => {
+    return selectedItems.filter(i => !i.isPersisted).length;
+  }, [selectedItems]);
+
+  // Submit Requisition (only new unpersisted items)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
@@ -411,15 +509,22 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
       return;
     }
 
-    // Validation: Require at least 1 item with quantity > 0
-    const validItems = selectedItems.filter(item => (item.materialId || (item.name && item.name.trim())) && item.quantity > 0);
+    // Only process new unpersisted items
+    const newItems = selectedItems.filter(item => !item.isPersisted);
+    if (newItems.length === 0) {
+      alert('Semua item dalam daftar permintaan sudah diajukan ke gudang.');
+      return;
+    }
+
+    // Validation: Require at least 1 new item with quantity > 0
+    const validItems = newItems.filter(item => (item.materialId || (item.name && item.name.trim())) && item.quantity > 0);
     if (validItems.length === 0) {
       alert('Harap pilih minimal 1 material dengan kuantitas lebih dari 0.');
       return;
     }
 
     // Check if any manual item has not selected a material and has no name
-    const unselectedManual = selectedItems.find(item => item.isManual && !item.materialId && !item.name.trim());
+    const unselectedManual = validItems.find(item => item.isManual && !item.materialId && !item.name.trim());
     if (unselectedManual) {
       alert('Terdapat item manual yang belum dipilih materialnya. Silakan pilih material atau hapus item tersebut.');
       return;
@@ -428,7 +533,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
     setLoading(true);
     setErrorMessage(null);
     try {
-      // 1. Insert Material Requisition Header
+      // 1. Insert Material Requisition Header for new items
       const { data: reqData, error: reqError } = await supabase
         .from('material_requisitions')
         .insert({
@@ -459,7 +564,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
 
       if (itemsError) throw itemsError;
 
-      alert(`Permintaan material untuk ${cleanWbsCategory} (${validItems.length} item) berhasil diajukan dengan status PENDING.`);
+      alert(`Permintaan material untuk ${cleanWbsCategory} (${validItems.length} item baru) berhasil diajukan dengan status PENDING.`);
       onClose();
     } catch (error: any) {
       console.error('Error submitting requisition:', error);
@@ -567,7 +672,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                           <div
                             key={item.tempId}
                             onClick={() => setHighlightedTargetId(item.tempId)}
-                            onDoubleClick={() => handleMoveBackToAvailable(item.tempId)}
+                            onDoubleClick={() => handlePromptRemove(item)}
                             className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
                               isHighlighted
                                 ? 'border-emerald-500 bg-emerald-500/15 ring-1 ring-emerald-500/40'
@@ -597,16 +702,27 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                                   </div>
                                 ) : (
                                   <div>
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
                                       <span className="font-semibold text-xs sm:text-sm text-text break-words">
                                         {item.name}
                                       </span>
+                                      {item.isPersisted ? (
+                                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30 flex items-center gap-1">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                                          {item.status === 'APPROVED' ? 'DISETUJUI' : 'DIAJUKAN'}
+                                        </span>
+                                      ) : (
+                                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30 flex items-center gap-1">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                          BARU
+                                        </span>
+                                      )}
                                       {item.isManual ? (
-                                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 font-semibold border border-amber-500/30">
+                                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-primary/20 text-primary font-semibold border border-primary/30">
                                           Ekstra
                                         </span>
                                       ) : (
-                                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30">
+                                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-500/20 text-slate-300 font-semibold border border-slate-500/30">
                                           RAB
                                         </span>
                                       )}
@@ -620,14 +736,20 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
 
                               {/* Quantity Input & Remove Button */}
                               <div className="flex items-center gap-1.5 shrink-0">
-                                <div className="flex items-center gap-1 bg-surface border border-border px-1.5 py-0.5 rounded">
+                                <div className={`flex items-center gap-1 bg-surface border border-border px-1.5 py-0.5 rounded ${
+                                  item.isPersisted ? 'bg-surface/50 border-border/50' : ''
+                                }`}>
                                   <input
                                     type="number"
                                     step="0.01"
                                     min="0.01"
                                     value={item.quantity}
+                                    disabled={item.isPersisted}
                                     onChange={(e) => handleQuantityChange(item.tempId, parseFloat(e.target.value))}
-                                    className="w-14 bg-transparent text-right font-mono font-bold text-xs text-text focus:outline-none"
+                                    className={`w-14 bg-transparent text-right font-mono font-bold text-xs text-text focus:outline-none ${
+                                      item.isPersisted ? 'text-text-muted cursor-not-allowed' : ''
+                                    }`}
+                                    title={item.isPersisted ? 'Kuantitas material yang sudah diajukan' : 'Ubah kuantitas'}
                                   />
                                   <span className="text-[11px] text-text-muted">
                                     {item.unit}
@@ -637,10 +759,10 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleMoveBackToAvailable(item.tempId);
+                                    handlePromptRemove(item);
                                   }}
                                   className="p-1 text-text-muted hover:text-rose-400 hover:bg-rose-500/10 rounded transition-colors"
-                                  title={item.isManual ? 'Hapus item' : 'Kembalikan ke Alokasi RAB'}
+                                  title={item.isPersisted ? 'Batalkan permintaan material ini' : (item.isManual ? 'Hapus item' : 'Kembalikan ke Alokasi RAB')}
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
@@ -678,7 +800,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
 
                   <button
                     type="button"
-                    onClick={() => handleMoveBackToAvailable()}
+                    onClick={handlePromptRemoveHighlighted}
                     disabled={!highlightedTargetId}
                     className="flex-1 md:flex-none w-full md:w-auto p-2.5 md:p-3.5 bg-rose-600 hover:bg-rose-500 active:scale-95 disabled:opacity-30 disabled:pointer-events-none text-white rounded-xl shadow-md transition-all flex items-center justify-center gap-2 group"
                     title="Kembalikan item yang disorot ke Daftar RAB (>>)"
@@ -796,9 +918,15 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
         {/* Modal Footer / Action Buttons */}
         <div className="p-4 sm:p-5 border-t border-border flex flex-col sm:flex-row justify-between items-center gap-3 bg-surface">
           <div className="text-xs text-text-muted hidden sm:block">
-            {selectedItems.length > 0 ? (
+            {newItemsCount > 0 ? (
               <span>
-                Siap mengajukan <strong className="text-emerald-400">{selectedItems.length} item material</strong> ke petugas gudang.
+                Siap mengajukan <strong className="text-emerald-400">{newItemsCount} item material baru</strong> ke petugas gudang
+                {selectedItems.length > newItemsCount && ` (${selectedItems.length - newItemsCount} item sudah tercatat)`}.
+              </span>
+            ) : selectedItems.length > 0 ? (
+              <span className="text-emerald-400 font-medium flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4" />
+                Semua {selectedItems.length} item material untuk tahapan ini sudah tercatat di sistem gudang.
               </span>
             ) : (
               <span>Pindahkan minimal 1 material untuk mengajukan permintaan.</span>
@@ -812,12 +940,12 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
               disabled={loading}
               className="flex-1 sm:flex-none px-4 py-2 bg-surface border border-border text-text rounded-lg text-sm hover:bg-background transition-colors font-medium"
             >
-              Batal
+              Tutup
             </button>
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={loading || selectedItems.length === 0 || fetching}
+              disabled={loading || newItemsCount === 0 || fetching}
               className="flex-1 sm:flex-none px-5 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-semibold shadow transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading ? (
@@ -825,10 +953,15 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                   <span>Mengajukan...</span>
                 </>
-              ) : (
+              ) : newItemsCount > 0 ? (
                 <>
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Submit Requisition ({selectedItems.length})</span>
+                  <span>Submit Requisition ({newItemsCount} baru)</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+                  <span>Semua Item Diajukan</span>
                 </>
               )}
             </button>
@@ -836,6 +969,55 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
         </div>
 
       </div>
+
+      {/* Confirmation Dialog Modal */}
+      {confirmItemToRemove && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 z-70 animate-in fade-in duration-150">
+          <div className="bg-surface border border-border rounded-xl shadow-2xl p-5 max-w-md w-full space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30 shrink-0">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div className="space-y-1 min-w-0">
+                <h4 className="font-bold text-base text-text">Konfirmasi Pembatalan Material</h4>
+                <p className="text-xs sm:text-sm text-text-muted leading-relaxed">
+                  Apakah Anda yakin ingin membatalkan permintaan material{' '}
+                  <strong className="text-text font-semibold">&quot;{confirmItemToRemove.name}&quot;</strong>?{' '}
+                  Material akan dikembalikan ke daftar Alokasi RAB.
+                </p>
+                {confirmItemToRemove.isPersisted && (
+                  <p className="text-[11px] text-amber-300 bg-amber-500/10 p-2 rounded border border-amber-500/20 font-medium">
+                    Item ini telah tercatat di Supabase ({confirmItemToRemove.status || 'PENDING'}). Konfirmasi akan menghapus data dari daftar permintaan aktif.
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setConfirmItemToRemove(null)}
+                disabled={loading}
+                className="px-3.5 py-1.5 rounded-lg border border-border text-xs sm:text-sm font-medium hover:bg-background text-text transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => handleExecuteRemove(confirmItemToRemove)}
+                disabled={loading}
+                className="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 active:scale-95 text-white text-xs sm:text-sm font-semibold transition-all flex items-center gap-1.5 shadow"
+              >
+                {loading ? (
+                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                ) : (
+                  <Trash2 className="w-3.5 h-3.5" />
+                )}
+                <span>Ya, Kembalikan</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
