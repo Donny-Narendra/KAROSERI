@@ -76,9 +76,9 @@ export const BastModal: React.FC<BastModalProps> = ({
   return (
     <div 
       id="bast-modal-backdrop"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 overflow-y-auto print:p-0 print:bg-white print:static print:overflow-visible"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 overflow-y-auto print:static print:inset-auto print:z-auto print:p-0 print:m-0 print:bg-transparent print:overflow-visible print:block"
     >
-      <div className="relative w-full max-w-4xl bg-surface border border-surface-border rounded-xl shadow-2xl flex flex-col my-auto overflow-hidden print:w-full print:max-w-none print:border-none print:shadow-none print:rounded-none print:bg-white">
+      <div className="relative w-full max-w-4xl bg-surface border border-surface-border rounded-xl shadow-2xl flex flex-col my-auto overflow-hidden print:static print:w-full print:max-w-none print:border-none print:shadow-none print:rounded-none print:bg-transparent print:overflow-visible print:m-0 print:p-0 print:block">
         
         {/* Modal Toolbar (Screen Only) */}
         <div className="no-print flex items-center justify-between px-6 py-4 bg-surface-hover/80 border-b border-surface-border text-text">
@@ -114,12 +114,12 @@ export const BastModal: React.FC<BastModalProps> = ({
         </div>
 
         {/* Scrollable Container for Preview on Screen */}
-        <div className="p-4 sm:p-6 md:p-8 overflow-y-auto max-h-[82vh] bg-surface/50 print:p-0 print:overflow-visible print:max-h-none print:bg-white flex justify-center">
+        <div className="p-4 sm:p-6 md:p-8 overflow-y-auto max-h-[82vh] bg-surface/50 print:static print:p-0 print:overflow-visible print:max-h-none print:bg-transparent print:m-0 print:block flex justify-center">
           
           {/* Printable A4 Document Sheet */}
           <div 
-            id="bast-print-area" 
-            className="w-full max-w-[210mm] min-h-[290mm] bg-white text-gray-900 p-8 sm:p-10 shadow-lg border border-gray-200 rounded-sm font-sans flex flex-col justify-between print:w-full print:max-w-none print:min-h-0 print:p-0 print:shadow-none print:border-none print:rounded-none"
+            id="printable-bast" 
+            className="bast-document-sheet w-full max-w-[210mm] min-h-[290mm] bg-white text-gray-900 p-8 sm:p-10 shadow-lg border border-gray-200 rounded-sm font-sans flex flex-col justify-between print:w-full print:max-w-none print:min-h-0 print:p-0 print:shadow-none print:border-none print:rounded-none"
           >
             <div>
               {/* Kop Surat RobelKaroseri */}
@@ -345,42 +345,33 @@ export const BastModal: React.FC<BastModalProps> = ({
       {/* Embedded CSS for Exact A4 Single Page Print */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
-          html, body {
-            background: #ffffff !important;
-            color: #000000 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            height: auto !important;
-            min-height: auto !important;
-          }
-          @page {
-            size: A4 portrait;
-            margin: 15mm 15mm 15mm 15mm;
-          }
+          /* Sembunyikan seluruh elemen di luar dokumen BAST */
           body * {
             visibility: hidden;
           }
-          #bast-print-area, #bast-print-area * {
+          /* Tampilkan kembali hanya kontainer dokumen BAST */
+          #printable-bast,
+          #printable-bast * {
             visibility: visible;
           }
-          #bast-print-area {
+          #printable-bast {
             position: absolute !important;
             left: 0 !important;
             top: 0 !important;
             width: 100% !important;
-            max-width: 100% !important;
-            min-height: auto !important;
             margin: 0 !important;
-            padding: 0 !important;
-            border: none !important;
-            box-shadow: none !important;
-            background: #ffffff !important;
-            color: #000000 !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
+            padding: 20mm !important;
+            background: white !important;
+            color: black !important;
+            box-sizing: border-box !important;
           }
-          .no-print {
+          /* Hilangkan backdrop modal, tombol navbar, dan header modal */
+          header, nav, button, .modal-backdrop, .no-print {
             display: none !important;
+          }
+          @page {
+            size: A4 portrait;
+            margin: 10mm;
           }
         }
       ` }} />

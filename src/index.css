@@ -38,7 +38,36 @@ body {
 }
 
 @media print {
-  .no-print {
+  /* Sembunyikan seluruh elemen di luar dokumen BAST */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Tampilkan kembali hanya kontainer dokumen BAST */
+  #printable-bast,
+  #printable-bast * {
+    visibility: visible;
+  }
+
+  #printable-bast {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 20mm;
+    background: white !important;
+    color: black !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Hilangkan backdrop modal, tombol navbar, dan header modal */
+  header, nav, button, .modal-backdrop, .no-print {
     display: none !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
   }
 }

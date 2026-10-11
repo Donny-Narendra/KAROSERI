@@ -598,16 +598,16 @@ export const KasirDashboard: React.FC = () => {
                     Generate Final Bill (Invoice)
                   </button>
                   <button
-                    disabled={selectedSpk.paymentStatus !== 'LUNAS'}
+                    disabled={selectedSpk.paymentStatus !== 'LUNAS' && selectedSpk.status !== 'COMPLETED'}
                     onClick={handleReleaseVehicle}
                     className={`px-6 py-3 rounded font-medium flex items-center gap-2 transition-all ${
-                      selectedSpk.paymentStatus === 'LUNAS'
+                      selectedSpk.paymentStatus === 'LUNAS' || selectedSpk.status === 'COMPLETED'
                         ? 'bg-status-success text-white hover:bg-status-success/90 shadow-lg shadow-status-success/20 cursor-pointer'
                         : 'bg-surface-border text-text-muted cursor-not-allowed'
                     }`}
                   >
-                    {selectedSpk.paymentStatus !== 'LUNAS' && <Lock className="w-4 h-4" />}
-                    Release Vehicle & Print BAST
+                    {selectedSpk.paymentStatus !== 'LUNAS' && selectedSpk.status !== 'COMPLETED' && <Lock className="w-4 h-4" />}
+                    {selectedSpk.status === 'COMPLETED' ? 'Pratinjau & Cetak BAST' : 'Release Vehicle & Print BAST'}
                   </button>
                 </div>
               )}
@@ -638,7 +638,7 @@ export const KasirDashboard: React.FC = () => {
         isOpen={isBastModalOpen}
         onClose={() => setIsBastModalOpen(false)}
         spk={selectedBastSpk}
-        autoPrint={true}
+        autoPrint={false}
       />
     </div>
   );
