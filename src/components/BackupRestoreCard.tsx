@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Download, Upload, AlertTriangle, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import { ConfirmationModal } from './ConfirmationModal';
 
 export const BackupRestoreCard: React.FC = () => {
   const [isBackingUp, setIsBackingUp] = useState(false);
@@ -186,40 +187,17 @@ export const BackupRestoreCard: React.FC = () => {
       </div>
 
       {/* Confirmation Modal */}
-      {showConfirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-surface border border-border rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-6">
-              <div className="flex items-center gap-3 text-red-500 mb-4">
-                <AlertTriangle className="w-6 h-6" />
-                <h3 className="text-lg font-bold">Peringatan Kritis</h3>
-              </div>
-              <p className="text-text mb-4 font-medium">
-                PERINGATAN: Memulihkan database akan menimpa data yang ada saat ini secara keseluruhan.
-              </p>
-              <p className="text-sm text-text-muted mb-6">
-                Pastikan Anda benar-benar ingin melakukan ini. Jika terjadi kesalahan, Anda akan kehilangan data operasional terkini.
-              </p>
-              <div className="flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmModal(false)}
-                  className="px-4 py-2 rounded-lg text-text hover:bg-background border border-border transition"
-                >
-                  Batal
-                </button>
-                <button
-                  type="button"
-                  onClick={executeRestore}
-                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
-                >
-                  Lanjutkan Pemulihan
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmationModal
+        isOpen={showConfirmModal}
+        title="Peringatan Kritis: Pulihkan Database"
+        message={`PERINGATAN: Memulihkan database dari berkas "${selectedFile?.name || ''}" akan menimpa seluruh data operasional yang ada saat ini secara menyeluruh.\n\nPastikan Anda benar-benar yakin. Seluruh data terkini yang belum dibackup akan hilang.`}
+        confirmText="Lanjutkan Pemulihan"
+        cancelText="Batal"
+        variant="danger"
+        isLoading={isRestoring}
+        onConfirm={executeRestore}
+        onCancel={() => setShowConfirmModal(false)}
+      />
     </div>
   );
 };

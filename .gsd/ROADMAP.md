@@ -741,3 +741,19 @@
 - [x] Refactor dialog konfirmasi native penghapusan foto kendaraan dari galeri check-in (`SpkGalleryModal.tsx`) menjadi modal dialog konfirmasi custom.
 - [x] Refactor aksi approval & rejection Change Orders (`AmendmentManager.tsx`) dengan modal dialog konfirmasi interaktif.
 - [x] Verifikasi konsistensi tampilan modal dengan tema dark industrial RobelKaroseri dan pastikan tidak ada `window.confirm` / `window.alert`.
+
+---
+
+### Phase 61: Gap Closure (Refactor Seluruh Dialog Konfirmasi Native Browser Menjadi Modal Custom di /dashboard)
+**Status**: ⬜ Ready for Review
+**Objective**: Address gaps from operational feedback (Mengganti seluruh dialog window.confirm dan window.alert native browser di modul Dashboard Owner & Admin Portal menjadi modal dialog konfirmasi & notifikasi custom berbasis React UI)
+
+**Gaps to Close:**
+- [x] Refactor alur persetujuan (Approve) dan penolakan (Reject) Change Order / Amendment pada Pending Approvals modal di `AdminDashboardPage.tsx` menjadi state-driven modal dialog `ConfirmationModal` dengan feedback terintegrasi.
+- [x] Implementasi fitur pembatalan SPK langsung oleh Owner pada tabel monitoring `AdminDashboardPage.tsx` menggunakan `ConfirmationModal` (`variant: 'danger'`) beserta input wajib alasan pembatalan (`cancellation_reason`) dan eksekusi mutasi ke Supabase via `spkService.cancelSpk`.
+- [x] Implementasi bilah pencarian & filter analitik (Status SPK, pencarian nomor SPK/klien/nopol), tombol reset filter, dan tombol ekspor ringkasan laporan SPK ke format CSV dengan modal konfirmasi interaktif di `AdminDashboardPage.tsx`.
+- [x] Refactor seluruh 5 titik pemanggilan native `alert(...)` di `AdminSettingsPage.tsx` (registrasi pengguna, penyimpanan konfigurasi bengkel) menjadi modal feedback dan notifikasi `ConfirmationModal`.
+- [x] Penambahan fitur pengelolaan dan pembersihan akses staf (Aktifkan / Nonaktifkan status akun) di `AdminSettingsPage.tsx` dengan modal konfirmasi dialog custom.
+- [x] Penambahan fitur Reset Parameter Bengkel ke Standar Pabrik di `AdminSettingsPage.tsx` dengan modal konfirmasi dialog `ConfirmationModal` (`variant: 'warning'`).
+- [x] Refactor modal konfirmasi pemulihan basis data pada `BackupRestoreCard.tsx` dari raw div ad-hoc menjadi `ConfirmationModal` (`variant: 'danger'`).
+- [x] Penyiapan skrip migrasi SQL penambahan kolom `is_active` pada tabel `profiles` (`supabase/migrations/20261012000003_add_is_active_to_profiles.sql`).

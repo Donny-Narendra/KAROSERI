@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 
 import { 
-  Settings, Users, Plus, Edit2, KeyRound, 
-  Save, Globe, DollarSign, Calculator, Factory, Percent, ArrowLeft, Database 
+  Settings, Users, Plus, 
+  Save, Globe, DollarSign, Calculator, Factory, Percent, ArrowLeft, Database,
+  UserX, UserCheck, RotateCcw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BackupRestoreCard } from '../components/BackupRestoreCard';
+import { ConfirmationModal, type ConfirmationModalVariant } from '../components/ConfirmationModal';
 import { supabase } from '../lib/supabaseClient';
 import { useTranslation } from 'react-i18next';
 
@@ -26,6 +28,17 @@ export const AdminSettingsPage: React.FC = () => {
     bay_hourly_rate: 150000,
     default_waste_factor: 5,
   });
+
+  // Modal and Action States
+  const [targetUserToggle, setTargetUserToggle] = useState<any | null>(null);
+  const [showResetSettingsModal, setShowResetSettingsModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [feedbackModal, setFeedbackModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    variant: ConfirmationModalVariant;
+  } | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -51,45 +64,152 @@ export const AdminSettingsPage: React.FC = () => {
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert('Catatan: Pembuatan user via auth.signUp pada sisi klien mungkin memerlukan konfirmasi email sesuai konfigurasi Supabase.');
-    const { data, error } = await supabase.auth.signUp({
-      email: newUser.email,
-      password: newUser.password,
-      options: {
-        data: {
-          full_name: newUser.full_name,
-          role: newUser.role,
+    setIsSubmitting(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: newUser.email,
+        password: newUser.password,
+        options: {
+          data: {
+            full_name: newUser.full_name,
+            role: newUser.role,
+          }
         }
-      }
-    });
+      });
 
-    if (error) {
-      alert(`Error: ${error.message}`);
-    } else {
-      if (newUser.quick_pin && data.user?.id) {
-        // Option to update quick pin if successfully created
-        await supabase.from('profiles').update({ quick_pin: newUser.quick_pin }).eq('id', data.user.id);
+      if (error) {
+        setFeedbackModal({
+          isOpen: true,
+          title: 'Gagal Menambah Pengguna',
+          message: error.message || 'Terjadi kesalahan saat mendaftarkan pengguna baru.',
+          variant: 'danger',
+        });
+      } else {
+        if (newUser.quick_pin && data.user?.id) {
+          await supabase.from('profiles').update({ quick_pin: newUser.quick_pin }).eq('id', data.user.id);
+        }
+        setFeedbackModal({
+          isOpen: true,
+          title: 'Registrasi Berhasil',
+          message: `Pengguna ${newUser.full_name} (${newUser.role}) berhasil didaftarkan. Pengguna kini dapat masuk ke sistem.`,
+          variant: 'success',
+        });
+        setNewUser({ full_name: '', email: '', password: '', role: 'service_advisor', quick_pin: '' });
+        fetchUsers();
       }
-      alert('Berhasil mencoba registrasi user!');
-      setNewUser({ full_name: '', email: '', password: '', role: 'service_advisor', quick_pin: '' });
-      fetchUsers();
+    } catch (err: any) {
+      setFeedbackModal({
+        isOpen: true,
+        title: 'Kesalahan Sistem',
+        message: err.message || 'Gagal memproses pendaftaran pengguna.',
+        variant: 'danger',
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { error } = await supabase.from('workshop_settings').update({
-      currency: settings.currency,
-      rounding_precision: settings.rounding_precision,
-      default_language: settings.default_language,
-      bay_hourly_rate: settings.bay_hourly_rate,
-      default_waste_factor: settings.default_waste_factor
-    }).eq('id', 1);
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase.from('workshop_settings').update({
+        currency: settings.currency,
+        rounding_precision: settings.rounding_precision,
+        default_language: settings.default_language,
+        bay_hourly_rate: settings.bay_hourly_rate,
+        default_waste_factor: settings.default_waste_factor
+      }).eq('id', 1);
 
-    if (error) {
-      alert(`Gagal menyimpan: ${error.message}`);
-    } else {
-      alert('Pengaturan bengkel berhasil disimpan ke database (public.workshop_settings).');
+      if (error) {
+        setFeedbackModal({
+          isOpen: true,
+          title: 'Gagal Menyimpan Pengaturan',
+          message: error.message || 'Gagal menyimpan konfigurasi ke tabel workshop_settings.',
+          variant: 'danger',
+        });
+      } else {
+        setFeedbackModal({
+          isOpen: true,
+          title: 'Pengaturan Berhasil Disimpan',
+          message: 'Konfigurasi parameter operasional dan finansial bengkel berhasil diperbarui ke database.',
+          variant: 'success',
+        });
+      }
+    } catch (err: any) {
+      setFeedbackModal({
+        isOpen: true,
+        title: 'Kesalahan Sistem',
+        message: err.message || 'Terjadi kesalahan saat menyimpan pengaturan.',
+        variant: 'danger',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleToggleUserStatus = async () => {
+    if (!targetUserToggle) return;
+    setIsSubmitting(true);
+    const newStatus = targetUserToggle.is_active === false;
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_active: newStatus })
+        .eq('id', targetUserToggle.id);
+
+      if (error) throw error;
+
+      setFeedbackModal({
+        isOpen: true,
+        title: newStatus ? 'Akses Staf Diaktifkan' : 'Akses Staf Dinonaktifkan',
+        message: `Status akses untuk ${targetUserToggle.full_name} (${targetUserToggle.role}) telah diubah menjadi ${newStatus ? 'AKTIF' : 'NONAKTIF'}.`,
+        variant: newStatus ? 'success' : 'warning',
+      });
+      fetchUsers();
+    } catch (err: any) {
+      console.error('Error toggling user status:', err);
+      setFeedbackModal({
+        isOpen: true,
+        title: 'Gagal Memperbarui Status Pengguna',
+        message: err.message || 'Pastikan migrasi kolom is_active pada tabel profiles telah dijalankan di Supabase SQL Editor.',
+        variant: 'danger',
+      });
+    } finally {
+      setIsSubmitting(false);
+      setTargetUserToggle(null);
+    }
+  };
+
+  const handleResetWorkshopSettings = async () => {
+    setIsSubmitting(true);
+    const defaultSettings = {
+      currency: 'IDR - Rp',
+      rounding_precision: 'no_decimal',
+      default_language: 'id',
+      bay_hourly_rate: 150000,
+      default_waste_factor: 5,
+    };
+    try {
+      const { error } = await supabase.from('workshop_settings').update(defaultSettings).eq('id', 1);
+      if (error) throw error;
+      setSettings(defaultSettings);
+      setShowResetSettingsModal(false);
+      setFeedbackModal({
+        isOpen: true,
+        title: 'Pengaturan Direset ke Standar',
+        message: 'Parameter operasional (Tarif Bay: Rp 150.000, Waste Factor: 5%) berhasil dikembalikan ke standar pabrik RobelKaroseri.',
+        variant: 'info',
+      });
+    } catch (err: any) {
+      setFeedbackModal({
+        isOpen: true,
+        title: 'Gagal Mereset Pengaturan',
+        message: err.message || 'Terjadi kesalahan saat mereset pengaturan ke default.',
+        variant: 'danger',
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -153,25 +273,58 @@ export const AdminSettingsPage: React.FC = () => {
                         <th className="px-4 py-3">{t('settings.name')}</th>
                         <th className="px-4 py-3">{t('settings.email')}</th>
                         <th className="px-4 py-3">{t('settings.role')}</th>
+                        <th className="px-4 py-3">Status</th>
                         <th className="px-4 py-3">{t('settings.quick_pin')}</th>
-                        <th className="px-4 py-3">{t('settings.action')}</th>
+                        <th className="px-4 py-3 text-right">{t('settings.action')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {users.map((u) => (
-                        <tr key={u.id} className="hover:bg-surface-hover/50">
-                          <td className="px-4 py-3 font-medium">{u.full_name}</td>
-                          <td className="px-4 py-3 text-text-muted">{u.email}</td>
-                          <td className="px-4 py-3">
-                            <span className="bg-surface-active px-2 py-1 rounded text-xs font-mono">{u.role}</span>
-                          </td>
-                          <td className="px-4 py-3 font-mono">{u.quick_pin ? '***' : '-'}</td>
-                          <td className="px-4 py-3 flex gap-2">
-                            <button className="text-secondary hover:text-primary" title="Edit Role"><Edit2 className="w-4 h-4" /></button>
-                            <button className="text-status-warning hover:text-status-danger" title="Reset PIN"><KeyRound className="w-4 h-4" /></button>
-                          </td>
-                        </tr>
-                      ))}
+                      {users.map((u) => {
+                        const isActive = u.is_active !== false;
+                        return (
+                          <tr key={u.id} className="hover:bg-surface-hover/50 transition">
+                            <td className="px-4 py-3 font-medium">{u.full_name}</td>
+                            <td className="px-4 py-3 text-text-muted">{u.email}</td>
+                            <td className="px-4 py-3">
+                              <span className="bg-surface-active px-2 py-1 rounded text-xs font-mono">{u.role}</span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold font-mono ${
+                                isActive ? 'bg-status-success/20 text-status-success' : 'bg-status-danger/20 text-status-danger'
+                              }`}>
+                                {isActive ? 'AKTIF' : 'NONAKTIF'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 font-mono">{u.quick_pin ? '***' : '-'}</td>
+                            <td className="px-4 py-3 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setTargetUserToggle(u)}
+                                  className={`p-1.5 rounded transition flex items-center gap-1 text-xs font-medium ${
+                                    isActive 
+                                      ? 'text-status-danger hover:bg-status-danger/10' 
+                                      : 'text-status-success hover:bg-status-success/10'
+                                  }`}
+                                  title={isActive ? 'Nonaktifkan Akses Staf' : 'Aktifkan Kembali Akses Staf'}
+                                >
+                                  {isActive ? (
+                                    <>
+                                      <UserX className="w-4 h-4" />
+                                      <span className="hidden sm:inline">Nonaktifkan</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <UserCheck className="w-4 h-4" />
+                                      <span className="hidden sm:inline">Aktifkan</span>
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -340,8 +493,21 @@ export const AdminSettingsPage: React.FC = () => {
 
               </div>
 
-              <div className="pt-4 border-t border-border flex justify-end">
-                <button type="submit" className="bg-primary text-background font-bold py-2 px-6 rounded hover:bg-secondary transition flex justify-center items-center gap-2">
+              <div className="pt-4 border-t border-border flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setShowResetSettingsModal(true)}
+                  disabled={isSubmitting}
+                  className="px-4 py-2 border border-border text-text-muted hover:text-text rounded hover:bg-surface-active transition text-sm flex items-center gap-2"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Reset ke Standar Pabrik
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                  className="bg-primary text-background font-bold py-2 px-6 rounded hover:bg-secondary transition flex justify-center items-center gap-2 disabled:opacity-50"
+                >
                   <Save className="w-4 h-4" /> {t('settings.save_config')}
                 </button>
               </div>
@@ -355,6 +521,50 @@ export const AdminSettingsPage: React.FC = () => {
           </div>
         )}
       </main>
+
+      {/* Modal Konfirmasi Ubah Status Akses Pengguna */}
+      <ConfirmationModal
+        isOpen={Boolean(targetUserToggle)}
+        title={targetUserToggle?.is_active === false ? 'Aktifkan Kembali Akses Staf?' : 'Nonaktifkan Akses Staf?'}
+        message={
+          targetUserToggle?.is_active === false
+            ? `Apakah Anda yakin ingin mengaktifkan kembali akses untuk ${targetUserToggle?.full_name} (${targetUserToggle?.role})? Pengguna akan dapat masuk kembali ke aplikasi.`
+            : `Apakah Anda yakin ingin menonaktifkan akses untuk ${targetUserToggle?.full_name} (${targetUserToggle?.role})? Pengguna tidak akan dapat mengakses terminal kerja.`
+        }
+        confirmText={targetUserToggle?.is_active === false ? 'Ya, Aktifkan Akses' : 'Ya, Nonaktifkan Akses'}
+        cancelText="Batal"
+        variant={targetUserToggle?.is_active === false ? 'info' : 'danger'}
+        isLoading={isSubmitting}
+        onConfirm={handleToggleUserStatus}
+        onCancel={() => setTargetUserToggle(null)}
+      />
+
+      {/* Modal Konfirmasi Reset Pengaturan Bengkel ke Default */}
+      <ConfirmationModal
+        isOpen={showResetSettingsModal}
+        title="Reset Parameter Bengkel ke Standar?"
+        message="Tindakan ini akan mengembalikan tarif overhead bay per jam (Rp 150.000) dan waste factor material (5%) ke standar default pabrik RobelKaroseri. Lanjutkan?"
+        confirmText="Ya, Reset ke Standar"
+        cancelText="Batal"
+        variant="warning"
+        isLoading={isSubmitting}
+        onConfirm={handleResetWorkshopSettings}
+        onCancel={() => setShowResetSettingsModal(false)}
+      />
+
+      {/* Modal Feedback dan Notifikasi Umum */}
+      {feedbackModal && (
+        <ConfirmationModal
+          isOpen={feedbackModal.isOpen}
+          title={feedbackModal.title}
+          message={feedbackModal.message}
+          confirmText="Mengerti"
+          hideCancel={true}
+          variant={feedbackModal.variant}
+          onConfirm={() => setFeedbackModal(null)}
+          onCancel={() => setFeedbackModal(null)}
+        />
+      )}
     </div>
   );
 };

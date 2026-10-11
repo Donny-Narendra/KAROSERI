@@ -1,11 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { BarChart3, AlertTriangle, ShieldCheck, Factory, LogOut, Package, Settings, Bell, Check, X } from 'lucide-react';
+import { 
+  BarChart3, AlertTriangle, ShieldCheck, Factory, LogOut, Package, 
+  Settings, Bell, Check, X, Search, RotateCcw, FileSpreadsheet, Ban 
+} from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useTranslation } from 'react-i18next';
 import { PackageManager } from '../components/PackageManager';
 import { spkService } from '../services/spkService';
 import { WbsChecklist } from '../components/WbsChecklist';
+import { ConfirmationModal, type ConfirmationModalVariant } from '../components/ConfirmationModal';
 
 export const AdminDashboardPage: React.FC = () => {
   const { t } = useTranslation();
@@ -15,6 +19,34 @@ export const AdminDashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showApprovalsModal, setShowApprovalsModal] = useState(false);
   const [selectedWbsSpkId, setSelectedWbsSpkId] = useState<string | null>(null);
+
+  // Modal State untuk Aksi Approval Change Order
+  const [pendingActionTarget, setPendingActionTarget] = useState<{
+    id: string;
+    action: 'APPROVED' | 'REJECTED';
+    spkNo?: string;
+    description?: string;
+  } | null>(null);
+
+  // Modal State untuk Pembatalan SPK Langsung oleh Owner
+  const [cancellingSpk, setCancellingSpk] = useState<any | null>(null);
+  const [cancellationReason, setCancellationReason] = useState('');
+
+  // Modal State untuk Ekspor Laporan
+  const [showExportModal, setShowExportModal] = useState(false);
+
+  // Modal Feedback / Notifikasi Umum
+  const [feedbackModal, setFeedbackModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    variant: ConfirmationModalVariant;
+  } | null>(null);
+
+  // State Filter & Pencarian
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'PENDING_QC' | 'OVERBUDGET' | 'CANCELLED'>('ALL');
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     fetchSpks();
@@ -33,6 +65,145 @@ export const AdminDashboardPage: React.FC = () => {
     setLoading(false);
   };
 
+  const handleApprovalActionConfirm = async () => {
+    if (!pendingActionTarget) return;
+    setActionLoading(true);
+    try {
+      if (pendingActionTarget.action === 'APPROVED') {
+        if (!profile?.id) throw new Error("User ID is missing");
+        await spkService.approveAmendment(pendingActionTarget.id, profile.id);
+      } else {
+        await spkService.rejectAmendment(pendingActionTarget.id);
+      }
+      await fetchSpks();
+      setFeedbackModal({
+        isOpen: true,
+        title: pendingActionTarget.action === 'APPROVED' ? 'Change Order Disetujui' : 'Change Order Ditolak',
+        message: `Perubahan biaya untuk SPK ${pendingActionTarget.spkNo || ''} telah berhasil di-${pendingActionTarget.action.toLowerCase()}.`,
+        variant: pendingActionTarget.action === 'APPROVED' ? 'success' : 'warning',
+      });
+    } catch (err: any) {
+      console.error(`Error updating amendment:`, err);
+      setFeedbackModal({
+        isOpen: true,
+        title: 'Gagal Memproses Approval',
+        message: err.message || 'Terjadi kesalahan sistem saat memperbarui status change order.',
+        variant: 'danger',
+      });
+    } finally {
+      setActionLoading(false);
+      setPendingActionTarget(null);
+    }
+  };
+
+  const handleCancelSpkSubmit = async () => {
+    if (!cancellingSpk) return;
+    if (!cancellationReason.trim()) {
+      setFeedbackModal({
+        isOpen: true,
+        title: 'Alasan Pembatalan Wajib Diisi',
+        message: 'Silakan masukkan alasan pembatalan SPK secara formal sebelum melanjutkan.',
+        variant: 'warning',
+      });
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      await spkService.cancelSpk({
+        spkId: cancellingSpk.id,
+        reason: cancellationReason.trim(),
+        userId: profile?.id || ''
+      });
+      await fetchSpks();
+      setFeedbackModal({
+        isOpen: true,
+        title: 'SPK Berhasil Dibatalkan',
+        message: `SPK ${cancellingSpk.spk_no} telah dibatalkan dengan alasan: "${cancellationReason.trim()}". Status kini terdaftar pada Log Pembatalan.`,
+        variant: 'warning',
+      });
+      setCancellingSpk(null);
+      setCancellationReason('');
+    } catch (err: any) {
+      console.error('Cancel SPK Error:', err);
+      setFeedbackModal({
+        isOpen: true,
+        title: 'Gagal Membatalkan SPK',
+        message: err.message || 'Terjadi kesalahan saat membatalkan SPK.',
+        variant: 'danger',
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const filteredSpks = useMemo(() => {
+    return spks.filter(spk => {
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch = !q || 
+        (spk.spk_no && spk.spk_no.toLowerCase().includes(q)) ||
+        (spk.customer_name && spk.customer_name.toLowerCase().includes(q)) ||
+        (spk.vehicle_plate && spk.vehicle_plate.toLowerCase().includes(q));
+      
+      if (!matchesSearch) return false;
+
+      if (statusFilter === 'ACTIVE') return spk.status === 'ACTIVE';
+      if (statusFilter === 'PENDING_QC') return spk.qc_status === 'PENDING' || spk.wbs_status === 'WAITING_REVIEW';
+      if (statusFilter === 'OVERBUDGET') return spk.is_overbudget === true || spk.material_gate_status === 'OVERBUDGET';
+      if (statusFilter === 'CANCELLED') return spk.status === 'CANCELLED';
+      return true;
+    });
+  }, [spks, searchQuery, statusFilter]);
+
+  const handleResetFilter = () => {
+    setSearchQuery('');
+    setStatusFilter('ALL');
+  };
+
+  const executeExportSpkSummary = () => {
+    setShowExportModal(false);
+    try {
+      const exportData = filteredSpks.map((s, idx) => ({
+        No: idx + 1,
+        'No SPK': s.spk_no,
+        'Nama Pelanggan': s.customer_name,
+        'Plat Nomor': s.vehicle_plate || '-',
+        Status: s.status,
+        'QC Status': s.qc_status || '-',
+        'Nilai Estimasi': s.total_estimated_cost || 0,
+        'Tanggal Dibuat': new Date(s.created_at).toLocaleDateString('id-ID'),
+      }));
+
+      // Generate CSV format
+      const headers = Object.keys(exportData[0] || {}).join(',');
+      const rows = exportData.map(row => 
+        Object.values(row).map(val => `"${String(val).replace(/"/g, '""')}"`).join(',')
+      ).join('\n');
+      const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + `${headers}\n${rows}`;
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `Laporan_Monitoring_SPK_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      setFeedbackModal({
+        isOpen: true,
+        title: 'Ekspor Laporan Berhasil',
+        message: `Sebanyak ${exportData.length} baris ringkasan SPK telah berhasil diunduh ke format CSV.`,
+        variant: 'success',
+      });
+    } catch (err: any) {
+      setFeedbackModal({
+        isOpen: true,
+        title: 'Gagal Mengunduh Laporan',
+        message: err.message || 'Terjadi kesalahan saat menyusun data ekspor.',
+        variant: 'danger',
+      });
+    }
+  };
+
   const activeSpks = spks.filter(s => s.status === 'ACTIVE');
   const activeBays = activeSpks.length;
   const totalBays = 20;
@@ -40,21 +211,7 @@ export const AdminDashboardPage: React.FC = () => {
   const pendingAmendments = spks.flatMap(s => (s.spk_amendments || []).map((a: any) => ({...a, spk_no: s.spk_no, customer_name: s.customer_name}))).filter((a: any) => a.status === 'PENDING');
   const pendingAmendmentsCount = pendingAmendments.length;
 
-  const handleApprovalAction = async (id: string, action: 'APPROVED' | 'REJECTED') => {
-    try {
-      if (action === 'APPROVED') {
-        if (!profile?.id) throw new Error("User ID is missing");
-        await spkService.approveAmendment(id, profile.id);
-      } else {
-        await spkService.rejectAmendment(id);
-      }
-      fetchSpks(); // refresh data
-    } catch (err) {
-      console.error(`Error updating amendment to ${action}:`, err);
-    }
-  };
-
-  const totalWipValue = activeSpks.reduce((sum, spk) => sum + (Number(spk.total_estimated_cost) || 0), 0);
+  const totalWipValue = activeSpks.reduce((sum: number, spk: any) => sum + (Number(spk.total_estimated_cost) || 0), 0);
   const formattedWip = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(totalWipValue);
 
   const overbudgetCount = spks.filter(s => s.is_overbudget === true || s.material_gate_status === 'OVERBUDGET').length;
@@ -279,11 +436,65 @@ export const AdminDashboardPage: React.FC = () => {
           )}
         </div>
 
-        {/* Monitoring Table */}
+        {/* Monitoring Table & Controls */}
         <div className="bg-surface border border-border rounded-lg overflow-hidden mt-8">
-          <div className="px-5 py-4 border-b border-border bg-surface-hover">
-            <h3 className="font-bold text-text font-display">{t('admin.spk_monitoring')}</h3>
+          <div className="px-5 py-4 border-b border-border bg-surface-hover flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h3 className="font-bold text-text font-display">{t('admin.spk_monitoring')}</h3>
+              <p className="text-xs text-text-muted mt-0.5">
+                Menampilkan {filteredSpks.length} dari total {spks.length} SPK terdaftar
+              </p>
+            </div>
+            
+            {/* Toolbar Filter & Aksi */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              <div className="relative min-w-[200px]">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                <input
+                  type="text"
+                  placeholder="Cari SPK / Client / Nopol..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-background border border-border rounded-lg pl-9 pr-3 py-1.5 text-xs text-text focus:outline-none focus:border-primary transition"
+                />
+              </div>
+
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as any)}
+                className="bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-text focus:outline-none focus:border-primary transition"
+              >
+                <option value="ALL">Semua Status</option>
+                <option value="ACTIVE">Aktif (WIP)</option>
+                <option value="PENDING_QC">Menunggu QC</option>
+                <option value="OVERBUDGET">Overbudget</option>
+                <option value="CANCELLED">Dibatalkan</option>
+              </select>
+
+              {(searchQuery || statusFilter !== 'ALL') && (
+                <button
+                  type="button"
+                  onClick={handleResetFilter}
+                  className="px-2.5 py-1.5 rounded-lg border border-border text-xs text-text-muted hover:text-text hover:bg-background transition flex items-center gap-1.5"
+                  title="Reset Filter & Pencarian"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setShowExportModal(true)}
+                className="px-3 py-1.5 rounded-lg bg-surface border border-border hover:border-primary/50 text-xs font-medium text-text hover:text-primary transition flex items-center gap-1.5 shadow-xs"
+                title="Ekspor Ringkasan Laporan SPK ke CSV"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-status-success" />
+                <span>Ekspor CSV</span>
+              </button>
+            </div>
           </div>
+
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm text-text">
               <thead className="bg-background text-text-muted font-mono text-xs uppercase">
@@ -295,13 +506,24 @@ export const AdminDashboardPage: React.FC = () => {
                   <th className="px-5 py-3">{t('admin.material_gate')}</th>
                   <th className="px-5 py-3">{t('admin.qc_status')}</th>
                   <th className="px-5 py-3">{t('admin.handover')}</th>
-                  <th className="px-5 py-3 text-right">Action</th>
+                  <th className="px-5 py-3 text-right">Aksi Manajerial</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {spks.map((spk) => (
-                  <tr key={spk.id} className={`hover:bg-surface-hover/50 transition`}>
-                    <td className="px-5 py-4 font-mono font-medium">{spk.spk_no}</td>
+                {filteredSpks.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-5 py-8 text-center text-text-muted text-sm">
+                      Tidak ada data SPK yang sesuai dengan filter pencarian.
+                    </td>
+                  </tr>
+                ) : filteredSpks.map((spk) => (
+                  <tr key={spk.id} className="hover:bg-surface-hover/50 transition">
+                    <td className="px-5 py-4 font-mono font-medium">
+                      <div>{spk.spk_no}</div>
+                      {spk.vehicle_plate && (
+                        <div className="text-xs text-text-muted font-normal">{spk.vehicle_plate}</div>
+                      )}
+                    </td>
                     <td className="px-5 py-4">{spk.customer_name}</td>
                     <td className="px-5 py-4">
                       <span className="bg-surface-active px-2 py-1 rounded text-xs font-mono">Phase TBD</span>
@@ -312,10 +534,12 @@ export const AdminDashboardPage: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-5 py-4">
-                      <span className="text-status-success font-medium">In Budget</span>
+                      <span className={spk.is_overbudget ? "text-status-danger font-medium" : "text-status-success font-medium"}>
+                        {spk.is_overbudget ? "Overbudget" : "In Budget"}
+                      </span>
                     </td>
                     <td className="px-5 py-4">
-                      <span className={'text-status-idle'}>
+                      <span className={spk.status === 'CANCELLED' ? 'text-status-danger' : 'text-status-idle'}>
                         {spk.status}
                       </span>
                     </td>
@@ -325,12 +549,27 @@ export const AdminDashboardPage: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <button
-                        onClick={() => setSelectedWbsSpkId(spk.id)}
-                        className="text-primary hover:text-primary-hover text-sm font-medium transition"
-                      >
-                        WBS & QC
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => setSelectedWbsSpkId(spk.id)}
+                          className="text-primary hover:text-primary-hover text-xs font-semibold px-2.5 py-1 rounded hover:bg-primary/10 transition"
+                        >
+                          WBS & QC
+                        </button>
+                        {spk.status !== 'CANCELLED' && spk.status !== 'COMPLETED' && (
+                          <button
+                            onClick={() => {
+                              setCancellingSpk(spk);
+                              setCancellationReason('');
+                            }}
+                            className="text-status-danger hover:text-red-400 text-xs font-semibold px-2 py-1 rounded hover:bg-status-danger/10 transition flex items-center gap-1"
+                            title="Batalkan SPK Langsung"
+                          >
+                            <Ban className="w-3.5 h-3.5" />
+                            <span>Batalkan</span>
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -424,13 +663,25 @@ export const AdminDashboardPage: React.FC = () => {
                       
                       <div className="flex items-center gap-2 w-full md:w-auto shrink-0 mt-2 md:mt-0">
                         <button
-                          onClick={() => handleApprovalAction(amendment.id, 'APPROVED')}
+                          type="button"
+                          onClick={() => setPendingActionTarget({
+                            id: amendment.id,
+                            action: 'APPROVED',
+                            spkNo: amendment.spk_no,
+                            description: amendment.description
+                          })}
                           className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-status-success/10 hover:bg-status-success/20 text-status-success rounded text-sm font-medium transition"
                         >
                           <Check className="w-4 h-4" /> Approve
                         </button>
                         <button
-                          onClick={() => handleApprovalAction(amendment.id, 'REJECTED')}
+                          type="button"
+                          onClick={() => setPendingActionTarget({
+                            id: amendment.id,
+                            action: 'REJECTED',
+                            spkNo: amendment.spk_no,
+                            description: amendment.description
+                          })}
                           className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-status-danger/10 hover:bg-status-danger/20 text-status-danger rounded text-sm font-medium transition"
                         >
                           <X className="w-4 h-4" /> Reject
@@ -473,6 +724,78 @@ export const AdminDashboardPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal Konfirmasi Persetujuan / Penolakan Change Order */}
+      <ConfirmationModal
+        isOpen={Boolean(pendingActionTarget)}
+        title={pendingActionTarget?.action === 'APPROVED' ? 'Setujui Change Order?' : 'Tolak Change Order?'}
+        message={
+          pendingActionTarget?.action === 'APPROVED'
+            ? `Apakah Anda yakin ingin MENYETUJUI usulan perubahan biaya untuk SPK ${pendingActionTarget?.spkNo || ''}?\n\nKeterangan Pekerjaan: "${pendingActionTarget?.description || '-'}"`
+            : `Apakah Anda yakin ingin MENOLAK usulan perubahan biaya untuk SPK ${pendingActionTarget?.spkNo || ''}?\n\nKeterangan Pekerjaan: "${pendingActionTarget?.description || '-'}"`
+        }
+        confirmText={pendingActionTarget?.action === 'APPROVED' ? 'Ya, Setujui Change Order' : 'Ya, Tolak Change Order'}
+        cancelText="Batal"
+        variant={pendingActionTarget?.action === 'APPROVED' ? 'info' : 'danger'}
+        isLoading={actionLoading}
+        onConfirm={handleApprovalActionConfirm}
+        onCancel={() => setPendingActionTarget(null)}
+      />
+
+      {/* Modal Konfirmasi Pembatalan SPK Langsung oleh Owner */}
+      <ConfirmationModal
+        isOpen={Boolean(cancellingSpk)}
+        title={`Batalkan SPK ${cancellingSpk?.spk_no || ''}?`}
+        message="PERINGATAN: Pembatalan SPK langsung oleh Owner akan menghentikan seluruh aktivitas pengerjaan unit karoseri dan mencatat alasan pembatalan ke log audit sistem."
+        confirmText="Ya, Batalkan SPK Ini"
+        cancelText="Kembali"
+        variant="danger"
+        isLoading={actionLoading}
+        onConfirm={handleCancelSpkSubmit}
+        onCancel={() => {
+          setCancellingSpk(null);
+          setCancellationReason('');
+        }}
+      >
+        <div className="mt-3">
+          <label className="block text-xs font-mono text-text-muted mb-1.5">
+            ALASAN PEMBATALAN <span className="text-status-danger">*</span>
+          </label>
+          <textarea
+            rows={3}
+            value={cancellationReason}
+            onChange={(e) => setCancellationReason(e.target.value)}
+            placeholder="Masukkan alasan pembatalan (misal: Permintaan pembatalan sepihak klien, perubahan spesifikasi total, dsb.)"
+            className="w-full bg-background border border-border rounded-lg p-2.5 text-xs sm:text-sm text-text focus:outline-none focus:border-status-danger resize-none"
+          />
+        </div>
+      </ConfirmationModal>
+
+      {/* Modal Konfirmasi Ekspor Laporan SPK */}
+      <ConfirmationModal
+        isOpen={showExportModal}
+        title="Ekspor Ringkasan Laporan SPK?"
+        message={`Sistem akan mengekspor ${filteredSpks.length} data SPK sesuai filter aktif saat ini ke dalam berkas format CSV. Lanjutkan pengunduhan berkas?`}
+        confirmText="Unduh Laporan CSV"
+        cancelText="Batal"
+        variant="info"
+        onConfirm={executeExportSpkSummary}
+        onCancel={() => setShowExportModal(false)}
+      />
+
+      {/* Modal Feedback dan Notifikasi Umum */}
+      {feedbackModal && (
+        <ConfirmationModal
+          isOpen={feedbackModal.isOpen}
+          title={feedbackModal.title}
+          message={feedbackModal.message}
+          confirmText="Mengerti"
+          hideCancel={true}
+          variant={feedbackModal.variant}
+          onConfirm={() => setFeedbackModal(null)}
+          onCancel={() => setFeedbackModal(null)}
+        />
       )}
     </div>
   );
