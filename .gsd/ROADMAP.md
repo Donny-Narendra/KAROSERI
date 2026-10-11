@@ -690,3 +690,15 @@
 - [x] Logika Render Item di Kotak Kiri: Membedakan item statis (RAB/tersimpan/dipilih) sebagai kartu material tetap tebal dengan badge dan estimasi harga, vs formulir dropdown ekstra baru hanya saat "+ Add Item".
 - [x] Hydration State & Re-ordering: Memuat master materials dan RAB items terlebih dahulu, lalu mencocokkan item requisition tersimpan ke RAB item dan menghitung subtotal secara akurat (`isManual: false`, `isPersisted: true`).
 - [x] Verifikasi Type Checking, Build Validation (`npm run build`, `npx oxlint`), UI Check SPK-5902 Pembongkaran, dan Commit Atomik (`fix(mandor): properly render allocated rab material card instead of extra material select in requisition list`).
+
+---
+
+### Phase 57: Gap Closure (Refactor Seluruh Dialog Konfirmasi Native Browser Menjadi Modal Custom di /mandor)
+**Status**: ✅ Complete
+**Objective**: Address gaps from operational feedback (Mengganti seluruh dialog window.confirm dan window.alert native browser di modul Mandor menjadi komponen modal konfirmasi dan notifikasi custom berbasis React UI)
+
+**Gaps to Close:**
+- [x] Pembuatan komponen reusable `ConfirmationModal.tsx` dengan varian tema dark industrial RobelKaroseri (danger, warning, info, success) dan dukungan alert/konfirmasi.
+- [x] Refactor pemanggilan `window.confirm` dan `window.alert` pada pembatalan penugasan SPK Borongan di `SpkBoronganPanel.tsx`.
+- [x] Standarisasi dialog konfirmasi pembatalan/pengembalian material dan pesan notifikasi pada `MaterialRequisitionForm.tsx`.
+- [x] Refactor pesan peringatan dan alert pada `WbsChecklist.tsx` dan `QcInspectionForm.tsx`.

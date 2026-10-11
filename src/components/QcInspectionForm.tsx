@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
 
 interface QcInspectionFormProps {
   spkId: string;
@@ -24,6 +25,13 @@ export const QcInspectionForm: React.FC<QcInspectionFormProps> = ({ spkId, onQcU
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isDraft, setIsDraft] = useState(false);
+
+  // Notification / Alert Modal state
+  const [notification, setNotification] = useState<{
+    title: string;
+    message: string;
+    variant?: ConfirmationModalVariant;
+  } | null>(null);
 
   React.useEffect(() => {
     if (!spkId) return;
@@ -132,10 +140,18 @@ export const QcInspectionForm: React.FC<QcInspectionFormProps> = ({ spkId, onQcU
       setStatus(finalStatus);
       setSubmitted(finalStatus === 'PASS');
       onQcUpdated?.();
-      alert(`QC Inspection submitted with status: ${finalStatus}`);
+      setNotification({
+        title: 'QC Inspection Disubmit',
+        message: `Hasil inspeksi QC berhasil disimpan dengan status: ${finalStatus}.`,
+        variant: finalStatus === 'PASS' ? 'success' : 'warning'
+      });
     } catch (err: any) {
       console.error('Error submitting QC inspection:', err);
-      alert('Failed to submit QC inspection: ' + err.message);
+      setNotification({
+        title: 'Gagal Submit QC',
+        message: 'Gagal menyimpan hasil inspeksi QC: ' + (err.message || 'Terjadi kesalahan.'),
+        variant: 'danger'
+      });
     } finally {
       setLoading(false);
     }
@@ -224,6 +240,18 @@ export const QcInspectionForm: React.FC<QcInspectionFormProps> = ({ spkId, onQcU
           {loading ? 'Loading...' : (submitted && status === 'PASS' ? 'QC Passed' : 'Submit Final QC')}
         </button>
       </form>
+
+      {/* Modal Notifikasi / Alert QC */}
+      <ConfirmationModal
+        isOpen={!!notification}
+        title={notification?.title || 'Pemberitahuan'}
+        message={notification?.message || ''}
+        confirmText="Tutup"
+        variant={notification?.variant || 'info'}
+        hideCancel={true}
+        onConfirm={() => setNotification(null)}
+        onCancel={() => setNotification(null)}
+      />
     </div>
   );
 };

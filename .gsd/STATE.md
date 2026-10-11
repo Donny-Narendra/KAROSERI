@@ -1,16 +1,28 @@
 ## Current Position
-- **Phase**: 56 (completed)
-- **Task**: All tasks complete
-- **Status**: Verified
+- **Phase**: 57 (completed)
+- **Task**: All tasks complete (awaiting manual commit & verify by user)
+- **Status**: Implemented & Ready for Manual Verification
 
 ## Last Session Summary
-Phase 56 (Gap Closure: Perbaikan Render Kartu Material Alokasi RAB vs Form Dropdown Ekstra pada Daftar Permintaan Material di Mandor) dieksekusi dan diverifikasi dengan sukses:
-1. Logika Render Item Kotak Kiri: Membedakan secara tegas antara kartu material statis (`item.name` tebal, badge `TERCATAT`/`DIAJUKAN`/`BARU`, badge `RAB`/`Ekstra`, harga & subtotal, kuantitas terkunci jika tersimpan, tombol hapus/kembalikan ke RAB) vs formulir dropdown select master material yang hanya aktif saat item ekstra baru ditambahkan via "+ Add Item" dan belum memilih material.
-2. Hydration State & Re-ordering: Urutan pemuatan data diperbaiki sehingga master materials dan RAB items dimuat sebelum pemrosesan existing requisitions. Record requisition tersimpan dicocokkan ke RAB item (ID atau normalisasi nama) untuk memulihkan `sourceRabId`, unit price, subtotal riil, dan status `isManual: false` serta `isPersisted: true`.
-3. Verifikasi & Type Checking: `npx oxlint` 0 error, `npm run build` sukses 100%, serta pengujian database memastikan record "KARPET SLEBOR" (0.1 pcs, Rp 5.000) pada SPK-5902 WBS Pembongkaran ter-hydrate sebagai kartu tetap dan tidak lagi memunculkan form dropdown material ekstra.
+Phase 57 (Gap Closure: Refactor Seluruh Dialog Konfirmasi Native Browser Menjadi Modal Custom di /mandor) telah selesai diimplementasikan:
+1. Pembuatan Komponen Reusable `ConfirmationModal.tsx`:
+   - Dibuat di `src/components/ConfirmationModal.tsx` dengan props: `isOpen`, `title`, `message`, `confirmText`, `cancelText`, `variant` ('danger' | 'warning' | 'info' | 'success'), `hideCancel`, `isLoading`, `children`, `onConfirm`, dan `onCancel`.
+   - Mengikuti styling tema industrial RobelKaroseri (latar gelap `bg-surface`, border kontras `border-border`, ikon contextual Lucide React, tombol aksi beraksen, dan keyboard accessibility `Escape`).
+2. Refactor Subkomponen Mandor Bebas Native Dialog:
+   - `SpkBoronganPanel.tsx`: Mengganti `window.confirm` pembatalan penugasan SPK-B dan seluruh `window.alert` (validasi cut-off, notifikasi sukses/gagal, pembuatan surat tugas) menjadi modal custom.
+   - `MaterialRequisitionForm.tsx`: Mengganti dialog konfirmasi inline sebelumnya dengan `ConfirmationModal` terstandarisasi untuk pembatalan/pengembalian item material ke alokasi RAB serta mengganti seluruh `alert` submission.
+   - `WbsChecklist.tsx`: Mengganti `alert` peringatan mandatori foto sebelum progress 100% dan error penyimpanan menjadi modal notifikasi custom.
+   - `QcInspectionForm.tsx`: Mengganti `alert` hasil inspeksi QC submit menjadi modal custom.
+3. Quality Check:
+   - `npx oxlint`: 0 error.
+   - `npm run build`: Berhasil 100%.
+   - Sesuai instruksi khusus: tidak ada git commit otomatis dan tidak ada auto verify (siap untuk diverifikasi dan dicommit secara manual oleh pengguna).
 
 ## Blockers
 None.
 
 ## Next Steps
-1. Sesi pengerjaan Phase 56 tuntas.
+1. Pengguna memverifikasi interaksi modal konfirmasi di halaman `/mandor`.
+2. Pengguna melakukan git commit secara manual.
+
+

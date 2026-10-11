@@ -13,6 +13,7 @@ import {
   PackageCheck 
 } from 'lucide-react';
 import { isRabItemAllocated } from '../utils/rabItemAllocation';
+import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
 
 interface SpkBoronganPanelProps {
   spkId: string;
@@ -85,6 +86,17 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
   // Cut-off state
   const [cutOffId, setCutOffId] = useState<string | null>(null);
   const [progress, setProgress] = useState<number | ''>('');
+
+  // Confirmation Modal state for cancelling assignment
+  const [assignmentToCancel, setAssignmentToCancel] = useState<{ id: string; workerName: string } | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  // Notification / Alert Modal state
+  const [notification, setNotification] = useState<{
+    title: string;
+    message: string;
+    variant?: ConfirmationModalVariant;
+  } | null>(null);
   
   const [spkDetail, setSpkDetail] = useState<SpkDetail | null>(null);
 
@@ -248,12 +260,15 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
   };
 
   // Handler Pembatalan / Penghapusan Penugasan SPK-B
-  const handleCancelAssignment = async (id: string, workerNameStr: string) => {
-    if (!window.confirm(`Batalkan dan hapus penugasan untuk "${workerNameStr}"? Pekerjaan ini dapat dialihkan kembali ke pekerja lain.`)) {
-      return;
-    }
+  const promptCancelAssignment = (id: string, workerNameStr: string) => {
+    setAssignmentToCancel({ id, workerName: workerNameStr });
+  };
 
-    setLoading(true);
+  const executeCancelAssignment = async () => {
+    if (!assignmentToCancel) return;
+    const { id, workerName: workerNameStr } = assignmentToCancel;
+
+    setIsCancelling(true);
     try {
       const { error } = await supabase
         .from('spk_borongan')
@@ -262,14 +277,23 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
 
       if (error) throw error;
 
-      alert(`Penugasan "${workerNameStr}" berhasil dibatalkan.`);
+      setAssignmentToCancel(null);
+      setNotification({
+        title: 'Penugasan Dibatalkan',
+        message: `Penugasan "${workerNameStr}" berhasil dibatalkan. Pekerjaan ini telah dikembalikan ke panduan material.`,
+        variant: 'success'
+      });
       await fetchRecords();
       await fetchRabMaterials();
     } catch (err: any) {
       console.error('Error cancelling assignment:', err);
-      alert('Gagal membatalkan penugasan: ' + (err.message || 'Terjadi kesalahan'));
+      setNotification({
+        title: 'Gagal Membatalkan Penugasan',
+        message: err.message || 'Terjadi kesalahan saat membatalkan penugasan.',
+        variant: 'danger'
+      });
     } finally {
-      setLoading(false);
+      setIsCancelling(false);
     }
   };
 
@@ -291,7 +315,11 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
     
     if (error) {
       console.error('Error creating SPK-B:', error);
-      alert('Gagal membuat SPK Borongan: ' + error.message);
+      setNotification({
+        title: 'Gagal Membuat SPK Borongan',
+        message: error.message || 'Terjadi kesalahan saat membuat SPK Borongan.',
+        variant: 'danger'
+      });
     } else {
       setWorkerName('');
       setTaskDescription('');
@@ -305,7 +333,11 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
 
   const handleCutOff = async (id: string) => {
     if (progress === '' || Number(progress) < 0 || Number(progress) > 100) {
-      alert('Progress harus 0 - 100');
+      setNotification({
+        title: 'Validasi Persentase Progress',
+        message: 'Persentase progres fisik harus bernilai antara 0 sampai 100%.',
+        variant: 'warning'
+      });
       return;
     }
     setLoading(true);
@@ -317,7 +349,11 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
     
     if (error) {
       console.error('Error in cut-off:', error);
-      alert('Gagal melakukan Cut-Off');
+      setNotification({
+        title: 'Gagal Melakukan Cut-Off',
+        message: error.message || 'Terjadi kesalahan saat melakukan cut-off penugasan.',
+        variant: 'danger'
+      });
     } else {
       setCutOffId(null);
       setProgress('');
@@ -343,7 +379,11 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
         
       if (error) {
         console.error('Error updating assignment letter no:', error);
-        alert('Gagal membuat nomor surat tugas.');
+        setNotification({
+          title: 'Gagal Membuat Nomor Surat Tugas',
+          message: error.message || 'Terjadi kesalahan saat mengupdate nomor surat tugas resmi.',
+          variant: 'danger'
+        });
         return;
       }
       
@@ -547,7 +587,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleCancelAssignment(record.id, record.worker_name)}
+                              onClick={() => promptCancelAssignment(record.id, record.worker_name)}
                               className="px-2.5 py-1 bg-surface border border-rose-500/40 text-rose-400 rounded text-xs hover:bg-rose-500/10 hover:border-rose-500 flex items-center gap-1 transition-colors font-medium shadow-sm"
                               title="Batalkan / Hapus penugasan ini"
                             >
@@ -805,6 +845,37 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
 
           </div>
         </div>
+
+        {/* Modal Konfirmasi Pembatalan Penugasan */}
+        <ConfirmationModal
+          isOpen={!!assignmentToCancel}
+          title="Konfirmasi Pembatalan Penugasan"
+          message={
+            assignmentToCancel
+              ? `Batalkan dan hapus penugasan untuk "${assignmentToCancel.workerName}"? Pekerjaan ini dapat dialihkan kembali ke pekerja lain.`
+              : ''
+          }
+          confirmText="Ya, Batalkan Penugasan"
+          cancelText="Batal"
+          variant="danger"
+          isLoading={isCancelling}
+          onConfirm={executeCancelAssignment}
+          onCancel={() => {
+            if (!isCancelling) setAssignmentToCancel(null);
+          }}
+        />
+
+        {/* Modal Pemberitahuan / Alert Dialog */}
+        <ConfirmationModal
+          isOpen={!!notification}
+          title={notification?.title || 'Pemberitahuan'}
+          message={notification?.message || ''}
+          confirmText="Tutup"
+          variant={notification?.variant || 'info'}
+          hideCancel={true}
+          onConfirm={() => setNotification(null)}
+          onCancel={() => setNotification(null)}
+        />
 
       </div>
     </div>

@@ -5,6 +5,7 @@ import { MaterialRequisitionForm } from './MaterialRequisitionForm';
 import { SpkBoronganPanel } from './SpkBoronganPanel';
 import { WbsGalleryUploader } from './WbsGalleryUploader';
 import type { WbsAsset } from './WbsGalleryUploader';
+import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
 
 interface WbsChecklistProps {
   spkId: string;
@@ -43,6 +44,13 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
   const [boronganCategory, setBoronganCategory] = useState<string | null>(null);
   
   const [isDraft, setIsDraft] = useState(false);
+
+  // Notification / Alert Modal state
+  const [notification, setNotification] = useState<{
+    title: string;
+    message: string;
+    variant?: ConfirmationModalVariant;
+  } | null>(null);
 
   useEffect(() => {
     if (!spkId) return;
@@ -153,7 +161,11 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
       
     } catch (error: any) {
       console.error('Error saving WBS data', error);
-      alert('Failed to save data: ' + error.message);
+      setNotification({
+        title: 'Gagal Menyimpan Data WBS',
+        message: 'Gagal menyimpan perubahan: ' + (error.message || 'Terjadi kesalahan.'),
+        variant: 'danger'
+      });
     } finally {
       setLoading(false);
     }
@@ -170,7 +182,11 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
     
     // Lock 100% if no photos
     if (newProgress === 100 && categoryAssets.length === 0) {
-      alert("Tidak dapat mengatur progres ke 100% sebelum mengunggah minimal 1 foto bukti pekerjaan di kategori WBS ini.");
+      setNotification({
+        title: 'Foto Bukti Wajib Diunggah',
+        message: 'Tidak dapat mengatur progres ke 100% sebelum mengunggah minimal 1 foto bukti pekerjaan di kategori WBS ini.',
+        variant: 'warning'
+      });
       return;
     }
     
@@ -204,7 +220,11 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
       }));
     } catch (err: any) {
       console.error("Error saving asset to DB", err);
-      alert("Failed to save asset info: " + err.message);
+      setNotification({
+        title: 'Gagal Menyimpan Bukti Foto',
+        message: 'Gagal menyimpan info aset: ' + (err.message || 'Terjadi kesalahan.'),
+        variant: 'danger'
+      });
     }
   };
 
@@ -404,6 +424,18 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
           onClose={() => setBoronganCategory(null)}
         />
       )}
+
+      {/* Modal Notifikasi / Peringatan WBS */}
+      <ConfirmationModal
+        isOpen={!!notification}
+        title={notification?.title || 'Pemberitahuan'}
+        message={notification?.message || ''}
+        confirmText="Tutup"
+        variant={notification?.variant || 'info'}
+        hideCancel={true}
+        onConfirm={() => setNotification(null)}
+        onCancel={() => setNotification(null)}
+      />
     </div>
   );
 };

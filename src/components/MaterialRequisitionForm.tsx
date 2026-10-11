@@ -13,6 +13,7 @@ import {
   FileText
 } from 'lucide-react';
 import { isRabItemAllocated, normalizeText } from '../utils/rabItemAllocation';
+import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
 
 interface MasterMaterial {
   id: string;
@@ -96,6 +97,14 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
 
   // Confirmation dialog state for removing / returning item
   const [confirmItemToRemove, setConfirmItemToRemove] = useState<RequisitionItem | null>(null);
+
+  // Notification / Alert modal state
+  const [notification, setNotification] = useState<{
+    title: string;
+    message: string;
+    variant?: ConfirmationModalVariant;
+    onConfirm?: () => void;
+  } | null>(null);
 
   // Filtered available RAB items:
   // Mengecualikan secara terpadu melalui shared availability filter:
@@ -545,28 +554,44 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
-      alert('Sesi pengguna tidak valid. Silakan login kembali.');
+      setNotification({
+        title: 'Sesi Tidak Valid',
+        message: 'Sesi pengguna tidak valid. Silakan login kembali.',
+        variant: 'warning'
+      });
       return;
     }
 
     // Only process new unpersisted items
     const newItems = selectedItems.filter(item => !item.isPersisted);
     if (newItems.length === 0) {
-      alert('Semua item dalam daftar permintaan sudah diajukan ke gudang.');
+      setNotification({
+        title: 'Tidak Ada Item Baru',
+        message: 'Semua item dalam daftar permintaan sudah diajukan ke gudang.',
+        variant: 'info'
+      });
       return;
     }
 
     // Validation: Require at least 1 new item with quantity > 0
     const validItems = newItems.filter(item => (item.materialId || (item.name && item.name.trim())) && item.quantity > 0);
     if (validItems.length === 0) {
-      alert('Harap pilih minimal 1 material dengan kuantitas lebih dari 0.');
+      setNotification({
+        title: 'Validasi Kuantitas',
+        message: 'Harap pilih minimal 1 material dengan kuantitas lebih dari 0.',
+        variant: 'warning'
+      });
       return;
     }
 
     // Check if any manual item has not selected a material and has no name
     const unselectedManual = validItems.find(item => item.isManual && !item.materialId && !item.name.trim());
     if (unselectedManual) {
-      alert('Terdapat item manual yang belum dipilih materialnya. Silakan pilih material atau hapus item tersebut.');
+      setNotification({
+        title: 'Material Belum Dipilih',
+        message: 'Terdapat item ekstra manual yang belum dipilih materialnya. Silakan pilih material dari daftar atau hapus item tersebut.',
+        variant: 'warning'
+      });
       return;
     }
 
@@ -604,8 +629,12 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
 
       if (itemsError) throw itemsError;
 
-      alert(`Permintaan material untuk ${cleanWbsCategory} (${validItems.length} item baru) berhasil diajukan dengan status PENDING.`);
-      onClose();
+      setNotification({
+        title: 'Permintaan Berhasil Diajukan',
+        message: `Permintaan material untuk ${cleanWbsCategory} (${validItems.length} item baru) berhasil diajukan dengan status PENDING.`,
+        variant: 'success',
+        onConfirm: onClose
+      });
     } catch (error: any) {
       console.error('Error submitting requisition:', error);
       setErrorMessage(error.message || 'Gagal mengajukan permintaan material.');
@@ -1010,54 +1039,54 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
 
       </div>
 
-      {/* Confirmation Dialog Modal */}
-      {confirmItemToRemove && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 z-70 animate-in fade-in duration-150">
-          <div className="bg-surface border border-border rounded-xl shadow-2xl p-5 max-w-md w-full space-y-4 animate-in zoom-in-95 duration-150">
-            <div className="flex items-start gap-3">
-              <div className="p-2.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30 shrink-0">
-                <AlertCircle className="w-5 h-5" />
-              </div>
-              <div className="space-y-1 min-w-0">
-                <h4 className="font-bold text-base text-text">Konfirmasi Pembatalan Material</h4>
-                <p className="text-xs sm:text-sm text-text-muted leading-relaxed">
-                  Apakah Anda yakin ingin membatalkan permintaan material{' '}
-                  <strong className="text-text font-semibold">&quot;{confirmItemToRemove.name}&quot;</strong>?{' '}
-                  Material akan dikembalikan ke daftar Alokasi RAB.
-                </p>
-                {confirmItemToRemove.isPersisted && (
-                  <p className="text-[11px] text-amber-300 bg-amber-500/10 p-2 rounded border border-amber-500/20 font-medium">
-                    Item ini telah tercatat di Supabase ({confirmItemToRemove.status || 'PENDING'}). Konfirmasi akan menghapus data dari daftar permintaan aktif.
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
-              <button
-                type="button"
-                onClick={() => setConfirmItemToRemove(null)}
-                disabled={loading}
-                className="px-3.5 py-1.5 rounded-lg border border-border text-xs sm:text-sm font-medium hover:bg-background text-text transition-colors"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={() => handleExecuteRemove(confirmItemToRemove)}
-                disabled={loading}
-                className="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 active:scale-95 text-white text-xs sm:text-sm font-semibold transition-all flex items-center gap-1.5 shadow"
-              >
-                {loading ? (
-                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                ) : (
-                  <Trash2 className="w-3.5 h-3.5" />
-                )}
-                <span>Ya, Kembalikan</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Reusable ConfirmationModal for removing / returning item */}
+      <ConfirmationModal
+        isOpen={!!confirmItemToRemove}
+        title="Konfirmasi Pembatalan Material"
+        message={
+          confirmItemToRemove
+            ? `Apakah Anda yakin ingin membatalkan permintaan material "${confirmItemToRemove.name}"? Material akan dikembalikan ke daftar Alokasi RAB.`
+            : ''
+        }
+        confirmText="Ya, Kembalikan"
+        cancelText="Batal"
+        variant="danger"
+        isLoading={loading}
+        onConfirm={() => {
+          if (confirmItemToRemove) {
+            handleExecuteRemove(confirmItemToRemove);
+          }
+        }}
+        onCancel={() => {
+          if (!loading) setConfirmItemToRemove(null);
+        }}
+      >
+        {confirmItemToRemove?.isPersisted && (
+          <p className="text-[11px] text-amber-300 bg-amber-500/10 p-2 rounded border border-amber-500/20 font-medium">
+            Item ini telah tercatat di Supabase ({confirmItemToRemove.status || 'PENDING'}). Konfirmasi akan menghapus data dari daftar permintaan aktif.
+          </p>
+        )}
+      </ConfirmationModal>
+
+      {/* Reusable Notification / Alert Modal */}
+      <ConfirmationModal
+        isOpen={!!notification}
+        title={notification?.title || 'Pemberitahuan'}
+        message={notification?.message || ''}
+        confirmText="OK"
+        variant={notification?.variant || 'info'}
+        hideCancel={true}
+        onConfirm={() => {
+          const action = notification?.onConfirm;
+          setNotification(null);
+          if (action) action();
+        }}
+        onCancel={() => {
+          const action = notification?.onConfirm;
+          setNotification(null);
+          if (action) action();
+        }}
+      />
     </div>
   );
 };
