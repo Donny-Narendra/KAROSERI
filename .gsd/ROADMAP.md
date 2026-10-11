@@ -659,11 +659,11 @@
 ---
 
 ### Phase 54: Gap Closure (Resolusi Foreign Key Mapping material_id pada Submit Requisition Material Mandor)
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Address gaps from operational feedback (Resolusi Foreign Key Mapping material_id pada Submit Requisition Material Mandor)
 
 **Gaps to Close:**
-- [ ] Migrasi Skema Database: Kolom `material_id` nullable, penambahan kolom `rab_item_id`, `material_name`, `unit` pada `material_requisition_items`.
-- [ ] Audit & Perbaikan Payload Submit Requisition: Pemetaan `material_id` ke ID material master yang valid (atau null) dan `rab_item_id` ke ID item RAB asli pada `MaterialRequisitionForm.tsx`.
-- [ ] Penyelarasan Cross-Module: Dukungan `rab_item_id` dan fallback nama/unit material pada `rabItemAllocation.ts`, `SpkBoronganPanel.tsx`, dan `RequisitionApproval.tsx`.
-- [ ] Verifikasi Type Checking, Build (`npm run build`, `npx oxlint`), Database Insertion Test, dan Commit Atomik (`fix(mandor): resolve material_id foreign key mapping on material requisition submit`).
+- [x] Migrasi Skema Database: Kolom `material_id` nullable, penambahan kolom `rab_item_id`, `material_name`, `unit` pada `material_requisition_items`.
+- [x] Audit & Perbaikan Payload Submit Requisition: Pemetaan `material_id` ke ID material master yang valid (atau null) dan `rab_item_id` ke ID item RAB asli pada `MaterialRequisitionForm.tsx`.
+- [x] Penyelarasan Cross-Module: Dukungan `rab_item_id` dan fallback nama/unit material pada `rabItemAllocation.ts`, `SpkBoronganPanel.tsx`, dan `RequisitionApproval.tsx`.
+- [x] Verifikasi Type Checking, Build (`npm run build`, `npx oxlint`), Database Insertion Test, dan Commit Atomik (`fix(mandor): resolve material_id foreign key mapping on material requisition submit`).
