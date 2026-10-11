@@ -107,24 +107,31 @@ export const BastModal: React.FC<BastModalProps> = ({
     }
   };
 
-  const sanitizeClonedColors = (clonedDoc: Document) => {
-    const allElements = clonedDoc.querySelectorAll('*');
-    const colorProps = [
-      'color', 'backgroundColor', 
-      'borderColor', 'borderTopColor', 'borderBottomColor', 'borderLeftColor', 'borderRightColor',
-      'outlineColor', 'textDecorationColor'
-    ];
-
-    allElements.forEach(el => {
-      if (!(el instanceof HTMLElement || el instanceof SVGElement)) return;
-      const comp = window.getComputedStyle(el);
-      for (const prop of colorProps) {
-        const val = (comp as any)[prop];
-        if (val && (val.includes('oklch') || val.includes('color-mix') || val.includes('lab') || val.includes('lch'))) {
-          (el.style as any)[prop] = convertColorToRgb(val);
+  const createStyleProxy = (origGetComputedStyle: (elt: Element, pseudoElt?: string | null) => CSSStyleDeclaration) => {
+    return function (elt: Element, pseudoElt?: string | null): CSSStyleDeclaration {
+      const style = origGetComputedStyle(elt, pseudoElt);
+      return new Proxy(style, {
+        get(target, prop) {
+          if (prop === 'getPropertyValue') {
+            return function (name: string): string {
+              const val = target.getPropertyValue(name);
+              if (typeof val === 'string' && (val.includes('oklch') || val.includes('color-mix') || val.includes('lab') || val.includes('lch'))) {
+                return convertColorToRgb(val);
+              }
+              return val;
+            };
+          }
+          const val = (target as any)[prop];
+          if (typeof val === 'function') {
+            return val.bind(target);
+          }
+          if (typeof val === 'string' && (val.includes('oklch') || val.includes('color-mix') || val.includes('lab') || val.includes('lch'))) {
+            return convertColorToRgb(val);
+          }
+          return val;
         }
-      }
-    });
+      });
+    };
   };
 
   const handleDownloadPdf = async () => {
@@ -134,11 +141,15 @@ export const BastModal: React.FC<BastModalProps> = ({
       return;
     }
 
+    const origWindowGetComputedStyle = window.getComputedStyle;
     try {
       setIsDownloadingPdf(true);
 
       const safeSpkNo = spkNo.replace(/[^a-zA-Z0-9_-]/g, '_');
       const filename = `BAST-${safeSpkNo}.pdf`;
+
+      // Intercept window.getComputedStyle in the main window during html2pdf run
+      window.getComputedStyle = createStyleProxy(origWindowGetComputedStyle.bind(window));
 
       const opt = {
         margin: [10, 10, 10, 10] as [number, number, number, number],
@@ -150,7 +161,10 @@ export const BastModal: React.FC<BastModalProps> = ({
           logging: false,
           backgroundColor: '#ffffff',
           onclone: (clonedDoc: Document) => {
-            sanitizeClonedColors(clonedDoc);
+            const win = clonedDoc.defaultView;
+            if (win) {
+              win.getComputedStyle = createStyleProxy(win.getComputedStyle.bind(win));
+            }
           },
         },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
@@ -162,6 +176,11 @@ export const BastModal: React.FC<BastModalProps> = ({
       console.error('Gagal mengunduh dokumen BAST sebagai PDF:', err);
       alert('Terjadi kesalahan saat memproses unduhan PDF. Silakan periksa konsol atau gunakan opsi Cetak Dokumen.');
     } finally {
+      window.getComputedStyle = origWindowGetComputedStyle;
+      // Clean up any stray html2pdf overlays that could block user clicks
+      if (typeof document !== 'undefined') {
+        document.querySelectorAll('.html2pdf__overlay').forEach(el => el.remove());
+      }
       setIsDownloadingPdf(false);
     }
   };
