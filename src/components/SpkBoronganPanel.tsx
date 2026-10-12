@@ -166,6 +166,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
         `)
         .eq('spk_id', spkId)
         .eq('wbs_category', cleanWbsCategory)
+        .neq('status', 'CANCELLED')
         .neq('status', 'REJECTED');
 
       if (reqData) {

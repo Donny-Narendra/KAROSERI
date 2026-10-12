@@ -301,17 +301,20 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
             )
           `)
           .eq('spk_id', spkId)
+          .neq('status', 'CANCELLED')
           .neq('status', 'REJECTED');
 
         if (reqError) {
           console.error('Error fetching material requisitions for exclusion:', reqError);
+          setErrorMessage(`Gagal mengambil data permintaan material aktif: ${reqError.message}`);
         } else if (reqData) {
           reqData.forEach((req: any) => {
             const reqCat = (req.wbs_category || '').replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
             const isMatchingWbs = 
               !req.wbs_category || 
               reqCat === cleanWbsCategory.toLowerCase() || 
-              req.wbs_category.toLowerCase() === wbsCategory.toLowerCase();
+              req.wbs_category.toLowerCase() === wbsCategory.toLowerCase() ||
+              normalizeText(reqCat) === normalizeText(cleanWbsCategory);
 
             if (isMatchingWbs && req.material_requisition_items) {
               req.material_requisition_items.forEach((item: any) => {
@@ -614,14 +617,24 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
       if (reqError) throw reqError;
 
       // 2. Insert Material Requisition Items
-      const itemsToInsert = validItems.map(item => ({
-        requisition_id: reqData.id,
-        material_id: item.materialId || null,
-        rab_item_id: item.sourceRabId || null,
-        material_name: item.name || 'Material Tanpa Nama',
-        quantity: Number(item.quantity) || 1,
-        unit: item.unit || 'pcs'
-      }));
+      const itemsToInsert = validItems.map(item => {
+        let resolvedMaterialId = item.materialId || null;
+        if (!resolvedMaterialId && item.name) {
+          const norm = normalizeText(item.name);
+          const found = masterMaterials.find(m => normalizeText(m.name) === norm);
+          if (found) {
+            resolvedMaterialId = found.id;
+          }
+        }
+        return {
+          requisition_id: reqData.id,
+          material_id: resolvedMaterialId,
+          rab_item_id: item.sourceRabId || null,
+          material_name: item.name || 'Material Tanpa Nama',
+          quantity: Number(item.quantity) || 1,
+          unit: item.unit || 'pcs'
+        };
+      });
 
       const { error: itemsError } = await supabase
         .from('material_requisition_items')
@@ -905,10 +918,10 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                       <div className="h-full border-2 border-dashed border-rose-500/20 rounded-lg flex flex-col items-center justify-center p-4 text-center text-text-muted">
                         <CheckCircle2 className="w-8 h-8 text-rose-500/30 mb-2" />
                         <p className="text-xs sm:text-sm font-medium text-text">
-                          Semua material RAB telah dipindahkan
+                          Semua material telah dipindahkan
                         </p>
                         <p className="text-[11px] text-text-muted mt-1 max-w-xs">
-                          Seluruh item RAB untuk tahapan WBS ini sudah berada di daftar permintaan, ditugaskan di SPK Borongan, atau belum dialokasikan di estimasi.
+                          Seluruh item RAB untuk tahapan WBS ini sudah berada di daftar permintaan atau sedang ditugaskan di SPK Borongan.
                         </p>
                       </div>
                     ) : (

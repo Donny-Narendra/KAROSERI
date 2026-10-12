@@ -796,3 +796,17 @@
 - [x] Integrasi `MaterialSearchAutocomplete` ke `GoodsIssueForm.tsx` menggantikan elemen native `<select>` "Select Material".
 - [x] Integrasi sinkronisasi payload Goods Issue: pengisian `material_id` UUID asli, auto-focus ke input "Request Quantity" saat item dipilih, indikator visual satuan unit material di samping input kuantitas, dan reset state saat SPK berganti.
 - [x] Memastikan kepatuhan terhadap batasan eksekusi: tanpa auto-verify, tanpa auto-commit, dan tanpa eksekusi langsung migrasi Supabase.
+
+---
+
+### Phase 65: Gap Closure (Sinkronisasi Tampilan Data Requisition Lintas Role dan Resolusi Pelanggaran RLS Minta Material untuk Service Advisor)
+**Status**: ⬜ Ready for Review
+**Objective**: Address gaps from operational feedback (Memperbarui RLS policy pada material_requisitions dan material_requisition_items untuk role service_advisor, serta menyinkronkan data fetching dan tampilan modal dual-list Requisition antara Service Advisor dan Mandor)
+
+**Gaps to Close:**
+- [x] Pembuatan skrip migrasi SQL `supabase/migrations/20261012_sync_requisitions_rls_for_service_advisor.sql` untuk memberikan hak SELECT, INSERT, UPDATE, dan DELETE pada tabel `material_requisitions` dan `material_requisition_items` bagi role `service_advisor`, `mandor`, `petugas_gudang`, `owner`, dan `admin` dengan dual-check (JWT claim dan profiles table).
+- [x] Sinkronisasi kueri Supabase di `MaterialRequisitionForm.tsx` untuk mengambil seluruh permintaan aktif berdasarkan SPK dan WBS terkait tanpa membatasi akun pembuat, serta mengecualikan status CANCELLED dan REJECTED.
+- [x] Pembaruan rendering kotak kiri "Daftar Permintaan Material" untuk menampilkan seluruh item tersimpan lengkap dengan nama, kuantitas, dan badge status `TERCATAT`.
+- [x] Sinkronisasi filter panel kanan "Alokasi RAB (WBS Terkait)" untuk mengecualikan material yang sudah diajukan di requisition aktif atau ditugaskan di SPK Borongan, serta menampilkan pesan informatif saat semua material telah dipindahkan.
+- [x] Penyesuaian payload submit agar selalu menyertakan `requested_by: auth.uid()` dan memetakan `material_id` UUID master material secara akurat.
+- [x] Memastikan kepatuhan terhadap batasan eksekusi: tanpa auto-verify, tanpa auto-commit, dan tanpa eksekusi langsung migrasi Supabase.

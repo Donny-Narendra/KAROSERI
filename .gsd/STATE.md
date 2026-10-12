@@ -1,43 +1,35 @@
 ## Current Position
-- **Phase**: 64 (Gap Closure: Implementasi Search Autocomplete Berbasis Keyboard untuk Pemilihan Goods Issue Material di /warehouse)
+- **Phase**: 65 (Gap Closure: Sinkronisasi Tampilan Data Requisition Lintas Role dan Resolusi Pelanggaran RLS Minta Material untuk Service Advisor)
 - **Task**: All tasks complete (awaiting manual review, test, & git commit by user)
 - **Status**: Implemented & Ready for Manual Verification
 
 ## Last Session Summary
-Phase 64 telah selesai diimplementasikan sesuai seluruh spesifikasi dan batasan instruksi pengguna:
-1. `src/components/MaterialSearchAutocomplete.tsx`:
-   - Dibuat komponen input autocomplete pencarian master material interaktif untuk Goods Issue.
-   - Fitur state: `searchQuery`, `isOpen`, `highlightedIndex`, dan sinkronisasi `selectedMaterialId`.
-   - Filter real-time case-insensitive terhadap nama material dan kode barang (`materials`).
-   - Navigasi keyboard penuh:
-     * `ArrowDown`: Memindahkan highlight fokus ke baris rekomendasi berikutnya (dengan wrap-around dan auto-scroll viewport).
-     * `ArrowUp`: Memindahkan highlight fokus ke baris rekomendasi sebelumnya (dengan wrap-around dan auto-scroll viewport).
-     * `Enter`: Memilih item yang sedang disorot, mengisi nilai material ke form, menutup popup saran, dan memanggil `onEnterFocusNext` untuk memindahkan fokus ke input "Request Quantity".
-     * `Escape`: Menutup popup daftar saran autocomplete dan mengembalikan nilai pencarian ke nama material yang sedang dipilih.
-   - Interaksi mouse:
-     * Klik pada baris saran langsung memilih material terkait.
-     * Klik di luar area (click-outside listener via document mousedown) otomatis menutup floating dropdown.
-     * Tombol "Clear" (X) untuk menghapus pilihan material secara cepat.
-     * Tombol panah (chevron) untuk toggle buka/tutup popup.
-   - Tampilan floating dropdown bertema modern dark mode RobelKaroseri:
-     * Background `bg-slate-900` dengan border `border-slate-700` dan shadow tegas (`shadow-2xl`).
-     * State aktif / hover: `bg-orange-500/20 text-orange-300 border-l-2 border-orange-500`.
-     * Menampilkan informasi ringkas pada tiap baris: Nama Material, Badge RAB (jika masuk RAB), Badge Sudah Diambil (jika pernah dikeluarkan untuk SPK aktif), serta Stok Tersedia saat ini (`Stok: X unit`).
-2. `src/components/GoodsIssueForm.tsx`:
-   - Menggantikan elemen `<select>` native "Select Material" dengan `MaterialSearchAutocomplete`.
-   - Menghubungkan ref `requestQtyInputRef` dengan callback `onEnterFocusNext` pada autocomplete sehingga kursor langsung melompat ke input kuantitas.
-   - Menambahkan indikator visual satuan unit material di samping input "Request Quantity".
-   - Sinkronisasi payload: `material_id` terisi dengan UUID asli dari tabel `materials`.
-   - Pembersihan otomatis state pilihan material dan kuantitas saat SPK aktif berganti.
-3. Kepatuhan Batasan & Quality:
+Phase 65 telah selesai diimplementasikan sesuai seluruh spesifikasi dan batasan instruksi pengguna:
+1. `supabase/migrations/20261012_sync_requisitions_rls_for_service_advisor.sql`:
+   - Dibuat skrip DDL SQL lengkap untuk memperbarui policy RLS pada tabel `public.material_requisitions` dan `public.material_requisition_items`.
+   - Membersihkan seluruh policy lama yang restriktif (Owners, Mandor, Gudang) untuk mencegah konflik atau filter sepihak.
+   - Memberikan hak akses `SELECT`, `INSERT`, `UPDATE`, dan `DELETE` bagi peran `service_advisor`, `mandor`, `petugas_gudang`, `owner`, dan `admin`.
+   - Menggunakan mekanisme pengecekan ganda: via klaim JWT (`auth.jwt() ->> 'role'`) dan tabel profil pengguna (`profiles.role`).
+   - Memastikan kueri `SELECT` bersifat terbuka bagi staf berwenang membaca requisition aktif berdasarkan `spk_id` dan tahapan WBS (tanpa filter sepihak `created_by = auth.uid()`).
+2. `src/components/MaterialRequisitionForm.tsx`:
+   - Sinkronisasi kueri Supabase di `loadInitialData`: Mengambil seluruh requisition aktif pada SPK terkait dengan menyaring `.neq('status', 'CANCELLED').neq('status', 'REJECTED')`.
+   - Penambahan toleransi pencocokan kategori WBS menggunakan normalisasi teks (`normalizeText(reqCat) === normalizeText(cleanWbsCategory)`) dan penanganan error kueri yang transparan.
+   - Rendering kotak kiri ("Daftar Permintaan Material"): Menampilkan seluruh item tersimpan lengkap dengan nama, kuantitas, dan badge status `TERCATAT` (atau `DISETUJUI`).
+   - Sinkronisasi panel kanan ("Alokasi RAB (WBS Terkait)"): Mengecualikan material yang sudah diajukan di requisition atau sedang ditugaskan di SPK Borongan, serta menampilkan pesan informatif saat semua material telah dipindahkan: *"Semua material telah dipindahkan: Seluruh item RAB untuk tahapan WBS ini sudah berada di daftar permintaan atau sedang ditugaskan di SPK Borongan."*
+   - Penyesuaian payload `handleSubmit`: Menyertakan `requested_by: user.id` (`auth.uid()`) dan memetakan `material_id` UUID master material secara defensif terhadap katalog `materials`.
+3. `src/components/SpkBoronganPanel.tsx`:
+   - Sinkronisasi kueri eksklusi material requisition dengan menambahkan `.neq('status', 'CANCELLED')` agar konsisten mengecualikan status CANCELLED dan REJECTED.
+4. Kepatuhan Batasan & Quality:
    - Tanpa verifikasi otomatis (no auto-verify).
    - Tanpa git commit otomatis (no auto-commit).
-   - Tanpa eksekusi langsung migrasi Supabase.
+   - Tanpa eksekusi langsung migrasi Supabase (skrip migrasi siap dieksekusi secara manual oleh pengguna di SQL Editor Supabase).
 
 ## Blockers
 None.
 
 ## Next Steps
-1. Pengguna membuka peramban pada halaman `/warehouse` -> tab "Issue Material".
-2. Pengguna memilih SPK aktif, mengetik nama material pada search input, menavigasi saran dengan tombol panah (Up/Down), dan menekan tombol Enter untuk langsung melompat ke input "Request Quantity".
-3. Pengguna melakukan review visual, pengujian manual, dan git commit.
+1. Pengguna membuka Supabase Dashboard -> SQL Editor dan mengeksekusi skrip migrasi `supabase/migrations/20261012_sync_requisitions_rls_for_service_advisor.sql`.
+2. Pengguna login sebagai `service_advisor`, membuka menu "WBS & QC" pada SPK aktif (misal SPK-1452 tahapan Pembongkaran), dan mengklik tombol "Minta Material".
+3. Pengguna memastikan bahwa material yang telah diminta sebelumnya oleh Mandor kini tampil di kotak kiri ("Daftar Permintaan Material") dengan badge `TERCATAT`, dan material tersebut tidak lagi muncul di panel kanan ("Alokasi RAB").
+4. Pengguna memindahkan material baru dari RAB atau menambahkan item ekstra lalu mengklik "Submit Requisition", memastikan proses penyimpanan berhasil tanpa pelanggaran RLS.
+5. Pengguna melakukan review visual, pengujian manual, dan git commit.
