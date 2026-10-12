@@ -308,6 +308,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
       worker_name: workerName.trim(),
       task_description: taskDescription.trim(),
       contract_value: Number(contractValue),
+      status: 'ACTIVE',
       material_id: selectedRabItemForAssignment?.materials?.id || selectedRabItemForAssignment?.material_id || null,
       rab_item_id: selectedRabItemForAssignment?.id || null,
       created_by: user.id
@@ -315,9 +316,12 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
     
     if (error) {
       console.error('Error creating SPK-B:', error);
+      const isRlsError = error.message?.toLowerCase().includes('row-level security') || error.code === '42501';
       setNotification({
         title: 'Gagal Membuat SPK Borongan',
-        message: error.message || 'Terjadi kesalahan saat membuat SPK Borongan.',
+        message: isRlsError
+          ? 'Pelanggaran izin akses (Row-Level Security). Silakan pastikan migrasi RLS spk_borongan telah dijalankan di database Supabase.'
+          : (error.message || 'Terjadi kesalahan saat membuat SPK Borongan.'),
         variant: 'danger'
       });
     } else {
