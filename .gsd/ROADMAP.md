@@ -810,3 +810,28 @@
 - [x] Sinkronisasi filter panel kanan "Alokasi RAB (WBS Terkait)" untuk mengecualikan material yang sudah diajukan di requisition aktif atau ditugaskan di SPK Borongan, serta menampilkan pesan informatif saat semua material telah dipindahkan.
 - [x] Penyesuaian payload submit agar selalu menyertakan `requested_by: auth.uid()` dan memetakan `material_id` UUID master material secara akurat.
 - [x] Memastikan kepatuhan terhadap batasan eksekusi: tanpa auto-verify, tanpa auto-commit, dan tanpa eksekusi langsung migrasi Supabase.
+
+---
+
+### Phase 66: Gap Closure (Integrasi Tampilan Mandor Notes pada Kartu WBS di Portal Pelanggan /tracking/:spk_no)
+**Status**: ⬜ Ready for Review
+**Objective**: Address gaps from operational feedback (Menyimpan field mandor notes di /mandor dan menampilkannya dalam container catatan khusus yang rapi, profesional, dan informatif pada setiap kartu tahapan WBS di portal pelacakan pelanggan /tracking/:spk_no)
+
+**Gaps to Close:**
+- [x] Pembuatan skrip migrasi SQL `supabase/migrations/20261014140000_add_mandor_notes_to_wbs_checklists.sql` untuk menambahkan kolom `mandor_notes TEXT` pada tabel `public.wbs_checklists`, sinkronisasi data eksisting dari kolom `notes`, dan konfigurasi policy RLS public/anon `SELECT` untuk pelacakan SPK & WBS.
+- [x] Pembaruan `WbsChecklist.tsx` di `/mandor`: Memastikan fetching membaca `mandor_notes` & `notes`, penyimpanan payload ke Supabase menyertakan `mandor_notes` dan `notes` dengan mekanisme retry defensif, serta shortcut tombol Enter untuk blur/save.
+- [x] Integrasi UI di `PublicProgressTracking.tsx` (`/tracking/:spk_no`): Menampilkan container khusus Catatan Mandor beraksen oranye (`bg-slate-800/60`, `border-orange-500/30`, ikon `ClipboardList`) dengan badge "Catatan Mandor / Progres Terkini:" dan teks catatan mandor yang rapi, serta placeholder netral jika belum ada catatan khusus.
+- [x] Memastikan kepatuhan terhadap batasan eksekusi: tanpa auto-verify, tanpa auto-commit, dan tanpa eksekusi langsung migrasi Supabase.
+
+---
+
+### Phase 67: Gap Closure (Indikator & Rincian Alokasi Material WBS Belum Diminta pada Header Kartu WBS di /service-advisor)
+**Status**: ⬜ Ready for Review
+**Objective**: Address gaps from operational feedback (Menampilkan status badge peringatan dini jumlah alokasi material RAB per tahapan WBS yang belum diajukan di Requisition maupun SPK Borongan, serta quick modal rincian material tertunda beserta tombol pintas ke form Requisition)
+
+**Gaps to Close:**
+- [x] Pembuatan komponen `WbsPendingMaterialModal.tsx` di `src/components/` untuk menampilkan modal rincian material yang belum diminta (tabel Nama Material, Qty Belum Diambil, Estimasi Biaya, total biaya tertunda, dan shortcut "Buka Minta Material").
+- [x] Implementasi fungsi kalkulasi material terdistribusi vs tertunda di `WbsChecklist.tsx` menggunakan shared utility `isRabItemAllocated`, membandingkan `rab_items` terhadap `material_requisitions` aktif dan `spk_borongan` aktif.
+- [x] Integrasi badge status interaktif pada baris header masing-masing WBS tepat di sebelah kiri tombol "SPK Borongan" (badge peringatan amber `[ ⚠️ {pendingCount} Material Belum Diminta ]`, badge hijau `[ ✓ Semua Material Terdistribusi ]`, atau badge netral jika belum ada RAB).
+- [x] Pembaruan state dan auto-refresh kalkulasi saat modal Requisition atau Borongan ditutup.
+- [x] Memastikan kepatuhan terhadap batasan eksekusi: tanpa auto-verify, tanpa auto-commit, dan tanpa eksekusi langsung migrasi Supabase.

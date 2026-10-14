@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Check, Loader2, Printer, AlertTriangle, AlertCircle } from 'lucide-react';
+import { Check, Loader2, Printer, AlertTriangle, AlertCircle, ClipboardList } from 'lucide-react';
 import { getOptimizedImageUrl } from '../lib/cloudinary';
 
 const WBS_CATEGORIES = [
@@ -261,21 +261,39 @@ export const PublicProgressTracking: React.FC = () => {
             const data = checklists[category];
             const catAssets = assets[category] || [];
             const prog = data?.progress_percentage || 0;
+            const mandorNote = (data?.mandor_notes || data?.notes || '').trim();
             
             return (
               <div key={category} className="bg-surface print:bg-white p-6 rounded-lg border border-border print:border-gray-300 break-inside-avoid">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
                   <div>
                     <h4 className="font-bold text-lg">{WBS_LABELS[category]}</h4>
-                    {data?.notes && (
-                      <p className="text-sm text-text-muted print:text-gray-600 mt-1 italic">Catatan: {data.notes}</p>
-                    )}
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="font-medium">Progres: {prog}%</span>
                     {prog === 100 && <Check className="w-5 h-5 text-green-500 print:text-black" />}
                   </div>
                 </div>
+
+                {/* Mandor Notes Box */}
+                {mandorNote ? (
+                  <div className="mb-4 p-4 rounded-lg bg-slate-800/60 border border-orange-500/30 print:bg-amber-50/70 print:border-amber-300 shadow-sm">
+                    <div className="flex items-center gap-2 mb-1.5 text-orange-400 print:text-amber-800">
+                      <ClipboardList className="w-4 h-4 flex-shrink-0" />
+                      <span className="text-xs font-bold uppercase tracking-wider font-mono">
+                        Catatan Mandor / Progres Terkini:
+                      </span>
+                    </div>
+                    <p className="text-sm text-text print:text-gray-900 leading-relaxed pl-6 whitespace-pre-wrap font-sans">
+                      {mandorNote}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mb-4 px-4 py-2.5 rounded-lg bg-background/50 border border-dashed border-border/70 print:bg-gray-50 print:border-gray-200 text-xs text-text-muted print:text-gray-500 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-500/50"></span>
+                    <span>Pengerjaan berjalan sesuai standar, belum ada catatan khusus.</span>
+                  </div>
+                )}
 
                 {/* Gallery 3-column Grid */}
                 {catAssets.length > 0 ? (

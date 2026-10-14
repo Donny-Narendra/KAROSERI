@@ -6,6 +6,9 @@ import { SpkBoronganPanel } from './SpkBoronganPanel';
 import { WbsGalleryUploader } from './WbsGalleryUploader';
 import type { WbsAsset } from './WbsGalleryUploader';
 import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
+import { AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { isRabItemAllocated } from '../utils/rabItemAllocation';
+import { WbsPendingMaterialModal, type PendingWbsMaterial } from './WbsPendingMaterialModal';
 
 interface WbsChecklistProps {
   spkId: string;
@@ -42,6 +45,15 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
   // Requisition Modal State
   const [requisitionCategory, setRequisitionCategory] = useState<string | null>(null);
   const [boronganCategory, setBoronganCategory] = useState<string | null>(null);
+
+  // Pending Materials Modal State & Allocation Data
+  const [pendingModalCategory, setPendingModalCategory] = useState<string | null>(null);
+  const [wbsAllocations, setWbsAllocations] = useState<Record<string, {
+    totalRabCount: number;
+    pendingList: PendingWbsMaterial[];
+    pendingCount: number;
+    totalEstimatedCost: number;
+  }>>({});
   
   const [isDraft, setIsDraft] = useState(false);
 
@@ -72,10 +84,10 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
           return;
         }
 
-        // Fetch checklists (status, notes, progress)
+        // Fetch checklists (status, notes, mandor_notes, progress)
         const { data: checklistData, error: checklistError } = await supabase
           .from('wbs_checklists')
-          .select('wbs_category, status, notes, progress_percentage')
+          .select('*')
           .eq('spk_id', spkId);
           
         if (checklistError) throw checklistError;
@@ -98,9 +110,10 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
         WBS_CATEGORIES.forEach(cat => newAssets[cat] = []);
         
         if (checklistData) {
-          checklistData.forEach((item) => {
+          checklistData.forEach((item: any) => {
             newStatuses[item.wbs_category] = item.status;
-            if (item.notes) newNotes[item.wbs_category] = item.notes;
+            const noteText = item.mandor_notes || item.notes || '';
+            if (noteText) newNotes[item.wbs_category] = noteText;
             newProgress[item.wbs_category] = item.progress_percentage || 0;
           });
         }
@@ -131,7 +144,144 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
     };
 
     fetchData();
+    fetchMaterialAllocations();
   }, [spkId]);
+
+  const fetchMaterialAllocations = async () => {
+    if (!spkId) return;
+    try {
+      // 1. Fetch RAB estimation & items
+      const { data: rabEst } = await supabase
+        .from('rab_estimations')
+        .select('id')
+        .eq('spk_id', spkId)
+        .maybeSingle();
+
+      let rabItems: any[] = [];
+      if (rabEst?.id) {
+        const { data: items } = await supabase
+          .from('rab_items')
+          .select(`
+            id,
+            quantity,
+            wbs_category,
+            description,
+            item_total,
+            material_id,
+            materials (
+              id,
+              name,
+              unit,
+              unit_price
+            )
+          `)
+          .eq('rab_estimation_id', rabEst.id);
+        if (items) rabItems = items;
+      }
+
+      // 2. Fetch active requisitions (excluding CANCELLED and REJECTED)
+      const { data: requisitions } = await supabase
+        .from('material_requisitions')
+        .select(`
+          id,
+          wbs_category,
+          status,
+          material_requisition_items (
+            id,
+            material_id,
+            rab_item_id,
+            material_name,
+            quantity,
+            unit,
+            materials (
+              id,
+              name
+            )
+          )
+        `)
+        .eq('spk_id', spkId)
+        .neq('status', 'CANCELLED')
+        .neq('status', 'REJECTED');
+
+      // 3. Fetch active SPK borongan assignments (excluding CUT_OFF and CANCELLED)
+      const { data: borongans } = await supabase
+        .from('spk_borongan')
+        .select(`
+          id,
+          wbs_category,
+          status,
+          task_description,
+          rab_item_id,
+          material_id
+        `)
+        .eq('spk_id', spkId)
+        .neq('status', 'CUT_OFF')
+        .neq('status', 'CANCELLED');
+
+      // 4. Map allocations per WBS category
+      const allocationMap: Record<string, {
+        totalRabCount: number;
+        pendingList: PendingWbsMaterial[];
+        pendingCount: number;
+        totalEstimatedCost: number;
+      }> = {};
+
+      WBS_CATEGORIES.forEach((category) => {
+        const cleanCat = category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
+
+        const catRabItems = rabItems.filter((item) => {
+          if (!item.wbs_category) return false;
+          const itemCat = item.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
+          return itemCat === cleanCat || item.wbs_category.toLowerCase() === category.toLowerCase();
+        });
+
+        const relevantReqs = (requisitions || []).filter((req: any) => {
+          if (!req.wbs_category) return true;
+          const reqCat = req.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
+          return reqCat === cleanCat || req.wbs_category.toLowerCase() === category.toLowerCase();
+        });
+
+        const relevantBorongans = (borongans || []).filter((b: any) => {
+          if (!b.wbs_category) return true;
+          const bCat = b.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
+          return bCat === cleanCat || b.wbs_category.toLowerCase() === category.toLowerCase();
+        });
+
+        const pendingList: PendingWbsMaterial[] = [];
+        let totalEstimatedCost = 0;
+
+        catRabItems.forEach((item) => {
+          const isAllocated = isRabItemAllocated(item, relevantReqs, relevantBorongans);
+          if (!isAllocated) {
+            const qty = Number(item.quantity || 0);
+            const unitPrice = Number(item.materials?.unit_price || 0);
+            const cost = item.item_total ? Number(item.item_total) : (qty * unitPrice);
+            totalEstimatedCost += cost;
+
+            pendingList.push({
+              id: item.id,
+              name: item.materials?.name || item.description || 'Material Tanpa Nama',
+              quantity: qty,
+              unit: item.materials?.unit || 'pcs',
+              unitPrice,
+              estimatedCost: cost,
+            });
+          }
+        });
+
+        allocationMap[category] = {
+          totalRabCount: catRabItems.length,
+          pendingList,
+          pendingCount: pendingList.length,
+          totalEstimatedCost,
+        };
+      });
+
+      setWbsAllocations(allocationMap);
+    } catch (err) {
+      console.error('Error fetching WBS material allocations:', err);
+    }
+  };
 
   // Calculate total progress
   const totalProgress = Math.round(
@@ -143,20 +293,34 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
     setLoading(true);
     try {
       const currentStatus = statuses[category] || 'PENDING';
-      const { error } = await supabase.from('wbs_checklists').upsert({
+      const noteValue = updates.mandor_notes !== undefined 
+        ? updates.mandor_notes 
+        : (updates.notes !== undefined ? updates.notes : (notes[category] || null));
+
+      const payload: Record<string, any> = {
         spk_id: spkId,
         wbs_category: category,
         status: updates.status !== undefined ? updates.status : currentStatus,
-        notes: updates.notes !== undefined ? updates.notes : (notes[category] || null),
+        notes: noteValue,
+        mandor_notes: noteValue,
         progress_percentage: updates.progress !== undefined ? updates.progress : (progress[category] || 0),
         updated_by: user.id,
         updated_at: new Date().toISOString(),
-      }, { onConflict: 'spk_id, wbs_category' });
+      };
+
+      let { error } = await supabase.from('wbs_checklists').upsert(payload, { onConflict: 'spk_id, wbs_category' });
+      
+      // Defensif fallback: Jika kolom mandor_notes belum ditambahkan di Supabase, fallback simpan tanpa mandor_notes
+      if (error && error.message?.includes('mandor_notes')) {
+        delete payload.mandor_notes;
+        const retryResult = await supabase.from('wbs_checklists').upsert(payload, { onConflict: 'spk_id, wbs_category' });
+        error = retryResult.error;
+      }
       
       if (error) throw error;
       
       if (updates.status !== undefined) setStatuses(prev => ({ ...prev, [category]: updates.status }));
-      if (updates.notes !== undefined) setNotes(prev => ({ ...prev, [category]: updates.notes }));
+      if (noteValue !== undefined) setNotes(prev => ({ ...prev, [category]: noteValue || '' }));
       if (updates.progress !== undefined) setProgress(prev => ({ ...prev, [category]: updates.progress }));
       
     } catch (error: any) {
@@ -310,9 +474,36 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
           <div key={category} className="bg-background p-4 rounded border border-border flex flex-col gap-4">
             <div className="flex flex-col md:flex-row justify-between gap-4">
               <div className="flex-1">
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-1 gap-2">
                   <h4 className="font-medium text-text text-lg">{WBS_LABELS[category]}</h4>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap md:flex-nowrap items-center gap-2">
+                    {/* Badge Indikator Alokasi Material WBS */}
+                    {wbsAllocations[category] && (
+                      wbsAllocations[category].pendingCount > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => setPendingModalCategory(category)}
+                          className="group px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20 hover:border-amber-500/50 transition-all cursor-pointer shadow-sm active:scale-95"
+                          title="Klik untuk melihat rincian material yang belum diminta"
+                        >
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform flex-shrink-0" />
+                          <span>{wbsAllocations[category].pendingCount} Material Belum Diminta</span>
+                        </button>
+                      ) : wbsAllocations[category].totalRabCount > 0 ? (
+                        <span 
+                          className="px-2.5 py-1 rounded-full text-xs font-medium flex items-center gap-1.5 bg-green-500/10 text-green-400 border border-green-500/20"
+                          title="Seluruh alokasi material RAB untuk tahapan ini sudah diajukan di Requisition atau SPK Borongan"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
+                          <span>Semua Material Terdistribusi</span>
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded text-[11px] font-mono text-text-muted bg-surface border border-border/70">
+                          Belum Ada RAB
+                        </span>
+                      )
+                    )}
+
                     <button
                       type="button"
                       onClick={() => setBoronganCategory(category)}
@@ -365,7 +556,12 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
                     className="flex-1 bg-surface border border-border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-text"
                     value={notes[category] || ''}
                     onChange={(e) => handleNotesChange(category, e.target.value)}
-                    onBlur={() => saveWbsData(category, { notes: notes[category] })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        (e.target as HTMLInputElement).blur();
+                      }
+                    }}
+                    onBlur={() => saveWbsData(category, { notes: notes[category], mandor_notes: notes[category] })}
                   />
                 </div>
               </div>
@@ -413,7 +609,10 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
         <MaterialRequisitionForm
           spkId={spkId}
           wbsCategory={requisitionCategory}
-          onClose={() => setRequisitionCategory(null)}
+          onClose={() => {
+            setRequisitionCategory(null);
+            fetchMaterialAllocations();
+          }}
         />
       )}
 
@@ -421,9 +620,28 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
         <SpkBoronganPanel
           spkId={spkId}
           wbsCategory={boronganCategory}
-          onClose={() => setBoronganCategory(null)}
+          onClose={() => {
+            setBoronganCategory(null);
+            fetchMaterialAllocations();
+          }}
         />
       )}
+
+      {/* Modal Rincian Material Belum Diminta */}
+      <WbsPendingMaterialModal
+        isOpen={!!pendingModalCategory}
+        onClose={() => setPendingModalCategory(null)}
+        category={pendingModalCategory || ''}
+        categoryLabel={pendingModalCategory ? WBS_LABELS[pendingModalCategory] : undefined}
+        pendingMaterials={pendingModalCategory ? (wbsAllocations[pendingModalCategory]?.pendingList || []) : []}
+        onOpenRequisition={() => {
+          if (pendingModalCategory) {
+            const cat = pendingModalCategory;
+            setPendingModalCategory(null);
+            setRequisitionCategory(cat);
+          }
+        }}
+      />
 
       {/* Modal Notifikasi / Peringatan WBS */}
       <ConfirmationModal
