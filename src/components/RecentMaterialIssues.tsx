@@ -5,14 +5,20 @@ import { inventoryService } from '../services/inventoryService';
 import { ConfirmationModal } from './ConfirmationModal';
 
 interface RecentMaterialIssuesProps {
+  selectedSpkFilter?: string;
   refreshKey: number;
   onSuccess?: () => void;
 }
 
-export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({ refreshKey, onSuccess }) => {
+export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({ 
+  selectedSpkFilter, 
+  refreshKey, 
+  onSuccess 
+}) => {
   const [recentIssues, setRecentIssues] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmVoidOpen, setConfirmVoidOpen] = useState(false);
   const [feedbackModal, setFeedbackModal] = useState<{
@@ -33,26 +39,59 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({ refr
   const [internalRefresh, setInternalRefresh] = useState(0);
 
   const fetchIssues = async () => {
+    // If no SPK is selected or filter is 'ALL', do not fetch or render any data!
+    if (!selectedSpkFilter || selectedSpkFilter === 'ALL') {
+      setRecentIssues([]);
+      setSelectedIds([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
+      // Determine if selectedSpkFilter is a UUID (spk_id) or SPK Number (spk_no)
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedSpkFilter);
+      let targetSpkId = isUuid ? selectedSpkFilter : null;
+
+      if (!targetSpkId) {
+        const { data: spkData } = await supabase
+          .from('spk')
+          .select('id')
+          .eq('spk_no', selectedSpkFilter)
+          .maybeSingle();
+
+        if (spkData?.id) {
+          targetSpkId = spkData.id;
+        }
+      }
+
+      if (!targetSpkId) {
+        setRecentIssues([]);
+        setSelectedIds([]);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('inventory_transactions')
         .select(`
           id,
+          spk_id,
+          material_id,
           quantity_issued,
           custom_unit_price,
           issued_at,
-          spk ( spk_no, status ),
+          spk ( id, spk_no, status ),
           materials ( name, unit, unit_price )
         `)
-        .order('issued_at', { ascending: false })
-        .limit(20); // Increase limit a bit since it's a dedicated component now
+        .eq('spk_id', targetSpkId)
+        .order('issued_at', { ascending: false });
         
       if (error) throw error;
       setRecentIssues(data || []);
       setSelectedIds([]);
     } catch (error) {
-      console.error('Error fetching recent issues:', error);
+      console.error('Error fetching recent issues for SPK:', error);
+      setRecentIssues([]);
     } finally {
       setLoading(false);
     }
@@ -60,11 +99,26 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({ refr
 
   useEffect(() => {
     fetchIssues();
-  }, [refreshKey, internalRefresh]);
+    setSearchQuery('');
+  }, [selectedSpkFilter, refreshKey, internalRefresh]);
+
+  const displayedIssues = React.useMemo(() => {
+    if (!selectedSpkFilter || selectedSpkFilter === 'ALL') {
+      return [];
+    }
+    if (!searchQuery.trim()) {
+      return recentIssues;
+    }
+    const q = searchQuery.toLowerCase().trim();
+    return recentIssues.filter(issue =>
+      (issue.materials?.name || '').toLowerCase().includes(q) ||
+      (issue.materials?.unit || '').toLowerCase().includes(q)
+    );
+  }, [recentIssues, searchQuery, selectedSpkFilter]);
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      setSelectedIds(recentIssues.map(i => i.id));
+      setSelectedIds(displayedIssues.map(i => i.id));
     } else {
       setSelectedIds([]);
     }
@@ -174,10 +228,17 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({ refr
   return (
     <div className="bg-surface border border-border rounded-lg overflow-hidden">
       <div className="px-5 py-4 border-b border-border bg-surface-hover flex justify-between items-center flex-wrap gap-4">
-        <h3 className="font-bold text-text font-display flex items-center gap-2">
-          <ClipboardList className="w-5 h-5 text-primary" />
-          Recent Material Issues
-        </h3>
+        <div className="flex items-center gap-3">
+          <h3 className="font-bold text-text font-display flex items-center gap-2">
+            <ClipboardList className="w-5 h-5 text-primary" />
+            Recent Material Issues
+          </h3>
+          {selectedSpkFilter && selectedSpkFilter !== 'ALL' && (
+            <span className="px-2 py-0.5 rounded text-xs font-mono font-medium bg-primary/10 text-primary border border-primary/20">
+              SPK: {selectedSpkFilter}
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-3">
           {selectedIds.length > 0 && (
             <button 
@@ -193,8 +254,11 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({ refr
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
             <input 
               type="text" 
-              placeholder="Search SPK..." 
-              className="bg-background border border-border rounded pl-9 pr-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary w-48"
+              placeholder={(!selectedSpkFilter || selectedSpkFilter === 'ALL') ? "Pilih SPK terlebih dahulu..." : "Cari material..."} 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              disabled={!selectedSpkFilter || selectedSpkFilter === 'ALL'}
+              className="bg-background border border-border rounded pl-9 pr-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary w-52 disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
         </div>
@@ -207,9 +271,10 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({ refr
               <th className="px-5 py-3 w-10">
                 <input 
                   type="checkbox" 
-                  checked={selectedIds.length === recentIssues.length && recentIssues.length > 0}
+                  checked={selectedIds.length === displayedIssues.length && displayedIssues.length > 0}
                   onChange={handleSelectAll}
-                  className="rounded border-border text-primary focus:ring-primary"
+                  disabled={!selectedSpkFilter || selectedSpkFilter === 'ALL' || displayedIssues.length === 0}
+                  className="rounded border-border text-primary focus:ring-primary disabled:opacity-40"
                 />
               </th>
               <th className="px-5 py-3">Time</th>
@@ -223,19 +288,43 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({ refr
           <tbody className="divide-y divide-border">
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-5 py-8 text-center text-text-muted">
-                  <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
-                  Loading recent issues...
+                <td colSpan={7} className="px-5 py-12 text-center text-text-muted">
+                  <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-primary" />
+                  <p className="text-sm">Memuat riwayat pengeluaran material...</p>
                 </td>
               </tr>
-            ) : recentIssues.length === 0 ? (
+            ) : (!selectedSpkFilter || selectedSpkFilter === 'ALL') ? (
               <tr>
-                <td colSpan={7} className="px-5 py-8 text-center text-text-muted">
-                  No material issues recorded yet.
+                <td colSpan={7} className="px-5 py-14 text-center">
+                  <div className="max-w-md mx-auto space-y-2">
+                    <ClipboardList className="w-10 h-10 text-text-muted/40 mx-auto" />
+                    <p className="text-sm font-semibold text-text">Filter SPK Belum Dipilih</p>
+                    <p className="text-xs text-text-muted leading-relaxed">
+                      Silakan pilih salah satu SPK pada daftar filter di panel kanan untuk menampilkan riwayat pengeluaran material (Recent Material Issues).
+                    </p>
+                  </div>
+                </td>
+              </tr>
+            ) : displayedIssues.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-5 py-10 text-center text-text-muted">
+                  <div className="max-w-md mx-auto space-y-1">
+                    <p className="text-sm text-text font-medium">
+                      {searchQuery.trim() 
+                        ? `Tidak ada material yang cocok dengan "${searchQuery}"`
+                        : `Belum ada riwayat pengeluaran material untuk SPK ini`
+                      }
+                    </p>
+                    {searchQuery.trim() && (
+                      <p className="text-xs text-text-muted">
+                        Coba kata kunci lain atau bersihkan kotak pencarian.
+                      </p>
+                    )}
+                  </div>
                 </td>
               </tr>
             ) : (
-              recentIssues.map((issue) => (
+              displayedIssues.map((issue) => (
                 <tr key={issue.id} className="hover:bg-surface-hover/50 transition">
                   <td className="px-5 py-3">
                     <input 
@@ -248,19 +337,19 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({ refr
                   <td className="px-5 py-3 text-text-muted">
                     {new Date(issue.issued_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </td>
-                  <td className="px-5 py-3 font-mono text-primary">
+                  <td className="px-5 py-3 font-mono text-primary font-medium">
                     {issue.spk?.spk_no || '-'}
                   </td>
-                  <td className="px-5 py-3">
+                  <td className="px-5 py-3 font-medium">
                     {issue.materials?.name || 'Unknown'}
                   </td>
-                  <td className="px-5 py-3 font-medium">
+                  <td className="px-5 py-3">
                     {issue.quantity_issued} {issue.materials?.unit || ''}
                   </td>
                   <td className="px-5 py-3 text-right font-mono">
                     {issue.custom_unit_price !== null 
                       ? <span className="text-status-warning" title="Custom Price">{issue.custom_unit_price.toLocaleString()}</span>
-                      : issue.materials?.unit_price.toLocaleString() || '0'
+                      : issue.materials?.unit_price?.toLocaleString() || '0'
                     }
                   </td>
                   <td className="px-5 py-3 text-center">

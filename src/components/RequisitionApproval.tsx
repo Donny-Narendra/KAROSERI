@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
-import { Check, X, ClipboardList, Loader2, AlertTriangle, Filter } from 'lucide-react';
+import { Check, X, ClipboardList, Loader2, AlertTriangle, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { ConfirmationModal } from './ConfirmationModal';
+import type { StockAuditItem } from './RecentApprovedMaterials';
 
 export interface SpkSummaryItem {
   spkId: string;
@@ -10,6 +11,7 @@ export interface SpkSummaryItem {
   customerName: string;
   count: number;
 }
+export const SpkSummaryItem = {};
 
 interface RequisitionApprovalProps {
   onSuccess?: () => void;
@@ -17,6 +19,7 @@ interface RequisitionApprovalProps {
   selectedSpkFilter?: string;
   onResetFilter?: () => void;
   onSpkSummaryChange?: (summary: SpkSummaryItem[]) => void;
+  onApprovalRecorded?: (audits: StockAuditItem[]) => void;
 }
 
 export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
@@ -25,6 +28,7 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
   selectedSpkFilter = 'ALL',
   onResetFilter,
   onSpkSummaryChange,
+  onApprovalRecorded,
 }) => {
   const { user } = useAuth();
   const [requisitions, setRequisitions] = useState<any[]>([]);
@@ -67,6 +71,30 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
       req.spk?.id === selectedSpkFilter
     );
   }, [requisitions, selectedSpkFilter]);
+
+  // State Paginasi (Client-side)
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(5);
+
+  // Reset currentPage kembali ke halaman 1 setiap kali filter SPK berubah
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedSpkFilter]);
+
+  const totalItems = filteredRequisitions.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+
+  // Sesuaikan currentPage jika data berkurang akibat approval/reject
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedRequisitions = useMemo(() => {
+    return filteredRequisitions.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredRequisitions, startIndex, itemsPerPage]);
 
   // Dialog State
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -158,17 +186,67 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
       if (!user) return;
       setProcessingId(requisition.id);
       try {
-        // 1. Insert inventory transactions for items with valid material_id
-        const transactions = (requisition.material_requisition_items || [])
-          .filter((item: any) => Boolean(item.material_id))
-          .map((item: any) => ({
-            spk_id: requisition.spk.id,
+        const recordedAudits: StockAuditItem[] = [];
+        const itemsWithMat = (requisition.material_requisition_items || [])
+          .filter((item: any) => Boolean(item.material_id));
+
+        // 1. Ambil stok saat ini dan hitung snapshot sebelum/sesudah untuk tiap material
+        const stockSnapshots: Record<string, { before: number; after: number; name: string; unit: string }> = {};
+
+        for (const item of itemsWithMat) {
+          const { data: mat } = await supabase
+            .from('materials')
+            .select('name, unit, current_stock')
+            .eq('id', item.material_id)
+            .single();
+
+          const stockBefore = Number(mat?.current_stock || 0);
+          const qty = Number(item.quantity || 0);
+          const stockAfter = Math.max(0, stockBefore - qty);
+          const matName = mat?.name || item.material_name || 'Material Non-Stok';
+          const matUnit = mat?.unit || item.unit || 'pcs';
+
+          stockSnapshots[item.material_id] = {
+            before: stockBefore,
+            after: stockAfter,
+            name: matName,
+            unit: matUnit
+          };
+
+          // Kurangi current_stock pada tabel materials untuk menjaga saldo fisik
+          await supabase
+            .from('materials')
+            .update({ current_stock: stockAfter })
+            .eq('id', item.material_id);
+
+          recordedAudits.push({
+            id: `${item.id}-${Date.now()}`,
+            materialName: matName,
+            unit: matUnit,
+            spkNo: requisition.spk?.spk_no || 'Tanpa SPK',
+            wbsCategory: requisition.wbs_category,
+            stockBefore,
+            quantityApproved: qty,
+            stockAfter,
+            approvedAt: new Date().toISOString(),
+            isNew: true
+          });
+        }
+
+        // 2. Siapkan transaksi pengeluaran material dengan snapshot stok
+        const transactions = itemsWithMat.map((item: any) => {
+          const snap = stockSnapshots[item.material_id];
+          return {
+            spk_id: requisition.spk?.id || requisition.spk_id,
             material_id: item.material_id,
             quantity_issued: item.quantity,
             issued_by: user.id,
             requisition_id: requisition.id,
-            requisition_item_id: item.id
-          }));
+            requisition_item_id: item.id,
+            stock_before: snap ? snap.before : 0,
+            stock_after: snap ? snap.after : 0
+          };
+        });
 
         if (transactions.length > 0) {
           const { error: txError } = await supabase
@@ -176,30 +254,26 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
             .insert(transactions);
             
           if (txError) {
-            // Defensive fallback if columns requisition_id/requisition_item_id not yet added to DB
-            const legacyTransactions = transactions.map(({ requisition_id, requisition_item_id, ...rest }) => rest);
+            console.warn('Gagal insert dengan kolom snapshot stok, mencoba fallback transaksi:', txError.message);
+            // Defensive fallback jika kolom stock_before / stock_after belum dieksekusi di database
+            const fallbackTransactions = transactions.map(({ stock_before, stock_after, ...rest }) => rest);
             const { error: retryError } = await supabase
               .from('inventory_transactions')
-              .insert(legacyTransactions);
-            if (retryError) throw retryError;
-          }
-
-          // Decrement current_stock on materials table to keep physical inventory balanced
-          for (const item of (requisition.material_requisition_items || [])) {
-            if (item.material_id && item.quantity > 0) {
-              const { data: mat } = await supabase
-                .from('materials')
-                .select('current_stock')
-                .eq('id', item.material_id)
-                .single();
-              if (mat) {
-                await supabase
-                  .from('materials')
-                  .update({ current_stock: Math.max(0, Number(mat.current_stock || 0) - Number(item.quantity)) })
-                  .eq('id', item.material_id);
-              }
+              .insert(fallbackTransactions);
+              
+            if (retryError) {
+              const minimalTransactions = fallbackTransactions.map(({ requisition_id, requisition_item_id, ...rest }) => rest);
+              const { error: minimalError } = await supabase
+                .from('inventory_transactions')
+                .insert(minimalTransactions);
+              if (minimalError) throw minimalError;
             }
           }
+        }
+
+        // Kabari parent (WarehouseDashboard) untuk real-time audit update
+        if (recordedAudits.length > 0 && onApprovalRecorded) {
+          onApprovalRecorded(recordedAudits);
         }
 
         // 2. Update requisition status
@@ -321,7 +395,7 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {filteredRequisitions.map((req) => (
+            {paginatedRequisitions.map((req) => (
               <div key={req.id} className="p-5 hover:bg-surface-hover/30 transition">
                 <div className="flex flex-col lg:flex-row justify-between gap-4">
                   {/* Info Section */}
@@ -401,6 +475,84 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
           </div>
         )}
       </div>
+
+      {/* Kontrol Navigasi Paginasi */}
+      {!loading && filteredRequisitions.length > 0 && (
+        <div className="px-5 py-3.5 border-t border-border bg-surface-hover/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm">
+          {/* Informasi ringkas & pemilih ukuran halaman */}
+          <div className="flex items-center gap-3 text-text-muted text-xs">
+            <span>
+              Menampilkan <span className="font-mono font-medium text-text">{startIndex + 1}</span> - <span className="font-mono font-medium text-text">{Math.min(startIndex + itemsPerPage, totalItems)}</span> dari <span className="font-mono font-medium text-text">{totalItems}</span> Permintaan
+            </span>
+            <div className="flex items-center gap-1.5 border-l border-border pl-3">
+              <span>Per hal:</span>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => {
+                  setItemsPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="bg-slate-800 border border-slate-700 rounded px-2 py-0.5 text-xs text-slate-300 focus:outline-none focus:border-primary cursor-pointer"
+              >
+                <option value={3}>3</option>
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Tombol Navigasi Paginasi */}
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              className="flex items-center gap-1 bg-slate-800 text-slate-300 hover:bg-slate-700 active:bg-primary disabled:opacity-40 disabled:cursor-not-allowed rounded-md px-2.5 py-1 text-xs border border-slate-700 transition"
+              title="Halaman Pertama"
+            >
+              <ChevronsLeft className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Pertama</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="flex items-center gap-1 bg-slate-800 text-slate-300 hover:bg-slate-700 active:bg-primary disabled:opacity-40 disabled:cursor-not-allowed rounded-md px-2.5 py-1 text-xs border border-slate-700 transition"
+              title="Halaman Sebelumnya"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Sebelumnya</span>
+            </button>
+
+            <div className="px-2.5 text-xs font-mono text-text-muted">
+              Halaman <span className="font-bold text-primary">{currentPage}</span> dari <span className="font-bold text-text">{totalPages}</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages || totalItems === 0}
+              className="flex items-center gap-1 bg-slate-800 text-slate-300 hover:bg-slate-700 active:bg-primary disabled:opacity-40 disabled:cursor-not-allowed rounded-md px-2.5 py-1 text-xs border border-slate-700 transition"
+              title="Halaman Berikutnya"
+            >
+              <span className="hidden sm:inline">Berikutnya</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages || totalItems === 0}
+              className="flex items-center gap-1 bg-slate-800 text-slate-300 hover:bg-slate-700 active:bg-primary disabled:opacity-40 disabled:cursor-not-allowed rounded-md px-2.5 py-1 text-xs border border-slate-700 transition"
+              title="Halaman Terakhir"
+            >
+              <span className="hidden md:inline">Terakhir</span>
+              <ChevronsRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Confirmation Modal */}
       {confirmDialog && (

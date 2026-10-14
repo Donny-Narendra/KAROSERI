@@ -7,6 +7,7 @@ export interface SpkFilterItem {
   customerName: string;
   count: number;
 }
+export const SpkFilterItem = {};
 
 interface SpkFilterListBoxProps {
   items: SpkFilterItem[];

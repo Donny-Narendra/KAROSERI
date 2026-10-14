@@ -7,7 +7,8 @@ import { RequisitionApproval } from '../components/RequisitionApproval';
 import { InventoryManager } from '../components/InventoryManager';
 import { PackageManager } from '../components/PackageManager';
 import { RecentMaterialIssues } from '../components/RecentMaterialIssues';
-import { SpkFilterListBox, SpkFilterItem } from '../components/SpkFilterListBox';
+import { SpkFilterListBox, type SpkFilterItem } from '../components/SpkFilterListBox';
+import { RecentApprovedMaterials, type StockAuditItem } from '../components/RecentApprovedMaterials';
 import { supabase } from '../lib/supabaseClient';
 import { AlertTriangle } from 'lucide-react';
 
@@ -17,11 +18,16 @@ export const WarehouseDashboard: React.FC = () => {
   const [pendingReqCount, setPendingReqCount] = useState<number>(0);
   const [selectedSpkFilter, setSelectedSpkFilter] = useState<string>('ALL');
   const [spkFilterList, setSpkFilterList] = useState<SpkFilterItem[]>([]);
+  const [recentApprovals, setRecentApprovals] = useState<StockAuditItem[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [activeTab, setActiveTab] = useState<'issue' | 'return' | 'requisition' | 'inventory' | 'packages'>('packages');
+  const [activeTab, setActiveTab] = useState<'issue' | 'return' | 'requisition' | 'inventory' | 'packages'>('requisition');
 
   const handleSpkSummaryChange = useCallback((summary: SpkFilterItem[]) => {
     setSpkFilterList(summary);
+  }, []);
+
+  const handleApprovalRecorded = useCallback((newAudits: StockAuditItem[]) => {
+    setRecentApprovals(prev => [...newAudits, ...prev].slice(0, 15));
   }, []);
 
   const fetchMaterials = async () => {
@@ -39,12 +45,35 @@ export const WarehouseDashboard: React.FC = () => {
 
   const fetchPendingReqCount = async () => {
     try {
-      const { count, error } = await supabase
+      const { data, count, error } = await supabase
         .from('material_requisitions')
-        .select('*', { count: 'exact', head: true })
+        .select(`
+          id,
+          spk ( id, spk_no, customer_name )
+        `, { count: 'exact' })
         .eq('status', 'PENDING');
-      if (!error && count !== null) {
-        setPendingReqCount(count);
+      
+      if (!error && data) {
+        setPendingReqCount(count ?? data.length);
+        const map = new Map<string, SpkFilterItem>();
+        data.forEach((req: any) => {
+          const spkId = req.spk?.id;
+          const spkNo = req.spk?.spk_no || 'Tanpa SPK';
+          const customerName = req.spk?.customer_name || 'Umum';
+          
+          if (map.has(spkNo)) {
+            const current = map.get(spkNo)!;
+            current.count += 1;
+          } else {
+            map.set(spkNo, {
+              spkId: spkId || null,
+              spkNo,
+              customerName,
+              count: 1
+            });
+          }
+        });
+        setSpkFilterList(Array.from(map.values()).sort((a, b) => a.spkNo.localeCompare(b.spkNo)));
       }
     } catch (error) {
       console.error('Error fetching pending requisitions count:', error);
@@ -137,6 +166,7 @@ export const WarehouseDashboard: React.FC = () => {
                 selectedSpkFilter={selectedSpkFilter}
                 onResetFilter={() => setSelectedSpkFilter('ALL')}
                 onSpkSummaryChange={handleSpkSummaryChange}
+                onApprovalRecorded={handleApprovalRecorded}
                 onSuccess={handleIssueSuccess}
               />
             ) : activeTab === 'packages' ? (
@@ -146,12 +176,16 @@ export const WarehouseDashboard: React.FC = () => {
             )}
             
             {/* Recent Issues Table */}
-            <RecentMaterialIssues refreshKey={refreshKey} onSuccess={handleIssueSuccess} />
+            <RecentMaterialIssues 
+              selectedSpkFilter={selectedSpkFilter} 
+              refreshKey={refreshKey} 
+              onSuccess={handleIssueSuccess} 
+            />
           </div>
           
           <div className="space-y-6">
-            {/* SPK Filter List Box (Shown when Mandor Requests tab is active) */}
-            {activeTab === 'requisition' && (
+            {/* SPK Filter List Box (Shown when Mandor Requests or Issue Material tab is active) */}
+            {(activeTab === 'requisition' || activeTab === 'issue') && (
               <SpkFilterListBox
                 items={spkFilterList}
                 totalPendingCount={pendingReqCount}
@@ -160,28 +194,11 @@ export const WarehouseDashboard: React.FC = () => {
               />
             )}
 
-            <div className="bg-surface border border-border rounded-lg overflow-hidden">
-              <div className="px-5 py-4 border-b border-border bg-status-danger/10 flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-status-danger" />
-                <h3 className="font-bold text-status-danger font-display">Low Stock Warnings</h3>
-              </div>
-              <div className="p-4">
-                {lowStockWarnings.length === 0 ? (
-                  <p className="text-sm text-text-muted text-center py-2">Stock levels are healthy.</p>
-                ) : (
-                  <ul className="space-y-3">
-                    {lowStockWarnings.map(m => (
-                      <li key={m.id} className="flex justify-between items-center text-sm border-b border-border pb-2 last:border-0 last:pb-0">
-                        <span className="font-medium text-text">{m.name}</span>
-                        <span className="text-status-danger font-mono font-bold">
-                          {m.current_stock} / {m.minimum_stock} {m.unit}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
+            {/* Riwayat Approval & Dampak Stok Widget */}
+            <RecentApprovedMaterials 
+              refreshKey={refreshKey} 
+              recentApprovals={recentApprovals} 
+            />
 
              <div className="bg-surface border border-border rounded-lg p-5">
               <h3 className="font-bold text-text font-display mb-3">Gate 2 Rules (Material)</h3>

@@ -876,3 +876,55 @@
 - [x] Integrasi sidebar kanan di `src/pages/WarehouseDashboard.tsx` untuk menampilkan `SpkFilterListBox` tepat di atas widget Low Stock Warnings ketika tab Mandor Requests aktif.
 - [x] Penyelarasan reaktivitas dua arah: klik pada kartu SPK di sidebar kanan langsung menyaring daftar antrean kartu requisition di panel kiri tanpa re-fetch data database berulang.
 - [x] Memastikan kepatuhan terhadap batasan eksekusi: tanpa auto-verify, tanpa auto-commit, dan tanpa eksekusi langsung migrasi Supabase.
+
+---
+
+### Phase 71: Gap Closure (Menghubungkan Tabel "Recent Material Issues" Sepenuhnya dengan Filter SPK Terpilih di Halaman /warehouse)
+**Status**: ⬜ Ready for Review
+**Objective**: Address gaps from operational feedback (Menghubungkan tabel Recent Material Issues secara ketat dengan filter SPK terpilih di panel samping kanan, menyaring baris pengeluaran hanya untuk SPK yang sedang aktif, menampilkan empty state informatif saat filter Semua SPK aktif, serta menyesuaikan fitur Search dan Bulk Void dalam konteks SPK tersebut)
+
+**Gaps to Close:**
+- [x] Penyesuaian query dan filter data di `src/components/RecentMaterialIssues.tsx`: Menerima prop `selectedSpkFilter`, membatasi query transaksi hanya untuk `spk_id === targetSpkId`, dan mencegah query global ketika filter SPK belum dipilih / bernilai 'ALL'.
+- [x] Penyesuaian antarmuka & empty state: Menampilkan badge SPK aktif pada header tabel, menonaktifkan kotak pencarian jika filter belum dipilih, serta menampilkan empty state placeholder informatif: *"Silakan pilih salah satu SPK pada daftar filter di panel kanan untuk menampilkan riwayat pengeluaran material (Recent Material Issues)."*
+- [x] Penyesuaian fitur Search dan Void Transaksi: Input search box hanya memfilter riwayat material di dalam SPK yang terpilih, dan aksi void hanya memproses item pengeluaran yang terkait.
+- [x] Integrasi dashboard pada `src/pages/WarehouseDashboard.tsx`: Menyalurkan `selectedSpkFilter` ke `<RecentMaterialIssues />`, menginisialisasi `spkFilterList` saat mount, dan menampilkan `SpkFilterListBox` pada tab `requisition` maupun `issue`.
+- [x] Pembuatan skrip indeks database `supabase/migrations/20261014_add_inventory_transactions_spk_index.sql` untuk optimasi filter `(spk_id, issued_at DESC)` di Supabase.
+- [x] Memastikan kepatuhan terhadap batasan eksekusi: tanpa auto-verify, tanpa auto-commit, dan tanpa eksekusi langsung migrasi Supabase.
+
+---
+
+### Phase 72: Gap Closure (Menambahkan Pagination pada Daftar "Pending Requisitions (Mandor)" di Tab Mandor Requests (/warehouse))
+**Status**: ⬜ Ready for Review
+**Objective**: Address gaps from operational feedback (Menambahkan kontrol paginasi client-side yang responsif di bagian bawah daftar kartu Pending Requisitions pada tab Mandor Requests untuk membatasi tampilan kartu vertikal yang panjang dan memudahkan approval bertahap)
+
+**Gaps to Close:**
+- [x] Implementasi state paginasi (`currentPage`, `itemsPerPage: 5`) dan pemotongan slice data (`paginatedRequisitions`) di `src/components/RequisitionApproval.tsx`.
+- [x] Penyelarasan reaktivitas: reset otomatis `currentPage` ke 1 saat filter SPK berubah, dan penyesuaian otomatis jika aksi approval/rejection mengurangi jumlah total halaman.
+- [x] Perancangan bilah navigasi paginasi dark mode: menampilkan ringkasan jumlah item ("Menampilkan {start} - {end} dari {total}"), pemilih ukuran halaman (3, 5, 10 per hal), tombol navigasi (`Pertama`, `Sebelumnya`, `Berikutnya`, `Terakhir`), serta indikator halaman aktif.
+- [x] Memastikan kepatuhan terhadap batasan eksekusi: tanpa auto-verify, tanpa auto-commit, dan tanpa eksekusi langsung migrasi Supabase.
+
+---
+
+### Phase 73: Gap Closure (Refactor UI Panel Kanan: Mengganti Widget "Low Stock Warnings" Menjadi "Riwayat Approval & Dampak Stok" di Halaman /warehouse)
+**Status**: ⬜ Ready for Review
+**Objective**: Address gaps from operational feedback (Menggantikan widget Low Stock Warnings di sidebar kanan halaman /warehouse dengan komponen Riwayat Approval & Dampak Stok yang mencatat pergerakan stok: sebelum, qty keluar, dan sisa stok fisik secara real-time tepat setelah klik Approve)
+
+**Gaps to Close:**
+- [x] Pembuatan skrip migrasi SQL `supabase/migrations/20261014_add_stock_audit_snapshot.sql` untuk menambahkan kolom `stock_before` dan `stock_after` pada `inventory_transactions` dan `goods_issues`, serta indeks `idx_inventory_transactions_recent_audit`.
+- [x] Penyesuaian handler approval di `src/components/RequisitionApproval.tsx`: mengambil stok fisik saat ini, menghitung `stock_before` dan `stock_after`, menyimpan ke database, serta mengirim snapshot audit via callback `onApprovalRecorded`.
+- [x] Pembuatan komponen `src/components/RecentApprovedMaterials.tsx` dengan antarmuka dark industrial RobelKaroseri, grid 3 kolom pergerakan stok (Sebelum, Disetujui, Sisa Stok), timestamp persetujuan, dan highlight transisi kartu baru.
+- [x] Integrasi dashboard pada `src/pages/WarehouseDashboard.tsx`: menggantikan widget "Low Stock Warnings" dengan `RecentApprovedMaterials`, serta menghubungkan state audit real-time dari approval.
+- [x] Memastikan kepatuhan terhadap batasan eksekusi: tanpa auto-verify, tanpa auto-commit, dan tanpa eksekusi langsung migrasi Supabase.
+
+---
+
+### Phase 74: Gap Closure (Bugfix Logika: Perbaikan Nilai "Sebelum" dan "Sisa Stok" Menjadi 0 pada Widget "Riwayat Approval & Stok" di /warehouse)
+**Status**: ⬜ Ready for Review
+**Objective**: Address gaps from operational feedback (Memperbaiki tampilan nilai Sebelum: 0 dan Sisa Stok: 0 pada widget Riwayat Approval & Stok untuk transaksi lama akibat default kolom database, menerapkan fallback cerdas dinamis berdasarkan saldo riil master materials, serta memastikan form pengeluaran langsung juga mencatat snapshot stok)
+
+**Gaps to Close:**
+- [x] Perbaikan fallback cerdas di `src/components/RecentApprovedMaterials.tsx`: mendeteksi snapshot dummy 0 akibat migrasi dan menghitung `stockAfter = currentMatStock` serta `stockBefore = currentMatStock + qty` secara dinamis.
+- [x] Penyesuaian `src/components/GoodsIssueForm.tsx`: mengambil `materials.current_stock` terbaru, menghitung `stock_before` dan `stock_after`, serta menyimpannya ke `inventory_transactions`.
+- [x] Penyelarasan defensif `spk_id` di `src/components/RequisitionApproval.tsx` (`requisition.spk?.id || requisition.spk_id`).
+- [x] Pembuatan skrip migrasi backfill database `supabase/migrations/20261014_backfill_stock_audit_snapshot.sql` untuk rekonsiliasi nilai snapshot baris lama di Supabase.
+- [x] Memastikan kepatuhan terhadap batasan eksekusi: tanpa auto-verify, tanpa auto-commit, dan tanpa eksekusi langsung migrasi Supabase.

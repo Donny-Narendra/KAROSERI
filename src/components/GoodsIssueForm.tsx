@@ -151,19 +151,47 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
 
     if (!isOverbudget && requestQty && user) {
       const qty = parseFloat(requestQty);
-      const { error } = await supabase
+
+      // Ambil stok aktual terbaru dari materials sebelum pengurangan
+      const { data: freshMat } = await supabase
+        .from('materials')
+        .select('name, unit, current_stock')
+        .eq('id', selectedMaterial)
+        .single();
+
+      const stockBefore = Number(freshMat?.current_stock ?? (selectedMasterItem?.current_stock || 0));
+      const stockAfter = Math.max(0, stockBefore - qty);
+
+      let insertError: any = null;
+      const { error: fullError } = await supabase
         .from('inventory_transactions')
         .insert({
           spk_id: selectedSpk,
           material_id: selectedMaterial,
           quantity_issued: qty,
-          issued_by: user.id
+          issued_by: user.id,
+          stock_before: stockBefore,
+          stock_after: stockAfter
         });
+
+      if (fullError) {
+        console.warn('Gagal insert dengan snapshot stok di GoodsIssueForm, mencoba fallback transaksi:', fullError.message);
+        const { error: fallbackError } = await supabase
+          .from('inventory_transactions')
+          .insert({
+            spk_id: selectedSpk,
+            material_id: selectedMaterial,
+            quantity_issued: qty,
+            issued_by: user.id
+          });
+        insertError = fallbackError;
+      } else {
+        insertError = null;
+      }
         
-      if (!error) {
+      if (!insertError) {
         // Kurangi current_stock di tabel materials
-        const currentStock = selectedMasterItem?.current_stock || 0;
-        await supabase.from('materials').update({ current_stock: currentStock - qty }).eq('id', selectedMaterial);
+        await supabase.from('materials').update({ current_stock: stockAfter }).eq('id', selectedMaterial);
 
         setFeedbackModal({
           isOpen: true,
