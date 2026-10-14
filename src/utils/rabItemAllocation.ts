@@ -109,6 +109,11 @@ export function isRabItemAllocated(
               if (normSubName === normalizedItemName) return true;
               if (normSubName.length >= 4 && normalizedItemName.includes(normSubName)) return true;
               if (normalizedItemName.length >= 4 && normSubName.includes(normalizedItemName)) return true;
+
+              const subWords = normSubName.split(' ').filter(w => w.length >= 3);
+              const itemWords = normalizedItemName.split(' ').filter(w => w.length >= 3);
+              if (itemWords.length >= 2 && itemWords.every(w => normSubName.includes(w))) return true;
+              if (subWords.length >= 2 && subWords.every(w => normalizedItemName.includes(w))) return true;
             }
             return false;
           });
@@ -128,6 +133,11 @@ export function isRabItemAllocated(
           if (normReqName === normalizedItemName) return true;
           if (normReqName.length >= 4 && normalizedItemName.includes(normReqName)) return true;
           if (normalizedItemName.length >= 4 && normReqName.includes(normalizedItemName)) return true;
+
+          const reqWords = normReqName.split(' ').filter(w => w.length >= 3);
+          const itemWords = normalizedItemName.split(' ').filter(w => w.length >= 3);
+          if (itemWords.length >= 2 && itemWords.every(w => normReqName.includes(w))) return true;
+          if (reqWords.length >= 2 && reqWords.every(w => normalizedItemName.includes(w))) return true;
         }
 
         return false;
@@ -153,6 +163,11 @@ export function isRabItemAllocated(
         if (normReqName === normalizedItemName) return true;
         if (normReqName.length >= 4 && normalizedItemName.includes(normReqName)) return true;
         if (normalizedItemName.length >= 4 && normReqName.includes(normalizedItemName)) return true;
+
+        const reqWords = normReqName.split(' ').filter(w => w.length >= 3);
+        const itemWords = normalizedItemName.split(' ').filter(w => w.length >= 3);
+        if (itemWords.length >= 2 && itemWords.every(w => normReqName.includes(w))) return true;
+        if (reqWords.length >= 2 && reqWords.every(w => normalizedItemName.includes(w))) return true;
       }
 
       return false;
@@ -187,6 +202,12 @@ export function isRabItemAllocated(
 
         // Material name contains task description if task description is sufficiently specific (>= 6 chars)
         if (normTaskDesc.length >= 6 && normalizedItemName.includes(normTaskDesc)) return true;
+
+        // Multi-word token overlap matching (handles word reordering or worker notes)
+        const descWords = normTaskDesc.split(' ').filter(w => w.length >= 3);
+        const itemWords = normalizedItemName.split(' ').filter(w => w.length >= 3);
+        if (itemWords.length >= 2 && itemWords.every(w => normTaskDesc.includes(w))) return true;
+        if (descWords.length >= 2 && descWords.every(w => normalizedItemName.includes(w))) return true;
       }
 
       return false;

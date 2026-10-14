@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { AlertTriangle, X, ArrowRight, PackageOpen } from 'lucide-react';
+import { AlertTriangle, X, PackageOpen, Users, Package } from 'lucide-react';
 
 export interface PendingWbsMaterial {
   id: string;
@@ -17,6 +17,7 @@ interface WbsPendingMaterialModalProps {
   categoryLabel?: string;
   pendingMaterials: PendingWbsMaterial[];
   onOpenRequisition: () => void;
+  onOpenBorongan?: () => void;
 }
 
 export const WbsPendingMaterialModal: React.FC<WbsPendingMaterialModalProps> = ({
@@ -26,6 +27,7 @@ export const WbsPendingMaterialModal: React.FC<WbsPendingMaterialModalProps> = (
   categoryLabel,
   pendingMaterials,
   onOpenRequisition,
+  onOpenBorongan,
 }) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -68,11 +70,11 @@ export const WbsPendingMaterialModal: React.FC<WbsPendingMaterialModalProps> = (
                   Peringatan Alokasi
                 </span>
                 <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-mono font-semibold">
-                  {pendingMaterials.length} Item Tertunda
+                  {pendingMaterials.length} Item Belum Teralokasi
                 </span>
               </div>
               <h3 className="text-lg font-bold font-display text-text mt-0.5">
-                Material Belum Diminta
+                Material & Jasa Belum Diminta / Ditugaskan
               </h3>
               <p className="text-xs text-text-muted mt-0.5">
                 Tahapan: <span className="font-semibold text-text">{title}</span>
@@ -94,7 +96,7 @@ export const WbsPendingMaterialModal: React.FC<WbsPendingMaterialModalProps> = (
           <div>
             <span className="text-[11px] font-mono uppercase text-text-muted">Total Item Tertunda</span>
             <p className="text-sm font-bold font-mono text-text">
-              {pendingMaterials.length} jenis material
+              {pendingMaterials.length} jenis item
             </p>
           </div>
           <div className="text-right">
@@ -110,16 +112,16 @@ export const WbsPendingMaterialModal: React.FC<WbsPendingMaterialModalProps> = (
           {pendingMaterials.length === 0 ? (
             <div className="p-8 text-center text-text-muted flex flex-col items-center justify-center gap-2 border border-dashed border-border rounded-lg">
               <PackageOpen className="w-8 h-8 text-text-muted/60" />
-              <p className="text-sm font-medium">Semua material RAB untuk tahapan ini telah terdistribusi.</p>
-              <p className="text-xs text-text-muted">Tidak ada material yang berstatus belum diminta.</p>
+              <p className="text-sm font-medium">Semua material dan jasa RAB untuk tahapan ini telah terdistribusi.</p>
+              <p className="text-xs text-text-muted">Tidak ada item yang berstatus belum diminta atau belum ditugaskan.</p>
             </div>
           ) : (
             <div className="border border-border rounded-lg overflow-hidden">
               <table className="w-full text-left text-xs">
                 <thead className="bg-background text-text-muted font-mono uppercase border-b border-border">
                   <tr>
-                    <th className="px-4 py-2.5">Nama Material</th>
-                    <th className="px-4 py-2.5 text-center">Qty Belum Diambil</th>
+                    <th className="px-4 py-2.5">Nama Item / Material</th>
+                    <th className="px-4 py-2.5 text-center">Qty Belum Dialokasi</th>
                     <th className="px-4 py-2.5 text-right">Estimasi Biaya</th>
                   </tr>
                 </thead>
@@ -149,28 +151,41 @@ export const WbsPendingMaterialModal: React.FC<WbsPendingMaterialModalProps> = (
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-border bg-surface-hover/30 flex items-center justify-between gap-3">
+        <div className="px-5 py-3 border-t border-border bg-surface-hover/30 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-[11px] text-text-muted hidden sm:block">
-            Pastikan seluruh material diajukan sebelum WBS di-QC.
+            Alokasikan via Minta Material (Gudang) atau SPK Borongan (Tenaga).
           </p>
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-surface border border-border text-text rounded-lg text-sm font-medium hover:bg-surface-hover transition-colors"
+              className="px-3.5 py-2 bg-surface border border-border text-text rounded-lg text-sm font-medium hover:bg-surface-hover transition-colors"
             >
               Tutup
             </button>
+            {onOpenBorongan && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenBorongan();
+                }}
+                className="px-3.5 py-2 bg-surface hover:bg-primary/10 border border-primary text-primary rounded-lg text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <Users className="w-4 h-4" />
+                <span>SPK Borongan</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {
                 onClose();
                 onOpenRequisition();
               }}
-              className="flex-1 sm:flex-initial px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-bold flex items-center justify-center gap-2 shadow-md transition-colors"
+              className="px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-bold flex items-center justify-center gap-2 shadow-md transition-colors"
             >
-              <span>Buka Minta Material</span>
-              <ArrowRight className="w-4 h-4" />
+              <Package className="w-4 h-4" />
+              <span>Minta Material</span>
             </button>
           </div>
         </div>

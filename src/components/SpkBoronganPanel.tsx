@@ -12,7 +12,7 @@ import {
   CheckCircle2, 
   PackageCheck 
 } from 'lucide-react';
-import { isRabItemAllocated } from '../utils/rabItemAllocation';
+import { isRabItemAllocated, normalizeText } from '../utils/rabItemAllocation';
 import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
 
 interface SpkBoronganPanelProps {
@@ -122,10 +122,19 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
       .from('spk_borongan')
       .select('*')
       .eq('spk_id', spkId)
-      .eq('wbs_category', cleanWbsCategory)
       .order('created_at', { ascending: false });
       
-    if (data) setRecords(data as SpkBorongan[]);
+    if (data) {
+      const filtered = (data as SpkBorongan[]).filter((item: any) => {
+        if (!item.wbs_category) return true;
+        const bCat = item.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
+        return (
+          bCat === cleanWbsCategory.toLowerCase() ||
+          item.wbs_category.toLowerCase() === wbsCategory.toLowerCase()
+        );
+      });
+      setRecords(filtered);
+    }
     if (error) console.error('Error fetching SPK-B:', error);
     setLoading(false);
   };
@@ -187,6 +196,8 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
 
       if (spkBData) {
         activeAssignments = spkBData.filter((item: any) => {
+          const bStatus = (item.status || '').toUpperCase();
+          if (bStatus === 'CUT_OFF' || bStatus === 'CANCELLED') return false;
           if (!item.wbs_category) return true;
           const bCat = item.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
           return (
@@ -303,6 +314,24 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
     if (!user || !workerName || !taskDescription || contractValue === '') return;
     
     setLoading(true);
+
+    let finalRabItemId = selectedRabItemForAssignment?.id || null;
+    let finalMaterialId = selectedRabItemForAssignment?.materials?.id || selectedRabItemForAssignment?.material_id || null;
+
+    // Defensif: jika item tidak dipilih manual dari daftar kanan, cari kecocokan otomatis dari rabMaterials berdasarkan nama/tugas
+    if (!finalRabItemId && taskDescription.trim()) {
+      const normDesc = normalizeText(taskDescription.trim());
+      const matched = rabMaterials.find(item => {
+        const itemName = (item.materials?.name || item.description || '').trim();
+        const normName = normalizeText(itemName);
+        return normName && (normName === normDesc || normDesc.includes(normName) || normName.includes(normDesc));
+      });
+      if (matched) {
+        finalRabItemId = matched.id;
+        finalMaterialId = matched.materials?.id || matched.material_id || null;
+      }
+    }
+
     const { error } = await supabase.from('spk_borongan').insert({
       spk_id: spkId,
       wbs_category: cleanWbsCategory,
@@ -310,8 +339,8 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
       task_description: taskDescription.trim(),
       contract_value: Number(contractValue),
       status: 'ACTIVE',
-      material_id: selectedRabItemForAssignment?.materials?.id || selectedRabItemForAssignment?.material_id || null,
-      rab_item_id: selectedRabItemForAssignment?.id || null,
+      material_id: finalMaterialId,
+      rab_item_id: finalRabItemId,
       created_by: user.id
     });
     

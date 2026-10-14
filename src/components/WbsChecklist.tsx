@@ -204,7 +204,8 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
         .neq('status', 'REJECTED');
 
       // 3. Fetch active SPK borongan assignments (excluding CUT_OFF and CANCELLED)
-      const { data: borongans } = await supabase
+      // Note: Query neq CUT_OFF at database level and defensively filter CANCELLED in JS to support all schema enum versions
+      const { data: borongans, error: boronganError } = await supabase
         .from('spk_borongan')
         .select(`
           id,
@@ -215,8 +216,11 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
           material_id
         `)
         .eq('spk_id', spkId)
-        .neq('status', 'CUT_OFF')
-        .neq('status', 'CANCELLED');
+        .neq('status', 'CUT_OFF');
+
+      if (boronganError) {
+        console.error('Error fetching SPK Borongan assignments for WBS allocation:', boronganError);
+      }
 
       // 4. Map allocations per WBS category
       const allocationMap: Record<string, {
@@ -236,12 +240,16 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
         });
 
         const relevantReqs = (requisitions || []).filter((req: any) => {
+          const rStatus = (req.status || '').toUpperCase();
+          if (rStatus === 'CANCELLED' || rStatus === 'REJECTED') return false;
           if (!req.wbs_category) return true;
           const reqCat = req.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
           return reqCat === cleanCat || req.wbs_category.toLowerCase() === category.toLowerCase();
         });
 
         const relevantBorongans = (borongans || []).filter((b: any) => {
+          const bStatus = (b.status || '').toUpperCase();
+          if (bStatus === 'CUT_OFF' || bStatus === 'CANCELLED') return false;
           if (!b.wbs_category) return true;
           const bCat = b.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
           return bCat === cleanCat || b.wbs_category.toLowerCase() === category.toLowerCase();
@@ -477,25 +485,25 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-1 gap-2">
                   <h4 className="font-medium text-text text-lg">{WBS_LABELS[category]}</h4>
                   <div className="flex flex-wrap md:flex-nowrap items-center gap-2">
-                    {/* Badge Indikator Alokasi Material WBS */}
+                    {/* Badge Indikator Alokasi Material & Tenaga WBS */}
                     {wbsAllocations[category] && (
                       wbsAllocations[category].pendingCount > 0 ? (
                         <button
                           type="button"
                           onClick={() => setPendingModalCategory(category)}
                           className="group px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20 hover:border-amber-500/50 transition-all cursor-pointer shadow-sm active:scale-95"
-                          title="Klik untuk melihat rincian material yang belum diminta"
+                          title="Klik untuk melihat rincian material / jasa yang belum dialokasikan"
                         >
                           <AlertTriangle className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform flex-shrink-0" />
-                          <span>{wbsAllocations[category].pendingCount} Material Belum Diminta</span>
+                          <span>{wbsAllocations[category].pendingCount} Material Belum Diminta / Ditugaskan</span>
                         </button>
                       ) : wbsAllocations[category].totalRabCount > 0 ? (
                         <span 
-                          className="px-2.5 py-1 rounded-full text-xs font-medium flex items-center gap-1.5 bg-green-500/10 text-green-400 border border-green-500/20"
+                          className="px-2.5 py-1 rounded-full text-xs font-medium flex items-center gap-1.5 bg-green-500/10 text-green-400 border border-green-500/20 shadow-sm"
                           title="Seluruh alokasi material RAB untuk tahapan ini sudah diajukan di Requisition atau SPK Borongan"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5 text-green-400 flex-shrink-0" />
-                          <span>Semua Material Terdistribusi</span>
+                          <span>✓ Semua Material / Jasa Teralokasi</span>
                         </span>
                       ) : (
                         <span className="px-2 py-0.5 rounded text-[11px] font-mono text-text-muted bg-surface border border-border/70">
@@ -639,6 +647,13 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
             const cat = pendingModalCategory;
             setPendingModalCategory(null);
             setRequisitionCategory(cat);
+          }
+        }}
+        onOpenBorongan={() => {
+          if (pendingModalCategory) {
+            const cat = pendingModalCategory;
+            setPendingModalCategory(null);
+            setBoronganCategory(cat);
           }
         }}
       />
