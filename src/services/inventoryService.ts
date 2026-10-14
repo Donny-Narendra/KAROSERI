@@ -218,64 +218,145 @@ export const inventoryService = {
   async deleteIssuesAndRevertStock(issueIds: string[]) {
     if (!issueIds || issueIds.length === 0) return;
     
-    // First, fetch the issues to get quantities and material_ids
+    // First, fetch the issues to get quantities, material_ids, and relation info
     const { data: issues, error: fetchError } = await supabase
       .from('inventory_transactions')
-      .select('id, material_id, quantity_issued, spk_id')
+      .select('id, material_id, quantity_issued, spk_id, requisition_id, requisition_item_id')
       .in('id', issueIds);
       
     if (fetchError) throw fetchError;
     if (!issues || issues.length === 0) return;
 
     // Check if SPK is COMPLETED. If so, throw error.
-    // Assuming SPK status check can be done here or handled individually. 
-    // For simplicity, we assume we can fetch spk status.
-    const spkIds = [...new Set(issues.map(i => i.spk_id))];
-    const { data: spks, error: spkError } = await supabase
-      .from('spk')
-      .select('id, status')
-      .in('id', spkIds);
+    const spkIds = [...new Set(issues.map(i => i.spk_id).filter(Boolean))];
+    if (spkIds.length > 0) {
+      const { data: spks, error: spkError } = await supabase
+        .from('spk')
+        .select('id, status')
+        .in('id', spkIds);
+        
+      if (spkError) throw spkError;
+      const completedSpks = spks?.filter(s => s.status === 'COMPLETED').map(s => s.id) || [];
+      const violatingIssues = issues.filter(i => completedSpks.includes(i.spk_id));
       
-    if (spkError) throw spkError;
-    const completedSpks = spks?.filter(s => s.status === 'COMPLETED').map(s => s.id) || [];
-    const violatingIssues = issues.filter(i => completedSpks.includes(i.spk_id));
-    
-    if (violatingIssues.length > 0) {
-      throw new Error('Sebagian transaksi tidak dapat dihapus karena SPK sudah berstatus COMPLETED.');
+      if (violatingIssues.length > 0) {
+        throw new Error('Sebagian transaksi tidak dapat dihapus karena SPK sudah berstatus COMPLETED.');
+      }
     }
 
-    // Prepare material updates to revert stock
-    // Aggregate by material_id in case multiple issues use same material
-    const materialRefunds: Record<string, number> = {};
-    for (const issue of issues) {
-      materialRefunds[issue.material_id] = (materialRefunds[issue.material_id] || 0) + issue.quantity_issued;
+    // 1. Try batch RPC void_material_issues first
+    let rpcSuccess = false;
+    try {
+      const { data: batchRes, error: batchErr } = await supabase.rpc('void_material_issues', {
+        p_issue_ids: issueIds
+      });
+      if (!batchErr && batchRes && batchRes.success) {
+        rpcSuccess = true;
+      }
+    } catch (e) {
+      console.warn('Batch RPC void_material_issues unavailable, falling back:', e);
     }
 
-    // We need to fetch current stock to add to it because Supabase RPC might not be available
-    const { data: materials, error: matError } = await supabase
-      .from('materials')
-      .select('id, current_stock')
-      .in('id', Object.keys(materialRefunds));
-      
-    if (matError) throw matError;
-
-    // Perform bulk update of materials
-    for (const mat of (materials || [])) {
-      const refundQty = materialRefunds[mat.id] || 0;
-      const { error: updateError } = await supabase
-        .from('materials')
-        .update({ current_stock: Number(mat.current_stock) + refundQty })
-        .eq('id', mat.id);
-      if (updateError) throw updateError;
+    // 2. If batch RPC not available, try individual void_material_issue RPC calls
+    if (!rpcSuccess) {
+      let allSingleOk = true;
+      for (const id of issueIds) {
+        try {
+          const { data: singleRes, error: singleErr } = await supabase.rpc('void_material_issue', {
+            p_issue_id: id
+          });
+          if (singleErr || !singleRes?.success) {
+            allSingleOk = false;
+            break;
+          }
+        } catch {
+          allSingleOk = false;
+          break;
+        }
+      }
+      if (allSingleOk && issueIds.length > 0) {
+        rpcSuccess = true;
+      }
     }
 
-    // Now delete the issues
-    const { error: deleteError } = await supabase
-      .from('inventory_transactions')
-      .delete()
-      .in('id', issueIds);
-      
-    if (deleteError) throw deleteError;
+    // 3. Fallback to client-side transactional steps if RPC is not yet executed in Supabase SQL editor
+    if (!rpcSuccess) {
+      // Revert physical stock in materials
+      const materialRefunds: Record<string, number> = {};
+      for (const issue of issues) {
+        if (issue.material_id) {
+          materialRefunds[issue.material_id] = (materialRefunds[issue.material_id] || 0) + Number(issue.quantity_issued || 0);
+        }
+      }
+
+      if (Object.keys(materialRefunds).length > 0) {
+        const { data: materials, error: matError } = await supabase
+          .from('materials')
+          .select('id, current_stock')
+          .in('id', Object.keys(materialRefunds));
+          
+        if (matError) throw matError;
+
+        for (const mat of (materials || [])) {
+          const refundQty = materialRefunds[mat.id] || 0;
+          const { error: updateError } = await supabase
+            .from('materials')
+            .update({ current_stock: Number(mat.current_stock || 0) + refundQty })
+            .eq('id', mat.id);
+          if (updateError) throw updateError;
+        }
+      }
+
+      // Restore requisition status to PENDING for each issue
+      for (const issue of issues) {
+        let targetReqId = issue.requisition_id;
+        let targetReqItemId = issue.requisition_item_id;
+
+        // Fallback: If not explicitly linked, find approved requisition for this SPK and material
+        if (!targetReqId && issue.spk_id && issue.material_id) {
+          const { data: reqs } = await supabase
+            .from('material_requisitions')
+            .select(`
+              id,
+              material_requisition_items ( id, material_id )
+            `)
+            .eq('spk_id', issue.spk_id)
+            .eq('status', 'APPROVED')
+            .order('updated_at', { ascending: false })
+            .limit(1);
+
+          if (reqs && reqs.length > 0) {
+            targetReqId = reqs[0].id;
+            const matchedItem = reqs[0].material_requisition_items?.find((m: any) => m.material_id === issue.material_id);
+            if (matchedItem) {
+              targetReqItemId = matchedItem.id;
+            }
+          }
+        }
+
+        if (targetReqItemId) {
+          await supabase
+            .from('material_requisition_items')
+            .update({ status: 'PENDING' })
+            .eq('id', targetReqItemId);
+        }
+
+        if (targetReqId) {
+          await supabase
+            .from('material_requisitions')
+            .update({ status: 'PENDING' })
+            .eq('id', targetReqId);
+        }
+      }
+
+      // Delete the issues from inventory_transactions
+      const { error: deleteError } = await supabase
+        .from('inventory_transactions')
+        .delete()
+        .in('id', issueIds);
+        
+      if (deleteError) throw deleteError;
+    }
   },
 
   async updateIssuePrice(issueId: string, customUnitPrice: number | null, newQuantity?: number) {

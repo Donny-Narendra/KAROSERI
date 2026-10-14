@@ -6,9 +6,10 @@ import { ConfirmationModal } from './ConfirmationModal';
 
 interface RecentMaterialIssuesProps {
   refreshKey: number;
+  onSuccess?: () => void;
 }
 
-export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({ refreshKey }) => {
+export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({ refreshKey, onSuccess }) => {
   const [recentIssues, setRecentIssues] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -77,6 +78,20 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({ refr
     }
   };
 
+  const handleSingleVoid = (issue: any) => {
+    if (issue.spk?.status === 'COMPLETED') {
+      setFeedbackModal({
+        isOpen: true,
+        title: 'Transaksi Tidak Dapat Dibatalkan',
+        message: 'Tidak dapat menghapus transaksi dari SPK yang sudah berstatus COMPLETED. Data SPK selesai terkunci untuk audit.',
+        variant: 'warning'
+      });
+      return;
+    }
+    setSelectedIds([issue.id]);
+    setConfirmVoidOpen(true);
+  };
+
   const handleBulkDelete = () => {
     if (selectedIds.length === 0) return;
     
@@ -98,13 +113,16 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({ refr
   const executeBulkDelete = async () => {
     setIsDeleting(true);
     try {
+      const count = selectedIds.length;
       await inventoryService.deleteIssuesAndRevertStock(selectedIds);
       setConfirmVoidOpen(false);
+      setSelectedIds([]);
       setInternalRefresh(prev => prev + 1);
+      if (onSuccess) onSuccess();
       setFeedbackModal({
         isOpen: true,
         title: 'Transaksi Berhasil Dibatalkan',
-        message: `${selectedIds.length} transaksi pengeluaran material berhasil dibatalkan (void) dan stok gudang telah dikembalikan.`,
+        message: `${count} transaksi pengeluaran material berhasil dibatalkan (void). Stok material telah dikembalikan dan item terkait telah dipulihkan ke tab Mandor Requests.`,
         variant: 'success'
       });
     } catch (err: any) {
@@ -246,13 +264,22 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({ refr
                     }
                   </td>
                   <td className="px-5 py-3 text-center">
-                    <button 
-                      onClick={() => openEditModal(issue)}
-                      className="text-text-muted hover:text-primary transition"
-                      title="Edit Pengeluaran"
-                    >
-                      <Edit2 className="w-4 h-4 mx-auto" />
-                    </button>
+                    <div className="flex items-center justify-center gap-2">
+                      <button 
+                        onClick={() => openEditModal(issue)}
+                        className="text-text-muted hover:text-primary transition p-1"
+                        title="Edit Pengeluaran"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => handleSingleVoid(issue)}
+                        className="text-text-muted hover:text-status-danger transition p-1"
+                        title="Void Transaksi Ini"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -337,9 +364,13 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({ refr
       {/* Confirm Void Modal */}
       <ConfirmationModal
         isOpen={confirmVoidOpen}
-        title="Batalkan (Void) Pengeluaran Material?"
-        message={`Anda yakin ingin membatalkan (void) ${selectedIds.length} transaksi pengeluaran material?\n\nStok material di gudang akan otomatis dikembalikan sesuai kuantitas yang dibatalkan.`}
-        confirmText={`Ya, Void ${selectedIds.length} Transaksi`}
+        title="Konfirmasi Void Pengeluaran Material"
+        message={
+          selectedIds.length > 1
+            ? `Apakah Anda yakin ingin membatalkan ${selectedIds.length} pengeluaran material ini? Stok akan dikembalikan dan item ini akan muncul kembali di tab Permintaan Mandor untuk diapprove ulang.`
+            : "Apakah Anda yakin ingin membatalkan pengeluaran material ini? Stok akan dikembalikan dan item ini akan muncul kembali di tab Permintaan Mandor untuk diapprove ulang."
+        }
+        confirmText="Ya, Void Transaksi"
         cancelText="Batal"
         variant="danger"
         isLoading={isDeleting}

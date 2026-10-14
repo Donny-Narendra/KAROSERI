@@ -6,9 +6,10 @@ import { ConfirmationModal } from './ConfirmationModal';
 
 interface RequisitionApprovalProps {
   onSuccess?: () => void;
+  refreshKey?: number;
 }
 
-export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({ onSuccess }) => {
+export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({ onSuccess, refreshKey }) => {
   const { user } = useAuth();
   const [requisitions, setRequisitions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,7 +70,7 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({ onSucc
 
   useEffect(() => {
     fetchRequisitions();
-  }, []);
+  }, [refreshKey]);
 
   const handleRequestApprove = (requisition: any) => {
     setConfirmDialog({
@@ -77,7 +78,7 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({ onSucc
       type: 'APPROVE',
       requisition,
       title: 'Setujui Permintaan Material',
-      message: `Apakah Anda yakin ingin menyetujui permintaan material untuk SPK ${requisition.spk?.spk_no || '-'} dan mengeluarkan material terkait?\n\nKuantitas material akan otomatis dicatat pada transaksi inventaris gudang.`,
+      message: `Apakah Anda yakin ingin menyetujui permintaan material untuk SPK ${requisition.spk?.spk_no || '-'} dan mengeluarkan material terkait?\n\nKuantitas material akan otomatis dicatat pada transaksi inventaris gudang dan stok fisik akan disesuaikan.`,
       confirmText: 'Ya, Setujui & Keluarkan',
       variant: 'info',
     });
@@ -111,7 +112,9 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({ onSucc
             spk_id: requisition.spk.id,
             material_id: item.material_id,
             quantity_issued: item.quantity,
-            issued_by: user.id
+            issued_by: user.id,
+            requisition_id: requisition.id,
+            requisition_item_id: item.id
           }));
 
         if (transactions.length > 0) {
@@ -119,7 +122,31 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({ onSucc
             .from('inventory_transactions')
             .insert(transactions);
             
-          if (txError) throw txError;
+          if (txError) {
+            // Defensive fallback if columns requisition_id/requisition_item_id not yet added to DB
+            const legacyTransactions = transactions.map(({ requisition_id, requisition_item_id, ...rest }) => rest);
+            const { error: retryError } = await supabase
+              .from('inventory_transactions')
+              .insert(legacyTransactions);
+            if (retryError) throw retryError;
+          }
+
+          // Decrement current_stock on materials table to keep physical inventory balanced
+          for (const item of (requisition.material_requisition_items || [])) {
+            if (item.material_id && item.quantity > 0) {
+              const { data: mat } = await supabase
+                .from('materials')
+                .select('current_stock')
+                .eq('id', item.material_id)
+                .single();
+              if (mat) {
+                await supabase
+                  .from('materials')
+                  .update({ current_stock: Math.max(0, Number(mat.current_stock || 0) - Number(item.quantity)) })
+                  .eq('id', item.material_id);
+              }
+            }
+          }
         }
 
         // 2. Update requisition status
@@ -133,7 +160,7 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({ onSucc
         setFeedbackDialog({
           isOpen: true,
           title: 'Persetujuan Berhasil',
-          message: 'Permintaan material telah disetujui dan transaksi pengeluaran barang berhasil dicatat.',
+          message: 'Permintaan material telah disetujui, transaksi pengeluaran barang tercatat, dan stok gudang telah dikurangi.',
           variant: 'success'
         });
         if (onSuccess) onSuccess();

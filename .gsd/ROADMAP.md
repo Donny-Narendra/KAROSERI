@@ -835,3 +835,17 @@
 - [x] Integrasi badge status interaktif pada baris header masing-masing WBS tepat di sebelah kiri tombol "SPK Borongan" (badge peringatan amber `[ ⚠️ {pendingCount} Material Belum Diminta ]`, badge hijau `[ ✓ Semua Material Terdistribusi ]`, atau badge netral jika belum ada RAB).
 - [x] Pembaruan state dan auto-refresh kalkulasi saat modal Requisition atau Borongan ditutup.
 - [x] Memastikan kepatuhan terhadap batasan eksekusi: tanpa auto-verify, tanpa auto-commit, dan tanpa eksekusi langsung migrasi Supabase.
+
+---
+
+### Phase 68: Gap Closure (Void Recent Material Issue Mengembalikan Permintaan ke Tab Mandor Requests dan Menyesuaikan Stok Material di /warehouse)
+**Status**: ⬜ Ready for Review
+**Objective**: Address gaps from operational feedback (Ketika transaksi Recent Material Issues di-void di /warehouse, stok dikembalikan, status permintaan pada material_requisitions dan itemnya dipulihkan menjadi PENDING, antrean dan counter tab Mandor Requests langsung tersinkronisasi, serta konfirmasi menggunakan ConfirmationModal dialog internal)
+
+**Gaps to Close:**
+- [x] Pembuatan skrip migrasi SQL `supabase/migrations/20261014_void_material_issue_rollback.sql` yang menambahkan relasi `requisition_id` dan `requisition_item_id` pada `inventory_transactions`, kolom `status` pada `material_requisition_items`, serta fungsi RPC atomik `public.void_material_issue(UUID)` dan `public.void_material_issues(UUID[])` dengan izin `GRANT EXECUTE TO authenticated`.
+- [x] Pembaruan fungsi `deleteIssuesAndRevertStock` di `src/services/inventoryService.ts` untuk memanggil RPC `void_material_issues` / `void_material_issue` serta menyediakan mekanisme fallback client-side yang andal untuk mengembalikan stok material dan mengubah status requisition ke PENDING.
+- [x] Standarisasi UI `ConfirmationModal` di `RecentMaterialIssues.tsx` dengan judul "Konfirmasi Void Pengeluaran Material", pesan konfirmasi pemulihan stok dan antrean permintaan mandor, tombol "Ya, Void Transaksi" (varian bahaya/merah), tombol per-baris aksi cepat void, serta notifikasi modal feedback sukses.
+- [x] Integrasi sinkronisasi lintas komponen pada `WarehouseDashboard.tsx`: penambahan badge counter peringatan permintaan berstatus PENDING pada tab button "Mandor Requests", serta penyambungan callback `onSuccess` dari `RecentMaterialIssues` ke `refreshKey` dan `fetchPendingReqCount`.
+- [x] Integrasi auto-refresh dan relasi transaksi di `RequisitionApproval.tsx`: mendengarkan `refreshKey` agar item yang di-void langsung muncul kembali di antrean approval, mencatat `requisition_id` dan `requisition_item_id` pada saat approve, serta mengurangi stok fisik `materials` saat material dikeluarkan.
+- [x] Memastikan kepatuhan terhadap batasan eksekusi: tanpa auto-verify, tanpa auto-commit, dan tanpa eksekusi langsung migrasi Supabase.

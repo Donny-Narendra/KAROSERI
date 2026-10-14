@@ -13,6 +13,7 @@ import { AlertTriangle } from 'lucide-react';
 export const WarehouseDashboard: React.FC = () => {
   const { profile, signOut } = useAuth();
   const [lowStockWarnings, setLowStockWarnings] = useState<any[]>([]);
+  const [pendingReqCount, setPendingReqCount] = useState<number>(0);
   const [refreshKey, setRefreshKey] = useState(0);
   const [activeTab, setActiveTab] = useState<'issue' | 'return' | 'requisition' | 'inventory' | 'packages'>('packages');
 
@@ -29,8 +30,23 @@ export const WarehouseDashboard: React.FC = () => {
     }
   };
 
+  const fetchPendingReqCount = async () => {
+    try {
+      const { count, error } = await supabase
+        .from('material_requisitions')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'PENDING');
+      if (!error && count !== null) {
+        setPendingReqCount(count);
+      }
+    } catch (error) {
+      console.error('Error fetching pending requisitions count:', error);
+    }
+  };
+
   useEffect(() => {
     fetchMaterials();
+    fetchPendingReqCount();
   }, [refreshKey]);
 
   const handleIssueSuccess = () => {
@@ -80,10 +96,15 @@ export const WarehouseDashboard: React.FC = () => {
                 Return Material
               </button>
               <button
-                className={`px-4 py-2 font-medium ${activeTab === 'requisition' ? 'text-primary border-b-2 border-primary' : 'text-text-muted hover:text-text'}`}
+                className={`px-4 py-2 font-medium flex items-center gap-2 ${activeTab === 'requisition' ? 'text-primary border-b-2 border-primary' : 'text-text-muted hover:text-text'}`}
                 onClick={() => setActiveTab('requisition')}
               >
-                Mandor Requests
+                <span>Mandor Requests</span>
+                {pendingReqCount > 0 && (
+                  <span className="px-1.5 py-0.5 text-xs font-bold rounded-full bg-status-warning/20 text-status-warning border border-status-warning/30">
+                    {pendingReqCount}
+                  </span>
+                )}
               </button>
               <button
                 className={`px-4 py-2 font-medium ${activeTab === 'inventory' ? 'text-primary border-b-2 border-primary' : 'text-text-muted hover:text-text'}`}
@@ -104,7 +125,7 @@ export const WarehouseDashboard: React.FC = () => {
             ) : activeTab === 'return' ? (
               <GoodsReturnForm onSuccess={handleIssueSuccess} />
             ) : activeTab === 'requisition' ? (
-              <RequisitionApproval onSuccess={handleIssueSuccess} />
+              <RequisitionApproval refreshKey={refreshKey} onSuccess={handleIssueSuccess} />
             ) : activeTab === 'packages' ? (
               <PackageManager />
             ) : (
@@ -112,7 +133,7 @@ export const WarehouseDashboard: React.FC = () => {
             )}
             
             {/* Recent Issues Table */}
-            <RecentMaterialIssues refreshKey={refreshKey} />
+            <RecentMaterialIssues refreshKey={refreshKey} onSuccess={handleIssueSuccess} />
           </div>
           
           <div className="space-y-6">
