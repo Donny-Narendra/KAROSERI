@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Factory, LogOut } from 'lucide-react';
 import { GoodsIssueForm } from '../components/GoodsIssueForm';
@@ -7,6 +7,7 @@ import { RequisitionApproval } from '../components/RequisitionApproval';
 import { InventoryManager } from '../components/InventoryManager';
 import { PackageManager } from '../components/PackageManager';
 import { RecentMaterialIssues } from '../components/RecentMaterialIssues';
+import { SpkFilterListBox, SpkFilterItem } from '../components/SpkFilterListBox';
 import { supabase } from '../lib/supabaseClient';
 import { AlertTriangle } from 'lucide-react';
 
@@ -14,8 +15,14 @@ export const WarehouseDashboard: React.FC = () => {
   const { profile, signOut } = useAuth();
   const [lowStockWarnings, setLowStockWarnings] = useState<any[]>([]);
   const [pendingReqCount, setPendingReqCount] = useState<number>(0);
+  const [selectedSpkFilter, setSelectedSpkFilter] = useState<string>('ALL');
+  const [spkFilterList, setSpkFilterList] = useState<SpkFilterItem[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [activeTab, setActiveTab] = useState<'issue' | 'return' | 'requisition' | 'inventory' | 'packages'>('packages');
+
+  const handleSpkSummaryChange = useCallback((summary: SpkFilterItem[]) => {
+    setSpkFilterList(summary);
+  }, []);
 
   const fetchMaterials = async () => {
     try {
@@ -125,7 +132,13 @@ export const WarehouseDashboard: React.FC = () => {
             ) : activeTab === 'return' ? (
               <GoodsReturnForm onSuccess={handleIssueSuccess} />
             ) : activeTab === 'requisition' ? (
-              <RequisitionApproval refreshKey={refreshKey} onSuccess={handleIssueSuccess} />
+              <RequisitionApproval
+                refreshKey={refreshKey}
+                selectedSpkFilter={selectedSpkFilter}
+                onResetFilter={() => setSelectedSpkFilter('ALL')}
+                onSpkSummaryChange={handleSpkSummaryChange}
+                onSuccess={handleIssueSuccess}
+              />
             ) : activeTab === 'packages' ? (
               <PackageManager />
             ) : (
@@ -137,6 +150,16 @@ export const WarehouseDashboard: React.FC = () => {
           </div>
           
           <div className="space-y-6">
+            {/* SPK Filter List Box (Shown when Mandor Requests tab is active) */}
+            {activeTab === 'requisition' && (
+              <SpkFilterListBox
+                items={spkFilterList}
+                totalPendingCount={pendingReqCount}
+                selectedSpk={selectedSpkFilter}
+                onSelectSpk={setSelectedSpkFilter}
+              />
+            )}
+
             <div className="bg-surface border border-border rounded-lg overflow-hidden">
               <div className="px-5 py-4 border-b border-border bg-status-danger/10 flex items-center gap-2">
                 <AlertTriangle className="w-5 h-5 text-status-danger" />

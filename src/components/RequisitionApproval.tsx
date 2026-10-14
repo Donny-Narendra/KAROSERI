@@ -1,19 +1,72 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
-import { Check, X, ClipboardList, Loader2, AlertTriangle } from 'lucide-react';
+import { Check, X, ClipboardList, Loader2, AlertTriangle, Filter } from 'lucide-react';
 import { ConfirmationModal } from './ConfirmationModal';
+
+export interface SpkSummaryItem {
+  spkId: string;
+  spkNo: string;
+  customerName: string;
+  count: number;
+}
 
 interface RequisitionApprovalProps {
   onSuccess?: () => void;
   refreshKey?: number;
+  selectedSpkFilter?: string;
+  onResetFilter?: () => void;
+  onSpkSummaryChange?: (summary: SpkSummaryItem[]) => void;
 }
 
-export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({ onSuccess, refreshKey }) => {
+export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
+  onSuccess,
+  refreshKey,
+  selectedSpkFilter = 'ALL',
+  onResetFilter,
+  onSpkSummaryChange,
+}) => {
   const { user } = useAuth();
   const [requisitions, setRequisitions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
+
+  // Ekstrak daftar SPK unik yang memiliki antrean requisition pending beserta jumlahnya
+  const spkSummary = useMemo(() => {
+    const map = new Map<string, SpkSummaryItem>();
+    requisitions.forEach(req => {
+      const spkNo = req.spk?.spk_no || 'Tanpa SPK';
+      const spkId = req.spk?.id || '';
+      const customerName = req.spk?.customer_name || 'Pelanggan Umum';
+      const existing = map.get(spkNo);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        map.set(spkNo, {
+          spkId,
+          spkNo,
+          customerName,
+          count: 1
+        });
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.spkNo.localeCompare(b.spkNo));
+  }, [requisitions]);
+
+  useEffect(() => {
+    onSpkSummaryChange?.(spkSummary);
+  }, [spkSummary, onSpkSummaryChange]);
+
+  // Saring daftar antrean yang di-render berdasarkan nomor SPK yang dipilih
+  const filteredRequisitions = useMemo(() => {
+    if (!selectedSpkFilter || selectedSpkFilter === 'ALL') {
+      return requisitions;
+    }
+    return requisitions.filter(req => 
+      (req.spk?.spk_no || 'Tanpa SPK') === selectedSpkFilter ||
+      req.spk?.id === selectedSpkFilter
+    );
+  }, [requisitions, selectedSpkFilter]);
 
   // Dialog State
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -211,10 +264,34 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({ onSucc
   return (
     <div className="bg-surface border border-border rounded-lg overflow-hidden">
       <div className="px-5 py-4 border-b border-border bg-surface-hover flex items-center justify-between">
-        <h3 className="font-bold text-text font-display flex items-center gap-2">
-          <ClipboardList className="w-5 h-5 text-primary" />
-          Pending Requisitions (Mandor)
-        </h3>
+        <div className="flex items-center gap-2">
+          <ClipboardList className="w-5 h-5 text-primary shrink-0" />
+          <h3 className="font-bold text-text font-display">
+            Pending Requisitions (Mandor)
+          </h3>
+          <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/30">
+            {requisitions.length}
+          </span>
+        </div>
+
+        {selectedSpkFilter && selectedSpkFilter !== 'ALL' && (
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-text-muted">Filter SPK:</span>
+            <span className="font-mono font-bold text-primary px-2 py-0.5 bg-primary/10 border border-primary/30 rounded">
+              {selectedSpkFilter}
+            </span>
+            {onResetFilter && (
+              <button
+                type="button"
+                onClick={onResetFilter}
+                className="text-text-muted hover:text-text hover:underline transition"
+                title="Tampilkan Semua SPK"
+              >
+                (Reset)
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="p-0">
@@ -227,9 +304,24 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({ onSucc
           <div className="text-center py-8 text-text-muted">
             No pending material requisitions.
           </div>
+        ) : filteredRequisitions.length === 0 ? (
+          <div className="text-center py-10 px-4">
+            <p className="text-text-muted text-sm mb-3">
+              Tidak ada permintaan pending untuk SPK <span className="font-mono font-bold text-primary">{selectedSpkFilter}</span>.
+            </p>
+            {onResetFilter && (
+              <button
+                type="button"
+                onClick={onResetFilter}
+                className="px-3 py-1.5 text-xs bg-primary/20 text-primary hover:bg-primary/30 border border-primary/30 rounded font-medium transition"
+              >
+                Tampilkan Semua SPK
+              </button>
+            )}
+          </div>
         ) : (
           <div className="divide-y divide-border">
-            {requisitions.map((req) => (
+            {filteredRequisitions.map((req) => (
               <div key={req.id} className="p-5 hover:bg-surface-hover/30 transition">
                 <div className="flex flex-col lg:flex-row justify-between gap-4">
                   {/* Info Section */}

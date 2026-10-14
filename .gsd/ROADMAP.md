@@ -849,3 +849,30 @@
 - [x] Integrasi sinkronisasi lintas komponen pada `WarehouseDashboard.tsx`: penambahan badge counter peringatan permintaan berstatus PENDING pada tab button "Mandor Requests", serta penyambungan callback `onSuccess` dari `RecentMaterialIssues` ke `refreshKey` dan `fetchPendingReqCount`.
 - [x] Integrasi auto-refresh dan relasi transaksi di `RequisitionApproval.tsx`: mendengarkan `refreshKey` agar item yang di-void langsung muncul kembali di antrean approval, mencatat `requisition_id` dan `requisition_item_id` pada saat approve, serta mengurangi stok fisik `materials` saat material dikeluarkan.
 - [x] Memastikan kepatuhan terhadap batasan eksekusi: tanpa auto-verify, tanpa auto-commit, dan tanpa eksekusi langsung migrasi Supabase.
+
+---
+
+### Phase 69: Gap Closure (Menambahkan Filter Pemilihan SPK pada Tab Mandor Requests di /warehouse)
+**Status**: ⬜ Ready for Review
+**Objective**: Address gaps from operational feedback (Menambahkan kontrol filter pills horizontal nomor SPK pada panel Pending Requisitions di tab Mandor Requests halaman /warehouse untuk mempermudah petugas gudang menyaring dan memprioritaskan pengeluaran barang per SPK)
+
+**Gaps to Close:**
+- [x] Pembuatan skrip migrasi SQL `supabase/migrations/20261014_add_requisition_filter_indexes.sql` yang menambahkan indeks komposit `idx_material_requisitions_spk_status` pada `material_requisitions(spk_id, status)` dan `idx_material_requisition_items_req_status` pada `material_requisition_items(requisition_id, status)`.
+- [x] Penambahan state `selectedSpkFilter` dan komputasi reaktif `spkSummary` serta `filteredRequisitions` di `src/components/RequisitionApproval.tsx`.
+- [x] Integrasi visual filter pills horizontal di baris header panel "Pending Requisitions (Mandor)" dengan highlight aksen oranye RobelKaroseri, ringkasan jumlah per-SPK, dan opsi "Semua SPK".
+- [x] Penambahan penanganan empty state ramah saat SPK yang dipilih tidak memiliki permintaan pending lagi beserta tombol cepat reset filter.
+- [x] Memastikan badge counter total antrean pada tab "Mandor Requests" di `WarehouseDashboard.tsx` tetap konsisten mencerminkan seluruh beban kerja pending.
+- [x] Memastikan kepatuhan terhadap batasan eksekusi: tanpa auto-verify, tanpa auto-commit, dan tanpa eksekusi langsung migrasi Supabase.
+
+---
+
+### Phase 70: Gap Closure (Refactor Filter SPK Menjadi List Box Vertikal di Sidebar Kanan Gudang pada /warehouse)
+**Status**: ⬜ Ready for Review
+**Objective**: Address gaps from operational feedback (Memindahkan filter pills horizontal dari header tabel yang sempit menjadi kartu List Box vertikal di sidebar kanan saat tab Mandor Requests aktif, lengkap dengan nomor SPK, nama pelanggan/unit, dan badge counter pending)
+
+**Gaps to Close:**
+- [x] Pembuatan komponen `src/components/SpkFilterListBox.tsx` untuk menyajikan list box vertikal interaktif kartu SPK (Nomor SPK, Nama Pelanggan, badge jumlah pending, opsi Semua SPK, container scrollable, dan highlight oranye aktif).
+- [x] Pembersihan baris header panel "Pending Requisitions (Mandor)" di `src/components/RequisitionApproval.tsx` dari elemen filter pills horizontal, mengembalikannya ke tampilan bersih (Icon, Judul, dan Total Badge), serta integrasi penanganan empty state dan reset filter.
+- [x] Integrasi sidebar kanan di `src/pages/WarehouseDashboard.tsx` untuk menampilkan `SpkFilterListBox` tepat di atas widget Low Stock Warnings ketika tab Mandor Requests aktif.
+- [x] Penyelarasan reaktivitas dua arah: klik pada kartu SPK di sidebar kanan langsung menyaring daftar antrean kartu requisition di panel kiri tanpa re-fetch data database berulang.
+- [x] Memastikan kepatuhan terhadap batasan eksekusi: tanpa auto-verify, tanpa auto-commit, dan tanpa eksekusi langsung migrasi Supabase.

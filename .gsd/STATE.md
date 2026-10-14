@@ -1,55 +1,43 @@
 ## Current Position
-- **Phase**: 68 (Gap Closure: Void Recent Material Issue Mengembalikan Permintaan ke Tab Mandor Requests dan Menyesuaikan Stok Material di /warehouse)
-- **Task**: Implementation completed (ready for manual review, SQL migration execution in Supabase SQL editor, manual test, & git commit by user)
+- **Phase**: 70 (Gap Closure: Refactor Filter SPK Menjadi List Box Vertikal di Sidebar Kanan Gudang pada /warehouse)
+- **Task**: Implementation completed (ready for manual review, manual test, & git commit by user)
 - **Status**: Implemented & Ready for Manual Verification
 
 ## Last Session Summary
-Phase 68 diimplementasikan secara komprehensif mengikuti seluruh rincian kebutuhan dan batasan instruksi pengguna:
-1. `supabase/migrations/20261014_void_material_issue_rollback.sql`:
-   - DDL penambahan kolom relasi `requisition_id UUID REFERENCES material_requisitions(id)`, `requisition_item_id UUID REFERENCES material_requisition_items(id)`, dan `status VARCHAR(20) DEFAULT 'ACTIVE'` pada tabel `public.inventory_transactions`.
-   - DDL penambahan kolom `status VARCHAR(20) DEFAULT 'PENDING'` pada tabel `public.material_requisition_items`.
-   - Dibuat fungsi database RPC atomik `public.void_material_issue(p_issue_id UUID)`:
-     * Mengembalikan stok fisik pada tabel `materials` (`current_stock = current_stock + qty`).
-     * Mencari relasi permintaan (baik via foreign key langsung maupun fallback SPK + material aktif).
-     * Mengembalikan status item dan header pada `material_requisitions` menjadi `'PENDING'`.
-     * Menghapus baris transaksi aktif pada `inventory_transactions` agar tidak terhitung lagi dalam riil biaya SPK.
-   - Dibuat fungsi batch RPC `public.void_material_issues(p_issue_ids UUID[])`.
-   - Pemberian izin eksekusi (`GRANT EXECUTE`) kedua fungsi RPC kepada peran `authenticated`.
-2. `src/services/inventoryService.ts`:
-   - Refactor method `deleteIssuesAndRevertStock` untuk memprioritaskan pemanggilan RPC `void_material_issues` dan `void_material_issue`.
-   - Penyediaan fallback client-side yang andal jika pengguna menguji sebelum mengeksekusi migrasi di Supabase (mengembalikan stok fisik `materials`, mengembalikan status `material_requisition_items` dan `material_requisitions` ke `'PENDING'`, serta menghapus transaksi aktif).
-3. `src/components/RecentMaterialIssues.tsx`:
-   - Standarisasi dialog konfirmasi `ConfirmationModal`:
-     * Judul: "Konfirmasi Void Pengeluaran Material"
-     * Pesan: "Apakah Anda yakin ingin membatalkan pengeluaran material ini? Stok akan dikembalikan dan item ini akan muncul kembali di tab Permintaan Mandor untuk diapprove ulang."
-     * Tombol: "Ya, Void Transaksi" (`variant: 'danger'`) dan "Batal".
-   - Penambahan tombol aksi cepat void (ikon Trash) di kolom "Aksi" pada setiap baris tabel.
-   - Penambahan props callback `onSuccess?: () => void` yang dipanggil setelah transaksi berhasil dibatalkan.
-   - Feedback modal sukses informatif saat void berhasil dilakukan.
-4. `src/pages/WarehouseDashboard.tsx`:
-   - Penambahan kalkulasi dinamis `pendingReqCount` untuk antrean `material_requisitions` berstatus `PENDING`.
-   - Penambahan badge counter peringatan pada tab button "Mandor Requests" (`[ {pendingReqCount} ]`).
-   - Integrasi callback `onSuccess` dari `RecentMaterialIssues` ke `handleIssueSuccess` untuk memperbarui `refreshKey`, daftar peringatan stok menipis (`fetchMaterials`), dan counter badge `fetchPendingReqCount`.
-   - Pengoperan `refreshKey` ke komponen `RequisitionApproval`.
-5. `src/components/RequisitionApproval.tsx`:
-   - Penerimaan props `refreshKey` pada `RequisitionApprovalProps` dan pemicuan re-fetch otomatis pada `useEffect([refreshKey])`.
-   - Saat approval: mencatat relasi `requisition_id` dan `requisition_item_id` pada transaksi `inventory_transactions` serta mengurangi stok fisik `materials.current_stock` untuk menjaga keseimbangan inventaris fisik.
-6. Kepatuhan Batasan:
+Phase 70 diimplementasikan secara komprehensif mengikuti seluruh rincian kebutuhan dan batasan instruksi pengguna:
+1. `src/components/SpkFilterListBox.tsx`:
+   - Dibuat komponen List Box vertikal interaktif yang elegan bergaya dark industrial RobelKaroseri.
+   - Header panel memuat judul "Filter Berdasarkan SPK", ikon filter, dan badge jumlah SPK aktif.
+   - Container scrollable (`max-h-[550px] overflow-y-auto scrollbar-thin space-y-2 p-3`).
+   - Item 1 (Default): Kartu "Semua SPK" dengan subteks "Tampilkan seluruh antrean permintaan mandor" dan badge total seluruh pending.
+   - Item 2..N: Kartu masing-masing SPK memuat Nomor SPK (font-mono tebal), nama pelanggan/deskripsi unit (truncate rapi), badge jumlah pending, serta indikator aktif ("✓ Aktif").
+   - Highlight kartu aktif dengan border oranye tegas (`border-primary bg-primary/10 shadow-sm ring-1 ring-primary`).
+2. `src/components/RequisitionApproval.tsx`:
+   - Pembersihan header panel "Pending Requisitions (Mandor)": seluruh elemen horizontal filter pills dihapus sehingga header kembali rapi dan lega.
+   - Header kiri menampilkan icon ClipboardList, Judul "Pending Requisitions (Mandor)", dan badge total counter permintaan pending.
+   - Indikator kecil filter aktif (beserta tombol reset cepat) muncul hanya saat filter SPK aktif dipilih.
+   - Menerima props `selectedSpkFilter`, `onResetFilter`, dan menyalurkan daftar ringkasan SPK via callback `onSpkSummaryChange` ke parent.
+   - Penyaringan kartu permintaan dilakukan secara reaktif, dilengkapi penanganan empty state ramah jika SPK yang dipilih tidak lagi memiliki permintaan pending.
+3. `src/pages/WarehouseDashboard.tsx`:
+   - State `selectedSpkFilter` dan `spkFilterList` dikelola secara terpusat.
+   - Pada kolom sidebar kanan, ketika tab aktif adalah "Mandor Requests" (`activeTab === 'requisition'`), komponen `SpkFilterListBox` ditampilkan di atas widget "Low Stock Warnings".
+   - Counter total pending pada badge tab tetap konsisten menampilkan seluruh beban kerja pending gudang.
+4. Kepatuhan Batasan:
    - Tanpa verifikasi otomatis (no auto-verify).
    - Tanpa git commit otomatis (no auto-commit).
-   - Tanpa eksekusi otomatis migrasi Supabase (skrip SQL tersedia di `supabase/migrations/20261014_void_material_issue_rollback.sql` untuk dijalankan pengguna di SQL Editor Supabase).
+   - Tanpa eksekusi otomatis migrasi Supabase (tidak ada perubahan skema database baru yang diperlukan untuk refactor UI ini).
 
 ## Blockers
 None.
 
 ## Next Steps
-1. Pengguna membuka Supabase Dashboard -> SQL Editor, lalu menyalin dan mengeksekusi isi skrip dari berkas:
-   `supabase/migrations/20261014_void_material_issue_rollback.sql`
-2. Pengguna login ke aplikasi dengan akun `petugas_gudang` atau `owner`.
-3. Pengguna menuju halaman `/warehouse`:
-   - Periksa tab "Mandor Requests": pastikan counter badge menampilkan jumlah permintaan `PENDING` (jika ada).
-   - Lakukan approval pada salah satu permintaan mandor: amati transaksi pengeluaran baru tercatat di tabel "Recent Material Issues".
-   - Pilih satu atau beberapa baris di tabel "Recent Material Issues", lalu klik tombol **Void Transaksi** (atau ikon tempat sampah di kolom Aksi).
-   - Pastikan modal dialog custom (`ConfirmationModal`) muncul dengan judul "Konfirmasi Void Pengeluaran Material" dan pesan penjelasan pemulihan stok serta antrean.
-   - Klik **Ya, Void Transaksi**: pastikan transaksi terhapus dari tabel issues, stok gudang bertambah kembali, dan permintaan tersebut langsung muncul kembali di tab "Mandor Requests" dengan counter badge yang bertambah.
-4. Pengguna melakukan review kode, pengujian manual, dan git commit.
+1. Pengguna login ke aplikasi dengan akun `petugas_gudang` atau `owner`.
+2. Pengguna membuka halaman `/warehouse` dan memilih tab **Mandor Requests**:
+   - Periksa panel kiri "Pending Requisitions (Mandor)": pastikan header sekarang bersih tanpa deretan pill horizontal.
+   - Periksa panel samping kanan: pastikan muncul kartu **Filter Berdasarkan SPK** dengan opsi "Semua SPK" dan daftar kartu SPK (lengkap dengan Nomor SPK, Nama Pelanggan, dan badge pending).
+   - Klik salah satu kartu SPK di panel kanan:
+     * Amati kartu di panel kanan langsung mendapatkan highlight oranye aktif ("✓ Aktif").
+     * Amati daftar permintaan di panel kiri langsung tersaring hanya menampilkan item milik SPK tersebut.
+   - Klik kartu "Semua SPK" di panel kanan:
+     * Amati daftar permintaan di panel kiri kembali menampilkan seluruh antrean.
+3. Pengguna melakukan review kode, pengujian visual, dan git commit.
