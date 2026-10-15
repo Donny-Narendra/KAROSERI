@@ -114,20 +114,14 @@ export function isRabItemAllocated(
             const subMat = Array.isArray(subItem.materials) ? subItem.materials[0] : subItem.materials;
             const subMatId = subMat?.id || subItem.material_id;
             const subRabId = subItem.rab_item_id;
-            if (materialId && subMatId === materialId) return true;
-            if (rabItemId && (subMatId === rabItemId || subRabId === rabItemId)) return true;
+            // Exact RAB Item ID match
+            if (rabItemId && (subRabId === rabItemId || subMatId === rabItemId)) return true;
 
             const subName = (subMat?.name || subItem.material_name || '').trim();
             const normSubName = normalizeText(subName);
-            if (normSubName && normalizedItemName) {
-              if (normSubName === normalizedItemName) return true;
-              if (normSubName.length >= 4 && normalizedItemName.includes(normSubName)) return true;
-              if (normalizedItemName.length >= 4 && normSubName.includes(normalizedItemName)) return true;
-
-              const subWords = normSubName.split(' ').filter(w => w.length >= 3);
-              const itemWords = normalizedItemName.split(' ').filter(w => w.length >= 3);
-              if (itemWords.length >= 2 && itemWords.every(w => normSubName.includes(w))) return true;
-              if (subWords.length >= 2 && subWords.every(w => normalizedItemName.includes(w))) return true;
+            // Strict exact normalized name match (avoid substring/word overlap false positives between distinct items)
+            if (normSubName && normalizedItemName && normSubName === normalizedItemName) {
+              return true;
             }
             return false;
           });
@@ -137,22 +131,14 @@ export function isRabItemAllocated(
         const reqMatId = reqMat?.id || req.material_id || req.materialId;
         const reqRabId = req.sourceRabId || req.tempId || req.id;
 
-        // Check IDs
-        if (materialId && (reqMatId === materialId || reqRabId === materialId)) return true;
-        if (rabItemId && (reqMatId === rabItemId || reqRabId === rabItemId)) return true;
+        // Check exact RAB Item ID
+        if (rabItemId && (reqRabId === rabItemId || reqMatId === rabItemId)) return true;
 
-        // Check Names
+        // Check exact Name match
         const reqName = (reqMat?.name || req.name || req.item_name || req.description || '').trim();
         const normReqName = normalizeText(reqName);
-        if (normReqName && normalizedItemName) {
-          if (normReqName === normalizedItemName) return true;
-          if (normReqName.length >= 4 && normalizedItemName.includes(normReqName)) return true;
-          if (normalizedItemName.length >= 4 && normReqName.includes(normalizedItemName)) return true;
-
-          const reqWords = normReqName.split(' ').filter(w => w.length >= 3);
-          const itemWords = normalizedItemName.split(' ').filter(w => w.length >= 3);
-          if (itemWords.length >= 2 && itemWords.every(w => normReqName.includes(w))) return true;
-          if (reqWords.length >= 2 && reqWords.every(w => normalizedItemName.includes(w))) return true;
+        if (normReqName && normalizedItemName && normReqName === normalizedItemName) {
+          return true;
         }
 
         return false;
@@ -167,23 +153,16 @@ export function isRabItemAllocated(
     const matchInLocal = localRequisitions.some((req) => {
       if (!req) return false;
       const reqMat = Array.isArray(req.materials) ? req.materials[0] : req.materials;
-      const reqMatId = reqMat?.id || req.material_id || req.materialId;
       const reqRabId = req.sourceRabId || req.tempId || req.id;
 
-      if (materialId && (reqMatId === materialId || reqRabId === materialId)) return true;
-      if (rabItemId && (reqMatId === rabItemId || reqRabId === rabItemId)) return true;
+      // Exact RAB Item ID match (strictly isolates moved items from remaining available items)
+      if (rabItemId && reqRabId === rabItemId) return true;
 
+      // Exact name match only if item is from RAB or explicit
       const reqName = (reqMat?.name || req.name || req.item_name || req.description || '').trim();
       const normReqName = normalizeText(reqName);
-      if (normReqName && normalizedItemName) {
-        if (normReqName === normalizedItemName) return true;
-        if (normReqName.length >= 4 && normalizedItemName.includes(normReqName)) return true;
-        if (normalizedItemName.length >= 4 && normReqName.includes(normalizedItemName)) return true;
-
-        const reqWords = normReqName.split(' ').filter(w => w.length >= 3);
-        const itemWords = normalizedItemName.split(' ').filter(w => w.length >= 3);
-        if (itemWords.length >= 2 && itemWords.every(w => normReqName.includes(w))) return true;
-        if (reqWords.length >= 2 && reqWords.every(w => normalizedItemName.includes(w))) return true;
+      if (!req.isManual && normReqName && normalizedItemName && normReqName === normalizedItemName) {
+        return true;
       }
 
       return false;

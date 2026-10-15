@@ -31,7 +31,7 @@ export const GoodsReturnForm: React.FC<GoodsReturnFormProps> = ({ onSuccess }) =
   }, []);
 
   const fetchSpks = async () => {
-    const { data, error } = await supabase.from('spk').select('id, spk_no, customer_name, vehicle_plate, status').eq('status', 'ACTIVE').order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('spk').select('id, spk_no, customer_name, vehicle_plate, sub_tasks, status').eq('status', 'ACTIVE').order('created_at', { ascending: false });
     if (data) setSpks(data);
     if (error) console.error('Error fetching SPKs:', error);
   };

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Filter, Layers, CheckCircle2, Search, X, Wrench } from 'lucide-react';
+import { Filter, Layers, CheckCircle2, Search, X } from 'lucide-react';
 
 export interface SpkFilterItem {
   spkId: string;
@@ -10,6 +10,34 @@ export interface SpkFilterItem {
   count: number;
 }
 export const SpkFilterItem = {};
+
+export const formatSubTasks = (subTasks?: string[] | string): string => {
+  if (!subTasks) return '';
+  if (Array.isArray(subTasks)) {
+    return subTasks
+      .map((item) => (item !== null && item !== undefined ? String(item).trim() : ''))
+      .filter(Boolean)
+      .join(', ');
+  }
+  if (typeof subTasks === 'string') {
+    const trimmed = subTasks.trim();
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map((item) => (item !== null && item !== undefined ? String(item).trim() : ''))
+            .filter(Boolean)
+            .join(', ');
+        }
+      } catch {
+        // Fallback to trimmed if not valid JSON
+      }
+    }
+    return trimmed;
+  }
+  return '';
+};
 
 interface SpkFilterListBoxProps {
   items: SpkFilterItem[];
@@ -39,13 +67,7 @@ export const SpkFilterListBox: React.FC<SpkFilterListBoxProps> = ({
       const matchSpkNo = (spk.spkNo || '').toLowerCase().includes(q);
       const matchCustomer = (spk.customerName || '').toLowerCase().includes(q);
       const matchPlate = (spk.vehiclePlate || '').toLowerCase().includes(q);
-
-      let matchSubTasks = false;
-      if (Array.isArray(spk.subTasks)) {
-        matchSubTasks = spk.subTasks.some((t) => (t || '').toLowerCase().includes(q));
-      } else if (typeof spk.subTasks === 'string') {
-        matchSubTasks = spk.subTasks.toLowerCase().includes(q);
-      }
+      const matchSubTasks = formatSubTasks(spk.subTasks).toLowerCase().includes(q);
 
       return matchSpkNo || matchCustomer || matchPlate || matchSubTasks;
     });
@@ -127,11 +149,7 @@ export const SpkFilterListBox: React.FC<SpkFilterListBoxProps> = ({
             const isSelected = selectedSpk === spk.spkNo || selectedSpk === spk.spkId;
 
             // Ekstrak teks ringkasan sub_tasks untuk line-clamp
-            const subTasksText = Array.isArray(spk.subTasks)
-              ? spk.subTasks.join(' • ')
-              : typeof spk.subTasks === 'string'
-              ? spk.subTasks
-              : '';
+            const subTasksText = formatSubTasks(spk.subTasks);
 
             return (
               <div
@@ -184,15 +202,17 @@ export const SpkFilterListBox: React.FC<SpkFilterListBoxProps> = ({
                   )}
                 </div>
 
-                {/* Baris 3: Ringkasan Sub Tasks / Modifikasi dengan ikon teknis kecil & line-clamp (maks 2 baris) */}
-                {subTasksText ? (
-                  <div className="mt-0.5 pt-1.5 border-t border-slate-800/80 flex items-start gap-1.5 text-[11px] text-slate-400">
-                    <Wrench className="w-3 h-3 text-amber-400/80 shrink-0 mt-0.5" />
-                    <span className="line-clamp-2 leading-relaxed font-mono" title={subTasksText}>
-                      {subTasksText}
-                    </span>
-                  </div>
-                ) : null}
+                {/* Baris 3: Sub Tasks */}
+                <div className="mt-1 pt-1.5 border-t border-slate-800 text-xs">
+                  <p className="line-clamp-2 text-slate-300 leading-relaxed" title={subTasksText || undefined}>
+                    <span className="text-slate-400 font-semibold">Sub Task: </span>
+                    {subTasksText ? (
+                      <span>{subTasksText}</span>
+                    ) : (
+                      <span className="text-slate-500 italic">-</span>
+                    )}
+                  </p>
+                </div>
               </div>
             );
           })

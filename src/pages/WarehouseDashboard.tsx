@@ -42,17 +42,20 @@ export const WarehouseDashboard: React.FC = () => {
         setPendingReqCount(count ?? data.length);
         const map = new Map<string, SpkFilterItem>();
         data.forEach((req: any) => {
-          const spkId = req.spk?.id;
-          const spkNo = req.spk?.spk_no || 'Tanpa SPK';
-          const customerName = req.spk?.customer_name || 'Umum';
-          const vehiclePlate = req.spk?.vehicle_plate || '';
-          const subTasks = req.spk?.sub_tasks || [];
+          const spk = Array.isArray(req.spk) ? req.spk[0] : req.spk;
+          const spkId = spk?.id;
+          const spkNo = spk?.spk_no || 'Tanpa SPK';
+          const customerName = spk?.customer_name || 'Umum';
+          const vehiclePlate = spk?.vehicle_plate || '';
+          const subTasks = spk?.sub_tasks || [];
           
           if (map.has(spkNo)) {
             const current = map.get(spkNo)!;
             current.count += 1;
             if (!current.vehiclePlate && vehiclePlate) current.vehiclePlate = vehiclePlate;
-            if ((!current.subTasks || current.subTasks.length === 0) && subTasks) current.subTasks = subTasks;
+            const hasExistingSubTasks = Array.isArray(current.subTasks) ? current.subTasks.length > 0 : Boolean(current.subTasks);
+            const hasNewSubTasks = Array.isArray(subTasks) ? subTasks.length > 0 : Boolean(subTasks);
+            if (!hasExistingSubTasks && hasNewSubTasks) current.subTasks = subTasks;
           } else {
             map.set(spkNo, {
               spkId: spkId || null,

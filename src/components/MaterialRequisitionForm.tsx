@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -12,7 +12,7 @@ import {
   X,
   FileText
 } from 'lucide-react';
-import { isRabItemAllocated, normalizeText } from '../utils/rabItemAllocation';
+import { normalizeText } from '../utils/rabItemAllocation';
 import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
 
 interface MasterMaterial {
@@ -85,17 +85,16 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
   const [masterMaterials, setMasterMaterials] = useState<MasterMaterial[]>([]);
   const [spkNo, setSpkNo] = useState<string>('');
 
-  // Dual-list states & Exclusion states
+  // Dual-list states
   const [rawRabItems, setRawRabItems] = useState<RabSourceItem[]>([]);
-  const [usedRequisitionItemIds, setUsedRequisitionItemIds] = useState<Set<string>>(new Set());
-  const [activeSpkBoronganList, setActiveSpkBoronganList] = useState<ActiveSpkBorongan[]>([]);
+  const [availableItems, setAvailableItems] = useState<RabSourceItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<RequisitionItem[]>([]);
 
   // Selection states for transfer
   const [highlightedSourceId, setHighlightedSourceId] = useState<string | null>(null);
   const [highlightedTargetId, setHighlightedTargetId] = useState<string | null>(null);
 
-  // Confirmation dialog state for removing / returning item
+  // Confirmation dialog state for removing / returning item that is persisted in DB
   const [confirmItemToRemove, setConfirmItemToRemove] = useState<RequisitionItem | null>(null);
 
   // Notification / Alert modal state
@@ -106,34 +105,13 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
     onConfirm?: () => void;
   } | null>(null);
 
-  // Filtered available RAB items:
-  // Mengecualikan secara terpadu melalui shared availability filter:
-  // 1. Material yang sudah ada di Requisition tersimpan di database untuk SPK & WBS ini
-  // 2. Material yang sedang ada di daftar permintaan lokal (selectedItems)
-  // 3. Pekerjaan / material yang sudah ditugaskan ke pekerja di SPK Borongan (status !== 'CUT_OFF')
-  const availableItems = useMemo(() => {
-    return rawRabItems.filter((item) => {
-      const isAllocated = isRabItemAllocated(
-        item,
-        usedRequisitionItemIds,
-        activeSpkBoronganList,
-        selectedItems
-      );
-      return !isAllocated;
-    });
-  }, [rawRabItems, usedRequisitionItemIds, selectedItems, activeSpkBoronganList]);
-
   // Form states
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadInitialData();
-  }, [spkId, wbsCategory]);
-
-  const loadInitialData = async () => {
+  const loadInitialData = useCallback(async () => {
     setFetching(true);
     setErrorMessage(null);
     try {
@@ -215,12 +193,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
             }
             if (!matchedMat && item.description) {
               const cleanDesc = normalizeText(item.description);
-              matchedMat = loadedMaster.find(m => normalizeText(m.name) === cleanDesc) ||
-                loadedMaster.find(m => {
-                  const normM = normalizeText(m.name);
-                  return (normM.length >= 4 && cleanDesc.includes(normM)) ||
-                         (cleanDesc.length >= 4 && normM.includes(cleanDesc));
-                });
+              matchedMat = loadedMaster.find(m => normalizeText(m.name) === cleanDesc);
             }
 
             // CRITICAL FIX: NEVER fallback to item.id (which is rab_items.id)!
@@ -248,6 +221,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
       }
 
       // 4. Fetch Active SPK Borongan Assignments for this SPK and WBS (Exclusion List)
+      let matchingBorong: ActiveSpkBorongan[] = [];
       try {
         const { data: spkBData, error: spkBError } = await supabase
           .from('spk_borongan')
@@ -258,7 +232,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
         if (spkBError) {
           console.error('Error fetching spk_borongan for exclusion:', spkBError);
         } else if (spkBData) {
-          const matchingBorong: ActiveSpkBorongan[] = (spkBData as any[]).filter((borong) => {
+          matchingBorong = (spkBData as any[]).filter((borong) => {
             if (!borong.wbs_category) return true;
             const bCat = borong.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
             return (
@@ -266,14 +240,12 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
               borong.wbs_category.toLowerCase() === wbsCategory.toLowerCase()
             );
           });
-          setActiveSpkBoronganList(matchingBorong);
         }
       } catch (spkBErr) {
         console.error('Error loading spk_borongan for exclusion:', spkBErr);
       }
 
       // 5. Fetch Existing Requisitions for this SPK and WBS (Exclusion & Hydration)
-      const requisitionIds = new Set<string>();
       const persistedItems: RequisitionItem[] = [];
       try {
         const { data: reqData, error: reqError } = await supabase
@@ -324,8 +296,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                 // Check if this requisition item matches a RAB item from sourceList
                 const matchedRab = sourceList.find(r => 
                   (item.rab_item_id && r.id === item.rab_item_id) ||
-                  (normItemName && normalizeText(r.name) === normItemName) ||
-                  (normItemName && normItemName.length >= 4 && (normalizeText(r.name).includes(normItemName) || normItemName.includes(normalizeText(r.name))))
+                  (normItemName && normalizeText(r.name) === normItemName)
                 );
 
                 // Check if item matches master materials table
@@ -373,19 +344,6 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                   dbRequisitionId: req.id,
                   status: req.status || 'PENDING'
                 });
-
-                // Add to exclusion set
-                if (materialId) requisitionIds.add(materialId);
-                if (sourceRabId) requisitionIds.add(sourceRabId);
-                if (item.rab_item_id) requisitionIds.add(item.rab_item_id);
-                if (cleanItemName) {
-                  requisitionIds.add(cleanItemName.toLowerCase());
-                  requisitionIds.add(normalizeText(cleanItemName));
-                }
-                if (name) {
-                  requisitionIds.add(name.toLowerCase());
-                  requisitionIds.add(normalizeText(name));
-                }
               });
             }
           });
@@ -393,17 +351,49 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
       } catch (reqErr) {
         console.error('Error loading requisitions for exclusion:', reqErr);
       }
-      setUsedRequisitionItemIds(requisitionIds);
+
+      // 6. Calculate initial available RAB items
+      // Items are excluded if already persisted in a requisition for this WBS,
+      // or already assigned in active SPK Borongan.
+      const persistedRabIds = new Set(
+        persistedItems
+          .map(p => p.sourceRabId)
+          .filter((id): id is string => Boolean(id))
+      );
+
+      const initialAvailable = sourceList.filter(item => {
+        // Exclude if already in a saved requisition
+        if (persistedRabIds.has(item.id)) return false;
+
+        // Exclude if allocated in active SPK Borongan
+        const isBorong = matchingBorong.some(b => {
+          const status = (b.status || '').toUpperCase();
+          if (status === 'CUT_OFF' || status === 'CANCELLED') return false;
+          if (b.rab_item_id && b.rab_item_id === item.id) return true;
+          const bDesc = normalizeText(b.task_description);
+          const rName = normalizeText(item.name);
+          return bDesc && rName && bDesc === rName;
+        });
+        if (isBorong) return false;
+
+        return true;
+      });
+
       setSelectedItems(persistedItems);
+      setAvailableItems(initialAvailable);
     } catch (err: any) {
       console.error('Error loading requisition data:', err);
       setErrorMessage(err.message || 'Gagal memuat data alokasi RAB');
     } finally {
       setFetching(false);
     }
-  };
+  }, [cleanWbsCategory, spkId, wbsCategory]);
 
-  // Transfer Handlers
+  useEffect(() => {
+    loadInitialData();
+  }, [loadInitialData]);
+
+  // Transfer Handlers (Single-item isolated transfer: Right to Left)
   const handleMoveToRequisition = (sourceIdToMove?: string) => {
     const targetId = sourceIdToMove || highlightedSourceId;
     if (!targetId) return;
@@ -411,7 +401,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
     const sourceItem = availableItems.find(item => item.id === targetId);
     if (!sourceItem) return;
 
-    // Add to selected items (availableItems will automatically exclude it via useMemo)
+    // Add to left list (selectedItems)
     const newRequisitionItem: RequisitionItem = {
       tempId: `req-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       sourceRabId: sourceItem.id,
@@ -421,28 +411,56 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
       unitPrice: sourceItem.unitPrice,
       quantity: sourceItem.rabQuantity > 0 ? sourceItem.rabQuantity : 1,
       subtotal: sourceItem.subtotal,
-      isManual: false
+      isManual: false,
+      isPersisted: false
     };
 
     setSelectedItems(prev => [...prev, newRequisitionItem]);
+    // Remove ONLY the selected item from availableItems on the right
+    setAvailableItems(prev => prev.filter(item => item.id !== sourceItem.id));
     setHighlightedSourceId(null);
     setHighlightedTargetId(newRequisitionItem.tempId);
   };
 
-  // Trigger confirmation dialog for removing / returning item
+  // Direct return / remove for unpersisted items (newly transferred or manual)
+  const handleReturnItem = (itemToRemove: RequisitionItem) => {
+    // 1. If it originated from RAB, return it to availableItems on the right
+    if (itemToRemove.sourceRabId) {
+      const orig = rawRabItems.find(r => r.id === itemToRemove.sourceRabId);
+      if (orig) {
+        setAvailableItems(prev => {
+          if (prev.some(r => r.id === orig.id)) return prev;
+          return [...prev, orig];
+        });
+      }
+    }
+
+    // 2. Remove from selectedItems on the left
+    setSelectedItems(prev => prev.filter(i => i.tempId !== itemToRemove.tempId));
+    if (highlightedTargetId === itemToRemove.tempId) {
+      setHighlightedTargetId(null);
+    }
+  };
+
+  // Trigger confirmation dialog for removing / returning item that is persisted in DB
   const handlePromptRemove = (item: RequisitionItem) => {
     setConfirmItemToRemove(item);
   };
 
-  const handlePromptRemoveHighlighted = () => {
+  // Return highlighted item (tombol >>)
+  const handleReturnHighlighted = () => {
     if (!highlightedTargetId) return;
     const item = selectedItems.find(i => i.tempId === highlightedTargetId);
-    if (item) {
-      setConfirmItemToRemove(item);
+    if (!item) return;
+
+    if (item.isPersisted) {
+      handlePromptRemove(item);
+    } else {
+      handleReturnItem(item);
     }
   };
 
-  // Execute Removal after Confirmation
+  // Execute Removal after Confirmation (for persisted items)
   const handleExecuteRemove = async (itemToCancel: RequisitionItem) => {
     setLoading(true);
     setErrorMessage(null);
@@ -470,18 +488,20 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
               .eq('id', itemToCancel.dbRequisitionId);
           }
         }
-
-        // Clean up from usedRequisitionItemIds set so item becomes available again in RAB
-        setUsedRequisitionItemIds((prev) => {
-          const next = new Set(prev);
-          if (itemToCancel.materialId) next.delete(itemToCancel.materialId);
-          if (itemToCancel.sourceRabId) next.delete(itemToCancel.sourceRabId);
-          if (itemToCancel.name) next.delete(itemToCancel.name.toLowerCase().trim());
-          return next;
-        });
       }
 
-      // 2. Remove from selectedItems state
+      // 2. If it originated from RAB, restore to availableItems on the right
+      if (itemToCancel.sourceRabId) {
+        const orig = rawRabItems.find(r => r.id === itemToCancel.sourceRabId);
+        if (orig) {
+          setAvailableItems(prev => {
+            if (prev.some(r => r.id === orig.id)) return prev;
+            return [...prev, orig];
+          });
+        }
+      }
+
+      // 3. Remove from selectedItems state
       setSelectedItems((prev) => prev.filter((i) => i.tempId !== itemToCancel.tempId));
       if (highlightedTargetId === itemToCancel.tempId) {
         setHighlightedTargetId(null);
@@ -754,7 +774,13 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                           <div
                             key={item.tempId}
                             onClick={() => setHighlightedTargetId(item.tempId)}
-                            onDoubleClick={() => handlePromptRemove(item)}
+                            onDoubleClick={() => {
+                              if (item.isPersisted) {
+                                handlePromptRemove(item);
+                              } else {
+                                handleReturnItem(item);
+                              }
+                            }}
                             className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
                               isHighlighted
                                 ? 'border-emerald-500 bg-emerald-500/15 ring-1 ring-emerald-500/40'
@@ -841,7 +867,11 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handlePromptRemove(item);
+                                    if (item.isPersisted) {
+                                      handlePromptRemove(item);
+                                    } else {
+                                      handleReturnItem(item);
+                                    }
                                   }}
                                   className="p-1 text-text-muted hover:text-rose-400 hover:bg-rose-500/10 rounded transition-colors"
                                   title={item.isPersisted ? 'Batalkan permintaan material ini' : (item.isManual ? 'Hapus item' : 'Kembalikan ke Alokasi RAB')}
@@ -882,7 +912,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
 
                   <button
                     type="button"
-                    onClick={handlePromptRemoveHighlighted}
+                    onClick={handleReturnHighlighted}
                     disabled={!highlightedTargetId}
                     className="flex-1 md:flex-none w-full md:w-auto p-2.5 md:p-3.5 bg-rose-600 hover:bg-rose-500 active:scale-95 disabled:opacity-30 disabled:pointer-events-none text-white rounded-xl shadow-md transition-all flex items-center justify-center gap-2 group"
                     title="Kembalikan item yang disorot ke Daftar RAB (>>)"

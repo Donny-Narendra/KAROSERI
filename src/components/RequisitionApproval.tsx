@@ -41,17 +41,20 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
   const spkSummary = useMemo(() => {
     const map = new Map<string, SpkSummaryItem>();
     requisitions.forEach(req => {
-      const spkNo = req.spk?.spk_no || req.spk?.spk_number || 'Tanpa SPK';
-      const spkId = req.spk?.id || req.spk_id || '';
-      const customerName = req.spk?.customer_name || 'Pelanggan Umum';
-      const vehiclePlate = req.spk?.vehicle_plate || '';
-      const subTasks = req.spk?.sub_tasks || [];
+      const spk = Array.isArray(req.spk) ? req.spk[0] : req.spk;
+      const spkNo = spk?.spk_no || spk?.spk_number || 'Tanpa SPK';
+      const spkId = spk?.id || req.spk_id || '';
+      const customerName = spk?.customer_name || 'Pelanggan Umum';
+      const vehiclePlate = spk?.vehicle_plate || '';
+      const subTasks = spk?.sub_tasks || [];
 
       const existing = map.get(spkNo);
       if (existing) {
         existing.count += 1;
         if (!existing.vehiclePlate && vehiclePlate) existing.vehiclePlate = vehiclePlate;
-        if ((!existing.subTasks || existing.subTasks.length === 0) && subTasks) existing.subTasks = subTasks;
+        const hasExistingSubTasks = Array.isArray(existing.subTasks) ? existing.subTasks.length > 0 : Boolean(existing.subTasks);
+        const hasNewSubTasks = Array.isArray(subTasks) ? subTasks.length > 0 : Boolean(subTasks);
+        if (!hasExistingSubTasks && hasNewSubTasks) existing.subTasks = subTasks;
       } else {
         map.set(spkNo, {
           spkId,
@@ -179,13 +182,14 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
         });
 
         const totalRequisitionCost = items.reduce((sum: number, it: any) => sum + it.subtotal, 0);
+        const rawSpk = Array.isArray(req.spk) ? req.spk[0] : req.spk;
 
         return {
           ...req,
-          spk: req.spk ? {
-            ...req.spk,
-            spk_no: req.spk.spk_no || req.spk.spk_number || 'Tanpa SPK',
-            spk_number: req.spk.spk_no || req.spk.spk_number || 'Tanpa SPK',
+          spk: rawSpk ? {
+            ...rawSpk,
+            spk_no: rawSpk.spk_no || rawSpk.spk_number || 'Tanpa SPK',
+            spk_number: rawSpk.spk_no || rawSpk.spk_number || 'Tanpa SPK',
           } : null,
           items,
           material_requisition_items: items,

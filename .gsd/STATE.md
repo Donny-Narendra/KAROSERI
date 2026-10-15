@@ -1,7 +1,7 @@
 ## Current Position
-- **Phase**: 75 (Gap Closure: Bugfix UI & Data Fetch: Menampilkan Rincian Nama, Jumlah Satuan, dan Estimasi Harga Material pada Kartu "Pending Requisitions (Mandor)" di /warehouse)
-- **Task**: Implementation completed (ready for manual review, manual test, & git commit by user)
-- **Status**: Implemented & Ready for Manual Verification
+- **Sprint**: Sprint 1 (Fix item transfer isolation in Mandor Material Requisition modal)
+- **Status**: Sprint in progress
+- **Milestone**: (paused while sprint is active - Phase 75 completed)
 
 ## Last Session Summary
 Phase 75 diimplementasikan secara komprehensif mengikuti seluruh rincian spesifikasi dan batasan pengguna:
