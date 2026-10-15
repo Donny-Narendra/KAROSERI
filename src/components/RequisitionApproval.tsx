@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
-import { Check, X, ClipboardList, Loader2, AlertTriangle, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Check, X, ClipboardList, Loader2, AlertTriangle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { ConfirmationModal } from './ConfirmationModal';
 import type { StockAuditItem } from './RecentApprovedMaterials';
 
@@ -39,8 +39,8 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
   const spkSummary = useMemo(() => {
     const map = new Map<string, SpkSummaryItem>();
     requisitions.forEach(req => {
-      const spkNo = req.spk?.spk_no || 'Tanpa SPK';
-      const spkId = req.spk?.id || '';
+      const spkNo = req.spk?.spk_no || req.spk?.spk_number || 'Tanpa SPK';
+      const spkId = req.spk?.id || req.spk_id || '';
       const customerName = req.spk?.customer_name || 'Pelanggan Umum';
       const existing = map.get(spkNo);
       if (existing) {
@@ -67,8 +67,9 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
       return requisitions;
     }
     return requisitions.filter(req => 
-      (req.spk?.spk_no || 'Tanpa SPK') === selectedSpkFilter ||
-      req.spk?.id === selectedSpkFilter
+      (req.spk?.spk_no || req.spk?.spk_number || 'Tanpa SPK') === selectedSpkFilter ||
+      req.spk?.id === selectedSpkFilter ||
+      req.spk_id === selectedSpkFilter
     );
   }, [requisitions, selectedSpkFilter]);
 
@@ -121,9 +122,11 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
         .from('material_requisitions')
         .select(`
           id,
+          spk_id,
           wbs_category,
           status,
           notes,
+          requested_by,
           created_at,
           spk ( id, spk_no, customer_name ),
           profiles ( full_name ),
@@ -131,17 +134,57 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
             id,
             material_id,
             quantity,
+            status,
             rab_item_id,
             material_name,
             unit,
-            materials ( name, unit )
+            materials ( id, name, unit, unit_price )
           )
         `)
         .eq('status', 'PENDING')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setRequisitions(data || []);
+
+      // Normalisasi data requisition agar mendukung berbagai penamaan properti secara defensif
+      const normalizedData = (data || []).map((req: any) => {
+        const rawItems = req.material_requisition_items || req.items || [];
+        const items = rawItems.map((item: any) => {
+          const mat = item.material || item.materials;
+          const name = item.material_name || mat?.name || 'Material Non-Stok';
+          const unit = item.unit || mat?.unit || 'pcs';
+          const unitPrice = Number(mat?.unit_price ?? item.unit_price ?? 0);
+          const quantity = Number(item.quantity) || 0;
+          const subtotal = quantity * unitPrice;
+
+          return {
+            ...item,
+            material: mat || { id: item.material_id, name, unit, unit_price: unitPrice },
+            materials: mat || { id: item.material_id, name, unit, unit_price: unitPrice },
+            material_name: name,
+            unit,
+            unit_price: unitPrice,
+            quantity,
+            subtotal
+          };
+        });
+
+        const totalRequisitionCost = items.reduce((sum: number, it: any) => sum + it.subtotal, 0);
+
+        return {
+          ...req,
+          spk: req.spk ? {
+            ...req.spk,
+            spk_no: req.spk.spk_no || req.spk.spk_number || 'Tanpa SPK',
+            spk_number: req.spk.spk_no || req.spk.spk_number || 'Tanpa SPK',
+          } : null,
+          items,
+          material_requisition_items: items,
+          totalRequisitionCost
+        };
+      });
+
+      setRequisitions(normalizedData);
     } catch (err) {
       console.error('Error fetching requisitions:', err);
     } finally {
@@ -154,12 +197,14 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
   }, [refreshKey]);
 
   const handleRequestApprove = (requisition: any) => {
+    const totalCostStr = (requisition.totalRequisitionCost || 0).toLocaleString('id-ID');
+    const spkDisplayName = requisition.spk?.spk_no || requisition.spk?.spk_number || '-';
     setConfirmDialog({
       isOpen: true,
       type: 'APPROVE',
       requisition,
       title: 'Setujui Permintaan Material',
-      message: `Apakah Anda yakin ingin menyetujui permintaan material untuk SPK ${requisition.spk?.spk_no || '-'} dan mengeluarkan material terkait?\n\nKuantitas material akan otomatis dicatat pada transaksi inventaris gudang dan stok fisik akan disesuaikan.`,
+      message: `Apakah Anda yakin ingin menyetujui permintaan material untuk SPK ${spkDisplayName} sebesar Rp ${totalCostStr} dan mengeluarkan material terkait?\n\nKuantitas material akan otomatis dicatat pada transaksi inventaris gudang dan stok fisik akan disesuaikan.`,
       confirmText: 'Ya, Setujui & Keluarkan',
       variant: 'info',
     });
@@ -256,13 +301,13 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
           if (txError) {
             console.warn('Gagal insert dengan kolom snapshot stok, mencoba fallback transaksi:', txError.message);
             // Defensive fallback jika kolom stock_before / stock_after belum dieksekusi di database
-            const fallbackTransactions = transactions.map(({ stock_before, stock_after, ...rest }) => rest);
+            const fallbackTransactions = transactions.map(({ stock_before, stock_after, ...rest }: any) => rest);
             const { error: retryError } = await supabase
               .from('inventory_transactions')
               .insert(fallbackTransactions);
               
             if (retryError) {
-              const minimalTransactions = fallbackTransactions.map(({ requisition_id, requisition_item_id, ...rest }) => rest);
+              const minimalTransactions = fallbackTransactions.map(({ requisition_id, requisition_item_id, ...rest }: any) => rest);
               const { error: minimalError } = await supabase
                 .from('inventory_transactions')
                 .insert(minimalTransactions);
@@ -400,15 +445,20 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                 <div className="flex flex-col lg:flex-row justify-between gap-4">
                   {/* Info Section */}
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="flex flex-wrap items-center gap-3 mb-2">
                       <span className="font-mono text-primary font-bold">
-                        {req.spk?.spk_no}
+                        {req.spk?.spk_no || req.spk?.spk_number || 'Tanpa SPK'}
                       </span>
+                      {req.spk?.customer_name && (
+                        <span className="text-xs text-text-muted">
+                          ({req.spk.customer_name})
+                        </span>
+                      )}
                       <span className="bg-background border border-border px-2 py-0.5 rounded text-xs font-medium">
                         {req.wbs_category}
                       </span>
                       <span className="text-xs text-text-muted">
-                        Requested by: {req.profiles?.full_name}
+                        Requested by: {req.profiles?.full_name || 'Mandor'}
                       </span>
                     </div>
                     
@@ -418,35 +468,84 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                     </div>
 
                     {/* Items Table */}
-                    <div className="bg-background border border-border rounded overflow-hidden">
-                      <table className="w-full text-left text-sm text-text">
-                        <thead className="bg-surface-hover text-text-muted font-mono text-xs uppercase">
+                    <div className="bg-background border border-border rounded-lg overflow-hidden shadow-sm">
+                      <table className="w-full text-left text-xs sm:text-sm text-text">
+                        <thead className="bg-surface-hover text-text-muted font-mono text-xs uppercase border-b border-border">
                           <tr>
-                            <th className="px-4 py-2">Material</th>
-                            <th className="px-4 py-2 text-right">Requested Qty</th>
+                            <th className="px-4 py-2.5 font-semibold text-left">MATERIAL</th>
+                            <th className="px-4 py-2.5 font-semibold text-center">JUMLAH DIMINTA</th>
+                            <th className="px-4 py-2.5 font-semibold text-right">ESTIMASI HARGA (RP)</th>
+                            <th className="px-4 py-2.5 font-semibold text-right">SUBTOTAL (RP)</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
-                          {req.material_requisition_items?.map((item: any) => (
-                            <tr key={item.id}>
-                              <td className="px-4 py-2">
-                                {item.materials?.name || item.material_name || 'Material Non-Stok'}
-                              </td>
-                              <td className="px-4 py-2 text-right font-medium">
-                                {item.quantity} {item.materials?.unit || item.unit || 'pcs'}
+                          {req.material_requisition_items && req.material_requisition_items.length > 0 ? (
+                            req.material_requisition_items.map((item: any) => {
+                              const matName = item.material?.name || item.materials?.name || item.material_name || 'Material Non-Stok';
+                              const matUnit = item.material?.unit || item.materials?.unit || item.unit || 'pcs';
+                              const unitPrice = Number(item.material?.unit_price ?? item.materials?.unit_price ?? item.unit_price ?? 0);
+                              const subtotal = item.subtotal !== undefined ? item.subtotal : ((Number(item.quantity) || 0) * unitPrice);
+
+                              return (
+                                <tr key={item.id} className="hover:bg-surface-hover/40 transition">
+                                  <td className="px-4 py-2.5">
+                                    <span className="font-bold text-text text-sm block">
+                                      {matName}
+                                    </span>
+                                    {item.material_id && (
+                                      <span className="text-[10px] font-mono text-text-muted">
+                                        ID: {item.material_id.substring(0, 8)}...
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-center font-mono font-medium text-text">
+                                    {item.quantity} {matUnit}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-right font-mono text-text-muted">
+                                    Rp {unitPrice.toLocaleString('id-ID')}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-right font-mono font-bold text-text">
+                                    Rp {subtotal.toLocaleString('id-ID')}
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          ) : (
+                            <tr>
+                              <td colSpan={4} className="px-4 py-4 text-center text-text-muted text-xs italic">
+                                Tidak ada rincian material pada permintaan ini.
                               </td>
                             </tr>
-                          ))}
+                          )}
                         </tbody>
+                        <tfoot className="bg-surface-hover/80 border-t border-border font-mono text-xs">
+                          <tr>
+                            <td colSpan={3} className="px-4 py-2.5 text-right font-bold text-text uppercase">
+                              Total Estimasi Biaya Requisition:
+                            </td>
+                            <td className="px-4 py-2.5 text-right font-bold text-primary text-sm">
+                              Rp {(req.totalRequisitionCost || 0).toLocaleString('id-ID')}
+                            </td>
+                          </tr>
+                        </tfoot>
                       </table>
                     </div>
                     
-                    <div className="mt-3 flex items-start gap-2 text-xs text-status-warning bg-status-warning/10 p-2 rounded">
-                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                      <p>
-                        Note: Approving this requisition will bypass Gate 2 (RAB vs Actual) limit checks for now. 
-                        Make sure the requested amount is within budget.
-                      </p>
+                    {/* Ringkasan Gate 2 (RAB vs Actual) */}
+                    <div className="mt-3 flex items-start gap-2.5 text-xs text-status-warning bg-status-warning/10 border border-status-warning/20 p-2.5 rounded-md">
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-status-warning" />
+                      <div className="space-y-0.5">
+                        <p>
+                          <span className="font-semibold text-status-warning">Pagu Gate 2 (RAB vs Aktual):</span> Total Permintaan:{' '}
+                          <span className="font-mono font-bold text-status-warning">
+                            Rp {(req.totalRequisitionCost || 0).toLocaleString('id-ID')}
+                          </span>
+                          . Pastikan jumlah ini sesuai dengan alokasi RAB sebelum menyetujui.
+                        </p>
+                        <p className="text-[11px] text-status-warning/80">
+                          Catatan: Menyetujui requisition ini akan memotong saldo stok fisik gudang dan mencatat transaksi pengeluaran material untuk SPK ini.
+                        </p>
+                      </div>
                     </div>
                   </div>
 

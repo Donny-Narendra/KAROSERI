@@ -10,11 +10,9 @@ import { RecentMaterialIssues } from '../components/RecentMaterialIssues';
 import { SpkFilterListBox, type SpkFilterItem } from '../components/SpkFilterListBox';
 import { RecentApprovedMaterials, type StockAuditItem } from '../components/RecentApprovedMaterials';
 import { supabase } from '../lib/supabaseClient';
-import { AlertTriangle } from 'lucide-react';
 
 export const WarehouseDashboard: React.FC = () => {
   const { profile, signOut } = useAuth();
-  const [lowStockWarnings, setLowStockWarnings] = useState<any[]>([]);
   const [pendingReqCount, setPendingReqCount] = useState<number>(0);
   const [selectedSpkFilter, setSelectedSpkFilter] = useState<string>('ALL');
   const [spkFilterList, setSpkFilterList] = useState<SpkFilterItem[]>([]);
@@ -29,19 +27,6 @@ export const WarehouseDashboard: React.FC = () => {
   const handleApprovalRecorded = useCallback((newAudits: StockAuditItem[]) => {
     setRecentApprovals(prev => [...newAudits, ...prev].slice(0, 15));
   }, []);
-
-  const fetchMaterials = async () => {
-    try {
-      const { data: matData } = await supabase
-        .from('materials')
-        .select('*');
-      if (matData) {
-        setLowStockWarnings(matData.filter(m => Number(m.current_stock) <= Number(m.minimum_stock)));
-      }
-    } catch (error) {
-      console.error('Error fetching materials:', error);
-    }
-  };
 
   const fetchPendingReqCount = async () => {
     try {
@@ -81,7 +66,6 @@ export const WarehouseDashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchMaterials();
     fetchPendingReqCount();
   }, [refreshKey]);
 

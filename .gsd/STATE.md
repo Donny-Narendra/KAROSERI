@@ -1,23 +1,29 @@
 ## Current Position
-- **Phase**: 74 (Gap Closure: Bugfix Logika: Perbaikan Nilai "Sebelum" dan "Sisa Stok" Menjadi 0 pada Widget "Riwayat Approval & Stok" di /warehouse)
+- **Phase**: 75 (Gap Closure: Bugfix UI & Data Fetch: Menampilkan Rincian Nama, Jumlah Satuan, dan Estimasi Harga Material pada Kartu "Pending Requisitions (Mandor)" di /warehouse)
 - **Task**: Implementation completed (ready for manual review, manual test, & git commit by user)
 - **Status**: Implemented & Ready for Manual Verification
 
 ## Last Session Summary
-Phase 74 diimplementasikan secara komprehensif mengikuti seluruh rincian spesifikasi dan batasan pengguna:
-1. `src/components/RecentApprovedMaterials.tsx`:
-   - Deteksi Snapshot Dummy Default: Memperbaiki logika penentuan validitas snapshot. Jika `stock_before === 0` dan `stock_after === 0` sedangkan stok aktual material (`materials.current_stock`) atau kuantitas keluar (`qty`) bernilai positif, sistem mengenali data tersebut sebagai transaksi lama yang terisi nilai default dari migrasi database.
-   - Fallback Rekonsiliasi Cerdas:
-     * `stockAfter = currentMatStock` (misal 20 PCS).
-     * `stockBefore = currentMatStock + qty` (misal 20 + 3 = 23 PCS).
-   - Menjamin kartu riwayat lama (seperti "MATA GERINDA POTONG") langsung menampilkan angka pergerakan stok riil yang akurat: **Sebelum: 23, Disetujui: -3, Sisa Stok: 20**.
-2. `src/components/GoodsIssueForm.tsx`:
-   - Penyesuaian Pengeluaran Langsung: Pada saat form "Issue Material" disubmit, sistem melakukan kueri stok aktual terkini dari `materials`, menghitung `stockBefore` dan `stockAfter`, serta menyimpannya ke `inventory_transactions` dengan fallback retry yang aman.
-3. `src/components/RequisitionApproval.tsx`:
-   - Memastikan pemetaan `spk_id` pada transaksi persetujuan menggunakan `requisition.spk?.id || requisition.spk_id` secara defensif.
-4. `supabase/migrations/20261014_backfill_stock_audit_snapshot.sql`:
-   - Dibuat skrip SQL rekonsiliasi data lama untuk mengupdate kolom `stock_before` dan `stock_after` pada baris riwayat `inventory_transactions` yang sebelumnya bernilai 0. Skrip disiapkan untuk dijalankan manual di SQL Editor Supabase.
-5. Kepatuhan Batasan:
+Phase 75 diimplementasikan secara komprehensif mengikuti seluruh rincian spesifikasi dan batasan pengguna:
+1. `src/components/RequisitionApproval.tsx`:
+   - Kueri Fetch Eager Join: Memperbaiki kueri `supabase.from('material_requisitions').select(...)` dengan menyertakan `materials ( id, name, unit, unit_price )`, `spk_id`, `requested_by`, dan `status`.
+   - Normalisasi Defensif Data: Menangani array item dengan fallback `material_requisition_items` maupun `items`, serta properti relasi `material` dan `materials`. Setiap item secara otomatis memiliki `unit_price`, `quantity`, dan `subtotal` yang terhitung rapi.
+   - Perhitungan Akumulasi Biaya: Menghitung `totalRequisitionCost` untuk setiap kartu requisition.
+   - Desain Ulang Tabel Rincian Material 4 Kolom:
+     * `MATERIAL`: Ditampilkan dengan teks tebal kontras tinggi (`font-bold text-text text-sm`) beserta ID material.
+     * `JUMLAH DIMINTA`: Ditampilkan dengan angka kuantitas beserta satuan (`${item.quantity} ${item.material?.unit || 'pcs'}`).
+     * `ESTIMASI HARGA (RP)`: Diformat Rupiah (`Rp ${(item.material?.unit_price || 0).toLocaleString('id-ID')}`).
+     * `SUBTOTAL (RP)`: Perkalian kuantitas dan harga satuan dalam format Rupiah.
+     * Empty State Row: Menampilkan baris informatif *"Tidak ada rincian material pada permintaan ini"* jika tidak ada item.
+     * Footer Tabel: Menampilkan ringkasan total **"Total Estimasi Biaya Requisition: Rp X.XXX.XXX"** dengan highlight aksen oranye RobelKaroseri.
+   - Penyesuaian Kotak Peringatan Gate 2: Mengintegrasikan angka akumulasi belanja riil:
+     *"Pagu Gate 2 (RAB vs Aktual): Total Permintaan: Rp X.XXX.XXX. Pastikan jumlah ini sesuai dengan alokasi RAB sebelum menyetujui."*
+   - Dialog Konfirmasi Approval: Menyertakan total estimasi belanja untuk kejelasan petugas gudang sebelum menyetujui dan memotong stok.
+2. `supabase/migrations/20261014_add_unit_price_to_material_requisition_items.sql`:
+   - Dibuat skrip SQL untuk menambahkan kolom `unit_price NUMERIC(15, 2) DEFAULT 0` pada tabel `material_requisition_items`.
+   - Disertakan kueri backfill nilai `unit_price` dari master `materials` untuk data yang sudah ada sebelumnya.
+   - Skrip disimpan di direktori migrasi untuk dieksekusi secara manual oleh pengguna di SQL Editor Supabase.
+3. Kepatuhan Batasan:
    - Tanpa verifikasi otomatis (no auto-verify).
    - Tanpa git commit otomatis (no auto-commit).
    - Tanpa eksekusi otomatis migrasi Supabase.
@@ -26,19 +32,11 @@ Phase 74 diimplementasikan secara komprehensif mengikuti seluruh rincian spesifi
 None.
 
 ## Next Steps
-1. (Opsional) Jalankan skrip rekonsiliasi database `supabase/migrations/20261014_backfill_stock_audit_snapshot.sql` di SQL Editor Supabase untuk memperbarui data baris lama secara permanen di database.
-2. Pengguna membuka halaman `/warehouse` di browser (login sebagai `petugas_gudang` atau `owner`).
-3. Pada panel kanan "Riwayat Approval & Stok":
-   - Periksa kartu material riwayat lama (seperti "MATA GERINDA POTONG"):
-     * Nilai **Sebelum** kini menampilkan stok aktual sebelum keluar (misal: 23).
-     * Nilai **Disetujui** menampilkan `-3`.
-     * Nilai **Sisa Stok** menampilkan sisa fisik saat ini (misal: 20).
-     * Tidak ada lagi angka 0/0 yang keliru.
-4. Uji Pengeluaran Material Baru:
-   - Lakukan approval pada "Pending Requisitions" atau submit pada form "Issue Material".
-   - Amati kartu baru tercatat dengan nilai snapshot akurat secara real-time.
+1. (Opsional) Jalankan skrip database `supabase/migrations/20261014_add_unit_price_to_material_requisition_items.sql` di SQL Editor Supabase untuk menambahkan kolom `unit_price` dan melakukan backfill data secara permanen di database.
+2. Pengguna membuka halaman `/warehouse` di browser (login sebagai `petugas_gudang` atau `owner`) dan klik tab **"Mandor Requests"**.
+3. Pada kartu daftar antrean **"Pending Requisitions (Mandor)"**:
+   - Periksa tabel 4 kolom: `MATERIAL` (tebal), `JUMLAH DIMINTA` (angka + unit), `ESTIMASI HARGA (RP)`, dan `SUBTOTAL (RP)`.
+   - Periksa footer tabel bertuliskan **"Total Estimasi Biaya Requisition: Rp X.XXX.XXX"**.
+   - Periksa kotak catatan kuning di bawah tabel: *"Pagu Gate 2 (RAB vs Aktual): Total Permintaan: Rp X.XXX.XXX. Pastikan jumlah ini sesuai dengan alokasi RAB sebelum menyetujui."*
+4. Klik tombol **"Approve"** pada salah satu kartu dan amati dialog konfirmasi kini juga menampilkan total nominal permintaan.
 5. Pengguna melakukan review kode dan git commit secara manual.
-
-
-
-

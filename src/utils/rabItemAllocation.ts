@@ -9,7 +9,12 @@ export interface RabItemLike {
     name?: string;
     unit?: string;
     unit_price?: number;
-  } | null;
+  } | Array<{
+    id?: string;
+    name?: string;
+    unit?: string;
+    unit_price?: number;
+  }> | null;
   [key: string]: any;
 }
 
@@ -26,7 +31,10 @@ export interface RequisitionItemLike {
   materials?: {
     id?: string;
     name?: string;
-  } | null;
+  } | Array<{
+    id?: string;
+    name?: string;
+  }> | null;
   material_requisition_items?: Array<{
     material_id?: string | null;
     rab_item_id?: string | null;
@@ -34,7 +42,11 @@ export interface RequisitionItemLike {
     materials?: {
       id?: string;
       name?: string;
-    } | null;
+    } | Array<{
+      id?: string;
+      name?: string;
+    }> | null;
+    [key: string]: any;
   }> | null;
   [key: string]: any;
 }
@@ -78,9 +90,10 @@ export function isRabItemAllocated(
 ): boolean {
   if (!rabItem) return false;
 
+  const rabMaterialsObj = Array.isArray(rabItem.materials) ? rabItem.materials[0] : rabItem.materials;
   const rabItemId = rabItem.id;
-  const materialId = rabItem.materials?.id || rabItem.material_id || rabItem.materialId;
-  const itemName = (rabItem.materials?.name || rabItem.name || rabItem.description || '').trim();
+  const materialId = rabMaterialsObj?.id || rabItem.material_id || rabItem.materialId;
+  const itemName = (rabMaterialsObj?.name || rabItem.name || rabItem.description || '').trim();
   const normalizedItemName = normalizeText(itemName);
 
   // 1. Check in Requisitions
@@ -98,12 +111,13 @@ export function isRabItemAllocated(
         // If requisition object contains nested items (material_requisition_items)
         if (Array.isArray(req.material_requisition_items) && req.material_requisition_items.length > 0) {
           return req.material_requisition_items.some((subItem) => {
-            const subMatId = subItem.materials?.id || subItem.material_id;
+            const subMat = Array.isArray(subItem.materials) ? subItem.materials[0] : subItem.materials;
+            const subMatId = subMat?.id || subItem.material_id;
             const subRabId = subItem.rab_item_id;
             if (materialId && subMatId === materialId) return true;
             if (rabItemId && (subMatId === rabItemId || subRabId === rabItemId)) return true;
 
-            const subName = (subItem.materials?.name || subItem.material_name || '').trim();
+            const subName = (subMat?.name || subItem.material_name || '').trim();
             const normSubName = normalizeText(subName);
             if (normSubName && normalizedItemName) {
               if (normSubName === normalizedItemName) return true;
@@ -119,7 +133,8 @@ export function isRabItemAllocated(
           });
         }
 
-        const reqMatId = req.materials?.id || req.material_id || req.materialId;
+        const reqMat = Array.isArray(req.materials) ? req.materials[0] : req.materials;
+        const reqMatId = reqMat?.id || req.material_id || req.materialId;
         const reqRabId = req.sourceRabId || req.tempId || req.id;
 
         // Check IDs
@@ -127,7 +142,7 @@ export function isRabItemAllocated(
         if (rabItemId && (reqMatId === rabItemId || reqRabId === rabItemId)) return true;
 
         // Check Names
-        const reqName = (req.materials?.name || req.name || req.item_name || req.description || '').trim();
+        const reqName = (reqMat?.name || req.name || req.item_name || req.description || '').trim();
         const normReqName = normalizeText(reqName);
         if (normReqName && normalizedItemName) {
           if (normReqName === normalizedItemName) return true;
@@ -151,13 +166,14 @@ export function isRabItemAllocated(
   if (localRequisitions && Array.isArray(localRequisitions)) {
     const matchInLocal = localRequisitions.some((req) => {
       if (!req) return false;
-      const reqMatId = req.materials?.id || req.material_id || req.materialId;
+      const reqMat = Array.isArray(req.materials) ? req.materials[0] : req.materials;
+      const reqMatId = reqMat?.id || req.material_id || req.materialId;
       const reqRabId = req.sourceRabId || req.tempId || req.id;
 
       if (materialId && (reqMatId === materialId || reqRabId === materialId)) return true;
       if (rabItemId && (reqMatId === rabItemId || reqRabId === rabItemId)) return true;
 
-      const reqName = (req.materials?.name || req.name || req.item_name || req.description || '').trim();
+      const reqName = (reqMat?.name || req.name || req.item_name || req.description || '').trim();
       const normReqName = normalizeText(reqName);
       if (normReqName && normalizedItemName) {
         if (normReqName === normalizedItemName) return true;

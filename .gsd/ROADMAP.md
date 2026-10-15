@@ -928,3 +928,17 @@
 - [x] Penyelarasan defensif `spk_id` di `src/components/RequisitionApproval.tsx` (`requisition.spk?.id || requisition.spk_id`).
 - [x] Pembuatan skrip migrasi backfill database `supabase/migrations/20261014_backfill_stock_audit_snapshot.sql` untuk rekonsiliasi nilai snapshot baris lama di Supabase.
 - [x] Memastikan kepatuhan terhadap batasan eksekusi: tanpa auto-verify, tanpa auto-commit, dan tanpa eksekusi langsung migrasi Supabase.
+
+---
+
+### Phase 75: Gap Closure (Bugfix UI & Data Fetch: Menampilkan Rincian Nama, Jumlah Satuan, dan Estimasi Harga Material pada Kartu "Pending Requisitions (Mandor)" di /warehouse)
+**Status**: ⬜ Ready for Review
+**Objective**: Address gaps from operational feedback (Menampilkan rincian nama material, kuantitas beserta satuan, estimasi harga satuan, dan subtotal pada tabel kartu Pending Requisitions (Mandor), menambahkan total estimasi biaya belanja di footer tabel, serta menyelaraskan informasi pagu Gate 2 (RAB vs Aktual))
+
+**Gaps to Close:**
+- [x] Pembuatan skrip migrasi SQL `supabase/migrations/20261014_add_unit_price_to_material_requisition_items.sql` untuk penambahan kolom `unit_price NUMERIC(15, 2) DEFAULT 0` dan backfill data dari tabel `materials`.
+- [x] Perbaikan kueri eager fetch di `src/components/RequisitionApproval.tsx` untuk menyertakan relasi master `materials ( id, name, unit, unit_price )` dan pemetaan data defensif (material, materials, quantity, unit, unit_price, subtotal, dan totalRequisitionCost).
+- [x] Desain ulang tabel rincian material pada kartu Pending Requisitions dengan 4 kolom: `MATERIAL` (teks tebal kontras), `JUMLAH DIMINTA` (angka + satuan), `ESTIMASI HARGA (RP)` (format Rupiah), dan `SUBTOTAL (RP)`, dilengkapi penanganan empty row.
+- [x] Penambahan footer ringkasan tabel: **"Total Estimasi Biaya Requisition: Rp X.XXX.XXX"** dengan highlight aksen oranye RobelKaroseri.
+- [x] Penyesuaian kotak catatan peringatan Gate 2 dengan nominal riil: *"Total Permintaan: Rp X.XXX.XXX. Pastikan jumlah ini sesuai dengan alokasi RAB sebelum menyetujui."*
+- [x] Memastikan kepatuhan terhadap batasan eksekusi: tanpa auto-verify, tanpa auto-commit, dan tanpa eksekusi langsung migrasi Supabase.

@@ -207,10 +207,10 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
         setFeedbackModal({
           isOpen: true,
           title: 'Gagal Mengeluarkan Material',
-          message: error.message || 'Gagal mengeluarkan material ke SPK.',
+          message: insertError?.message || 'Gagal mengeluarkan material ke SPK.',
           variant: 'danger'
         });
-        console.error(error);
+        console.error(insertError);
       }
     }
   };
