@@ -1,26 +1,69 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { WbsChecklist } from '../components/WbsChecklist';
 import { supabase } from '../lib/supabaseClient';
 import type { Spk } from '../types/spk';
-
 import { QcInspectionForm } from '../components/QcInspectionForm';
+import { SpkSelector } from '../components/SpkSelector';
 
 export const MandorDashboard: React.FC = () => {
   const { profile, signOut } = useAuth();
   const [selectedSpk, setSelectedSpk] = useState<string>('');
   const [spks, setSpks] = useState<Spk[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  useEffect(() => {
-    fetchSpks();
+  const fetchSpks = useCallback(async () => {
+    try {
+      const [spkRes, reqRes] = await Promise.all([
+        supabase.from('spk').select('*').eq('status', 'ACTIVE').order('created_at', { ascending: false }),
+        supabase.from('material_requisitions').select('id, spk_id').eq('status', 'PENDING')
+      ]);
+
+      if (spkRes.error) {
+        console.error('Error fetching SPKs for Mandor:', spkRes.error);
+      }
+
+      // Hitung total pending requisitions per SPK
+      const pendingCountMap = new Map<string, number>();
+      if (reqRes.data) {
+        reqRes.data.forEach((r: { id: string; spk_id?: string | null }) => {
+          if (r.spk_id) {
+            pendingCountMap.set(r.spk_id, (pendingCountMap.get(r.spk_id) || 0) + 1);
+          }
+        });
+      }
+
+      if (spkRes.data) {
+        const enrichedSpks: Spk[] = (spkRes.data as Spk[]).map((spk) => ({
+          ...spk,
+          pending_requisitions_count: pendingCountMap.get(spk.id) || 0,
+        }));
+        setSpks(enrichedSpks);
+
+        setSelectedSpk((prev) => {
+          if (!prev) return '';
+          const stillExists = enrichedSpks.some((s) => s.id === prev);
+          return stillExists ? prev : '';
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching SPKs and requisitions for Mandor:', error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const fetchSpks = async () => {
-    const { data, error } = await supabase.from('spk').select('*').eq('status', 'ACTIVE');
-    console.log('Fetched SPKs for Mandor:', data, error);
-    if (data) setSpks(data as Spk[]);
-    if (error) console.error('Error fetching SPKs:', error);
-  };
+  useEffect(() => {
+    let isMounted = true;
+    void (async () => {
+      if (isMounted) {
+        await fetchSpks();
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, [fetchSpks]);
 
   return (
     <div className="min-h-screen bg-background text-text">
@@ -48,46 +91,12 @@ export const MandorDashboard: React.FC = () => {
       <main className="container mx-auto p-4 py-8">
         <div className="max-w-4xl mx-auto space-y-8">
           
-          <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
-            <h2 className="text-xl font-display font-semibold mb-4">Select Active SPK</h2>
-            {spks.length === 0 ? (
-              <div className="text-center py-8 text-text-muted border-2 border-dashed border-border rounded-lg">
-                Tidak ada SPK aktif saat ini
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {spks.map(spk => (
-                  <button
-                    key={spk.id}
-                    onClick={() => setSelectedSpk(spk.id)}
-                    className={`p-6 rounded-lg border text-left transition-all ${
-                      selectedSpk === spk.id 
-                        ? 'border-primary bg-primary/10' 
-                        : 'border-border bg-background hover:border-primary/50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="text-lg font-bold">{spk.spk_no}</div>
-                      {spk.qc_status === 'PASS' && (
-                        <span className="text-xs px-2 py-0.5 rounded font-bold bg-green-500/20 text-green-400 border border-green-500/40">
-                          QC PASS
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-text-muted">{spk.customer_name}</div>
-                    <div className="text-sm mt-2 text-text">
-                      <span className="inline-block bg-background px-2 py-1 rounded border border-border mr-2">
-                        {spk.vehicle_number || 'N/A'}
-                      </span>
-                      <span className="text-text-muted">
-                        In: {new Date(spk.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <SpkSelector
+            spks={spks}
+            selectedSpkId={selectedSpk}
+            onSelectSpk={setSelectedSpk}
+            isLoading={loading}
+          />
 
           {selectedSpk && (
             <>

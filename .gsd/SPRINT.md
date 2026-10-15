@@ -1,41 +1,59 @@
-# Sprint 1 — Fix Item Transfer Isolation in Mandor Material Requisition Modal
+# Sprint 2 — Refactor SPK Selection UI in Mandor Portal to Compact List
 
 > **Duration**: 2026-10-15 to 2026-10-15
 > **Status**: In Progress
 
 ## Goal
-Fix single-item transfer isolation and return logic in Mandor Material Requisition modal so double-click and transfer buttons (`<<` / `>>`) move only the selected item without clearing the remaining available RAB allocation items.
+Refactor the SPK selection interface on the Mandor portal (`/mandor`) from a space-consuming 2-column card grid into a high-density, searchable vertical compact list inspired by the warehouse module SPK filter UI.
 
 ## Scope
 
 ### Included
-- Fix single item transfer logic (`<<` and double-click) in `MaterialRequisitionForm.tsx` to isolate transferred items strictly by ID (`item.id` / `sourceRabId`).
-- Fix transfer back logic (`>>`, double-click, and trash icon) in `MaterialRequisitionForm.tsx` to return items back to `availableItems` if originated from RAB allocations.
-- Remove overzealous text/word-overlap and shared-material filtering from local dual-list state in `MaterialRequisitionForm.tsx` and `src/utils/rabItemAllocation.ts`.
-- Ensure badge counter for "Alokasi RAB (WBS Terkait)" reflects the exact remaining count (e.g. from 2 to 1).
-- Ensure empty-state "Semua material telah dipindahkan" appears only when available RAB items count is strictly 0.
-- Verify TypeScript build and linting pass with 0 errors.
+- Layout & Container:
+  - Convert active SPK selection from 2-column card grid into a compact single-column stack (`flex flex-col gap-2.5`).
+  - Add height constraint with smooth scrollbar (`max-h-[500px] overflow-y-auto pr-1`).
+  - Add real-time Search Box with placeholder `"Cari SPK, customer, plat, sub-task..."` with clear button.
+- SPK Item Card Architecture (3-Row Compact Layout):
+  - Row 1: Bold monospace SPK number (`font-mono font-bold`) and badge indicators (pending requisition count in amber e.g. `X Pending`, and QC status badge).
+  - Row 2: Customer name (`font-semibold text-slate-100`) and contrast vehicle plate badge (`bg-blue-950/70 border-blue-800/60 text-blue-300 font-mono`).
+  - Row 3: Sub-task scope summary (`Sub Task: [deskripsi]`) with subtle divider border and `text-[11px] text-slate-400 truncate`.
+- Interactivity & Selection:
+  - Subtle hover transitions (`hover:border-slate-700 hover:bg-slate-800/40`).
+  - Selected state with amber border & background glow (`border-amber-500 bg-amber-500/10 shadow-sm`) and active indicator.
+  - Seamless selection callback triggering WBS checklist & QC workflow.
+- Data Enrichment:
+  - Fetch pending requisitions count per SPK so the pending count badge displays accurate real-time values for mandor.
+- Verification:
+  - TypeScript build passes with 0 errors (`npm run build`).
+  - Linter passes with 0 errors (`npm run lint`).
 
 ### Explicitly Excluded
-- Database schema changes (no Supabase migrations needed).
+- Database schema changes.
 - Automatic git commits or pushes.
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| Refactor dual-list state management in `MaterialRequisitionForm.tsx` with dedicated `availableItems` state & strict ID isolation | Antigravity | ✅ Done | 1h |
-| Fix return transfer handlers (`>>`, double-click, trash) to restore RAB items correctly | Antigravity | ✅ Done | 0.5h |
-| Clean up over-matching in `src/utils/rabItemAllocation.ts` for local/requisition comparisons | Antigravity | ✅ Done | 0.5h |
-| Verify counter badge, empty-state conditions, and compile check (`npm run build`) | Antigravity | ✅ Done | 0.5h |
+| Create dedicated Mandor compact SPK selector component (`SpkSelector.tsx`) matching warehouse filter UI aesthetics | Antigravity | ✅ Done | 1h |
+| Enrich Mandor SPK fetching in `MandorDashboard.tsx` with pending requisitions count & integrate `SpkSelector` | Antigravity | ✅ Done | 0.5h |
+| Verify responsive layout, search filtering, selection persistence, and WBS/QC trigger | Antigravity | ✅ Done | 0.5h |
+| Run TypeScript build check (`npm run build`) and lint verification (`npm run lint`) | Antigravity | ✅ Done | 0.5h |
 
 ## Daily Log
 
 ### 2026-10-15
-- Sprint created based on user problem report on Mandor Material Requisition modal.
-- Root cause identified: over-matching word overlap and cross-item filtering in dual-list state / `isRabItemAllocated`.
-- Implemented dedicated `availableItems` state in `MaterialRequisitionForm.tsx` with strict ID filtering (`prev.filter(item => item.id !== sourceItem.id)`).
-- Implemented `handleReturnItem` and updated `handleExecuteRemove` to return RAB items back to `availableItems` when transferred back (`>>`, double-click, or trash icon).
-- Fixed `src/utils/rabItemAllocation.ts` to eliminate false-positive substring & word-overlap matching between similar material names.
-- Fixed React Hook initialization lint warning in `MaterialRequisitionForm.tsx` using `useCallback`.
-- Verified TypeScript build (`tsc -b && vite build`) passes with 0 errors and `oxlint` reports 0 errors.
+- Sprint created from user request.
+- Archived Sprint 1 to `.gsd/sprints/sprint-1-fix-item-transfer-isolation.md`.
+- Analyzed `MandorDashboard.tsx`, `SpkFilterListBox.tsx`, and requirements.
+- Created `src/components/SpkSelector.tsx` featuring:
+  - Single-column compact vertical list (`flex flex-col gap-2.5`) with max-height limit and scrollbar (`max-h-[500px] overflow-y-auto pr-1`).
+  - Search box with instant filter across SPK number, customer name, vehicle plate, and sub-tasks, complete with clear (X) button and empty match state.
+  - 3-row structured item card: Row 1 (Bold monospace SPK number, active checkmark badge, pending count badge & QC badge), Row 2 (customer name & dark contrast vehicle plate badge), Row 3 (sub-task summary with subtle top border).
+  - Smooth hover states and amber highlighted active/selected state (`border-amber-500 bg-amber-500/10 shadow-sm ring-1 ring-amber-500`).
+- Updated `src/types/spk.ts` to include optional `pending_requisitions_count`.
+- Refactored `src/pages/MandorDashboard.tsx`:
+  - Enriched data fetching using `Promise.all` across `spk` and `material_requisitions` with status `PENDING` to provide real-time requisition counts per SPK.
+  - Replaced legacy 2-column card grid with `<SpkSelector />`.
+  - Preserved active SPK selection and seamless triggering of `WbsChecklist` and `QcInspectionForm`.
+- Validated with `npm run build` (`tsc -b && vite build`) and `oxlint`, achieving 0 errors and 0 warnings.

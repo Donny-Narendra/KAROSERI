@@ -21,5 +21,6 @@ export interface Spk {
   engine_number?: string;
   target_date?: string;
   sub_tasks?: string[];
+  pending_requisitions_count?: number;
   [key: string]: any;
 }

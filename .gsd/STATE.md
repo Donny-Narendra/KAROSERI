@@ -1,5 +1,5 @@
 ## Current Position
-- **Sprint**: Sprint 1 (Fix item transfer isolation in Mandor Material Requisition modal)
+- **Sprint**: Sprint 2 (Refactor SPK selection UI in Mandor portal from card grid to compact list)
 - **Status**: Sprint in progress
 - **Milestone**: (paused while sprint is active - Phase 75 completed)
 
