@@ -93,5 +93,62 @@ export const spkService = {
       throw new Error(`Failed to reject amendment: ${error.message}`);
     }
     return data;
+  },
+
+  async updateSpkCredentials({
+    spkNo,
+    targetDate,
+    customerName,
+    customerPhone,
+    vehiclePlate,
+    vinChassis,
+    engineNumber,
+    subTasks,
+  }: UpdateSpkCredentialsParams) {
+    if (!spkNo || spkNo.trim() === '') {
+      throw new Error('SPK Number is required');
+    }
+    if (!customerName || customerName.trim() === '') {
+      throw new Error('Customer Name is required');
+    }
+    if (!vehiclePlate || vehiclePlate.trim() === '') {
+      throw new Error('Vehicle Plate is required');
+    }
+
+    const payload: Record<string, any> = {
+      target_date: targetDate || null,
+      customer_name: customerName.trim(),
+      customer_phone: customerPhone?.trim() || null,
+      vehicle_plate: vehiclePlate.trim().toUpperCase(),
+      vehicle_vin: vinChassis?.trim().toUpperCase() || null,
+      vin_chassis: vinChassis?.trim().toUpperCase() || null,
+      vehicle_engine: engineNumber?.trim().toUpperCase() || null,
+      engine_number: engineNumber?.trim().toUpperCase() || null,
+      sub_tasks: subTasks && subTasks.length > 0 ? subTasks : null,
+    };
+
+    const { data, error } = await supabase
+      .from('spk')
+      .update(payload)
+      .eq('spk_no', spkNo.trim())
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to update SPK credentials: ${error.message}`);
+    }
+
+    return data;
   }
 };
+
+export interface UpdateSpkCredentialsParams {
+  spkNo: string;
+  targetDate?: string | null;
+  customerName: string;
+  customerPhone?: string | null;
+  vehiclePlate: string;
+  vinChassis?: string | null;
+  engineNumber?: string | null;
+  subTasks?: string[] | null;
+}

@@ -56,6 +56,7 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
   }>>({});
   
   const [isDraft, setIsDraft] = useState(false);
+  const [spkSubTasks, setSpkSubTasks] = useState<string[]>([]);
 
   // Notification / Alert Modal state
   const [notification, setNotification] = useState<{
@@ -70,15 +71,22 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
     const fetchData = async () => {
       setInitialFetchLoading(true);
       try {
-        // Fetch SPK status
+        // Fetch SPK status & sub_tasks
         const { data: spkData, error: spkError } = await supabase
           .from('spk')
-          .select('status')
+          .select('status, sub_tasks')
           .eq('id', spkId)
           .single();
           
         if (spkError) throw spkError;
         
+        if (spkData.sub_tasks) {
+          const parsed = Array.isArray(spkData.sub_tasks) ? spkData.sub_tasks : [spkData.sub_tasks];
+          setSpkSubTasks(parsed);
+        } else {
+          setSpkSubTasks([]);
+        }
+
         if (spkData.status === 'DRAFT') {
           setIsDraft(true);
           return;
@@ -476,6 +484,26 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
           </div>
         </div>
       </div>
+
+      {spkSubTasks.length > 0 && (
+        <div className="bg-background border border-amber-500/30 rounded-lg p-3.5 mb-6 flex items-start gap-3 shadow-inner">
+          <div className="bg-amber-500/10 p-2 rounded text-amber-400 mt-0.5">
+            <span className="font-mono text-xs font-bold uppercase tracking-wider">SCOPE</span>
+          </div>
+          <div>
+            <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+              Sub Task / Pekerjaan Modifikasi SPK
+            </h4>
+            <div className="flex flex-wrap gap-2">
+              {spkSubTasks.map((task, i) => (
+                <span key={i} className="text-xs bg-slate-900 border border-slate-700 text-slate-200 px-2.5 py-1 rounded font-mono shadow-sm">
+                  {task}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       
       <div className="space-y-6">
         {WBS_CATEGORIES.map((category) => (

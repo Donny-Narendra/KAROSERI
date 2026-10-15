@@ -34,7 +34,7 @@ export const WarehouseDashboard: React.FC = () => {
         .from('material_requisitions')
         .select(`
           id,
-          spk ( id, spk_no, customer_name )
+          spk ( id, spk_no, customer_name, vehicle_plate, sub_tasks )
         `, { count: 'exact' })
         .eq('status', 'PENDING');
       
@@ -45,15 +45,21 @@ export const WarehouseDashboard: React.FC = () => {
           const spkId = req.spk?.id;
           const spkNo = req.spk?.spk_no || 'Tanpa SPK';
           const customerName = req.spk?.customer_name || 'Umum';
+          const vehiclePlate = req.spk?.vehicle_plate || '';
+          const subTasks = req.spk?.sub_tasks || [];
           
           if (map.has(spkNo)) {
             const current = map.get(spkNo)!;
             current.count += 1;
+            if (!current.vehiclePlate && vehiclePlate) current.vehiclePlate = vehiclePlate;
+            if ((!current.subTasks || current.subTasks.length === 0) && subTasks) current.subTasks = subTasks;
           } else {
             map.set(spkNo, {
               spkId: spkId || null,
               spkNo,
               customerName,
+              vehiclePlate,
+              subTasks,
               count: 1
             });
           }

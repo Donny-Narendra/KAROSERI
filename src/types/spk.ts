@@ -13,5 +13,13 @@ export interface Spk {
   cancelled_by?: string;
   qc_status?: 'PENDING' | 'PASS' | 'FAIL';
   final_qc_checklist?: string[];
+  customer_phone?: string;
+  vehicle_plate?: string;
+  vehicle_vin?: string;
+  vehicle_engine?: string;
+  vin_chassis?: string;
+  engine_number?: string;
+  target_date?: string;
+  sub_tasks?: string[];
   [key: string]: any;
 }

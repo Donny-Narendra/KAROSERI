@@ -1,28 +1,63 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
-import { Upload, Loader2 } from 'lucide-react';
+import { Upload, Loader2, Check, Lock } from 'lucide-react';
 import { CloudinaryUploader } from './ui/CloudinaryUploader';
 import type { UploadedImage } from './ui/CloudinaryUploader';
+import { ConfirmationModal } from './ConfirmationModal';
+import { spkService } from '../services/spkService';
+import type { Spk } from '../types/spk';
 
 interface SpkFormProps {
+  initialData?: Spk | null;
+  isEditMode?: boolean;
   onSuccess?: () => void;
+  onCancel?: () => void;
 }
 
-export const SpkForm: React.FC<SpkFormProps> = ({ onSuccess }) => {
+export const SpkForm: React.FC<SpkFormProps> = ({
+  initialData,
+  isEditMode = false,
+  onSuccess,
+  onCancel,
+}) => {
   const { profile } = useAuth();
-  
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+
   const [spkNo, setSpkNo] = useState(() => `SPK-${Math.floor(1000 + Math.random() * 9000)}`);
   const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
   const [vehiclePlate, setVehiclePlate] = useState('');
   const [vehicleVin, setVehicleVin] = useState('');
   const [vehicleEngine, setVehicleEngine] = useState('');
   const [targetDate, setTargetDate] = useState('');
-  
+  const [subTasks, setSubTasks] = useState('');
+
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
+
+  useEffect(() => {
+    if (isEditMode && initialData) {
+      setSpkNo(initialData.spk_no || '');
+      setCustomerName(initialData.customer_name || '');
+      setCustomerPhone(initialData.customer_phone || '');
+      setVehiclePlate(initialData.vehicle_plate || '');
+      setVehicleVin(initialData.vin_chassis || initialData.vehicle_vin || '');
+      setVehicleEngine(initialData.engine_number || initialData.vehicle_engine || '');
+      setTargetDate(initialData.target_date ? initialData.target_date.substring(0, 10) : '');
+      const tasks = initialData.sub_tasks;
+      if (Array.isArray(tasks)) {
+        setSubTasks(tasks.join('\n'));
+      } else if (tasks) {
+        setSubTasks(String(tasks));
+      } else {
+        setSubTasks('');
+      }
+      setUploadedImages(initialData.vehicle_photos || []);
+    }
+  }, [isEditMode, initialData]);
 
   const handleUploadSuccess = (image: UploadedImage) => {
     setUploadedImages((prev) => [...prev, image]);
@@ -32,54 +67,100 @@ export const SpkForm: React.FC<SpkFormProps> = ({ onSuccess }) => {
     setUploadedImages((prev) => prev.filter((img) => img.public_id !== publicId));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const parseSubTasks = (text: string): string[] => {
+    if (!text.trim()) return [];
+    return text
+      .split(/\r?\n/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .flatMap((line) => (line.includes(',') ? line.split(',').map((s) => s.trim()).filter(Boolean) : [line]));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setLoading(true);
 
     if (!profile) {
-      setError("User profile not found. Please log in again.");
-      setLoading(false);
+      setError('User profile not found. Please log in again.');
       return;
     }
 
+    if (isEditMode) {
+      setShowConfirmModal(true);
+    } else {
+      handleCreateSpk();
+    }
+  };
+
+  const handleCreateSpk = async () => {
+    setLoading(true);
     try {
-      // 1. Insert SPK
+      const parsedSubTasks = parseSubTasks(subTasks);
+
       const { data: spkData, error: spkError } = await supabase
         .from('spk')
         .insert({
           spk_no: spkNo,
           customer_name: customerName,
+          customer_phone: customerPhone || null,
           vehicle_plate: vehiclePlate,
           vehicle_vin: vehicleVin || null,
+          vin_chassis: vehicleVin || null,
           vehicle_engine: vehicleEngine || null,
+          engine_number: vehicleEngine || null,
           target_date: targetDate || null,
-          created_by: profile.id,
-          vehicle_photos: uploadedImages // Store Cloudinary images directly as JSONB
+          sub_tasks: parsedSubTasks.length > 0 ? parsedSubTasks : null,
+          created_by: profile!.id,
+          vehicle_photos: uploadedImages,
         })
         .select()
         .single();
 
       if (spkError) throw spkError;
-      if (!spkData) throw new Error("Failed to create SPK");
-
-      // spkId is not used since Cloudinary directly handles the images
-      // Create dummy assets for legacy compatibility if needed, or skip. We skip for now.
+      if (!spkData) throw new Error('Failed to create SPK');
 
       // Reset form
       setSpkNo(`SPK-${Math.floor(1000 + Math.random() * 9000)}`);
       setCustomerName('');
+      setCustomerPhone('');
       setVehiclePlate('');
       setVehicleVin('');
       setVehicleEngine('');
       setTargetDate('');
+      setSubTasks('');
       setUploadedImages([]);
-      
-      if (onSuccess) onSuccess();
 
+      if (onSuccess) onSuccess();
     } catch (err: any) {
-      console.error("SPK Submission Error:", err);
-      setError(err.message || "An error occurred during submission");
+      console.error('SPK Submission Error:', err);
+      setError(err.message || 'An error occurred during submission');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateSpk = async () => {
+    setLoading(true);
+    try {
+      const parsedSubTasks = parseSubTasks(subTasks);
+
+      await spkService.updateSpkCredentials({
+        spkNo,
+        targetDate: targetDate || null,
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.trim() || null,
+        vehiclePlate: vehiclePlate.trim().toUpperCase(),
+        vinChassis: vehicleVin.trim().toUpperCase() || null,
+        engineNumber: vehicleEngine.trim().toUpperCase() || null,
+        subTasks: parsedSubTasks,
+      });
+
+      setShowConfirmModal(false);
+      if (onSuccess) onSuccess();
+    } catch (err: any) {
+      console.error('SPK Update Error:', err);
+      setError(err.message || 'An error occurred during update');
+      setShowConfirmModal(false);
     } finally {
       setLoading(false);
     }
@@ -87,106 +168,218 @@ export const SpkForm: React.FC<SpkFormProps> = ({ onSuccess }) => {
 
   return (
     <div className="bg-surface border border-border rounded-lg p-6">
-      <h3 className="text-xl font-bold font-display text-text mb-6">Register New SPK</h3>
-      
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-xl font-bold font-display text-text">
+            {isEditMode ? `Edit Credential SPK: ${spkNo}` : 'Register New SPK'}
+          </h3>
+          <p className="text-xs text-text-muted mt-0.5">
+            {isEditMode
+              ? 'Perbarui kredensial pelanggan, spesifikasi kendaraan, dan target penyelesaian.'
+              : 'Daftarkan surat perintah kerja baru ke dalam sistem.'}
+          </p>
+        </div>
+        {isEditMode && (
+          <span className="bg-amber-500/15 border border-amber-500/30 text-amber-400 px-2.5 py-1 rounded text-xs font-semibold">
+            Mode Edit
+          </span>
+        )}
+      </div>
+
       {error && (
-        <div className="bg-status-danger/10 border border-status-danger text-status-danger px-4 py-3 rounded mb-6">
+        <div className="bg-status-danger/10 border border-status-danger text-status-danger px-4 py-3 rounded mb-6 text-sm">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Row 1: SPK Number & Target Date */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-mono text-text-muted mb-2">SPK NUMBER</label>
+            <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 flex items-center justify-between">
+              <span>SPK Number</span>
+              {isEditMode && (
+                <span className="text-[10px] text-slate-500 flex items-center gap-1">
+                  <Lock className="w-3 h-3" /> Read-only ID
+                </span>
+              )}
+            </label>
             <input
               type="text"
-              required
               value={spkNo}
-              onChange={(e) => setSpkNo(e.target.value)}
-              className="w-full bg-background border border-border rounded px-4 py-2 text-text focus:outline-none focus:border-primary transition"
+              readOnly
+              disabled={isEditMode}
+              className={`w-full rounded p-2.5 text-sm font-mono ${
+                isEditMode
+                  ? 'bg-slate-950/70 border border-slate-800 text-slate-400 cursor-not-allowed opacity-90'
+                  : 'bg-slate-900/50 border border-slate-700 text-slate-200 focus:outline-none focus:border-amber-500'
+              }`}
             />
           </div>
           <div>
-            <label className="block text-sm font-mono text-text-muted mb-2">TARGET DATE</label>
+            <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
+              Target Date
+            </label>
             <input
               type="date"
               required
               value={targetDate}
               onChange={(e) => setTargetDate(e.target.value)}
-              className="w-full bg-background border border-border rounded px-4 py-2 text-text focus:outline-none focus:border-primary transition [&::-webkit-calendar-picker-indicator]:filter-invert"
+              className="w-full bg-slate-900/50 border border-slate-700 rounded p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 [&::-webkit-calendar-picker-indicator]:filter-invert text-sm"
             />
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Row 2: Customer Name & Phone Number */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-mono text-text-muted mb-2">CUSTOMER NAME</label>
+            <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
+              Customer Name
+            </label>
             <input
               type="text"
               required
+              placeholder="e.g. PT Logistik Indo"
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
-              className="w-full bg-background border border-border rounded px-4 py-2 text-text focus:outline-none focus:border-primary transition"
-              placeholder="e.g. PT Logistik Indo"
+              className="w-full bg-slate-900/50 border border-slate-700 rounded p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 text-sm"
             />
           </div>
           <div>
-            <label className="block text-sm font-mono text-text-muted mb-2">VEHICLE PLATE</label>
+            <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
+              Phone Number
+            </label>
+            <input
+              type="tel"
+              placeholder="e.g. 0812-3456-7890"
+              value={customerPhone}
+              onChange={(e) => setCustomerPhone(e.target.value)}
+              className="w-full bg-slate-900/50 border border-slate-700 rounded p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 text-sm"
+            />
+          </div>
+        </div>
+
+        {/* Row 3: Vehicle Plate & Chassis Number */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
+              Vehicle Plate
+            </label>
             <input
               type="text"
               required
+              placeholder="E.G. B 1234 CD"
               value={vehiclePlate}
               onChange={(e) => setVehiclePlate(e.target.value)}
-              className="w-full bg-background border border-border rounded px-4 py-2 text-text focus:outline-none focus:border-primary transition uppercase"
-              placeholder="e.g. B 1234 CD"
+              className="w-full bg-slate-900/50 border border-slate-700 rounded p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 uppercase text-sm"
             />
           </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-mono text-text-muted mb-2">VIN / CHASSIS NUMBER</label>
+            <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
+              VIN / Chassis Number
+            </label>
             <input
               type="text"
+              placeholder="E.G. MH123456789"
               value={vehicleVin}
               onChange={(e) => setVehicleVin(e.target.value)}
-              className="w-full bg-background border border-border rounded px-4 py-2 text-text focus:outline-none focus:border-primary transition uppercase"
-              placeholder="e.g. MH123456789"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-mono text-text-muted mb-2">ENGINE NUMBER</label>
-            <input
-              type="text"
-              value={vehicleEngine}
-              onChange={(e) => setVehicleEngine(e.target.value)}
-              className="w-full bg-background border border-border rounded px-4 py-2 text-text focus:outline-none focus:border-primary transition uppercase"
-              placeholder="e.g. 4D56-12345"
+              className="w-full bg-slate-900/50 border border-slate-700 rounded p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 uppercase text-sm"
             />
           </div>
         </div>
 
+        {/* Row 4: Engine Number */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
+              Engine Number
+            </label>
+            <input
+              type="text"
+              placeholder="E.G. 4D56-12345"
+              value={vehicleEngine}
+              onChange={(e) => setVehicleEngine(e.target.value)}
+              className="w-full bg-slate-900/50 border border-slate-700 rounded p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 uppercase text-sm"
+            />
+          </div>
+        </div>
+
+        {/* Row 5: Sub Task / Modification Scope */}
         <div>
-          <label className="block text-sm font-mono text-text-muted mb-2">VEHICLE 360° PHOTOS</label>
-          <CloudinaryUploader 
-            onUploadSuccess={handleUploadSuccess} 
-            onUploadRemove={handleUploadRemove} 
-            uploadedImages={uploadedImages} 
+          <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
+            Sub Task / Pekerjaan Modifikasi
+          </label>
+          <textarea
+            rows={3}
+            placeholder="Contoh: Potong sasis 50 cm, instalasi boks aluminium, pemasangan hidrolik PTO..."
+            value={subTasks}
+            onChange={(e) => setSubTasks(e.target.value)}
+            className="w-full bg-slate-900/50 border border-slate-700 rounded p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 text-sm font-mono"
           />
         </div>
 
-        <div className="flex justify-end pt-4 border-t border-border">
+        {!isEditMode && (
+          <div>
+            <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
+              Vehicle 360° Photos
+            </label>
+            <CloudinaryUploader
+              onUploadSuccess={handleUploadSuccess}
+              onUploadRemove={handleUploadRemove}
+              uploadedImages={uploadedImages}
+            />
+          </div>
+        )}
+
+        <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={loading}
+              className="px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-surface-active text-text-muted hover:text-text transition cursor-pointer disabled:opacity-50"
+            >
+              Batal
+            </button>
+          )}
+
           <button
             type="submit"
             disabled={loading}
-            className="bg-primary hover:bg-primary-hover text-background font-bold py-2 px-6 rounded transition flex items-center gap-2 disabled:opacity-70"
+            className="bg-primary hover:bg-primary-hover text-background font-bold py-2.5 px-6 rounded-lg text-sm transition flex items-center gap-2 disabled:opacity-70 cursor-pointer shadow-sm"
           >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
-            {loading ? 'Processing...' : 'Register SPK'}
+            {loading ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : isEditMode ? (
+              <Check className="w-5 h-5" />
+            ) : (
+              <Upload className="w-5 h-5" />
+            )}
+            {loading
+              ? isEditMode
+                ? 'Menyimpan...'
+                : 'Processing...'
+              : isEditMode
+              ? 'Simpan Perubahan'
+              : 'Register SPK'}
           </button>
         </div>
       </form>
+
+      {/* Confirmation Modal in Edit Mode */}
+      {isEditMode && (
+        <ConfirmationModal
+          isOpen={showConfirmModal}
+          title="Konfirmasi Simpan Perubahan"
+          message={`Apakah Anda yakin ingin memperbarui data kredensial untuk SPK ${spkNo}? Perubahan data pelanggan, kendaraan, dan sub-task akan disimpan ke database.`}
+          confirmText="Ya, Simpan Perubahan"
+          cancelText="Batal"
+          variant="warning"
+          isLoading={loading}
+          onConfirm={handleUpdateSpk}
+          onCancel={() => setShowConfirmModal(false)}
+        />
+      )}
     </div>
   );
 };

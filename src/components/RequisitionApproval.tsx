@@ -9,6 +9,8 @@ export interface SpkSummaryItem {
   spkId: string;
   spkNo: string;
   customerName: string;
+  vehiclePlate?: string;
+  subTasks?: string[] | string;
   count: number;
 }
 export const SpkSummaryItem = {};
@@ -42,14 +44,21 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
       const spkNo = req.spk?.spk_no || req.spk?.spk_number || 'Tanpa SPK';
       const spkId = req.spk?.id || req.spk_id || '';
       const customerName = req.spk?.customer_name || 'Pelanggan Umum';
+      const vehiclePlate = req.spk?.vehicle_plate || '';
+      const subTasks = req.spk?.sub_tasks || [];
+
       const existing = map.get(spkNo);
       if (existing) {
         existing.count += 1;
+        if (!existing.vehiclePlate && vehiclePlate) existing.vehiclePlate = vehiclePlate;
+        if ((!existing.subTasks || existing.subTasks.length === 0) && subTasks) existing.subTasks = subTasks;
       } else {
         map.set(spkNo, {
           spkId,
           spkNo,
           customerName,
+          vehiclePlate,
+          subTasks,
           count: 1
         });
       }
@@ -128,7 +137,7 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
           notes,
           requested_by,
           created_at,
-          spk ( id, spk_no, customer_name ),
+          spk ( id, spk_no, customer_name, vehicle_plate, sub_tasks ),
           profiles ( full_name ),
           material_requisition_items (
             id,
