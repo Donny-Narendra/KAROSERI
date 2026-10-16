@@ -109,14 +109,14 @@ export const financialReportsService = {
     let targetSearch: string | undefined;
     let overBudgetOnly = false;
 
-    if (typeof spkIdOrFilter === 'object' && spkIdOrFilter !== null) {
+    if (typeof spkIdOrFilter === 'string') {
+      targetSpkId = spkIdOrFilter;
+      targetWbsStage = wbsStageParam;
+    } else if (spkIdOrFilter && typeof spkIdOrFilter === 'object') {
       targetSpkId = spkIdOrFilter.spkId;
       targetWbsStage = spkIdOrFilter.wbsStage;
       targetSearch = spkIdOrFilter.searchQuery || spkIdOrFilter.search;
       overBudgetOnly = !!spkIdOrFilter.overBudgetOnly;
-    } else {
-      targetSpkId = spkIdOrFilter;
-      targetWbsStage = wbsStageParam;
     }
 
     if (targetSpkId) {
@@ -172,13 +172,13 @@ export const financialReportsService = {
     let targetSearch: string | undefined;
     let lowStockOnly = false;
 
-    if (typeof categoryOrFilter === 'object' && categoryOrFilter !== null) {
+    if (typeof categoryOrFilter === 'string') {
+      targetCategory = categoryOrFilter;
+      targetSearch = searchQueryParam;
+    } else if (categoryOrFilter && typeof categoryOrFilter === 'object') {
       targetCategory = categoryOrFilter.category;
       targetSearch = categoryOrFilter.searchQuery || categoryOrFilter.search;
       lowStockOnly = !!categoryOrFilter.lowStockOnly;
-    } else {
-      targetCategory = categoryOrFilter;
-      targetSearch = searchQueryParam;
     }
 
     if (targetCategory && targetCategory !== 'ALL') {
