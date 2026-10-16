@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { CheckCircle2, AlertTriangle, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
 
 interface QcInspectionFormProps {
   spkId: string;
   onQcUpdated?: () => void;
+  wbsUpdateKey?: number;
 }
 
 const CHECKLIST_ITEMS = [
@@ -14,7 +16,21 @@ const CHECKLIST_ITEMS = [
   { key: 'uji_kelistrikan', label: 'Uji Kelistrikan (Electrical Test)' }
 ] as const;
 
-export const QcInspectionForm: React.FC<QcInspectionFormProps> = ({ spkId, onQcUpdated }) => {
+const WBS_CATEGORIES = [
+  'Pembongkaran',
+  'Sasis/Rangka',
+  'Dinding/Fabrikasi',
+  'Cat/Finishing',
+  'Kelistrikan/Hidrolik'
+];
+
+interface WbsItemCheck {
+  wbs_category: string;
+  status: 'PENDING' | 'PASS' | 'FAIL';
+  progress_percentage: number;
+}
+
+export const QcInspectionForm: React.FC<QcInspectionFormProps> = ({ spkId, onQcUpdated, wbsUpdateKey }) => {
   const [params, setParams] = useState({
     shower_test: false,
     uji_hidrolik: false,
@@ -25,6 +41,7 @@ export const QcInspectionForm: React.FC<QcInspectionFormProps> = ({ spkId, onQcU
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isDraft, setIsDraft] = useState(false);
+  const [wbsChecklists, setWbsChecklists] = useState<WbsItemCheck[]>([]);
 
   // Notification / Alert Modal state
   const [notification, setNotification] = useState<{
@@ -33,21 +50,34 @@ export const QcInspectionForm: React.FC<QcInspectionFormProps> = ({ spkId, onQcU
     variant?: ConfirmationModalVariant;
   } | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!spkId) return;
 
     const fetchQcData = async () => {
       setLoading(true);
       try {
-        // Fetch SPK status, qc_status, and final_qc_checklist
-        const { data: spkData, error: spkError } = await supabase
-          .from('spk')
-          .select('status, qc_status, final_qc_checklist')
-          .eq('id', spkId)
-          .single();
-          
-        if (spkError) throw spkError;
-        
+        // Fetch SPK status, qc_status, final_qc_checklist, dan wbs_checklists secara bersamaan
+        const [spkRes, wbsRes] = await Promise.all([
+          supabase
+            .from('spk')
+            .select('status, qc_status, final_qc_checklist')
+            .eq('id', spkId)
+            .single(),
+          supabase
+            .from('wbs_checklists')
+            .select('wbs_category, status, progress_percentage')
+            .eq('spk_id', spkId)
+        ]);
+
+        if (spkRes.error) throw spkRes.error;
+        const spkData = spkRes.data;
+
+        if (wbsRes.data) {
+          setWbsChecklists(wbsRes.data as WbsItemCheck[]);
+        } else {
+          setWbsChecklists([]);
+        }
+
         if (spkData.status === 'DRAFT') {
           setIsDraft(true);
           return;
@@ -101,18 +131,73 @@ export const QcInspectionForm: React.FC<QcInspectionFormProps> = ({ spkId, onQcU
     };
 
     fetchQcData();
-  }, [spkId]);
+  }, [spkId, wbsUpdateKey]);
+
+  // Evaluasi kelayakan tahapan WBS (Pre-condition 2: Tidak ada WBS FAIL dan seluruh tahapan tuntas)
+  const wbsValidation = useMemo(() => {
+    const map = new Map<string, { status?: string; progress?: number }>();
+    wbsChecklists.forEach((item) => {
+      if (item.wbs_category) {
+        map.set(item.wbs_category, {
+          status: item.status,
+          progress: item.progress_percentage || 0
+        });
+      }
+    });
+
+    const failedCategories: string[] = [];
+    const incompleteCategories: string[] = [];
+
+    WBS_CATEGORIES.forEach((cat) => {
+      const record = map.get(cat);
+      if (!record) {
+        incompleteCategories.push(cat);
+      } else if (record.status === 'FAIL') {
+        failedCategories.push(cat);
+      } else if (record.status !== 'PASS' || (record.progress || 0) < 100) {
+        incompleteCategories.push(cat);
+      }
+    });
+
+    const isWbsReady = failedCategories.length === 0 && incompleteCategories.length === 0;
+
+    return {
+      failedCategories,
+      incompleteCategories,
+      isWbsReady
+    };
+  }, [wbsChecklists]);
+
+  // Evaluasi kelayakan Checklist Final (Pre-condition 1: Seluruh 4 checklist tercentang)
+  const isChecklistAllChecked = Boolean(
+    params.shower_test &&
+    params.uji_hidrolik &&
+    params.dimensi_kendaraan &&
+    params.uji_kelistrikan
+  );
+
+  // Status kelayakan submit Final QC (Hard-Gate Condition)
+  const isAllPassed = isChecklistAllChecked && wbsValidation.isWbsReady;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Require all checks to be true to pass the QC
-    const allPassed = params.shower_test && params.uji_hidrolik && params.dimensi_kendaraan && params.uji_kelistrikan;
-    const finalStatus: 'PASS' | 'FAIL' = allPassed ? 'PASS' : 'FAIL';
-    const checkedItems = CHECKLIST_ITEMS.filter(item => params[item.key]).map(item => item.label);
-    
+
+    // Guard Clause: Cegah eksekusi jika kondisi Hard-Gate belum lolos
+    if (!isAllPassed) {
+      setNotification({
+        title: 'Hard-Gate QC Terkunci',
+        message: 'Tidak dapat mengirim Final QC: Semua checklist wajib dicentang dan seluruh tahapan WBS harus lolos uji!',
+        variant: 'danger'
+      });
+      return;
+    }
+
     setLoading(true);
     try {
-      // 1. Update spk.qc_status and spk.final_qc_checklist
+      const finalStatus: 'PASS' = 'PASS';
+      const checkedItems = CHECKLIST_ITEMS.filter(item => params[item.key]).map(item => item.label);
+
+      // 1. Update spk.qc_status dan spk.final_qc_checklist
       const { error: spkError } = await supabase
         .from('spk')
         .update({
@@ -123,7 +208,7 @@ export const QcInspectionForm: React.FC<QcInspectionFormProps> = ({ spkId, onQcU
 
       if (spkError) throw spkError;
 
-      // 2. Also record in qc_inspections for inspection audit trail
+      // 2. Rekam di qc_inspections untuk riwayat audit inspeksi
       try {
         await supabase
           .from('qc_inspections')
@@ -138,12 +223,12 @@ export const QcInspectionForm: React.FC<QcInspectionFormProps> = ({ spkId, onQcU
       }
 
       setStatus(finalStatus);
-      setSubmitted(finalStatus === 'PASS');
+      setSubmitted(true);
       onQcUpdated?.();
       setNotification({
-        title: 'QC Inspection Disubmit',
-        message: `Hasil inspeksi QC berhasil disimpan dengan status: ${finalStatus}.`,
-        variant: finalStatus === 'PASS' ? 'success' : 'warning'
+        title: 'Final QC Berhasil Disetujui',
+        message: 'Hasil inspeksi Final QC berhasil disimpan. Unit SPK resmi dinyatakan LULUS (PASS).',
+        variant: 'success'
       });
     } catch (err: any) {
       console.error('Error submitting QC inspection:', err);
@@ -179,66 +264,119 @@ export const QcInspectionForm: React.FC<QcInspectionFormProps> = ({ spkId, onQcU
 
   return (
     <div className="bg-surface p-6 rounded-lg shadow-sm border border-border mt-6">
-      <h2 className="text-xl font-display font-semibold mb-4 text-primary">Final QC Inspection</h2>
-      {(submitted || status !== 'PENDING') && (
-        <div className={`mb-4 p-3 rounded text-sm font-medium ${status === 'PASS' ? 'bg-green-900/30 text-green-400 border border-green-800' : 'bg-red-900/30 text-red-400 border border-red-800'}`}>
-          Current Status: {status}
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div>
+          <h2 className="text-xl font-display font-semibold text-primary">Final QC Inspection</h2>
+          <p className="text-xs text-text-muted mt-0.5">Pemeriksaan kelaikan unit sebelum serah terima (BAST)</p>
+        </div>
+      </div>
+
+      {/* Dynamic Feedback UI Banner */}
+      {status === 'PASS' ? (
+        <div className="mb-4 p-3.5 rounded-lg text-sm font-semibold bg-emerald-950/60 border border-emerald-800 text-emerald-300 flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+            <span>Current Status: PASS (Telah Lulus Final QC)</span>
+          </div>
+          <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono font-bold">
+            TERVERIFIKASI
+          </span>
+        </div>
+      ) : isAllPassed ? (
+        <div className="mb-4 p-3.5 rounded-lg text-sm font-semibold bg-emerald-950/60 border border-emerald-800 text-emerald-300 flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+            <span>Current Status: READY TO PASS</span>
+          </div>
+          <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono font-bold animate-pulse">
+            SIAP SUBMIT
+          </span>
+        </div>
+      ) : (
+        <div className="mb-4 p-3.5 rounded-lg text-sm bg-rose-950/60 border border-rose-800 text-rose-300 space-y-2 shadow-xs">
+          <div className="flex items-center justify-between font-semibold">
+            <div className="flex items-center gap-2.5">
+              <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
+              <span>Current Status: INCOMPLETE / FAIL</span>
+            </div>
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 font-mono font-bold">
+              HARD-GATE LOCKED
+            </span>
+          </div>
+          <div className="pt-1.5 border-t border-rose-900/60 text-xs text-rose-200/90 space-y-1">
+            {!isChecklistAllChecked && (
+              <div className="flex items-start gap-1.5">
+                <span className="text-rose-400 font-bold">•</span>
+                <span>Lengkapi 4 parameter checklist Final QC di bawah ini.</span>
+              </div>
+            )}
+            {wbsValidation.failedCategories.length > 0 && (
+              <div className="flex items-start gap-1.5">
+                <span className="text-rose-400 font-bold">•</span>
+                <span>Tahapan WBS berstatus QC FAIL: <strong className="text-rose-100">{wbsValidation.failedCategories.join(', ')}</strong></span>
+              </div>
+            )}
+            {wbsValidation.incompleteCategories.length > 0 && (
+              <div className="flex items-start gap-1.5">
+                <span className="text-rose-400 font-bold">•</span>
+                <span>Tahapan WBS belum 100% tuntas / belum lolos QC: <strong className="text-rose-100">{wbsValidation.incompleteCategories.join(', ')}</strong></span>
+              </div>
+            )}
+          </div>
         </div>
       )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <label className="flex items-center space-x-3 cursor-pointer p-3 border border-border rounded hover:bg-background transition-colors">
-            <input 
-              type="checkbox" 
-              className="w-5 h-5 accent-primary" 
-              checked={params.shower_test}
-              onChange={(e) => setParams({...params, shower_test: e.target.checked})}
-            />
-            <span className="font-medium">Shower Test Anti Bocor (Water Leaks)</span>
-          </label>
-
-          <label className="flex items-center space-x-3 cursor-pointer p-3 border border-border rounded hover:bg-background transition-colors">
-            <input 
-              type="checkbox" 
-              className="w-5 h-5 accent-primary" 
-              checked={params.uji_hidrolik}
-              onChange={(e) => setParams({...params, uji_hidrolik: e.target.checked})}
-            />
-            <span className="font-medium">Uji Hidrolik (Hydraulic Test)</span>
-          </label>
-
-          <label className="flex items-center space-x-3 cursor-pointer p-3 border border-border rounded hover:bg-background transition-colors">
-            <input 
-              type="checkbox" 
-              className="w-5 h-5 accent-primary" 
-              checked={params.dimensi_kendaraan}
-              onChange={(e) => setParams({...params, dimensi_kendaraan: e.target.checked})}
-            />
-            <span className="font-medium">Dimensi Kendaraan (Dimensions Check)</span>
-          </label>
-
-          <label className="flex items-center space-x-3 cursor-pointer p-3 border border-border rounded hover:bg-background transition-colors">
-            <input 
-              type="checkbox" 
-              className="w-5 h-5 accent-primary" 
-              checked={params.uji_kelistrikan}
-              onChange={(e) => setParams({...params, uji_kelistrikan: e.target.checked})}
-            />
-            <span className="font-medium">Uji Kelistrikan (Electrical Test)</span>
-          </label>
+          {CHECKLIST_ITEMS.map((item) => (
+            <label
+              key={item.key}
+              className={`flex items-center space-x-3 cursor-pointer p-3 border rounded transition-colors ${
+                params[item.key]
+                  ? 'border-emerald-500/50 bg-emerald-950/20'
+                  : 'border-border hover:bg-background'
+              }`}
+            >
+              <input 
+                type="checkbox" 
+                className="w-5 h-5 accent-emerald-500 cursor-pointer" 
+                checked={params[item.key]}
+                disabled={submitted && status === 'PASS'}
+                onChange={(e) => setParams({ ...params, [item.key]: e.target.checked })}
+              />
+              <span className={`font-medium text-sm ${params[item.key] ? 'text-emerald-300' : 'text-slate-200'}`}>
+                {item.label}
+              </span>
+            </label>
+          ))}
         </div>
         
-        <button 
-          type="submit" 
-          disabled={loading || submitted && status === 'PASS'}
-          className={`w-full py-3 rounded-lg font-bold transition-all ${
-            loading || (submitted && status === 'PASS')
-              ? 'bg-surface border border-border text-text-muted cursor-not-allowed'
-              : 'bg-primary text-primary-content hover:brightness-110 shadow-[0_0_15px_rgba(255,107,0,0.3)]'
-          }`}
-        >
-          {loading ? 'Loading...' : (submitted && status === 'PASS' ? 'QC Passed' : 'Submit Final QC')}
-        </button>
+        {/* Tombol Submit & Peringatan Hard-Gate */}
+        <div className="space-y-2 pt-2">
+          <button 
+            type="submit" 
+            disabled={loading || (submitted && status === 'PASS') || !isAllPassed}
+            title={!isAllPassed ? "Lengkapi dan centang semua parameter inspeksi di atas untuk mengaktifkan persetujuan Final QC." : undefined}
+            className={`w-full py-3 rounded-lg font-bold transition-all ${
+              loading || (submitted && status === 'PASS') || !isAllPassed
+                ? 'bg-surface border border-border text-text-muted opacity-50 cursor-not-allowed'
+                : 'bg-primary text-primary-content hover:brightness-110 shadow-[0_0_15px_rgba(255,107,0,0.3)] cursor-pointer'
+            }`}
+          >
+            {loading 
+              ? 'Menyimpan...' 
+              : (submitted && status === 'PASS') 
+                ? 'QC Passed (Sudah Lulus)' 
+                : 'Submit Final QC'}
+          </button>
+
+          {!isAllPassed && status !== 'PASS' && (
+            <p className="text-xs text-text-muted text-center flex items-center justify-center gap-1.5 pt-1">
+              <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <span>Lengkapi dan centang semua parameter inspeksi di atas untuk mengaktifkan persetujuan Final QC.</span>
+            </p>
+          )}
+        </div>
       </form>
 
       {/* Modal Notifikasi / Alert QC */}

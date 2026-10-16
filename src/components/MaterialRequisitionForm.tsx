@@ -38,11 +38,17 @@ interface RequisitionItem {
   tempId: string; // unique row id
   sourceRabId?: string | null; // reference to rab_items id if from RAB
   materialId?: string | null;
+  material_id?: string | null;
+  id?: string;
   name: string;
+  material_name?: string;
   unit: string;
   unitPrice: number;
+  unit_price?: number;
+  estimated_price?: number;
   quantity: number;
   subtotal: number;
+  wbs_stage?: string;
   isManual?: boolean;
   isPersisted?: boolean; // true if already saved in database
   dbRequisitionItemId?: string; // id in material_requisition_items
@@ -200,8 +206,16 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
             const materialId = matchedMat?.id || item.material_id || null;
             const name = matchedMat?.name || item.description || 'Material Tanpa Nama';
             const unit = matchedMat?.unit || 'pcs';
-            const unitPrice = Number(matchedMat?.unit_price || 0);
             const qty = Number(item.quantity || 0);
+
+            // Determine unit price with multi-layer fallback (master unit_price -> rab item_total / qty)
+            let unitPrice = Number(matchedMat?.unit_price || 0);
+            if (unitPrice === 0 && item.item_total && qty > 0) {
+              unitPrice = Number(item.item_total) / qty;
+            } else if (unitPrice === 0 && item.item_total) {
+              unitPrice = Number(item.item_total);
+            }
+
             const calculatedSubtotal = item.item_total ? Number(item.item_total) : (qty * unitPrice);
 
             return {
@@ -263,6 +277,9 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
               material_name,
               quantity,
               unit,
+              unit_price,
+              subtotal,
+              wbs_stage,
               materials (
                 id,
                 name,
@@ -313,7 +330,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                 const qty = Number(item.quantity || (matchedRab?.rabQuantity ?? 1));
 
                 // Calculate price and subtotal
-                let unitPrice = Number(item.materials?.unit_price || 0);
+                let unitPrice = Number(item.unit_price ?? item.materials?.unit_price ?? 0);
                 if (unitPrice === 0 && matchedRab) {
                   unitPrice = matchedRab.unitPrice || (matchedRab.rabQuantity > 0 ? matchedRab.subtotal / matchedRab.rabQuantity : 0);
                 }
@@ -321,7 +338,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                   unitPrice = matchedMaster.unit_price;
                 }
 
-                let subtotal = qty * unitPrice;
+                let subtotal = Number(item.subtotal) || (qty * unitPrice);
                 if (subtotal === 0 && matchedRab && matchedRab.subtotal > 0) {
                   subtotal = matchedRab.subtotal;
                   if (qty > 0 && unitPrice === 0) {
@@ -333,11 +350,16 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                   tempId: `persisted-${item.id}`,
                   sourceRabId,
                   materialId,
+                  material_id: materialId,
                   name,
+                  material_name: name,
                   unit,
                   unitPrice,
+                  unit_price: unitPrice,
+                  estimated_price: unitPrice,
                   quantity: qty,
                   subtotal,
+                  wbs_stage: item.wbs_stage || cleanWbsCategory,
                   isManual: !isFromRab,
                   isPersisted: true,
                   dbRequisitionItemId: item.id,
@@ -406,11 +428,16 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
       tempId: `req-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       sourceRabId: sourceItem.id,
       materialId: sourceItem.materialId || null,
+      material_id: sourceItem.materialId || null,
       name: sourceItem.name,
+      material_name: sourceItem.name,
       unit: sourceItem.unit,
       unitPrice: sourceItem.unitPrice,
+      unit_price: sourceItem.unitPrice,
+      estimated_price: sourceItem.unitPrice,
       quantity: sourceItem.rabQuantity > 0 ? sourceItem.rabQuantity : 1,
       subtotal: sourceItem.subtotal,
+      wbs_stage: cleanWbsCategory,
       isManual: false,
       isPersisted: false
     };
@@ -542,10 +569,15 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
       return {
         ...item,
         materialId: selectedMat.id,
+        material_id: selectedMat.id,
         name: selectedMat.name,
+        material_name: selectedMat.name,
         unit: selectedMat.unit,
         unitPrice: selectedMat.unit_price,
-        subtotal
+        unit_price: selectedMat.unit_price,
+        estimated_price: selectedMat.unit_price,
+        subtotal,
+        wbs_stage: cleanWbsCategory
       };
     }));
   };
@@ -555,10 +587,11 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
     const validQty = isNaN(newQty) || newQty < 0 ? 0 : newQty;
     setSelectedItems(prev => prev.map(item => {
       if (item.tempId !== tempId || item.isPersisted) return item;
+      const unitPrice = item.unitPrice || item.unit_price || item.estimated_price || 0;
       return {
         ...item,
         quantity: validQty,
-        subtotal: validQty * item.unitPrice
+        subtotal: validQty * unitPrice
       };
     }));
   };
@@ -574,8 +607,8 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
   }, [selectedItems]);
 
   // Submit Requisition (only new unpersisted items)
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmitRequisition = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!user) {
       setNotification({
         title: 'Sesi Tidak Valid',
@@ -597,7 +630,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
     }
 
     // Validation: Require at least 1 new item with quantity > 0
-    const validItems = newItems.filter(item => (item.materialId || (item.name && item.name.trim())) && item.quantity > 0);
+    const validItems = newItems.filter(item => (item.materialId || item.material_id || (item.name && item.name.trim())) && item.quantity > 0);
     if (validItems.length === 0) {
       setNotification({
         title: 'Validasi Kuantitas',
@@ -608,7 +641,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
     }
 
     // Check if any manual item has not selected a material and has no name
-    const unselectedManual = validItems.find(item => item.isManual && !item.materialId && !item.name.trim());
+    const unselectedManual = validItems.find(item => item.isManual && !item.materialId && !item.material_id && !item.name.trim());
     if (unselectedManual) {
       setNotification({
         title: 'Material Belum Dipilih',
@@ -636,23 +669,41 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
 
       if (reqError) throw reqError;
 
-      // 2. Insert Material Requisition Items
+      // 2. Insert Material Requisition Items with snapshot prices and WBS stage
       const itemsToInsert = validItems.map(item => {
-        let resolvedMaterialId = item.materialId || null;
-        if (!resolvedMaterialId && item.name) {
-          const norm = normalizeText(item.name);
+        let resolvedMaterialId = item.material_id || item.materialId || item.id || null;
+        const itemName = item.material_name || item.name || 'Material Tanpa Nama';
+
+        // Check if resolvedMaterialId is a valid master material ID
+        if (resolvedMaterialId && !masterMaterials.some(m => m.id === resolvedMaterialId)) {
+          const foundById = masterMaterials.find(m => m.id === resolvedMaterialId);
+          if (!foundById) resolvedMaterialId = null;
+        }
+
+        // Lenient name resolution against master catalog
+        if (!resolvedMaterialId && itemName) {
+          const norm = normalizeText(itemName);
           const found = masterMaterials.find(m => normalizeText(m.name) === norm);
           if (found) {
             resolvedMaterialId = found.id;
           }
         }
+
+        const unitPrice = Number(item.estimated_price || item.unit_price || item.unitPrice || 0);
+        const quantity = Number(item.quantity) || 1;
+        const subtotal = Number(item.subtotal) || (quantity * unitPrice);
+        const wbsStage = item.wbs_stage || cleanWbsCategory;
+
         return {
           requisition_id: reqData.id,
           material_id: resolvedMaterialId,
           rab_item_id: item.sourceRabId || null,
-          material_name: item.name || 'Material Tanpa Nama',
-          quantity: Number(item.quantity) || 1,
-          unit: item.unit || 'pcs'
+          material_name: itemName,
+          quantity,
+          unit: item.unit || 'pcs',
+          unit_price: unitPrice,
+          subtotal,
+          wbs_stage: wbsStage
         };
       });
 
@@ -1056,7 +1107,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
             </button>
             <button
               type="button"
-              onClick={handleSubmit}
+              onClick={handleSubmitRequisition}
               disabled={loading || newItemsCount === 0 || fetching}
               className="flex-1 sm:flex-none px-5 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-semibold shadow transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >

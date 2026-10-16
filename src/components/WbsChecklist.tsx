@@ -12,6 +12,7 @@ import { WbsPendingMaterialModal, type PendingWbsMaterial } from './WbsPendingMa
 
 interface WbsChecklistProps {
   spkId: string;
+  onWbsUpdated?: () => void;
 }
 
 const WBS_CATEGORIES = [
@@ -32,7 +33,7 @@ const WBS_LABELS: Record<string, string> = {
 
 const PROGRESS_STEPS = [0, 25, 50, 75, 100];
 
-export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
+export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [initialFetchLoading, setInitialFetchLoading] = useState(true);
@@ -338,6 +339,7 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
       if (updates.status !== undefined) setStatuses(prev => ({ ...prev, [category]: updates.status }));
       if (noteValue !== undefined) setNotes(prev => ({ ...prev, [category]: noteValue || '' }));
       if (updates.progress !== undefined) setProgress(prev => ({ ...prev, [category]: updates.progress }));
+      onWbsUpdated?.();
       
     } catch (error: any) {
       console.error('Error saving WBS data', error);
@@ -398,6 +400,7 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
         ...prev,
         [category]: [...(prev[category] || []), data as unknown as WbsAsset]
       }));
+      onWbsUpdated?.();
     } catch (err: any) {
       console.error("Error saving asset to DB", err);
       setNotification({
@@ -421,6 +424,7 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId }) => {
         ...prev,
         [category]: (prev[category] || []).filter(a => a.file_url !== fileUrl)
       }));
+      onWbsUpdated?.();
       
       // If we removed the last photo and progress was 100%, we might want to downgrade it
       // but let's let the user handle it or downgrade automatically.

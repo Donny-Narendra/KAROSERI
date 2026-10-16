@@ -8,6 +8,8 @@ export interface SpkSelectorProps {
   selectedSpkId: string;
   onSelectSpk: (spkId: string) => void;
   isLoading?: boolean;
+  maxHeightClassName?: string;
+  className?: string;
 }
 
 export const SpkSelector: React.FC<SpkSelectorProps> = ({
@@ -15,6 +17,8 @@ export const SpkSelector: React.FC<SpkSelectorProps> = ({
   selectedSpkId,
   onSelectSpk,
   isLoading = false,
+  maxHeightClassName = 'max-h-[420px] lg:max-h-[calc(100vh-220px)]',
+  className = '',
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -38,9 +42,9 @@ export const SpkSelector: React.FC<SpkSelectorProps> = ({
   }, [spks, searchQuery]);
 
   return (
-    <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-sm">
+    <div className={`bg-surface border border-border rounded-xl overflow-hidden shadow-sm flex flex-col ${className}`}>
       {/* Header Panel */}
-      <div className="px-5 py-4 border-b border-border bg-slate-950/60 flex items-center justify-between">
+      <div className="px-5 py-4 border-b border-border bg-slate-950/60 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2.5">
           <ClipboardList className="w-5 h-5 text-amber-500" />
           <div>
@@ -62,7 +66,7 @@ export const SpkSelector: React.FC<SpkSelectorProps> = ({
       </div>
 
       {/* Kotak Pencarian (Search Input Box) */}
-      <div className="p-3.5 border-b border-border bg-slate-950/30">
+      <div className="p-3.5 border-b border-border bg-slate-950/30 shrink-0">
         <div className="relative">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
@@ -86,7 +90,7 @@ export const SpkSelector: React.FC<SpkSelectorProps> = ({
       </div>
 
       {/* List Container: Compact Vertical List */}
-      <div className="p-3.5 max-h-[500px] overflow-y-auto pr-1">
+      <div className={`p-3.5 overflow-y-auto pr-1 ${maxHeightClassName}`}>
         {isLoading ? (
           <div className="py-12 text-center text-text-muted space-y-2">
             <div className="inline-block w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mb-2" />
@@ -178,9 +182,9 @@ export const SpkSelector: React.FC<SpkSelectorProps> = ({
                   </div>
 
                   {/* Baris 2 (Identitas Unit & Pelanggan): Customer Name & Vehicle Plate */}
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center justify-between gap-2">
                     <span
-                      className="text-xs sm:text-sm font-semibold text-slate-100 truncate max-w-[260px] sm:max-w-[400px]"
+                      className="text-xs sm:text-sm font-semibold text-slate-100 truncate flex-1 min-w-0"
                       title={spk.customer_name || 'Pelanggan Umum'}
                     >
                       {spk.customer_name || 'Pelanggan Umum'}

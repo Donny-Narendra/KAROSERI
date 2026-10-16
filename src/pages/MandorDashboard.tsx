@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { ClipboardList } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { WbsChecklist } from '../components/WbsChecklist';
 import { supabase } from '../lib/supabaseClient';
@@ -11,6 +12,11 @@ export const MandorDashboard: React.FC = () => {
   const [selectedSpk, setSelectedSpk] = useState<string>('');
   const [spks, setSpks] = useState<Spk[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [wbsUpdateKey, setWbsUpdateKey] = useState<number>(0);
+
+  const handleWbsUpdated = useCallback(() => {
+    setWbsUpdateKey((prev) => prev + 1);
+  }, []);
 
   const fetchSpks = useCallback(async () => {
     try {
@@ -88,29 +94,40 @@ export const MandorDashboard: React.FC = () => {
         </div>
       </header>
 
-      <main className="container mx-auto p-4 py-8">
-        <div className="max-w-4xl mx-auto space-y-8">
-          
-          <SpkSelector
-            spks={spks}
-            selectedSpkId={selectedSpk}
-            onSelectSpk={setSelectedSpk}
-            isLoading={loading}
-          />
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Kolom Kiri: SPK Selector (Master) */}
+          <div className="lg:col-span-4 xl:col-span-4 space-y-4 lg:sticky lg:top-24">
+            <SpkSelector
+              spks={spks}
+              selectedSpkId={selectedSpk}
+              onSelectSpk={setSelectedSpk}
+              isLoading={loading}
+              maxHeightClassName="max-h-[420px] lg:max-h-[calc(100vh-220px)]"
+            />
+          </div>
 
-          {selectedSpk && (
-            <>
-              <WbsChecklist spkId={selectedSpk} />
-              <QcInspectionForm spkId={selectedSpk} onQcUpdated={fetchSpks} />
-            </>
-          )}
-
-          {!selectedSpk && (
-            <div className="text-center py-12 text-text-muted border-2 border-dashed border-border rounded-lg">
-              Select an SPK above to view and update WBS QC Checklists
-            </div>
-          )}
-
+          {/* Kolom Kanan: WBS Progress & QC (Detail) */}
+          <div className="lg:col-span-8 xl:col-span-8 space-y-6">
+            {selectedSpk ? (
+              <>
+                <WbsChecklist spkId={selectedSpk} onWbsUpdated={handleWbsUpdated} />
+                <QcInspectionForm spkId={selectedSpk} onQcUpdated={fetchSpks} wbsUpdateKey={wbsUpdateKey} />
+              </>
+            ) : (
+              <div className="bg-surface border-2 border-dashed border-border rounded-xl p-10 text-center text-text-muted flex flex-col items-center justify-center min-h-[360px]">
+                <div className="w-14 h-14 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mb-4 text-slate-500">
+                  <ClipboardList className="w-7 h-7 text-amber-500/70" />
+                </div>
+                <h3 className="text-base font-semibold text-slate-200 mb-1.5">
+                  Belum Ada SPK Dipilih
+                </h3>
+                <p className="text-xs sm:text-sm text-text-muted max-w-md leading-relaxed">
+                  Pilih salah satu SPK aktif dari daftar di sebelah kiri untuk membuka lembar kerja progres WBS, permintaan material gudang, borongan teknisi, dan form checklist QC.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </main>
     </div>
