@@ -68,8 +68,17 @@ async function runServiceValidation() {
     }
     console.log('✅ Stage 5 PASS: getProjectReceivables() monitors aging and clearance gates.\n');
 
+    // 6. Financial Sanity Check Audit
+    console.log('--- Stage 6: Testing auditFinancialSanityCheck() ---');
+    const sanityCheck = await financialReportsService.auditFinancialSanityCheck();
+    console.log('Sanity Check Result:', JSON.stringify(sanityCheck, null, 2));
+    if (typeof sanityCheck.is_healthy !== 'boolean') {
+      throw new Error('Invalid sanity check output format');
+    }
+    console.log('✅ Stage 6 PASS: auditFinancialSanityCheck() successfully executed and validated.\n');
+
     console.log('==============================================================================');
-    console.log('🏆 EMPIRICAL VALIDATION COMPLETE: WAVE 2 SERVICE LAYER 100% OPERATIONAL!');
+    console.log('🏆 EMPIRICAL VALIDATION COMPLETE: SERVICE LAYER AUDIT SANITY CHECK PASS!');
     console.log('==============================================================================');
   } catch (err) {
     console.error('❌ Service Validation Failed:', err);

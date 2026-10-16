@@ -125,3 +125,55 @@ export interface ProjectReceivableFilter {
   unpaidOnly?: boolean;
   minAgingDays?: number;
 }
+
+// ==============================================================================
+// FINANCIAL INTEGRITY AUDIT & SANITY CHECK (STEP 4)
+// ==============================================================================
+
+export interface OverBudgetAnomaly {
+  spk_id: string;
+  spk_number: string;
+  customer_name: string;
+  wbs_stage: string;
+  total_material_budget: number;
+  actual_material_spent: number;
+  overspend_amount: number;
+}
+
+export interface NegativeMarginAnomaly {
+  spk_id: string;
+  spk_number: string;
+  customer_name: string;
+  total_revenue: number;
+  total_cogs: number;
+  gross_profit: number;
+  gross_margin_percentage: number;
+}
+
+export interface UnbilledCompletedAnomaly {
+  spk_id: string;
+  spk_number: string;
+  customer_name: string;
+  vehicle_plate?: string;
+}
+
+export interface CriticalReceivableAnomaly {
+  spk_id: string;
+  spk_number: string;
+  customer_name: string;
+  outstanding_balance: number;
+  receivable_aging_days: number;
+}
+
+export interface FinancialSanityCheckResult {
+  is_healthy: boolean;
+  over_budget_count: number;
+  over_budget_items: OverBudgetAnomaly[];
+  negative_margin_count: number;
+  negative_margin_items: NegativeMarginAnomaly[];
+  unbilled_completed_count: number;
+  unbilled_completed_items: UnbilledCompletedAnomaly[];
+  critical_receivables_count: number;
+  critical_receivables_items: CriticalReceivableAnomaly[];
+}
+

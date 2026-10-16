@@ -13,6 +13,7 @@ import {
   DollarSign
 } from 'lucide-react';
 import { ExecutiveKpiCards } from '../components/finance/ExecutiveKpiCards';
+import { FinancialAuditPanel } from '../components/finance/FinancialAuditPanel';
 import { JobProfitabilityTab } from '../components/finance/tabs/JobProfitabilityTab';
 import { WbsCostVarianceTab } from '../components/finance/tabs/WbsCostVarianceTab';
 import { InventoryValuationTab } from '../components/finance/tabs/InventoryValuationTab';
@@ -106,8 +107,8 @@ export const FinancialReportsPage: React.FC = () => {
                 <h1 className="text-xl font-bold font-display tracking-tight text-text">
                   Laporan Keuangan & Executive Dashboard
                 </h1>
-                <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-                  Step 3 UI
+                <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  Step 4 Audit
                 </span>
               </div>
               <p className="text-xs text-text-muted">
@@ -209,6 +210,13 @@ export const FinancialReportsPage: React.FC = () => {
           </div>
         )}
         <ExecutiveKpiCards summary={summary} isLoading={loadingSummary} />
+
+        {/* Sub-Panel Visual: Audit & Rekonsiliasi Integritas Data (Step 4) */}
+        <FinancialAuditPanel
+          refreshTrigger={refreshTrigger}
+          onRefreshParent={handleManualRefresh}
+          onSelectTab={(tab) => setActiveTab(tab)}
+        />
 
         {/* Interactive Tabs Navigation */}
         <div className="border-b border-border">

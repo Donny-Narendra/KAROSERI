@@ -9,6 +9,7 @@ import type {
   WbsCostVarianceFilter,
   InventoryValuationFilter,
   ProjectReceivableFilter,
+  FinancialSanityCheckResult,
 } from '../types/financialReports';
 
 export const financialReportsService = {
@@ -268,5 +269,45 @@ export const financialReportsService = {
       outstanding_balance: Number(row.outstanding_balance || 0),
       receivable_aging_days: Number(row.receivable_aging_days || 0),
     })) as ProjectReceivable[];
+  },
+
+  /**
+   * 5. Menjalankan Audit & Rekonsiliasi Integritas Keuangan (Sanity Check)
+   */
+  async auditFinancialSanityCheck(): Promise<FinancialSanityCheckResult> {
+    const { data, error } = await supabase.rpc('audit_financial_sanity_check');
+
+    if (error) {
+      console.error('Error running financial sanity check audit:', error);
+      throw new Error(`Gagal menjalankan audit integritas keuangan: ${error.message}`);
+    }
+
+    const res = data as any;
+    return {
+      is_healthy: !!res?.is_healthy,
+      over_budget_count: Number(res?.over_budget_count || 0),
+      over_budget_items: (res?.over_budget_items || []).map((item: any) => ({
+        ...item,
+        total_material_budget: Number(item.total_material_budget || 0),
+        actual_material_spent: Number(item.actual_material_spent || 0),
+        overspend_amount: Number(item.overspend_amount || 0),
+      })),
+      negative_margin_count: Number(res?.negative_margin_count || 0),
+      negative_margin_items: (res?.negative_margin_items || []).map((item: any) => ({
+        ...item,
+        total_revenue: Number(item.total_revenue || 0),
+        total_cogs: Number(item.total_cogs || 0),
+        gross_profit: Number(item.gross_profit || 0),
+        gross_margin_percentage: Number(item.gross_margin_percentage || 0),
+      })),
+      unbilled_completed_count: Number(res?.unbilled_completed_count || 0),
+      unbilled_completed_items: res?.unbilled_completed_items || [],
+      critical_receivables_count: Number(res?.critical_receivables_count || 0),
+      critical_receivables_items: (res?.critical_receivables_items || []).map((item: any) => ({
+        ...item,
+        outstanding_balance: Number(item.outstanding_balance || 0),
+        receivable_aging_days: Number(item.receivable_aging_days || 0),
+      })),
+    };
   },
 };
