@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { RefreshCcw, CheckCircle2 } from 'lucide-react';
+import { RefreshCcw, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { ConfirmationModal } from './ConfirmationModal';
@@ -10,11 +10,12 @@ interface GoodsReturnFormProps {
 }
 
 export const GoodsReturnForm: React.FC<GoodsReturnFormProps> = ({ onSuccess }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [spks, setSpks] = useState<any[]>([]);
   const [selectedSpk, setSelectedSpk] = useState<string>('');
   const [selectedMaterial, setSelectedMaterial] = useState<string>('');
   const [returnQty, setReturnQty] = useState<string>('');
+  const [auditNotes, setAuditNotes] = useState<string>('');
 
   const [issuedMaterials, setIssuedMaterials] = useState<IssuedMaterialItem[]>([]);
   const returnQtyInputRef = useRef<HTMLInputElement>(null);
@@ -83,23 +84,72 @@ export const GoodsReturnForm: React.FC<GoodsReturnFormProps> = ({ onSuccess }) =
     e.preventDefault();
     if (!isOverReturn && returnQty && user) {
       const qty = parseFloat(returnQty);
+
+      // Ambil stok aktual material saat ini
+      const { data: freshMat } = await supabase
+        .from('materials')
+        .select('name, unit, current_stock')
+        .eq('id', selectedMaterial)
+        .single();
+
+      const stockBefore = Number(freshMat?.current_stock ?? 0);
+      const stockAfter = stockBefore + qty;
+      const executorName = profile?.full_name || user.email || 'Petugas Gudang';
+      const executorRole = profile?.role || 'petugas_gudang';
+      const finalAuditNotes = auditNotes.trim() || (profile?.role === 'service_advisor'
+        ? 'Retur diproses oleh Service Advisor (Backup Gudang)'
+        : 'Retur diproses oleh Petugas Gudang');
+
       const { error } = await supabase
         .from('inventory_transactions')
         .insert({
           spk_id: selectedSpk,
           material_id: selectedMaterial,
           quantity_issued: -qty, // Negative for return
-          issued_by: user.id
+          issued_by: user.id,
+          issued_by_user_id: user.id,
+          issued_by_name: executorName,
+          issued_by_role: executorRole,
+          processed_by_user_id: user.id,
+          processed_by_name: executorName,
+          processed_by_role: executorRole,
+          audit_notes: finalAuditNotes,
+          stock_before: stockBefore,
+          stock_after: stockAfter
         });
         
       if (!error) {
+        // Kembalikan stok fisik di tabel materials
+        await supabase
+          .from('materials')
+          .update({ current_stock: stockAfter })
+          .eq('id', selectedMaterial);
+
+        // Mirror ke tabel material_returns untuk audit kompatibilitas
+        try {
+          await supabase
+            .from('material_returns')
+            .insert({
+              spk_id: selectedSpk,
+              material_id: selectedMaterial,
+              quantity: qty,
+              processed_by_user_id: user.id,
+              processed_by_name: executorName,
+              processed_by_role: executorRole,
+              audit_notes: finalAuditNotes
+            });
+        } catch (err: any) {
+          console.warn('Mirror material_returns notice:', err);
+        }
+
         setFeedbackModal({
           isOpen: true,
           title: 'Retur Material Berhasil',
-          message: `Berhasil meretur ${qty} ${selectedMatInfo?.unit || 'unit'} material kembali ke stok gudang untuk SPK ini.`,
+          message: `Berhasil meretur ${qty} ${selectedMatInfo?.unit || 'unit'} material kembali ke stok gudang untuk SPK ini. Stok fisik telah bertambah (Stok baru: ${stockAfter}). Audit trail tercatat atas nama ${executorName} (${executorRole}).`,
           variant: 'success'
         });
         setReturnQty('');
+        setAuditNotes('');
         fetchIssuedMaterials(selectedSpk);
         if (onSuccess) onSuccess();
       } else {
@@ -116,10 +166,26 @@ export const GoodsReturnForm: React.FC<GoodsReturnFormProps> = ({ onSuccess }) =
 
   return (
     <div className="bg-surface border border-border rounded-lg p-6">
-      <h3 className="font-bold text-lg font-display text-text mb-4 flex items-center gap-2">
-        <RefreshCcw className="w-5 h-5 text-primary" />
-        Return Material
-      </h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-bold text-lg font-display text-text flex items-center gap-2">
+          <RefreshCcw className="w-5 h-5 text-primary" />
+          Return Material
+        </h3>
+        {profile?.role === 'service_advisor' && (
+          <span className="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded font-mono">
+            Backup Gudang
+          </span>
+        )}
+      </div>
+
+      {profile?.role === 'service_advisor' && (
+        <div className="bg-amber-950/40 border border-amber-600/50 rounded-lg p-3 text-sm text-amber-200 flex items-start gap-2.5 mb-4">
+          <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          <div className="text-xs leading-relaxed">
+            <span className="font-bold text-amber-300">Wewenang Cadangan (Service Advisor):</span> Anda bertindak sebagai backup Petugas Gudang. Transaksi retur barang ini akan mengembalikan stok fisik dan dicatat dalam Audit Trail atas nama <strong className="font-semibold">{profile?.full_name || 'Service Advisor'}</strong>.
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -195,6 +261,17 @@ export const GoodsReturnForm: React.FC<GoodsReturnFormProps> = ({ onSuccess }) =
             Cannot return more than was issued ({selectedMatInfo?.total_issued.toFixed(2)} {selectedMatInfo?.unit || ''}).
           </div>
         )}
+
+        <div>
+          <label className="block text-sm text-text-muted mb-1">Catatan Konteks Retur (Audit Trail)</label>
+          <input
+            type="text"
+            value={auditNotes}
+            onChange={(e) => setAuditNotes(e.target.value)}
+            placeholder={profile?.role === 'service_advisor' ? 'Retur diproses oleh Service Advisor (Backup Gudang)' : 'Catatan audit retur barang...'}
+            className="w-full bg-background border border-border rounded p-2 text-text focus:border-primary focus:outline-none text-sm placeholder:text-text-muted/60"
+          />
+        </div>
 
         <div className="pt-2">
           <button

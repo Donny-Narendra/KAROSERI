@@ -80,6 +80,11 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
           quantity_issued,
           custom_unit_price,
           issued_at,
+          issued_by_name,
+          issued_by_role,
+          audit_notes,
+          stock_before,
+          stock_after,
           spk ( id, spk_no, status ),
           materials ( name, unit, unit_price )
         `)
@@ -282,20 +287,21 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
               <th className="px-5 py-3">Material</th>
               <th className="px-5 py-3">Qty</th>
               <th className="px-5 py-3 text-right">Harga (Rp)</th>
+              <th className="px-5 py-3">Eksekutor / Audit</th>
               <th className="px-5 py-3 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-5 py-12 text-center text-text-muted">
+                <td colSpan={8} className="px-5 py-12 text-center text-text-muted">
                   <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-primary" />
                   <p className="text-sm">Memuat riwayat pengeluaran material...</p>
                 </td>
               </tr>
             ) : (!selectedSpkFilter || selectedSpkFilter === 'ALL') ? (
               <tr>
-                <td colSpan={7} className="px-5 py-14 text-center">
+                <td colSpan={8} className="px-5 py-14 text-center">
                   <div className="max-w-md mx-auto space-y-2">
                     <ClipboardList className="w-10 h-10 text-text-muted/40 mx-auto" />
                     <p className="text-sm font-semibold text-text">Filter SPK Belum Dipilih</p>
@@ -307,7 +313,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
               </tr>
             ) : displayedIssues.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-5 py-10 text-center text-text-muted">
+                <td colSpan={8} className="px-5 py-10 text-center text-text-muted">
                   <div className="max-w-md mx-auto space-y-1">
                     <p className="text-sm text-text font-medium">
                       {searchQuery.trim() 
@@ -344,13 +350,38 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
                     {issue.materials?.name || 'Unknown'}
                   </td>
                   <td className="px-5 py-3">
-                    {issue.quantity_issued} {issue.materials?.unit || ''}
+                    <span className={issue.quantity_issued < 0 ? 'text-status-warning font-semibold' : ''}>
+                      {issue.quantity_issued} {issue.materials?.unit || ''}
+                    </span>
                   </td>
                   <td className="px-5 py-3 text-right font-mono">
                     {issue.custom_unit_price !== null 
                       ? <span className="text-status-warning" title="Custom Price">{issue.custom_unit_price.toLocaleString()}</span>
                       : issue.materials?.unit_price?.toLocaleString() || '0'
                     }
+                  </td>
+                  <td className="px-5 py-3">
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-medium text-xs text-text">
+                          {issue.issued_by_name || 'Petugas Gudang'}
+                        </span>
+                        {issue.issued_by_role === 'service_advisor' ? (
+                          <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded font-mono font-medium">
+                            SA (Backup)
+                          </span>
+                        ) : issue.quantity_issued < 0 ? (
+                          <span className="text-[10px] bg-sky-500/20 text-sky-300 border border-sky-500/30 px-1.5 py-0.5 rounded font-mono font-medium">
+                            Retur
+                          </span>
+                        ) : null}
+                      </div>
+                      {issue.audit_notes && (
+                        <span className="text-[11px] text-text-muted italic max-w-xs truncate" title={issue.audit_notes}>
+                          {issue.audit_notes}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-5 py-3 text-center">
                     <div className="flex items-center justify-center gap-2">

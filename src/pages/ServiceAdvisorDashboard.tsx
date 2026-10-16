@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, FileText, Plus, ClipboardList, Camera, Pencil } from 'lucide-react';
+import { LogOut, FileText, Plus, ClipboardList, Camera, Pencil, ShieldAlert } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { SpkForm } from '../components/SpkForm';
 import { SpkCredentialSection } from '../components/SpkCredentialSection';
@@ -13,10 +13,17 @@ import { PackageManager } from '../components/PackageManager';
 import { WbsChecklist } from '../components/WbsChecklist';
 import { SAInventoryPanel } from '../components/SAInventoryPanel';
 import { ConfirmationModal, type ConfirmationModalVariant } from '../components/ConfirmationModal';
+import { GoodsIssueForm } from '../components/GoodsIssueForm';
+import { GoodsReturnForm } from '../components/GoodsReturnForm';
+import { RequisitionApproval } from '../components/RequisitionApproval';
+import { InventoryManager } from '../components/InventoryManager';
+import { RecentMaterialIssues } from '../components/RecentMaterialIssues';
+import { SpkFilterListBox, type SpkFilterItem } from '../components/SpkFilterListBox';
+import { RecentApprovedMaterials, type StockAuditItem } from '../components/RecentApprovedMaterials';
 
 export const ServiceAdvisorDashboard: React.FC = () => {
   const { profile, signOut } = useAuth();
-  const [mainTab, setMainTab] = useState<'spk' | 'bom' | 'inventory'>('spk');
+  const [mainTab, setMainTab] = useState<'spk' | 'bom' | 'inventory' | 'warehouse'>('spk');
   const [spks, setSpks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -32,6 +39,72 @@ export const ServiceAdvisorDashboard: React.FC = () => {
     message: string;
     variant: ConfirmationModalVariant;
   } | null>(null);
+
+  // Warehouse backup operational states
+  const [pendingReqCount, setPendingReqCount] = useState<number>(0);
+  const [warehouseSubTab, setWarehouseSubTab] = useState<'requisition' | 'issue' | 'return' | 'inventory'>('requisition');
+  const [selectedSpkFilter, setSelectedSpkFilter] = useState<string>('ALL');
+  const [spkFilterList, setSpkFilterList] = useState<SpkFilterItem[]>([]);
+  const [recentApprovals, setRecentApprovals] = useState<StockAuditItem[]>([]);
+  const [warehouseRefreshKey, setWarehouseRefreshKey] = useState(0);
+
+  const handleSpkSummaryChange = useCallback((summary: SpkFilterItem[]) => {
+    setSpkFilterList(summary);
+  }, []);
+
+  const handleApprovalRecorded = useCallback((newAudits: StockAuditItem[]) => {
+    setRecentApprovals(prev => [...newAudits, ...prev].slice(0, 15));
+  }, []);
+
+  const fetchPendingReqCount = async () => {
+    try {
+      const { data, count, error } = await supabase
+        .from('material_requisitions')
+        .select(`
+          id,
+          spk ( id, spk_no, customer_name, vehicle_plate, sub_tasks )
+        `, { count: 'exact' })
+        .eq('status', 'PENDING');
+      
+      if (!error && data) {
+        setPendingReqCount(count ?? data.length);
+        const map = new Map<string, SpkFilterItem>();
+        data.forEach((req: any) => {
+          const spk = Array.isArray(req.spk) ? req.spk[0] : req.spk;
+          const spkId = spk?.id;
+          const spkNo = spk?.spk_no || 'Tanpa SPK';
+          const customerName = spk?.customer_name || 'Umum';
+          const vehiclePlate = spk?.vehicle_plate || '';
+          const subTasks = spk?.sub_tasks || [];
+          
+          if (map.has(spkNo)) {
+            const current = map.get(spkNo)!;
+            current.count += 1;
+            if (!current.vehiclePlate && vehiclePlate) current.vehiclePlate = vehiclePlate;
+            const hasExistingSubTasks = Array.isArray(current.subTasks) ? current.subTasks.length > 0 : Boolean(current.subTasks);
+            const hasNewSubTasks = Array.isArray(subTasks) ? subTasks.length > 0 : Boolean(subTasks);
+            if (!hasExistingSubTasks && hasNewSubTasks) current.subTasks = subTasks;
+          } else {
+            map.set(spkNo, {
+              spkId: spkId || null,
+              spkNo,
+              customerName,
+              vehiclePlate,
+              subTasks,
+              count: 1
+            });
+          }
+        });
+        setSpkFilterList(Array.from(map.values()).sort((a, b) => a.spkNo.localeCompare(b.spkNo)));
+      }
+    } catch (error) {
+      console.error('Error fetching pending requisitions count for SA:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchPendingReqCount();
+  }, [warehouseRefreshKey]);
 
   const fetchSpks = async () => {
     setLoading(true);
@@ -115,7 +188,7 @@ export const ServiceAdvisorDashboard: React.FC = () => {
       {/* Main Content */}
       <main className="flex-1 p-6 lg:p-8 space-y-6">
         <div className="flex items-center justify-between">
-          <div className="flex gap-4 border-b border-border w-full max-w-xl">
+          <div className="flex gap-4 border-b border-border w-full max-w-4xl flex-wrap">
             <button 
               onClick={() => setMainTab('spk')}
               className={`pb-2 text-lg font-bold font-display transition border-b-2 ${mainTab === 'spk' ? 'border-primary text-text' : 'border-transparent text-text-muted hover:text-text'}`}
@@ -134,6 +207,17 @@ export const ServiceAdvisorDashboard: React.FC = () => {
             >
               Inventory & Audit
             </button>
+            <button 
+              onClick={() => setMainTab('warehouse')}
+              className={`pb-2 text-lg font-bold font-display transition border-b-2 flex items-center gap-2 ${mainTab === 'warehouse' ? 'border-primary text-text' : 'border-transparent text-text-muted hover:text-text'}`}
+            >
+              <span>Operasional Gudang (Backup)</span>
+              {pendingReqCount > 0 && (
+                <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  {pendingReqCount}
+                </span>
+              )}
+            </button>
           </div>
           {!showForm && mainTab === 'spk' && (
             <button
@@ -146,7 +230,95 @@ export const ServiceAdvisorDashboard: React.FC = () => {
           )}
         </div>
 
-        {mainTab === 'inventory' ? (
+        {mainTab === 'warehouse' ? (
+          <div className="mt-4 space-y-6">
+            {/* Alert Banner for Backup Mode */}
+            <div className="bg-amber-950/30 border border-amber-600/40 rounded-xl p-4 flex items-start gap-3.5">
+              <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+              <div className="flex-1 text-sm text-amber-200/90 leading-relaxed">
+                <p className="font-bold text-amber-300">Wewenang Operasional Cadangan Aktif (Service Advisor)</p>
+                <p className="mt-0.5 text-xs text-amber-200/80">
+                  Digunakan saat Petugas Gudang berhalangan hadir atau membutuhkan eskalasi backup. Anda memiliki akses operasional penuh untuk <strong className="text-amber-200 font-semibold">Issue Material</strong>, <strong className="text-amber-200 font-semibold">Retur Material</strong>, serta <strong className="text-amber-200 font-semibold">Approval Permintaan Mandor</strong>. Seluruh aksi otomatis mencatat Audit Trail atas nama <strong>{profile?.full_name || 'Service Advisor'} ({profile?.role})</strong> demi menjaga integritas data dan akuntabilitas bengkel.
+                </p>
+              </div>
+            </div>
+
+            {/* Layout with Subtabs and Sidebar */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 space-y-6">
+                <div className="flex border-b border-border">
+                  <button
+                    className={`px-4 py-2 font-medium flex items-center gap-2 ${warehouseSubTab === 'requisition' ? 'text-primary border-b-2 border-primary' : 'text-text-muted hover:text-text'}`}
+                    onClick={() => setWarehouseSubTab('requisition')}
+                  >
+                    <span>Mandor Requests</span>
+                    {pendingReqCount > 0 && (
+                      <span className="px-1.5 py-0.5 text-xs font-bold rounded-full bg-status-warning/20 text-status-warning border border-status-warning/30">
+                        {pendingReqCount}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    className={`px-4 py-2 font-medium ${warehouseSubTab === 'issue' ? 'text-primary border-b-2 border-primary' : 'text-text-muted hover:text-text'}`}
+                    onClick={() => setWarehouseSubTab('issue')}
+                  >
+                    Issue Material
+                  </button>
+                  <button
+                    className={`px-4 py-2 font-medium ${warehouseSubTab === 'return' ? 'text-primary border-b-2 border-primary' : 'text-text-muted hover:text-text'}`}
+                    onClick={() => setWarehouseSubTab('return')}
+                  >
+                    Return Material
+                  </button>
+                  <button
+                    className={`px-4 py-2 font-medium ${warehouseSubTab === 'inventory' ? 'text-primary border-b-2 border-primary' : 'text-text-muted hover:text-text'}`}
+                    onClick={() => setWarehouseSubTab('inventory')}
+                  >
+                    Inventaris Gudang
+                  </button>
+                </div>
+
+                {warehouseSubTab === 'issue' && (
+                  <GoodsIssueForm onSuccess={() => setWarehouseRefreshKey(k => k + 1)} />
+                )}
+                {warehouseSubTab === 'return' && (
+                  <GoodsReturnForm onSuccess={() => setWarehouseRefreshKey(k => k + 1)} />
+                )}
+                {warehouseSubTab === 'requisition' && (
+                  <RequisitionApproval 
+                    onSuccess={() => setWarehouseRefreshKey(k => k + 1)}
+                    refreshKey={warehouseRefreshKey}
+                    selectedSpkFilter={selectedSpkFilter}
+                    onResetFilter={() => setSelectedSpkFilter('ALL')}
+                    onSpkSummaryChange={handleSpkSummaryChange}
+                    onApprovalRecorded={handleApprovalRecorded}
+                  />
+                )}
+                {warehouseSubTab === 'inventory' && (
+                  <InventoryManager />
+                )}
+              </div>
+
+              <div className="space-y-6">
+                <SpkFilterListBox
+                  items={spkFilterList}
+                  totalPendingCount={pendingReqCount}
+                  selectedSpk={selectedSpkFilter}
+                  onSelectSpk={setSelectedSpkFilter}
+                />
+                <RecentMaterialIssues
+                  selectedSpkFilter={selectedSpkFilter}
+                  refreshKey={warehouseRefreshKey}
+                  onSuccess={() => setWarehouseRefreshKey(k => k + 1)}
+                />
+                <RecentApprovedMaterials 
+                  refreshKey={warehouseRefreshKey}
+                  recentApprovals={recentApprovals}
+                />
+              </div>
+            </div>
+          </div>
+        ) : mainTab === 'inventory' ? (
           <div className="mt-4">
             <SAInventoryPanel />
           </div>

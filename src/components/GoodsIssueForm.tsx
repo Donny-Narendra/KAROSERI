@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Package, CheckCircle2, Lock } from 'lucide-react';
+import { Package, CheckCircle2, Lock, ShieldAlert } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { inventoryService } from '../services/inventoryService';
@@ -11,11 +11,12 @@ interface GoodsIssueFormProps {
 }
 
 export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [spks, setSpks] = useState<any[]>([]);
   const [selectedSpk, setSelectedSpk] = useState<string>('');
   const [selectedMaterial, setSelectedMaterial] = useState<string>('');
   const [requestQty, setRequestQty] = useState<string>('');
+  const [auditNotes, setAuditNotes] = useState<string>('');
   const requestQtyInputRef = useRef<HTMLInputElement>(null);
 
   const [feedbackModal, setFeedbackModal] = useState<{
@@ -161,6 +162,11 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
 
       const stockBefore = Number(freshMat?.current_stock ?? (selectedMasterItem?.current_stock || 0));
       const stockAfter = Math.max(0, stockBefore - qty);
+      const executorName = profile?.full_name || user.email || 'Petugas Gudang';
+      const executorRole = profile?.role || 'petugas_gudang';
+      const finalAuditNotes = auditNotes.trim() || (profile?.role === 'service_advisor'
+        ? 'Diproses oleh Service Advisor (Backup Gudang)'
+        : 'Pengeluaran material operasional gudang');
 
       let insertError: any = null;
       const { error: fullError } = await supabase
@@ -170,6 +176,10 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
           material_id: selectedMaterial,
           quantity_issued: qty,
           issued_by: user.id,
+          issued_by_user_id: user.id,
+          issued_by_name: executorName,
+          issued_by_role: executorRole,
+          audit_notes: finalAuditNotes,
           stock_before: stockBefore,
           stock_after: stockAfter
         });
@@ -182,7 +192,11 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
             spk_id: selectedSpk,
             material_id: selectedMaterial,
             quantity_issued: qty,
-            issued_by: user.id
+            issued_by: user.id,
+            issued_by_user_id: user.id,
+            issued_by_name: executorName,
+            issued_by_role: executorRole,
+            audit_notes: finalAuditNotes
           });
         insertError = fallbackError;
       } else {
@@ -193,14 +207,30 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
         // Kurangi current_stock di tabel materials
         await supabase.from('materials').update({ current_stock: stockAfter }).eq('id', selectedMaterial);
 
+        // Mirror ke tabel material_issues untuk audit kompatibilitas
+        try {
+          await supabase.from('material_issues').insert({
+            spk_id: selectedSpk,
+            material_id: selectedMaterial,
+            quantity: qty,
+            issued_by_user_id: user.id,
+            issued_by_name: executorName,
+            issued_by_role: executorRole,
+            audit_notes: finalAuditNotes
+          });
+        } catch (err: any) {
+          console.warn('Mirror material_issues notice:', err);
+        }
+
         setFeedbackModal({
           isOpen: true,
           title: 'Material Berhasil Dikeluarkan',
-          message: `Berhasil mengeluarkan ${qty} unit material untuk SPK ini. Stok inventaris gudang telah disesuaikan.`,
+          message: `Berhasil mengeluarkan ${qty} unit material untuk SPK ini. Stok inventaris gudang telah disesuaikan (Sisa: ${stockAfter}). Audit trail tercatat atas nama ${executorName} (${executorRole}).`,
           variant: 'success'
         });
         setRequestQty('');
         setSelectedMaterial('');
+        setAuditNotes('');
         fetchRabAndInventory(selectedSpk);
         if (onSuccess) onSuccess();
       } else {
@@ -233,10 +263,26 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
 
   return (
     <div className="bg-surface border border-border rounded-lg p-6">
-      <h3 className="font-bold text-lg font-display text-text mb-4 flex items-center gap-2">
-        <Package className="w-5 h-5 text-primary" />
-        Issue Material (Goods Issue)
-      </h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-bold text-lg font-display text-text flex items-center gap-2">
+          <Package className="w-5 h-5 text-primary" />
+          Issue Material (Goods Issue)
+        </h3>
+        {profile?.role === 'service_advisor' && (
+          <span className="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded font-mono">
+            Backup Gudang
+          </span>
+        )}
+      </div>
+
+      {profile?.role === 'service_advisor' && (
+        <div className="bg-amber-950/40 border border-amber-600/50 rounded-lg p-3 text-sm text-amber-200 flex items-start gap-2.5 mb-4">
+          <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          <div className="text-xs leading-relaxed">
+            <span className="font-bold text-amber-300">Wewenang Cadangan (Service Advisor):</span> Anda bertindak sebagai backup Petugas Gudang. Pengeluaran material ini akan dicatat dalam Audit Trail atas nama <strong className="font-semibold">{profile?.full_name || 'Service Advisor'}</strong>.
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -341,6 +387,17 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
             </div>
           </div>
         )}
+
+        <div>
+          <label className="block text-sm text-text-muted mb-1">Catatan Konteks / Alasan Pengeluaran (Audit Trail)</label>
+          <input
+            type="text"
+            value={auditNotes}
+            onChange={(e) => setAuditNotes(e.target.value)}
+            placeholder={profile?.role === 'service_advisor' ? 'Diproses oleh Service Advisor (Backup Gudang)' : 'Catatan audit operasional gudang...'}
+            className="w-full bg-background border border-border rounded p-2 text-text focus:border-primary focus:outline-none text-sm placeholder:text-text-muted/60"
+          />
+        </div>
 
         <div className="pt-2">
           <button

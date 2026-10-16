@@ -12,6 +12,9 @@ export interface StockAuditItem {
   quantityApproved: number;
   stockAfter: number;
   approvedAt: string;
+  issuedByName?: string;
+  issuedByRole?: string;
+  auditNotes?: string;
   isNew?: boolean;
 }
 
@@ -38,6 +41,9 @@ export const RecentApprovedMaterials: React.FC<RecentApprovedMaterialsProps> = (
           stock_before,
           stock_after,
           issued_at,
+          issued_by_name,
+          issued_by_role,
+          audit_notes,
           materials ( id, name, unit, current_stock ),
           spk ( id, spk_no, customer_name )
         `)
@@ -84,7 +90,10 @@ export const RecentApprovedMaterials: React.FC<RecentApprovedMaterialsProps> = (
             stockBefore,
             quantityApproved: qty,
             stockAfter,
-            approvedAt: tx.issued_at
+            approvedAt: tx.issued_at,
+            issuedByName: tx.issued_by_name,
+            issuedByRole: tx.issued_by_role,
+            auditNotes: tx.audit_notes
           };
         });
         setDbApprovals(mapped);
@@ -232,11 +241,21 @@ export const RecentApprovedMaterials: React.FC<RecentApprovedMaterialsProps> = (
                   </div>
                 </div>
 
-                {/* Timestamp Persetujuan */}
+                {/* Timestamp & Eksekutor Audit */}
                 <div className="mt-2 flex items-center justify-between text-[11px] text-text-muted">
-                  <div className="flex items-center gap-1 font-mono text-[10px]">
+                  <div className="flex items-center gap-1.5 font-mono text-[10px]">
                     <Clock className="w-3 h-3 text-text-muted/70" />
                     <span>{formatTime(item.approvedAt, item.isNew)}</span>
+                    {item.issuedByName && (
+                      <span className="text-text-muted/80 ml-1">
+                        • {item.issuedByName}
+                        {item.issuedByRole === 'service_advisor' && (
+                          <span className="ml-1 text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1 py-0.2 rounded font-semibold">
+                            SA Backup
+                          </span>
+                        )}
+                      </span>
+                    )}
                   </div>
                   {item.isNew && (
                     <span className="text-[10px] font-bold text-primary animate-pulse">

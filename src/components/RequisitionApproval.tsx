@@ -41,7 +41,7 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
   onSpkSummaryChange,
   onApprovalRecorded,
 }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [requisitions, setRequisitions] = useState<any[]>([]);
   const [spkBudgetMap, setSpkBudgetMap] = useState<Record<string, SpkBudgetData>>({});
   const [loading, setLoading] = useState(true);
@@ -448,12 +448,11 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
   };
 
   const executeConfirmedAction = async () => {
-    if (!confirmDialog) return;
+    if (!confirmDialog || !user) return;
     const { type, requisition } = confirmDialog;
     setConfirmDialog(null);
 
     if (type === 'APPROVE') {
-      if (!user) return;
       setProcessingId(requisition.id);
       try {
         const recordedAudits: StockAuditItem[] = [];
@@ -503,7 +502,14 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
           });
         }
 
-        // 2. Siapkan transaksi pengeluaran material dengan snapshot stok
+        // 2. Siapkan transaksi pengeluaran material dengan snapshot stok dan audit logging
+        const approverName = profile?.full_name || user.email || 'Petugas Gudang';
+        const approverRole = profile?.role || 'petugas_gudang';
+        const approvalTimestamp = new Date().toISOString();
+        const defaultAuditNotes = profile?.role === 'service_advisor'
+          ? 'Disetujui oleh Service Advisor (Backup Gudang)'
+          : 'Disetujui oleh Petugas Gudang';
+
         const transactions = itemsWithMat.map((item: any) => {
           const snap = stockSnapshots[item.material_id];
           return {
@@ -511,6 +517,10 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
             material_id: item.material_id,
             quantity_issued: item.quantity,
             issued_by: user.id,
+            issued_by_user_id: user.id,
+            issued_by_name: approverName,
+            issued_by_role: approverRole,
+            audit_notes: defaultAuditNotes,
             requisition_id: requisition.id,
             requisition_item_id: item.id,
             custom_unit_price: item.unit_price || 0,
@@ -547,18 +557,43 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
           onApprovalRecorded(recordedAudits);
         }
 
-        // 2. Update requisition status
+        // 3. Update status permintaan material pada material_requisitions dengan data audit lengkap
         const { error: reqError } = await supabase
           .from('material_requisitions')
-          .update({ status: 'APPROVED' })
+          .update({ 
+            status: 'APPROVED',
+            approved_by_user_id: user.id,
+            approved_by_name: approverName,
+            approved_by_role: approverRole,
+            approved_at: approvalTimestamp,
+            audit_notes: defaultAuditNotes
+          })
           .eq('id', requisition.id);
 
         if (reqError) throw reqError;
 
+        // Mirror ke tabel mandor_requisitions untuk audit kompatibilitas
+        try {
+          await supabase
+            .from('mandor_requisitions')
+            .insert({
+              spk_id: requisition.spk?.id || requisition.spk_id,
+              requested_by: requisition.requested_by,
+              status: 'APPROVED',
+              approved_by_user_id: user.id,
+              approved_by_name: approverName,
+              approved_by_role: approverRole,
+              approved_at: approvalTimestamp,
+              audit_notes: defaultAuditNotes
+            });
+        } catch (err: any) {
+          console.warn('Mirror mandor_requisitions notice:', err);
+        }
+
         setFeedbackDialog({
           isOpen: true,
           title: 'Persetujuan Berhasil',
-          message: 'Permintaan material telah disetujui, transaksi pengeluaran barang tercatat, dan stok gudang telah dikurangi.',
+          message: `Permintaan material telah disetujui atas nama ${approverName} (${approverRole}), transaksi pengeluaran barang tercatat, dan stok gudang telah dikurangi.`,
           variant: 'success'
         });
         if (onSuccess) onSuccess();
@@ -577,17 +612,49 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
     } else if (type === 'REJECT') {
       setProcessingId(requisition.id);
       try {
+        const approverName = profile?.full_name || user.email || 'Petugas Gudang';
+        const approverRole = profile?.role || 'petugas_gudang';
+        const rejectTimestamp = new Date().toISOString();
+        const rejectNotes = profile?.role === 'service_advisor'
+          ? 'Ditolak oleh Service Advisor (Backup Gudang)'
+          : 'Ditolak oleh Petugas Gudang';
+
         const { error } = await supabase
           .from('material_requisitions')
-          .update({ status: 'REJECTED' })
+          .update({ 
+            status: 'REJECTED',
+            approved_by_user_id: user.id,
+            approved_by_name: approverName,
+            approved_by_role: approverRole,
+            approved_at: rejectTimestamp,
+            audit_notes: rejectNotes
+          })
           .eq('id', requisition.id);
 
         if (error) throw error;
 
+        // Mirror ke tabel mandor_requisitions
+        try {
+          await supabase
+            .from('mandor_requisitions')
+            .insert({
+              spk_id: requisition.spk?.id || requisition.spk_id,
+              requested_by: requisition.requested_by,
+              status: 'REJECTED',
+              approved_by_user_id: user.id,
+              approved_by_name: approverName,
+              approved_by_role: approverRole,
+              approved_at: rejectTimestamp,
+              audit_notes: rejectNotes
+            });
+        } catch (err: any) {
+          console.warn('Mirror mandor_requisitions notice:', err);
+        }
+
         setFeedbackDialog({
           isOpen: true,
           title: 'Permintaan Ditolak',
-          message: 'Permintaan material telah berhasil ditolak (status diubah menjadi REJECTED).',
+          message: `Permintaan material telah berhasil ditolak atas nama ${approverName} (${approverRole}).`,
           variant: 'info'
         });
         if (onSuccess) onSuccess();
