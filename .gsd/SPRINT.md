@@ -1,63 +1,74 @@
-# Sprint 8 — Implement Immutable Point-in-Time Price Snapshot & Document Locking across KaroseriOps
+# Sprint 9 — Upgrade Change Orders to Itemized Point-in-Time Price Snapshot & WBS Allocation
 
 > **Duration**: 2026-10-16 to 2026-10-16
-> **Status**: Completed
+> **Status**: In Progress
 
 ## Goal
-Implement decoupled point-in-time pricing snapshots across all transaction detail entities (`rab_items`, `material_requisition_items`, `requisition_items`, `inventory_transactions`) and enforce strict document lifecycle locking on SPK and RAB upon transitioning to `ACTIVE` or `APPROVED`, ensuring raw material price fluctuations in master inventory never alter approved contracts, active work orders, or billing records.
+Upgrade Change Orders on Service Advisor dashboard (`/service-advisor`) to record itemized material and labor detail with immutable point-in-time price snapshots (`unit_price` selling price and `cost_price` HPP), allocate items to specific WBS stages, and seamlessly synchronize with Mandor RAB allocation and Warehouse Gate 2 quota to eliminate false over-budget warnings.
 
 ## Scope
 
 ### Included
-- **Database Schema & Migrations**:
-  - `materials`: Add `cost_price` (HPP) and `selling_price` (Harga Jual Patokan).
-  - `rab_items`: Add `spk_id`, `material_name`, `unit_price`, `cost_price`, `subtotal` (GENERATED ALWAYS AS `(quantity * unit_price)` STORED), `is_locked`.
-  - `requisition_items` & `material_requisition_items`: Ensure independent `unit_price`, `cost_price`, `subtotal` snapshot storage.
-  - `spk`: Add document locking fields `is_pricing_locked`, `locked_at`, `locked_by`.
-  - Trigger `trg_lock_spk_pricing`: Automatically set `is_pricing_locked = TRUE`, `locked_at = NOW()`, and lock all corresponding `rab_items` (`is_locked = TRUE`) when SPK status transitions from `DRAFT` (or unapproved) to `ACTIVE`, `APPROVED`, or `IN_PROGRESS`.
-  - Data backfill for existing records to ensure data integrity and zero broken relations.
-- **Frontend & Service Layer Integration**:
-  - `src/types/database.ts` & `src/services/inventoryService.ts`: Synchronize TypeScript types with new snapshot and locking fields.
-  - `RabCalculator.tsx`:
-    - Persist `spk_id`, `material_name`, `unit_price`, `cost_price` snapshot to `rab_items`.
-    - Retrieve price snapshots directly from `rab_items` rather than calculating from total.
-    - Enforce Document Locking: If `spkDetails.is_pricing_locked` or SPK is not in `DRAFT`, set RAB editor to read-only with a prominent lock banner prohibiting direct modifications (mandating Change Order / SPK Tambahan).
-  - `MaterialRequisitionForm.tsx`:
-    - Persist `cost_price`, `unit_price`, `material_name`, and `subtotal` snapshot when submitting items.
-  - `InventoryManager.tsx` & `SAInventoryPanel.tsx`:
-    - Provide input and visibility for `cost_price` (HPP) and `selling_price` (Harga Jual Patokan) alongside `unit_price`.
-- **Quality Assurance & Empirical Verification**:
-  - Full TypeScript build check (`npm run build`).
-  - Linting validation (`npm run lint`).
-  - Empirical database verification script proving:
-    - Master inventory price changes do NOT affect historical RAB or requisition item prices.
-    - Trigger `trg_lock_spk_pricing` automatically locks SPK and RAB items when SPK moves to `ACTIVE`.
+- **Database Schema & Migration**:
+  - Create/alter `change_orders` header table with `co_number`, `status` (`DRAFT`, `PENDING`, `APPROVED`, `REJECTED`), `cost_adjustment`, `total_amount`, `approved_at`, and `approved_by`.
+  - Create `change_order_items` table with columns:
+    - `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
+    - `change_order_id UUID REFERENCES change_orders(id) ON DELETE CASCADE`
+    - `spk_id UUID REFERENCES spk(id) ON DELETE CASCADE`
+    - `wbs_stage VARCHAR(50) NOT NULL` (e.g. 'WBS 2: Sasis/Rangka')
+    - `item_type VARCHAR(20) DEFAULT 'MATERIAL'` ('MATERIAL' | 'LABOR')
+    - `material_id UUID REFERENCES materials(id)`
+    - `item_name VARCHAR(255) NOT NULL`
+    - `quantity NUMERIC(12, 2) NOT NULL DEFAULT 1`
+    - `unit VARCHAR(50) DEFAULT 'pcs'`
+    - `unit_price NUMERIC(15, 2) NOT NULL DEFAULT 0` (Snapshot selling price saat CO dibuat)
+    - `cost_price NUMERIC(15, 2) DEFAULT 0` (Snapshot HPP gudang saat CO dibuat)
+    - `subtotal NUMERIC(15, 2) GENERATED ALWAYS AS (quantity * unit_price) STORED`
+    - `notes TEXT`
+    - `created_at TIMESTAMPTZ DEFAULT NOW()`
+  - RLS Policies for `change_orders` and `change_order_items` (allow authenticated read/write).
+  - Compatibility synchronization for legacy `spk_amendments` consumers (Kasir, Admin).
+- **TypeScript Models & Service Layer**:
+  - Add `ChangeOrderRecord`, `ChangeOrderItemRecord`, `ChangeOrderStatus`, and `ChangeOrderItemType` in `src/types/database.ts`.
+  - Enhance `src/services/spkService.ts` to manage itemized change orders, auto-generate sequential `co_number`, and handle approval/rejection workflows.
+- **Frontend Itemized Change Order UI**:
+  - Upgrade `AmendmentManager.tsx` on `/service-advisor`:
+    - Modal/form with dynamic line items: item type (Material/Labor), material selector with auto-fill price & cost, WBS stage dropdown, quantity, unit, price snapshots, notes, and live margin calculation.
+    - Itemized detail cards for historical and pending Change Orders with line-by-line item breakdown, WBS stage tags, and status actions.
+- **Mandor & Gate 2 Warehouse Budget Integration**:
+  - Update `RequisitionApproval.tsx` and `GoodsIssueForm.tsx` to include approved Change Order materials in Gate 2 budget limits and allowed materials.
+  - Update `MaterialRequisitionForm.tsx` so Mandor can view and requisition materials added via approved Change Orders for the respective WBS category.
+- **Empirical Validation**:
+  - Automated test script validating snapshot immutability, subtotal generation, RLS policies, and Gate 2 budget expansion.
+  - TypeScript build verification (`npm run build`) and linting (`npm run lint`).
 
 ### Explicitly Excluded
-- Re-architecting the WBS stage categories.
-- Modifying cash payments recording table schema.
+- Re-architecting core WBS checklist approval flows.
+- Modifying cash payments recording table schema (`cash_payments`).
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| Create and execute PostgreSQL migration for immutable price snapshots, SPK document locking, and trigger | Antigravity | ✅ Done | 0.5h |
-| Update TypeScript database types & service layers (`inventoryService.ts`, etc.) | Antigravity | ✅ Done | 0.3h |
-| Update `RabCalculator.tsx` with immutable price snapshot persistence and document status locking UI | Antigravity | ✅ Done | 0.5h |
-| Update `MaterialRequisitionForm.tsx` to snapshot cost price & unit price | Antigravity | ✅ Done | 0.3h |
-| Update inventory management components to support HPP (`cost_price`) and selling price (`selling_price`) | Antigravity | ✅ Done | 0.4h |
-| Run empirical tests, verification script, and verify `npm run build` & `npm run lint` | Antigravity | ✅ Done | 0.5h |
+| 1. Create and execute PostgreSQL migration for `change_orders`, `change_order_items`, and RLS policies | Antigravity | ⬜ Todo | 0.4h |
+| 2. Synchronize TypeScript types and service layer in `src/types/database.ts` and `src/services/spkService.ts` | Antigravity | ⬜ Todo | 0.3h |
+| 3. Upgrade `AmendmentManager.tsx` with itemized material/labor entry, price snapshotting, and WBS allocation | Antigravity | ⬜ Todo | 0.6h |
+| 4. Update Gate 2 Warehouse (`GoodsIssueForm.tsx`, `RequisitionApproval.tsx`) & Mandor (`MaterialRequisitionForm.tsx`) to recognize approved Change Order items | Antigravity | ⬜ Todo | 0.5h |
+| 5. Run empirical test script (`verify_change_orders.cjs`) and check `npm run build` & `npm run lint` | Antigravity | ⬜ Todo | 0.4h |
 
 ## Daily Log
 
 ### 2026-10-16
-- Archived Sprint 7 to `.gsd/sprints/sprint-7-enable-sa-warehouse-ops-audit.md`.
-- Initialized Sprint 8 for Immutable Point-in-Time Price Snapshot & Document Locking across KaroseriOps.
-- Executed migration `20261016010000_point_in_time_price_snapshot.sql` adding decoupled snapshot pricing to `materials`, `rab_items`, `material_requisition_items`, and `requisition_items`.
-- Created PostgreSQL trigger `trg_lock_spk_pricing` to automatically lock SPK and associated `rab_items` when transitioning to `ACTIVE`/`APPROVED`.
-- Backfilled existing historical records with 100% data integrity.
-- Updated `src/types/database.ts` and `src/services/inventoryService.ts`.
-- Integrated `RabCalculator.tsx` with read-only document locking banner, row lock badges, and Change Order modal guidance.
-- Updated `MaterialRequisitionForm.tsx`, `InventoryManager.tsx`, and `SAInventoryPanel.tsx` with `cost_price` (HPP) and `selling_price`.
-- Ran empirical database test `verify_price_immutability.cjs` with 100% pass rate confirming decoupled historical pricing and automated trigger locking.
-- Verified TypeScript build (`npm run build`) and linting (`npm run lint`) with 0 errors.
+- Archived Sprint 8 to `.gsd/sprints/sprint-8-implement-point-in-time-price-snapshot.md`.
+- Initialized Sprint 9 for Upgrading Change Orders to Itemized Point-in-Time Price Snapshot & WBS Allocation.
+
+## Risks & Blockers
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Existing components querying legacy `spk_amendments` table (Kasir, Admin) | Med | Maintain backward compatibility by syncing `change_orders` header with `spk_amendments` or supporting dual-read |
+| Master price fluctuation altering historical change orders | High | Enforce immutable point-in-time price snapshot in `change_order_items` (`unit_price` & `cost_price`) |
+
+---
+
+*Last updated: 2026-10-16*
