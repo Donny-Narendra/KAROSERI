@@ -1,45 +1,32 @@
 ## Current Position
-- **Sprint**: Sprint 9 (Upgrade Change Orders to Itemized Point-in-Time Price Snapshot & WBS Allocation)
+- **Sprint**: Sprint 10 (Implement SQL Database Views for Financial Reporting Engine - Step 1)
 - **Status**: Sprint completed ✅
-- **Milestone**: (Sprint 9 Completed - Ready for next phase/milestone)
+- **Milestone**: (Ready for Step 2 - Financial Reporting UI & Dashboards)
 
-## Last Session Summary (Sprint 9 Completed)
-1. **Database Migration & Synchronization (`supabase/migrations/20261016020000_itemized_change_orders.sql`)**:
-   - `change_orders`: Created header table with `id`, `spk_id`, `co_number`, `description`, `cost_adjustment`, `total_amount`, `status`, `approved_at`, `approved_by`, `created_by`, and `created_at`.
-   - `change_order_items`: Created detail item table supporting Point-in-Time Price Snapshotting and WBS allocation:
-     - `wbs_stage` (e.g., 'WBS 2: Sasis/Rangka')
-     - `item_type` ('MATERIAL' | 'LABOR')
-     - `material_id`
-     - `item_name`, `quantity`, `unit`
-     - `unit_price`: Immutable selling price snapshot
-     - `cost_price`: Immutable warehouse HPP snapshot
-     - `subtotal`: `GENERATED ALWAYS AS (quantity * unit_price) STORED`
-     - `notes`
-   - RLS Policies for authenticated read/write.
-   - Trigger `trg_sync_change_orders`: Bi-directional synchronization maintaining legacy `spk_amendments` table so Kasir and Admin dashboards function without regressions.
-2. **TypeScript & Service Layer Synchronization**:
-   - `src/types/database.ts`: Added `ChangeOrderRecord`, `ChangeOrderItemRecord`, `ChangeOrderStatus`, and `ChangeOrderItemType`.
-   - `src/services/spkService.ts`: Added `getChangeOrders(spkId)`, `createChangeOrder(...)`, `approveChangeOrder(...)`, and `rejectChangeOrder(...)`.
-3. **Frontend Implementation (`AmendmentManager.tsx`)**:
-   - Upgraded Change Orders UI on `/service-advisor` from text/lump-sum into a rich itemized builder.
-   - Supports adding multiple Material and Labor items per Change Order.
-   - Auto-fills snapshot prices (`unit_price` selling price and `cost_price` HPP) upon selecting material from master warehouse.
-   - Real-time gross margin and HPP calculation.
-   - Filter tabs (`ALL`, `PENDING`, `APPROVED`, `REJECTED`) and expandable itemized detail cards.
-4. **Mandor & Gate 2 Warehouse Budget Integration**:
-   - `RequisitionApproval.tsx`: Incorporates approved Change Order materials into `rabBudgetLimit` Gate 2 calculation.
-   - `GoodsIssueForm.tsx`: Merges approved Change Order materials into `rabMaterials`, expanding allowed materials and quotas to eliminate false over-budget locks.
-   - `MaterialRequisitionForm.tsx`: Mandor source list now dynamically includes approved Change Order materials tagged with `[CO: ...]`, allowing requisition of amended materials per WBS stage.
-5. **Empirical Verification & Quality Gates**:
-   - Empirical validation script (`verify_change_orders.cjs`): 100% PASS across 6 automated stages proving column schema integrity, subtotal generation, price immutability under master price inflation, trigger sync, and approval lifecycle.
-   - `npm run build`: 100% PASS (0 errors, bundle compiled in 599ms).
+## Last Session Summary (Sprint 10 Completed)
+1. **Database Migration & Aggregation Views (`supabase/migrations/20261016_financial_reporting_views.sql`)**:
+   - Built an isolated aggregation layer in Supabase with zero mutation to active operational transaction flows.
+   - Non-invasive underlying adapters:
+     - `spk.spk_number`: Generated immutable alias for `spk_no`.
+     - `materials.category` & `materials.updated_at`: Added for warehouse valuation breakdown.
+     - `wbs_category_to_stage`: Immutable SQL function translating enum categories into standard WBS stage strings (`WBS 1: Pembongkaran` through `WBS 5: Kelistrikan/Hidrolik`).
+     - `spk_borongan.total_amount` & `spk_borongan.wbs_stage`: Generated columns mirroring `contract_value` and standard stage strings.
+     - `rab_items.wbs_stage` & `rab_items.item_type`: Generated columns for material vs labor classification.
+     - `material_issues`: Compatibility aggregation view bridging physical warehouse transactions (`inventory_transactions`) with snapshot pricing and WBS stages.
+     - `final_billing`: Compatibility aggregation view mapping Kasir billing invoices (`invoices`) to sequential invoice numbering and payment status.
+   - Core Financial Reporting Views:
+     - `view_spk_job_profitability`: Aggregates Revenue, Actual Material Cost, Actual Labor Cost, Total HPP/COGS, Gross Profit, Gross Margin %, and Payment Status per SPK.
+     - `view_wbs_cost_variance`: Aligns total budget (RAB + Approved Change Orders) with actual material and labor expenditure per WBS stage to identify cost overruns or savings.
+     - `view_inventory_valuation`: Computes tied-up inventory valuation at HPP cost vs potential market valuation at standard selling price.
+     - `view_project_receivables`: Tracks gross billings, down payments, settled balances, remaining receivable balances, aging days, and clearance gate status (`LUNAS (SIAP HANDOVER)` vs `UNIT SELESAI (TERTAHAN PELUNASAN)`).
+   - RLS & Grants: Granted `SELECT` on all 4 views and adapter views to `authenticated`.
+2. **Empirical Verification & Quality Gates**:
+   - `verify_financial_reporting_views.cjs`: 100% PASS across 5 automated stages confirming view presence, 100% column parity, and mathematical formula precision against real workshop data.
+   - `npm run build`: 100% PASS (0 errors, 588ms).
    - `npm run lint`: 100% PASS (0 errors, 66 pre-existing warnings).
 
 ## Blockers
 None.
 
 ## Next Steps
-1. Verify live browser interaction in Service Advisor dashboard:
-   - Navigate to `/service-advisor`, select an SPK, open tab "Change Orders".
-   - Click "Buat Change Order Baru", add items (Material & Labor), submit, and verify itemized card view.
-   - Test approval and verify materials appear in Mandor requisition and Warehouse goods issue without over-budget warnings.
+1. Proceed to Step 2: Implement Frontend UI modules and interactive dashboard widgets utilizing these 4 database views (Job Profitability, RAB Variance, Inventory Valuation, and Accounts Receivable).
