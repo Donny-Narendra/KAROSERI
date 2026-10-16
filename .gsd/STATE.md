@@ -3,7 +3,15 @@
 - **Status**: Sprint completed ✅
 - **Milestone**: Core Business Recommendations Verification & Audit [COMPLETED]
 
-## Last Session Summary (Sprint 15 Completed)
+## Last Session Summary
+Codebase mapping complete (2026-10-16).
+- **54 components identified** (9 role dashboards/pages, 45 UI/operational/finance components)
+- **37 dependencies analyzed** (20 production, 17 development)
+- **6 technical debt / audit items tracked** (Component tests, PostgreSQL handover trigger lock, Executive KPI COGS split, orphaned server dependencies, any casts, localization)
+- **Test suite verified**: 26 Vitest tests passing (`npm test`), Oxlint 0 errors, TypeScript `tsc -b` clean.
+- Updated `.gsd/ARCHITECTURE.md` and `.gsd/STACK.md`.
+
+### Sprint 15 Audit Baseline Findings
 1. **Audit Check 1 (Dashboard Eksekutif Finansial)**:
    - Status: **PARSIAL**.
    - Terpasang di `/finance-reports` (`FinancialReportsPage.tsx`) dan `JobProfitabilityTab.tsx`. Ke-4 metrik ada di tabel detail dan footer total.
