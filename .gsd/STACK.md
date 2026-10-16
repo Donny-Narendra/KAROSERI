@@ -11,7 +11,7 @@
 
 ## Dependencies
 
-### Production (20 packages)
+### Production (16 packages)
 
 | Package | Version | Purpose |
 |---------|---------|---------|
@@ -31,16 +31,15 @@
 | `react-i18next` | ^17.0.15 | React integration for i18next |
 | `i18next-browser-languagedetector` | ^8.2.1 | Client browser language detector |
 | `dotenv` | ^18.0.6 | Environment variable loader |
-| `express` | ^5.2.1 | Node.js web application framework (backend auxiliary) |
-| `cors` | ^2.8.6 | CORS middleware for Node.js |
-| `multer` | ^2.4.0 | Multipart/form-data upload middleware |
-| `pg` | ^8.23.1 | Node PostgreSQL driver for maintenance scripts |
 
 ### Development (17 packages)
 
 | Package | Version | Purpose |
 |---------|---------|---------|
 | `vitest` | ^5.0.5 | Fast native unit test runner |
+| `@testing-library/react` | ^16.3.3 | React UI component testing utilities |
+| `@testing-library/jest-dom` | ^7.0.1 | DOM matcher extensions for Vitest |
+| `jsdom` | ^30.1.3 | Headless browser DOM environment for testing |
 | `typescript` | ~6.0.2 (Installed 6.0.3) | Static type checker |
 | `@vitejs/plugin-react` | ^6.1.1 | Vite plugin for React Fast Refresh |
 | `tailwindcss` | ^4.3.3 | Modern CSS utility framework |
@@ -52,10 +51,8 @@
 | `@types/react` | ^19.2.18 | Type definitions for React |
 | `@types/react-dom` | ^19.2.7 | Type definitions for React DOM |
 | `@types/node` | ^24.13.3 (Installed 24.19.0) | Type definitions for Node.js |
-| `@types/express` | ^5.0.6 | Type definitions for Express |
-| `@types/cors` | ^2.8.19 | Type definitions for CORS |
-| `@types/multer` | ^2.3.0 | Type definitions for Multer |
 | `@types/html2pdf.js` | ^0.10.0 | Type definitions for html2pdf.js |
+| `vite` | ^8.3.0 (Installed 8.3.2) | Development server & production builder |
 
 ## Infrastructure & Third-Party APIs
 
@@ -82,7 +79,6 @@
 | `@types/node` | 24.19.0 | 24.19.2 | 26.6.5 | Low |
 | `@vitejs/plugin-react` | 6.1.1 | 6.1.2 | 6.1.2 | Low |
 | `dotenv` | 18.0.6 | 18.0.8 | 18.0.8 | Low |
-| `express` | 5.2.1 | 5.3.0 | 5.3.0 | Low |
 | `i18next` | 26.4.2 | 26.4.7 | 26.4.7 | Low |
 | `lucide-react` | 1.49.0 | 1.58.0 | 1.58.0 | Low |
 | `oxlint` | 1.86.0 | 1.88.0 | 1.88.0 | Low |
@@ -94,6 +90,6 @@
 | `vite` | 8.3.2 | 8.3.4 | 8.3.4 | Low |
 | `zod` | 4.6.5 | 4.6.7 | 4.6.7 | Low |
 
-- Vitest unit testing suite (`npm test`) passes 41/41 tests across 4 test files.
+- Vitest unit & component testing suite (`npm test`) passes 60/60 tests across 7 test files.
 - Oxlint passes with 0 errors (`npm run lint`).
 - TypeScript compiler passes clean (`tsc -b`).

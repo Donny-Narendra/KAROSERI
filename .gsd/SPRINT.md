@@ -1,66 +1,52 @@
-# Sprint 18 — Implement Component-Level Testing with React Testing Library (Priority 3)
+# Sprint 19 — Clean Up Orphaned Backend Dependencies and Dead Scripts (Priority 4)
 
 > **Duration**: 2026-10-17 to 2026-10-17
 > **Status**: Completed ✅
 
 ## Goal
-Establish a comprehensive component-level testing suite using React Testing Library (`@testing-library/react`) and `jsdom` to validate critical UI components across RobelKaroseri workflows (Executive KPI Cards, Confirmation Modals, SPK Filter List Box, and Financial/Gate interaction elements).
+Purge obsolete and unused backend dependencies (`express`, `cors`, `multer`, `pg`, `@types/express`, `@types/cors`, `@types/multer`) and the dead `"server": "tsx server/index.ts"` script from `package.json` to reflect the pure client-first Supabase BaaS architecture, reduce package footprint, and eliminate architectural technical debt.
 
 ## Scope
 
 ### Included
-- **Environment Setup**:
-  - Installed `@testing-library/react`, `@testing-library/jest-dom`, and `jsdom`.
-  - Configured `vite.config.ts` with `environment: 'jsdom'` and setup file `src/test/setup.ts`.
-  - Added `@testing-library/jest-dom/vitest` to `tsconfig.app.json` compiler types.
-- **Component Test Suites**:
-  1. [`src/components/finance/__tests__/ExecutiveKpiCards.test.tsx`](file:///c:/KAROSERI/src/components/finance/__tests__/ExecutiveKpiCards.test.tsx):
-     - Test loading skeleton rendering (5 pulse cards).
-     - Test decoupled 5 financial cards: Total Omzet, Biaya Bahan Baku (GI), Borongan Mandor, Laba Operasional & Margin, Piutang & Unit Tertahan.
-     - Test margin color thresholds (`Sehat`, `Waspada`, `Rendah`).
-     - Test zero values & null summary fallbacks.
-  2. [`src/components/__tests__/ConfirmationModal.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/ConfirmationModal.test.tsx):
-     - Test rendering with custom titles, messages, and theme variants (`danger`, `warning`, `info`, `success`).
-     - Test confirm and cancel callbacks.
-     - Test alert mode (`hideCancel: true`).
-     - Test loading states & disable behavior.
-     - Test keyboard navigation (`Escape` handler).
-  3. [`src/components/__tests__/SpkFilterListBox.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/SpkFilterListBox.test.tsx):
-     - Test rendering SPK cards with pending badges and status.
-     - Test "Semua SPK" selection vs individual SPK card selection.
-     - Test real-time search filtering (by SPK number, customer name, plate number).
-     - Test empty state when search finds no matches.
+- **Package Purge**:
+  - Uninstalled `express`, `cors`, `multer`, `pg`.
+  - Uninstalled devDependencies `@types/express`, `@types/cors`, `@types/multer`.
+  - Removed 103 transitive packages from `node_modules` and pruned `package-lock.json`.
+- **Scripts & Files Cleanup**:
+  - Removed `"server": "tsx server/index.ts"` from `package.json`.
+  - Removed obsolete scratch script `apply_rls.js`.
+- **Documentation & Architecture Alignment**:
+  - Updated `.gsd/ARCHITECTURE.md` resolving the "Orphaned Backend Dependencies" technical debt item.
+  - Updated `.gsd/STACK.md` updating production (16) and development (17) dependencies inventory.
+  - Updated `.gsd/STATE.md` with sprint progress and baseline status.
 - **Verification**:
-  - Run full test suite with `npm test` (60/60 tests passing across 7 test suites).
-  - Run `npm run lint` (0 errors).
-  - Run `npm run build` (clean Vite 8 build with 0 errors).
-  - Updated `.gsd/ARCHITECTURE.md` resolving component testing technical debt.
+  - Run full test suite (`npm test`: 60/60 tests passing across 7 suites).
+  - Run linter (`npm run lint`: 0 errors).
+  - Run production build (`npm run build`: bundled cleanly with 0 errors).
 
 ### Explicitly Excluded
-- End-to-end browser automation tests (Playwright/Cypress) requiring external Supabase cloud databases.
-- Modifying production component business logic unless a regression/bug is uncovered by tests.
+- Modifying Supabase Edge Functions in `supabase/functions/` (which run on Deno).
+- Changing active client-side packages (`@supabase/supabase-js`, `xlsx`, `jspdf`, `lucide-react`, etc.).
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| 1. Configure Vitest with jsdom & React Testing Library | Antigravity | ✅ Done | 0.2h |
-| 2. Implement ExecutiveKpiCards component test suite | Antigravity | ✅ Done | 0.3h |
-| 3. Implement ConfirmationModal component test suite | Antigravity | ✅ Done | 0.3h |
-| 4. Implement SpkFilterListBox component test suite | Antigravity | ✅ Done | 0.3h |
-| 5. Run full test suite, lint, and production build | Antigravity | ✅ Done | 0.2h |
-| 6. Update ARCHITECTURE.md, STATE.md, and SPRINT.md | Antigravity | ✅ Done | 0.1h |
+| 1. Remove dead `"server"` script from `package.json` | Antigravity | ✅ Done | 0.1h |
+| 2. Uninstall orphaned backend packages via npm | Antigravity | ✅ Done | 0.2h |
+| 3. Validate test suite, linting, and production build | Antigravity | ✅ Done | 0.2h |
+| 4. Update ARCHITECTURE.md, STACK.md, and STATE.md | Antigravity | ✅ Done | 0.1h |
 
 ## Daily Log
 
 ### 2026-10-17
-- Initialized Sprint 18 to implement component-level testing using React Testing Library.
-- Archived Sprint 17 to `.gsd/sprints/sprint-17-decouple-material-and-labor-cost-kpi-cards.md`.
-- Installed `@testing-library/react`, `@testing-library/jest-dom`, and `jsdom`.
-- Configured `vite.config.ts`, `src/test/setup.ts`, and `tsconfig.app.json`.
-- Implemented `src/components/finance/__tests__/ExecutiveKpiCards.test.tsx` (5 tests passing).
-- Implemented `src/components/__tests__/ConfirmationModal.test.tsx` (8 tests passing).
-- Implemented `src/components/__tests__/SpkFilterListBox.test.tsx` (6 tests passing).
-- Validated all 60 tests passing across 7 test files with Vitest.
-- Ran `npm run lint` (0 errors) and `npm run build` (production build succeeded).
-- Updated `.gsd/ARCHITECTURE.md` marking Component-Level Testing technical debt as implemented.
+- Initialized Sprint 19 to clean up orphaned backend dependencies and dead scripts.
+- Archived Sprint 18 to `.gsd/sprints/sprint-18-implement-component-level-testing-with-react-testing-library.md`.
+- Uninstalled `express`, `cors`, `multer`, `pg`, `@types/express`, `@types/cors`, `@types/multer` (103 packages removed).
+- Removed dead `"server": "tsx server/index.ts"` script from `package.json`.
+- Removed obsolete `apply_rls.js` script.
+- Verified test suite (`npm test`: 60 tests passing across 7 files).
+- Verified linter (`npm run lint`: 0 errors).
+- Verified production build (`npm run build`: `tsc -b && vite build` passing).
+- Updated `.gsd/ARCHITECTURE.md`, `.gsd/STACK.md`, and `.gsd/STATE.md`.

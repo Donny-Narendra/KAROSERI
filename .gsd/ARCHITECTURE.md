@@ -154,7 +154,7 @@ KAROSERI is an enterprise auto body repair and modification management system (B
 - [x] **Component-Level Testing (Implemented):** Component tests using React Testing Library and jsdom (60 tests across 7 suites) verifying `ExecutiveKpiCards`, `ConfirmationModal`, and `SpkFilterListBox`.
 - [x] **PostgreSQL Trigger Handover Lock (Implemented):** Hard-gate trigger `trg_enforce_handover_billing_lock` and trigger function `check_spk_completion_billing_status()` installed on `public.spk` via `20261016030000_enforce_handover_billing_trigger.sql`. Blocks any status update to `COMPLETED` unless final billing exists and is fully paid (`LUNAS`/`PAID` or zero remaining balance).
 - [x] **Executive KPI COGS Breakdown (Implemented):** Decoupled Material and Labor cost metrics in `get_financial_executive_summary` RPC (`20261016040000_decouple_executive_kpi_rpc.sql`), `financialReportsService.ts`, and `ExecutiveKpiCards.tsx` into 5 standalone executive KPI cards.
-- [ ] **Orphaned Backend Dependencies:** `package.json` contains `express`, `cors`, `multer`, and `pg` with a `server` script, but no active `server/` directory exists in the client-first architecture.
+- [x] **Orphaned Backend Dependencies (Resolved):** Purged express, cors, multer, pg, and related types from `package.json`, and removed dead `"server"` script.
 - [ ] **Explicit `any` Type Casts:** Select query join responses in `KasirDashboard.tsx`, `RabCalculator.tsx`, and `rabExport.ts` bypass strict TypeScript typings.
 - [ ] **Localization Alignment:** `react-i18next` is installed, but the UI is predominantly written directly in Indonesian strings.
 
