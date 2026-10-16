@@ -10,11 +10,12 @@ import { PackageManager } from '../components/PackageManager';
 import { spkService } from '../services/spkService';
 import { WbsChecklist } from '../components/WbsChecklist';
 import { ConfirmationModal, type ConfirmationModalVariant } from '../components/ConfirmationModal';
+import { CancelledSpkAuditLog } from '../components/CancelledSpkAuditLog';
 
 export const AdminDashboardPage: React.FC = () => {
   const { t } = useTranslation();
   const { profile, signOut } = useAuth();
-  const [mainTab, setMainTab] = useState<'dashboard' | 'bom'>('dashboard');
+  const [mainTab, setMainTab] = useState<'dashboard' | 'bom' | 'cancellations'>('dashboard');
   const [spks, setSpks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showApprovalsModal, setShowApprovalsModal] = useState(false);
@@ -56,6 +57,7 @@ export const AdminDashboardPage: React.FC = () => {
     setLoading(true);
     const { data, error } = await supabase.from('spk').select(`
       *,
+      cancelled_by_profile:profiles!cancelled_by ( id, full_name, role ),
       rab_estimations ( total_estimated_cost, total_labor_cost, total_overhead_cost ),
       inventory_transactions ( quantity_issued, custom_unit_price, materials ( unit_price, is_customer_supplied ) ),
       spk_amendments ( id, description, cost_adjustment, status, created_at, spk_id )
@@ -321,6 +323,18 @@ export const AdminDashboardPage: React.FC = () => {
               className={`pb-2 text-lg font-bold font-display transition border-b-2 ${mainTab === 'bom' ? 'border-primary text-text' : 'border-transparent text-text-muted hover:text-text'}`}
             >
               Paket Produk (Assembly List)
+            </button>
+            <button 
+              onClick={() => setMainTab('cancellations')}
+              className={`pb-2 text-lg font-bold font-display transition border-b-2 flex items-center gap-1.5 ${mainTab === 'cancellations' ? 'border-status-danger text-status-danger' : 'border-transparent text-text-muted hover:text-text'}`}
+            >
+              <Ban className="w-4 h-4" />
+              <span>Audit Pembatalan</span>
+              {spks.filter(s => s.status === 'CANCELLED').length > 0 && (
+                <span className="text-xs bg-status-danger/20 text-status-danger font-mono font-bold px-1.5 py-0.2 rounded-full ml-1">
+                  {spks.filter(s => s.status === 'CANCELLED').length}
+                </span>
+              )}
             </button>
           </div>
           <div className="bg-primary/20 text-primary text-xs font-mono px-2 py-1 rounded shrink-0">
@@ -588,8 +602,21 @@ export const AdminDashboardPage: React.FC = () => {
 
         {/* Cancelled SPK Log */}
         <div className="bg-surface border border-border rounded-lg overflow-hidden mt-8">
-          <div className="px-5 py-4 border-b border-border bg-surface-hover">
-            <h3 className="font-bold text-status-danger font-display">{t('admin.cancelled_spk_log', 'Log SPK Dibatalkan')}</h3>
+          <div className="px-5 py-4 border-b border-border bg-surface-hover flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-status-danger font-display flex items-center gap-2">
+                <Ban className="w-4 h-4" />
+                {t('admin.cancelled_spk_log', 'Log SPK Dibatalkan')}
+              </h3>
+              <p className="text-xs text-text-muted mt-0.5">Ringkasan cepat riwayat pembatalan SPK terbaru</p>
+            </div>
+            <button
+              onClick={() => setMainTab('cancellations')}
+              className="text-xs font-semibold text-status-danger hover:text-red-400 px-3 py-1.5 rounded-lg border border-status-danger/30 hover:bg-status-danger/10 transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <span>Buka Modul Audit Penuh</span>
+              <span>&rarr;</span>
+            </button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm text-text">
@@ -597,26 +624,42 @@ export const AdminDashboardPage: React.FC = () => {
                 <tr>
                   <th className="px-5 py-3">Plat Nomor / No SPK</th>
                   <th className="px-5 py-3">Client</th>
-                  <th className="px-5 py-3">Waktu Cancel</th>
-                  <th className="px-5 py-3">Keterangan</th>
+                  <th className="px-5 py-3">Waktu Batal</th>
+                  <th className="px-5 py-3">Dibatalkan Oleh</th>
+                  <th className="px-5 py-3">Alasan Pembatalan</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {spks.filter(s => s.status === 'CANCELLED').length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-5 py-8 text-center text-text-muted">
+                    <td colSpan={5} className="px-5 py-8 text-center text-text-muted">
                       Tidak ada log SPK yang dibatalkan.
                     </td>
                   </tr>
-                ) : spks.filter(s => s.status === 'CANCELLED').map((spk) => (
+                ) : spks.filter(s => s.status === 'CANCELLED').slice(0, 5).map((spk) => (
                   <tr key={spk.id} className="hover:bg-surface-hover/50 transition">
                     <td className="px-5 py-4 font-mono">
-                      <div className="font-bold">{spk.vehicle_plate}</div>
+                      <div className="font-bold text-text">{spk.vehicle_plate || 'Tanpa Plat'}</div>
                       <div className="text-xs text-text-muted">{spk.spk_no}</div>
                     </td>
-                    <td className="px-5 py-4">{spk.customer_name}</td>
-                    <td className="px-5 py-4">{new Date(spk.updated_at).toLocaleString('id-ID')}</td>
-                    <td className="px-5 py-4 text-text-muted italic">{spk.notes || '-'}</td>
+                    <td className="px-5 py-4 font-medium">{spk.customer_name}</td>
+                    <td className="px-5 py-4 text-xs font-mono text-text-muted">
+                      {spk.cancelled_at 
+                        ? new Date(spk.cancelled_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                        : new Date(spk.updated_at).toLocaleString('id-ID')}
+                    </td>
+                    <td className="px-5 py-4 text-xs">
+                      {spk.cancelled_by_profile ? (
+                        <span className="font-medium text-text">
+                          {spk.cancelled_by_profile.full_name} <span className="text-[10px] text-text-muted font-mono uppercase">({spk.cancelled_by_profile.role})</span>
+                        </span>
+                      ) : (
+                        <span className="text-text-muted italic">Owner / Admin</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4 text-xs text-text-muted italic max-w-xs">
+                      "{spk.cancellation_reason || spk.notes || 'Tanpa keterangan tertulis'}"
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -624,9 +667,13 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
         </div>
           </>
-        ) : (
+        ) : mainTab === 'bom' ? (
           <div className="mt-4">
             <PackageManager />
+          </div>
+        ) : (
+          <div className="mt-4">
+            <CancelledSpkAuditLog onRefreshParent={fetchSpks} />
           </div>
         )}
       </main>

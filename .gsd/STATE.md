@@ -1,20 +1,22 @@
 ## Current Position
-- **Sprint**: Post-Sprint 20 Codebase Architecture Mapping
-- **Status**: Ready for Planning / Next Sprint
-- **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness
+- **Sprint**: Sprint 21 — Audit Log Monitoring for Cancelled SPKs
+- **Status**: Sprint completed ✅
+- **Milestone**: Core Business Recommendations Hardening — Executive Oversight & Compliance
 
 ## Last Session Summary
-Codebase mapping complete (2026-10-17).
-- 9 major pages, 35+ operational components, 5 domain services, 7 utility modules mapped.
-- 16 production packages and 17 development packages analyzed.
-- 5 technical debt items resolved (Component-Level RTL Testing, PostgreSQL Completion Handover Lock, Executive KPI COGS Decoupling, Orphaned Backend Dependencies Purge, Strict TypeScript Data Contracts & Zero `any` casts).
-- 2 audit opportunities tracked (Audit Log Monitoring for Cancelled SPKs, Localization Alignment).
-- Quality checks verified: 60/60 Vitest tests passing, 0 Oxlint errors, clean `tsc -b` and `vite build`.
+Sprint 21 Completed (2026-10-17).
+- Added `CancelledSpkAuditRecord` and `fetchCancelledSpkAuditLogs()` in `src/services/spkService.ts` querying Supabase with `profiles!cancelled_by` join.
+- Created `CancelledSpkAuditLog.tsx` with executive KPI cards, search, rich audit table, detail modal, and CSV export.
+- Integrated `cancellations` tab into `AdminDashboardPage.tsx` and upgraded quick cancellation table with accurate `cancellation_reason` and `cancelled_by_profile`.
+- Created component test suite `CancelledSpkAuditLog.test.tsx` (6 tests). Total 66 tests passing across 8 suites.
+- Validated `npx tsc -b` (0 errors), `npm run lint` (0 errors), `npm test` (66/66 passed), `npm run build` (success).
+- Updated `.gsd/ARCHITECTURE.md` and `.gsd/STACK.md` marking "Audit Log Monitoring for Cancelled SPKs" as resolved.
 
 ## Active Plan & Waves
-- Architecture and technology inventory fully updated in `.gsd/ARCHITECTURE.md` and `.gsd/STACK.md`.
-- Codebase ready for `/plan` or `/sprint new`.
+- **Wave 1**: Complete — `CancelledSpkAuditRecord` & `fetchCancelledSpkAuditLogs()`.
+- **Wave 2**: Complete — `CancelledSpkAuditLog.tsx` component.
+- **Wave 3**: Complete — `AdminDashboardPage.tsx` tab integration & quick preview upgrade.
+- **Wave 4**: Complete — Component tests & documentation sync.
 
 ## Blockers
 None.
-

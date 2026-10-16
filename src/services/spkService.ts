@@ -6,7 +6,112 @@ export interface CancelSpkParams {
   userId: string;
 }
 
+export interface CancelledSpkAuditRecord {
+  id: string;
+  spk_no: string;
+  customer_name: string;
+  customer_phone?: string | null;
+  vehicle_plate?: string | null;
+  vehicle_vin?: string | null;
+  vehicle_engine?: string | null;
+  status: string;
+  total_estimated_cost: number;
+  cancellation_reason: string;
+  cancelled_at: string;
+  cancelled_by?: string | null;
+  cancelled_by_profile?: {
+    id: string;
+    full_name: string;
+    role: string;
+    email?: string;
+  } | null;
+  created_at: string;
+  updated_at?: string | null;
+}
+
 export const spkService = {
+  async fetchCancelledSpkAuditLogs(): Promise<CancelledSpkAuditRecord[]> {
+    const { data, error } = await supabase
+      .from('spk')
+      .select(`
+        id,
+        spk_no,
+        customer_name,
+        customer_phone,
+        vehicle_plate,
+        vehicle_vin,
+        vehicle_engine,
+        status,
+        total_estimated_cost,
+        cancellation_reason,
+        cancelled_at,
+        cancelled_by,
+        created_at,
+        updated_at,
+        notes,
+        cancelled_by_profile:profiles!cancelled_by ( id, full_name, role, email ),
+        rab_estimations ( total_estimated_cost )
+      `)
+      .eq('status', 'CANCELLED')
+      .order('cancelled_at', { ascending: false });
+
+    if (error) {
+      console.error('Failed to fetch cancelled SPK audit logs:', error);
+      throw new Error(`Failed to fetch cancelled SPK audit logs: ${error.message}`);
+    }
+
+    if (!data) return [];
+
+    interface RawCancelledSpkRow {
+      id: string;
+      spk_no: string;
+      customer_name: string;
+      customer_phone?: string | null;
+      vehicle_plate?: string | null;
+      vehicle_vin?: string | null;
+      vehicle_engine?: string | null;
+      status: string;
+      total_estimated_cost?: number | string | null;
+      cancellation_reason?: string | null;
+      cancelled_at?: string | null;
+      cancelled_by?: string | null;
+      created_at: string;
+      updated_at?: string | null;
+      notes?: string | null;
+      cancelled_by_profile?: {
+        id: string;
+        full_name: string;
+        role: string;
+        email?: string;
+      } | null;
+      rab_estimations?: Array<{ total_estimated_cost?: number | string | null }>;
+    }
+
+    return (data as unknown as RawCancelledSpkRow[]).map((row) => {
+      let estimatedCost = Number(row.total_estimated_cost) || 0;
+      if (estimatedCost === 0 && row.rab_estimations && row.rab_estimations.length > 0) {
+        estimatedCost = Number(row.rab_estimations[0].total_estimated_cost) || 0;
+      }
+
+      return {
+        id: row.id,
+        spk_no: row.spk_no,
+        customer_name: row.customer_name,
+        customer_phone: row.customer_phone,
+        vehicle_plate: row.vehicle_plate,
+        vehicle_vin: row.vehicle_vin,
+        vehicle_engine: row.vehicle_engine,
+        status: row.status,
+        total_estimated_cost: estimatedCost,
+        cancellation_reason: row.cancellation_reason || row.notes || 'Tanpa keterangan tertulis',
+        cancelled_at: row.cancelled_at || row.updated_at || row.created_at,
+        cancelled_by: row.cancelled_by,
+        cancelled_by_profile: row.cancelled_by_profile || null,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      };
+    });
+  },
   async cancelSpk({ spkId, reason, userId }: CancelSpkParams) {
     if (!reason || reason.trim() === '') {
       throw new Error('Cancellation reason is required');

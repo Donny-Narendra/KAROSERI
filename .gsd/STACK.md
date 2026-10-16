@@ -90,6 +90,6 @@
 | `vite` | 8.3.2 | 8.3.4 | 8.3.4 | Low |
 | `zod` | 4.6.5 | 4.6.7 | 4.6.7 | Low |
 
-- Vitest unit & component testing suite (`npm test`) passes 60/60 tests across 7 test files.
+- Vitest unit & component testing suite (`npm test`) passes 66/66 tests across 8 test files.
 - Oxlint passes with 0 errors (`npm run lint`).
 - TypeScript compiler passes clean (`tsc -b`).

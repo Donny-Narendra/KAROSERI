@@ -58,6 +58,7 @@ KAROSERI is an enterprise auto body repair and modification management system (B
   - [`SpkBoronganPanel.tsx`](file:///c:/KAROSERI/src/components/SpkBoronganPanel.tsx): Mandor/Admin borongan labor management, worker assignment, and material guideline with subtotal display.
   - [`SpkCredentialSection.tsx`](file:///c:/KAROSERI/src/components/SpkCredentialSection.tsx): Editable chassis/VIN, engine number, customer phone, target date, and sub-tasks list.
   - [`CancelSpkModal.tsx`](file:///c:/KAROSERI/src/components/CancelSpkModal.tsx): Guarded SPK cancellation workflow (allowed only before DP / material issuance).
+  - [`CancelledSpkAuditLog.tsx`](file:///c:/KAROSERI/src/components/CancelledSpkAuditLog.tsx): Dedicated audit monitoring module for voided/cancelled SPKs with executor attribution, timestamped reasons, lost revenue KPI cards, search, and CSV export.
   - [`AmendmentManager.tsx`](file:///c:/KAROSERI/src/components/AmendmentManager.tsx): Manages itemized change orders with approval workflow and cost recalculation.
   - [`PackageAllocationModal.tsx`](file:///c:/KAROSERI/src/components/PackageAllocationModal.tsx) & [`PackageManager.tsx`](file:///c:/KAROSERI/src/components/PackageManager.tsx): Predefined package bundling and automatic WBS stage mapping.
   - [`SpkFilterListBox.tsx`](file:///c:/KAROSERI/src/components/SpkFilterListBox.tsx) & [`SpkSelector.tsx`](file:///c:/KAROSERI/src/components/SpkSelector.tsx): Standardized SPK selector widgets with search.
@@ -115,6 +116,7 @@ KAROSERI is an enterprise auto body repair and modification management system (B
 - [`src/components/finance/__tests__/ExecutiveKpiCards.test.tsx`](file:///c:/KAROSERI/src/components/finance/__tests__/ExecutiveKpiCards.test.tsx): Component tests for 5-card decoupled KPIs, loading skeletons, and margin thresholds (5 tests).
 - [`src/components/__tests__/ConfirmationModal.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/ConfirmationModal.test.tsx): Component tests for confirmation dialogs, variants, alerts, and keyboard events (8 tests).
 - [`src/components/__tests__/SpkFilterListBox.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/SpkFilterListBox.test.tsx): Component tests for SPK card selection, search filtering, and pending badges (6 tests).
+- [`src/components/__tests__/CancelledSpkAuditLog.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/CancelledSpkAuditLog.test.tsx): Component tests for cancelled SPK audit log KPIs, empty state, table row rendering, search filtering, detail modal, and CSV export (6 tests).
 
 ## Data Flow
 
@@ -151,12 +153,12 @@ KAROSERI is an enterprise auto body repair and modification management system (B
 
 ## Technical Debt & Audit Opportunities
 
-- [x] **Component-Level Testing (Implemented):** Component tests using React Testing Library and jsdom (60 tests across 7 suites) verifying `ExecutiveKpiCards`, `ConfirmationModal`, and `SpkFilterListBox`.
+- [x] **Component-Level Testing (Implemented):** Component tests using React Testing Library and jsdom (66 tests across 8 suites) verifying `ExecutiveKpiCards`, `ConfirmationModal`, `SpkFilterListBox`, and `CancelledSpkAuditLog`.
 - [x] **PostgreSQL Trigger Handover Lock (Implemented):** Hard-gate trigger `trg_enforce_handover_billing_lock` and trigger function `check_spk_completion_billing_status()` installed on `public.spk` via `20261016030000_enforce_handover_billing_trigger.sql`. Blocks any status update to `COMPLETED` unless final billing exists and is fully paid (`LUNAS`/`PAID` or zero remaining balance).
 - [x] **Executive KPI COGS Breakdown (Implemented):** Decoupled Material and Labor cost metrics in `get_financial_executive_summary` RPC (`20261016040000_decouple_executive_kpi_rpc.sql`), `financialReportsService.ts`, and `ExecutiveKpiCards.tsx` into 5 standalone executive KPI cards.
 - [x] **Orphaned Backend Dependencies (Resolved):** Purged express, cors, multer, pg, and related types from `package.json`, and removed dead `"server"` script.
 - [x] **Explicit `any` Type Casts (Resolved):** All untyped `any` type casts across `KasirDashboard.tsx`, `RabCalculator.tsx`, `rabExport.ts`, and `PackageAllocationModal.tsx` have been refactored with strict TypeScript interfaces (`KasirSpkJoinRow`, `KasirRabEstimationSummary`, `KasirRabItemSummary`, `RabSpkDetails`, `DbRabItemRecord`, `RabExportSpkDetails`, `RabExportItem`, `RabExportTotals`, `RabItemPayload`). Zero `any` casts remain.
-- [ ] **Audit Log Monitoring for Cancelled SPKs:** While cancellation reasons are captured during void operations in `CancelSpkModal.tsx` and `AdminDashboardPage.tsx`, adding a dedicated audit monitoring table view for cancelled SPKs (with timestamps and cancellation reasons) will provide immediate executive oversight without manual table filtering.
+- [x] **Audit Log Monitoring for Cancelled SPKs (Implemented):** Dedicated audit monitoring component (`CancelledSpkAuditLog.tsx`) and tab view in `AdminDashboardPage.tsx` providing real-time executive visibility into voided SPKs, user attribution (`cancelled_by_profile`), timestamped cancellation reasons, lost estimation impact KPIs, search/filter, and CSV audit export.
 - [ ] **Localization Alignment:** `react-i18next` is installed, but the UI is predominantly written directly in Indonesian strings.
 
 ## Conventions
