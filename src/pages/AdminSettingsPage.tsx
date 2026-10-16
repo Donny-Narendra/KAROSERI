@@ -10,6 +10,7 @@ import { BackupRestoreCard } from '../components/BackupRestoreCard';
 import { ConfirmationModal, type ConfirmationModalVariant } from '../components/ConfirmationModal';
 import { supabase } from '../lib/supabaseClient';
 import { useTranslation } from 'react-i18next';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
 
 export const AdminSettingsPage: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -226,6 +227,9 @@ export const AdminSettingsPage: React.FC = () => {
             <h1 className="font-display font-bold text-xl text-text">{t('admin.title')}</h1>
           </div>
         </div>
+        <div className="flex items-center gap-3">
+          <LanguageSwitcher />
+        </div>
       </header>
 
       {/* Main Content */}
@@ -254,7 +258,7 @@ export const AdminSettingsPage: React.FC = () => {
               activeTab === 'database' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-text'
             }`}
           >
-            <Database className="w-4 h-4" /> Manajemen Data
+            <Database className="w-4 h-4" /> {t('settings.database_backup', 'Cadangkan & Pulihkan Basis Data')}
           </button>
         </div>
 
@@ -478,7 +482,7 @@ export const AdminSettingsPage: React.FC = () => {
                       <Globe className="w-3 h-3"/> {t('settings.language')}
                     </label>
                     <select 
-                      value={settings.default_language}
+                      value={(i18n.language || settings.default_language).startsWith('en') ? 'en' : 'id'}
                       onChange={e => {
                         setSettings({...settings, default_language: e.target.value});
                         i18n.changeLanguage(e.target.value);
@@ -501,7 +505,7 @@ export const AdminSettingsPage: React.FC = () => {
                   className="px-4 py-2 border border-border text-text-muted hover:text-text rounded hover:bg-surface-active transition text-sm flex items-center gap-2"
                 >
                   <RotateCcw className="w-4 h-4" />
-                  Reset ke Standar Pabrik
+                  {t('settings.factory_reset', 'Reset ke Standar Pabrik')}
                 </button>
                 <button 
                   type="submit" 

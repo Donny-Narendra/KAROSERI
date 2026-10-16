@@ -11,6 +11,7 @@ import { spkService } from '../services/spkService';
 import { WbsChecklist } from '../components/WbsChecklist';
 import { ConfirmationModal, type ConfirmationModalVariant } from '../components/ConfirmationModal';
 import { CancelledSpkAuditLog } from '../components/CancelledSpkAuditLog';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
 
 export const AdminDashboardPage: React.FC = () => {
   const { t } = useTranslation();
@@ -277,19 +278,20 @@ export const AdminDashboardPage: React.FC = () => {
             )}
           </button>
           <span className="text-sm text-text-muted font-mono">{profile?.full_name} ({profile?.role})</span>
+          <LanguageSwitcher />
           <button 
             onClick={() => window.location.href = '/finance-reports'}
             className="flex items-center gap-2 text-sm bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded transition font-medium"
             title="Buka Laporan Keuangan & Executive Dashboard"
           >
             <TrendingUp className="w-4 h-4" />
-            Laporan Keuangan
+            {t('finance.title', 'Laporan Keuangan')}
           </button>
           <button 
             onClick={() => window.location.href = '/kasir'}
             className="flex items-center gap-2 text-sm bg-surface-hover hover:bg-surface-active px-3 py-1.5 rounded transition text-text"
           >
-            Kasir / Billing
+            {t('cashier.title', 'Kasir / Billing')}
           </button>
           <button 
             onClick={() => window.location.href = '/admin/settings'}
@@ -322,14 +324,14 @@ export const AdminDashboardPage: React.FC = () => {
               onClick={() => setMainTab('bom')}
               className={`pb-2 text-lg font-bold font-display transition border-b-2 ${mainTab === 'bom' ? 'border-primary text-text' : 'border-transparent text-text-muted hover:text-text'}`}
             >
-              Paket Produk (Assembly List)
+              {t('admin.bom_tab', 'Paket Produk (Assembly List)')}
             </button>
             <button 
               onClick={() => setMainTab('cancellations')}
               className={`pb-2 text-lg font-bold font-display transition border-b-2 flex items-center gap-1.5 ${mainTab === 'cancellations' ? 'border-status-danger text-status-danger' : 'border-transparent text-text-muted hover:text-text'}`}
             >
               <Ban className="w-4 h-4" />
-              <span>Audit Pembatalan</span>
+              <span>{t('admin.cancellations_tab', 'Audit Pembatalan')}</span>
               {spks.filter(s => s.status === 'CANCELLED').length > 0 && (
                 <span className="text-xs bg-status-danger/20 text-status-danger font-mono font-bold px-1.5 py-0.2 rounded-full ml-1">
                   {spks.filter(s => s.status === 'CANCELLED').length}
@@ -528,7 +530,7 @@ export const AdminDashboardPage: React.FC = () => {
                   <th className="px-5 py-3">{t('admin.material_gate')}</th>
                   <th className="px-5 py-3">{t('admin.qc_status')}</th>
                   <th className="px-5 py-3">{t('admin.handover')}</th>
-                  <th className="px-5 py-3 text-right">Aksi Manajerial</th>
+                  <th className="px-5 py-3 text-right">{t('admin.managerial_actions', 'Aksi Manajerial')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">

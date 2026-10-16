@@ -158,8 +158,7 @@ KAROSERI is an enterprise auto body repair and modification management system (B
 - [x] **Executive KPI COGS Breakdown (Implemented):** Decoupled Material and Labor cost metrics in `get_financial_executive_summary` RPC (`20261016040000_decouple_executive_kpi_rpc.sql`), `financialReportsService.ts`, and `ExecutiveKpiCards.tsx` into 5 standalone executive KPI cards.
 - [x] **Orphaned Backend Dependencies (Resolved):** Purged express, cors, multer, pg, and related types from `package.json`, and removed dead `"server"` script.
 - [x] **Explicit `any` Type Casts (Resolved):** All untyped `any` type casts across `KasirDashboard.tsx`, `RabCalculator.tsx`, `rabExport.ts`, and `PackageAllocationModal.tsx` have been refactored with strict TypeScript interfaces (`KasirSpkJoinRow`, `KasirRabEstimationSummary`, `KasirRabItemSummary`, `RabSpkDetails`, `DbRabItemRecord`, `RabExportSpkDetails`, `RabExportItem`, `RabExportTotals`, `RabItemPayload`). Zero `any` casts remain.
-- [x] **Audit Log Monitoring for Cancelled SPKs (Implemented):** Dedicated audit monitoring component (`CancelledSpkAuditLog.tsx`) and tab view in `AdminDashboardPage.tsx` providing real-time executive visibility into voided SPKs, user attribution (`cancelled_by_profile`), timestamped cancellation reasons, lost estimation impact KPIs, search/filter, and CSV audit export.
-- [ ] **Localization Alignment:** `react-i18next` is installed, but the UI is predominantly written directly in Indonesian strings.
+- [x] **Localization Alignment (Implemented):** Fully aligned `react-i18next` localization with 1:1 symmetric catalogs (`src/locales/id.json` and `src/locales/en.json`) spanning 11 namespaces, persistent `LanguageSwitcher.tsx` supporting pill and dropdown modes, seamless translation across `LoginPage.tsx`, `AdminDashboardPage.tsx`, and `AdminSettingsPage.tsx`, and automated test coverage (`LanguageSwitcher.test.tsx`).
 
 ## Conventions
 

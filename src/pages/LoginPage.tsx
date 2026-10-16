@@ -2,8 +2,11 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { Factory, ShieldCheck, TerminalSquare, Badge, Key } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
 
 export const LoginPage: React.FC = () => {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,15 +25,20 @@ export const LoginPage: React.FC = () => {
       });
       if (error) throw error;
       navigate('/', { replace: true });
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Authentication failed');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main className="w-full min-h-screen bg-surface flex flex-col font-sans">
+    <main className="w-full min-h-screen bg-surface flex flex-col font-sans relative">
+      {/* Top right language switcher */}
+      <div className="absolute top-4 right-4 z-50">
+        <LanguageSwitcher />
+      </div>
+
       <div className="w-full min-h-screen flex flex-col lg:flex-row bg-surface">
         {/* LEFT PANEL */}
         <section className="relative w-full lg:w-[52%] bg-surface-container-lowest text-text flex flex-col justify-between p-6 sm:p-10 lg:p-14 overflow-hidden shadow-2xl">
@@ -42,29 +50,34 @@ export const LoginPage: React.FC = () => {
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-display font-bold text-2xl tracking-tight text-text">RobelKaroseri</span>
+                    <span className="font-display font-bold text-2xl tracking-tight text-text">
+                      {t('auth.brand_name', 'RobelKaroseri')}
+                    </span>
                     <span className="bg-primary/20 text-primary text-xs px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">ERP</span>
                   </div>
-                  <p className="text-xs text-text-muted uppercase tracking-widest font-mono">Heavy Fabrication OS</p>
+                  <p className="text-xs text-text-muted uppercase tracking-widest font-mono">
+                    {t('auth.terminal_title', 'Heavy Fabrication OS')}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2 bg-surface-container px-3 py-1.5 rounded">
                 <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-                <span className="text-xs text-text-muted font-medium tracking-wide">TIER-1 COMMERCIAL VEHICLE ERP</span>
+                <span className="text-xs text-text-muted font-medium tracking-wide">
+                  {t('auth.tier_badge', 'TIER-1 COMMERCIAL VEHICLE ERP')}
+                </span>
               </div>
             </div>
             
             <div className="space-y-3 pt-4">
               <div className="inline-flex items-center gap-2 bg-surface-container-high text-primary text-xs px-2.5 py-1 rounded font-mono">
                 <TerminalSquare className="w-4 h-4" />
-                <span>SYSTEM_RELEASE // v4.8.2-PROD</span>
+                <span>{t('auth.system_release', 'SYSTEM_RELEASE // v4.8.2-PROD')}</span>
               </div>
               <h1 className="text-4xl lg:text-5xl font-display font-bold text-text tracking-tight leading-tight">
-                Job-Order & WBS <br className="hidden sm:inline"/>
-                <span className="text-primary">Production Control</span>
+                {t('auth.login_headline', 'Job-Order & WBS Production Control')}
               </h1>
               <p className="text-text-muted max-w-xl leading-relaxed">
-                Unified engineering, shopfloor scheduling, and component inventory tracking engineered specifically for commercial bodybuilders & heavy chassis modification.
+                {t('auth.login_sub', 'Central control terminal for body building workflows, WBS cost calculations, warehouse logistics, and integrated financial audits.')}
               </p>
             </div>
           </div>
@@ -76,15 +89,19 @@ export const LoginPage: React.FC = () => {
             <div className="flex items-center justify-between mb-6">
               <div className="inline-flex items-center gap-2 bg-surface-container-high px-3 py-1 rounded">
                 <span className="w-2 h-2 rounded-full bg-primary animate-ping"></span>
-                <span className="text-xs font-mono uppercase tracking-wider text-primary font-semibold">SECURE WORKSHOP GATEWAY</span>
+                <span className="text-xs font-mono uppercase tracking-wider text-primary font-semibold">
+                  {t('auth.active_telemetry', 'SECURE WORKSHOP GATEWAY')}
+                </span>
               </div>
               <span className="text-xs font-mono text-text-muted">NODE: ID-CKR-01</span>
             </div>
 
             <div className="mb-8">
-              <h2 className="text-2xl font-display font-bold text-text tracking-tight">Welcome Back</h2>
+              <h2 className="text-2xl font-display font-bold text-text tracking-tight">
+                {t('auth.form_title', 'Workstation Authentication')}
+              </h2>
               <p className="text-sm text-text-muted mt-1.5">
-                Sign in with your workshop credentials to access your designated terminal.
+                {t('auth.form_sub', 'Enter authorized credentials to unlock role-based privileges')}
               </p>
             </div>
 
@@ -97,7 +114,7 @@ export const LoginPage: React.FC = () => {
             <form className="space-y-5" onSubmit={handleLogin}>
               <div className="space-y-1.5">
                 <label className="flex items-center justify-between text-sm font-medium text-text">
-                  <span>Work ID / Email <span className="text-primary">*</span></span>
+                  <span>{t('auth.email_label', 'Work ID / Email')} <span className="text-primary">*</span></span>
                 </label>
                 <div className="relative flex items-center">
                   <div className="absolute left-3.5 text-text-muted flex items-center pointer-events-none">
@@ -109,14 +126,14 @@ export const LoginPage: React.FC = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full bg-background border border-border text-text text-sm pl-11 pr-4 py-3 rounded outline-none focus:border-primary transition" 
-                    placeholder="e.g. employee@karoseri.local" 
+                    placeholder={t('auth.email_placeholder', 'e.g. employee@karoseri.local')} 
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <label className="flex items-center justify-between text-sm font-medium text-text">
-                  <span>Master Password <span className="text-primary">*</span></span>
+                  <span>{t('auth.password_label', 'Master Password')} <span className="text-primary">*</span></span>
                 </label>
                 <div className="relative flex items-center">
                   <div className="absolute left-3.5 text-text-muted flex items-center pointer-events-none">
@@ -128,7 +145,7 @@ export const LoginPage: React.FC = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full bg-background border border-border text-text text-sm pl-11 pr-11 py-3 rounded outline-none focus:border-primary transition" 
-                    placeholder="Enter workstation access key" 
+                    placeholder={t('auth.password_placeholder', 'Enter workstation access key')} 
                   />
                 </div>
               </div>
@@ -139,7 +156,7 @@ export const LoginPage: React.FC = () => {
                   disabled={loading}
                   className="w-full bg-primary hover:bg-primary-hover text-white font-mono text-sm py-3.5 px-4 rounded font-bold uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition transform active:scale-[0.99] disabled:opacity-50"
                 >
-                  {loading ? 'Authenticating...' : 'Sign In to Terminal'}
+                  {loading ? t('auth.authenticating', 'Authenticating...') : t('auth.submit_button', 'Sign In to Terminal')}
                 </button>
               </div>
             </form>
@@ -148,7 +165,7 @@ export const LoginPage: React.FC = () => {
               <div className="flex items-start gap-2.5 text-text-muted">
                 <ShieldCheck className="w-5 h-5 text-secondary shrink-0 mt-0.5" />
                 <p className="text-xs leading-relaxed">
-                  Protected by Role-Based Access Control (RBAC) & Immutable Audit Logging. ISO/IEC 27001 Certified. Unauthorized access is logged with plant terminal telemetry.
+                  {t('auth.security_notice', 'Protected by Role-Based Access Control (RBAC) & Immutable Audit Logging. ISO/IEC 27001 Certified.')}
                 </p>
               </div>
             </div>
