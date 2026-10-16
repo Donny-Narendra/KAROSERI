@@ -1,75 +1,54 @@
-# Sprint 13 — Implement Automated Financial Reconciliation and Data Integrity Audit (Step 4)
+# Sprint 14 — Implement Financial Reporting Export & Printable PDF Engine (Step 5)
 
 > **Duration**: 2026-10-16 to 2026-10-16
-> **Status**: Completed ✅
+> **Status**: In Progress 🟡
 
 ## Goal
-Implement automated financial reconciliation and data integrity audit (Step 4) to detect and alert on financial anomalies (over-budget SPK, negative margin projects, unbilled completed SPKs, handover breach risks) through a PostgreSQL audit RPC, service layer integration, a visual interactive "Audit & Rekonsiliasi Integritas" panel in `/finance-reports`, and a Vitest automated unit test suite.
+Implement client-side financial document export engine (Excel .xlsx & CSV) and formal printable PDF document generator (`@media print` / formal A4 layout) with executive summaries, detail tables, and official verification signature blocks for `/finance-reports`.
 
 ## Scope
 
 ### Included
-- **Task 1: Database Migration (`supabase/migrations/20261016_financial_sanity_check_rpc.sql`)**:
-  - Deploy stored procedure `audit_financial_sanity_check()` returning JSON report with:
-    - `is_healthy` boolean flag.
-    - `over_budget_count` & `over_budget_items` (SPK with `actual_material_spent > total_material_budget`).
-    - `negative_margin_count` & `negative_margin_items` (SPK with `total_revenue > 0 AND gross_profit < 0`).
-    - `unbilled_completed_count` & `unbilled_completed_items` (SPK with `qc_status = 'PASS'` without `final_billing`).
-    - `critical_receivables_count` & `critical_receivables_items` (SPK with `handover_clearance_status = 'UNIT SELESAI (TERTAHAN PELUNASAN)'` and `receivable_aging_days > 7`).
-  - Grant execute privileges to authenticated, anon, and service_role.
-  - Successfully applied and verified on live PostgreSQL instance.
-- **Task 2: Service Layer & TypeScript Types**:
-  - Extended `src/types/financialReports.ts` with `FinancialSanityCheckResult`, `OverBudgetAnomaly`, `NegativeMarginAnomaly`, `UnbilledCompletedAnomaly`, `CriticalReceivableAnomaly`.
-  - Added `auditFinancialSanityCheck()` method to `src/services/financialReportsService.ts`.
-  - Verified with live tsx runner script `verify_financial_reporting_service.ts`.
-- **Task 3: Visual Audit Panel Component (`src/components/finance/FinancialAuditPanel.tsx`)**:
-  - Prominent status alert banner (Green if `is_healthy === true`, Red/Amber if anomalies detected).
-  - Summary metrics chips with badges for each anomaly type.
-  - Collapsible drill-down tabs/lists showing details of affected SPKs with monetary values and quick links to respective tabs.
-  - Refresh button to re-run the sanity check on demand.
-- **Task 4: UI Dashboard Integration (`src/pages/FinancialReportsPage.tsx`)**:
-  - Integrated `FinancialAuditPanel` above the report tabs.
-  - Added quick status pill / warning badge in the header/tab bar.
-- **Task 5: Vitest Setup & Automated Unit Tests**:
-  - Installed and configured `vitest` in `package.json` (`npm test`).
-  - Created reusable calculation utilities in `src/utils/financialCalculations.ts`.
-  - Implemented comprehensive calculation test suite in `src/utils/__tests__/financialCalculations.test.ts` (19 tests covering margin, change orders, variance, aging, clearance gates).
-- **Task 6: Empirical Validation & Quality Gates**:
-  - `npm test`: 19/19 tests passed (100%).
-  - `npm run build`: TypeScript compilation and production bundle built in 593ms (0 errors).
-  - `npm run lint`: 0 errors.
+- **Wave 1: Export Engine Utility (`src/utils/exportFinancialReports.ts`)**:
+  - `exportToExcel(reportType, data, filter)`: Exports active tab dataset to styled `.xlsx` or `.csv` using `xlsx` with standardized Indonesian financial headers.
+  - `exportFullFinancialWorkbook(allReportsData, executiveSummary)`: Exports all 4 financial reports into a single comprehensive multi-sheet Excel workbook (`Laba Rugi SPK`, `Varian Anggaran WBS`, `Valuasi Persediaan`, `Piutang & Aging`).
+  - Standardized naming convention: `RobelKaroseri_[NamaLaporan]_[YYYYMMDD].xlsx`.
+  - Number formatting for monetary values and percentages.
+- **Wave 2: Formal Printable PDF Engine (`src/components/finance/FinancialPrintReport.tsx`)**:
+  - Modal pratinjau cetak dan mode cetak langsung (`window.print()`).
+  - Formal corporate letterhead: `ROBELKAROSERI - INDUSTRIAL VEHICLE MODIFICATION`.
+  - Formal document title: `LAPORAN EVALUASI FINANSIAL & OPERASIONAL PROYEK`.
+  - Document metadata: Tanggal Cetak (WIB), Dicetak Oleh (Nama & Role), Periode Filter.
+  - Ringkasan Eksekutif KPI dalam tabel terstruktur ramah cetak.
+  - Tabel rincian data laporan aktif dengan styling kontras tinggi (clean borders, compact 9-10pt typography).
+  - Kolom tanda tangan resmi: Disiapkan Oleh (Kasir / Finance) & Disetujui Oleh (Pemilik Bengkel / Owner).
+  - Print styling CSS (`@media print`): Auto-hide non-printable elements (navbar, headers, filter bar, dark background, buttons) and clean page breaks.
+- **Wave 3: UI Integration on `/finance-reports` (`src/pages/FinancialReportsPage.tsx` & tabs)**:
+  - Header Action buttons next to Global Filter Bar:
+    - Dropdown button **"Ekspor Excel"** (*Download Sheet Ini* atau *Download Semua Laporan (Full Workbook)*).
+    - Primary button **"Cetak Dokumen / Simpan PDF"** membuka dialog cetak formal.
+  - Tab level quick CSV / Excel export trigger buttons on `JobProfitabilityTab`, `WbsCostVarianceTab`, `InventoryValuationTab`, `ReceivablesAgingTab`.
+- **Quality Gates & Empirical Verification**:
+  - Unit tests for export data mapping and workbook construction.
+  - TypeScript build (`npm run build`).
+  - Linting (`npm run lint`).
+  - Git commit: `feat(finance): implement step 5 financial document export and printable PDF engine`.
 
 ### Explicitly Excluded
-- Modifying underlying historical invoice or transaction records.
+- Backend server-side PDF generation daemon (client-side browser native rendering with high DPI is prioritized for instantaneous output).
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| 1. Create and apply migration `20261016_financial_sanity_check_rpc.sql` | Antigravity | ✅ Done | 0.3h |
-| 2. Add types & `auditFinancialSanityCheck()` to service layer | Antigravity | ✅ Done | 0.3h |
-| 3. Create `FinancialAuditPanel.tsx` component | Antigravity | ✅ Done | 0.5h |
-| 4. Integrate `FinancialAuditPanel` into `FinancialReportsPage.tsx` | Antigravity | ✅ Done | 0.3h |
-| 5. Install `vitest` and implement unit test suite `financialCalculations.test.ts` | Antigravity | ✅ Done | 0.5h |
-| 6. Run automated tests, build check & lint check | Antigravity | ✅ Done | 0.2h |
+| 1. Build export engine utility `src/utils/exportFinancialReports.ts` | Antigravity | ⬜ Todo | 0.4h |
+| 2. Build formal printable component `src/components/finance/FinancialPrintReport.tsx` | Antigravity | ⬜ Todo | 0.5h |
+| 3. Integrate export & print triggers in `FinancialReportsPage.tsx` & tabs | Antigravity | ⬜ Todo | 0.4h |
+| 4. Create unit tests for export mappings & workbook generation | Antigravity | ⬜ Todo | 0.3h |
+| 5. Run test suite, production build & linter verification | Antigravity | ⬜ Todo | 0.2h |
 
 ## Daily Log
 
 ### 2026-10-16
-- Archived Sprint 12 to `.gsd/sprints/sprint-12-implement-financial-reporting-ui-module.md`.
-- Initialized Sprint 13 for Automated Financial Reconciliation and Data Integrity Audit (Step 4).
-- Created migration `supabase/migrations/20261016_financial_sanity_check_rpc.sql` and deployed stored procedure `audit_financial_sanity_check()`.
-- Verified RPC execution returning real audit JSON detection (detected 1 over-budget SPK `SPK-1452` with material overspend Rp 104.167).
-- Updated `src/types/financialReports.ts` and `src/services/financialReportsService.ts` with `FinancialSanityCheckResult` typing and `auditFinancialSanityCheck()` RPC invocation.
-- Built `src/components/finance/FinancialAuditPanel.tsx` featuring real-time health indicator, 4 anomaly metric cards, interactive drill-down tables, and tab linking.
-- Integrated `FinancialAuditPanel` into `src/pages/FinancialReportsPage.tsx` with refresh synchronization.
-- Created `src/utils/financialCalculations.ts` for clean financial formulas.
-- Configured Vitest and authored 19 unit tests in `src/utils/__tests__/financialCalculations.test.ts`.
-- Validated all tests passing (`npm test`), verified `npm run build` (100% pass), and `npm run lint` (0 errors).
-
-## Retrospective (2026-10-16)
-
-### What Went Well
-- Immediate real-world value: the audit RPC immediately discovered a real overspend anomaly on `SPK-1452` in the database, proving the effectiveness of the sanity check.
-- High test coverage and fast execution: 19 unit tests running in under 20ms provides a safety net for future financial formula changes.
-- Seamless UI experience: the audit panel gives workshop owners instant visual confidence or rapid alert triage without having to manually sift through dozens of SPK reports.
+- Archived Sprint 13 to `.gsd/sprints/sprint-13-implement-financial-reconciliation-and-data-integrity-audit.md`.
+- Initialized Sprint 14 for Financial Reporting Export & Printable PDF Engine (Step 5).

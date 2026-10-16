@@ -1,35 +1,27 @@
 ## Current Position
-- **Sprint**: Sprint 13 (Implement Automated Financial Reconciliation and Data Integrity Audit - Step 4)
-- **Status**: Sprint completed ✅
-- **Milestone**: Step 4 - Validasi & Rekonsiliasi Integritas Data (Audit & Sanity Check) [COMPLETED]
+- **Sprint**: Sprint 14 (Implement Financial Reporting Export & Printable PDF Engine - Step 5)
+- **Status**: Sprint in progress 🟡
+- **Milestone**: Step 5 - Fitur Ekspor Dokumen & Mesin Cetak PDF (Reporting & Exporting Engine)
 
 ## Last Session Summary (Sprint 13 Completed)
-1. **PostgreSQL Audit RPC (`supabase/migrations/20261016_financial_sanity_check_rpc.sql`)**:
-   - Deployed `audit_financial_sanity_check()` function.
-   - Detects 4 core anomaly categories:
-     - SPK with `total_revenue > 0 AND gross_profit < 0` (Negative margin).
-     - SPK with `actual_material_spent > total_material_budget` (Over-budget).
-     - SPK with `qc_status = 'PASS'` without invoice in `final_billing` (Unbilled completed).
-     - SPK with `handover_clearance_status = 'UNIT SELESAI (TERTAHAN PELUNASAN)'` and `receivable_aging_days > 7` (Critical handover risk).
-   - Tested live on DB: detected 1 over-budget SPK (`SPK-1452`, overspend Rp 104.167).
-2. **Service Layer & Types (`src/types/financialReports.ts`, `src/services/financialReportsService.ts`)**:
-   - Typed data contract `FinancialSanityCheckResult` and anomaly models.
-   - `financialReportsService.auditFinancialSanityCheck()` method implemented and validated.
+1. **PostgreSQL Audit RPC (`audit_financial_sanity_check`)**:
+   - Deployed migration `supabase/migrations/20261016_financial_sanity_check_rpc.sql`.
+   - Real-time detection across over-budget SPK, negative margin projects, unbilled completed SPKs, and critical receivables (>7 days).
+2. **Service Layer & Types**:
+   - Interface `FinancialSanityAuditResult` in `src/types/financialReports.ts`.
+   - Method `getSanityAudit()` in `src/services/financialReportsService.ts`.
 3. **Interactive UI Component (`src/components/finance/FinancialAuditPanel.tsx`)**:
-   - Dynamic health shield banner (Green if healthy, Rose if anomalies detected).
-   - 4 quick anomaly metric cards with count badges and descriptive subtitles.
-   - Expandable drill-down tables showing offending SPK numbers, customer names, budget variance, and direct tab links.
-   - Integrated into `src/pages/FinancialReportsPage.tsx` with refresh synchronization.
-4. **Vitest Unit Test Suite (`src/utils/__tests__/financialCalculations.test.ts`, `src/utils/financialCalculations.ts`)**:
-   - 19 automated unit tests verifying profitability formulas, negative margin thresholds, change order adjustments, budget variance formulas, and handover clearance status rules.
-   - `npm test`: 19/19 tests passed (100%).
-5. **Quality Gates**:
-   - `npm test`: PASS (19 tests, 16ms).
-   - `npm run build`: PASS (0 errors, 593ms).
-   - `npm run lint`: PASS (0 errors).
+   - Health status badge, 4 anomaly metric cards, collapsible drill-down tables, and tab linking.
+   - Integrated into `src/pages/FinancialReportsPage.tsx`.
+4. **Vitest Unit Test Suite (`src/utils/__tests__/financialCalculations.test.ts`)**:
+   - 19 automated unit tests verifying calculations.
+
+## Current Sprint 14 Objectives
+1. Build `src/utils/exportFinancialReports.ts` for Excel single-sheet & 4-sheet multi-workbook exports.
+2. Build `src/components/finance/FinancialPrintReport.tsx` for printable formal A4 layout with letterhead, signatures, and `@media print` rules.
+3. Integrate export & print modal triggers into `src/pages/FinancialReportsPage.tsx` and report tabs.
+4. Add Vitest unit test coverage for export transformations.
+5. Verify build, tests, and linting.
 
 ## Blockers
 None.
-
-## Next Steps
-All 4 steps of the Financial Reporting & Integrity Assurance Module (Database Views, Service Layer, UI Dashboards, and Automated Audit/Sanity Check) are now complete, verified, and operational.
