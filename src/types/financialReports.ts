@@ -1,5 +1,5 @@
 /**
- * Data Contracts for Supabase PostgreSQL Financial Reporting Views
+ * Data Contracts for Supabase PostgreSQL Financial Reporting Views & RPC Helpers
  * Single source of truth for RobelKaroseri financial analytics & owner/cashier dashboard.
  */
 
@@ -66,4 +66,49 @@ export interface ProjectReceivable {
   invoice_date: string;
   receivable_aging_days: number;
   handover_clearance_status: string;
+}
+
+export interface FinancialExecutiveSummary {
+  total_projects: number;
+  total_revenue: number;
+  total_cogs: number;
+  total_gross_profit: number;
+  average_gross_margin: number;
+  total_inventory_valuation: number;
+  total_inventory_market_value: number;
+  total_outstanding_receivables: number;
+  units_pending_handover: number;
+}
+
+export interface DateRangeFilter {
+  startDate?: string | null;
+  endDate?: string | null;
+}
+
+export interface SpkJobProfitabilityFilter extends DateRangeFilter {
+  search?: string;
+  spkStatus?: string;
+  paymentStatus?: string;
+}
+
+export interface WbsCostVarianceFilter {
+  spkId?: string;
+  spkNumber?: string;
+  wbsStage?: string;
+  search?: string;
+  overBudgetOnly?: boolean;
+}
+
+export interface InventoryValuationFilter {
+  category?: string;
+  search?: string;
+  lowStockOnly?: boolean;
+}
+
+export interface ProjectReceivableFilter {
+  search?: string;
+  paymentStatus?: string;
+  handoverClearanceStatus?: string;
+  unpaidOnly?: boolean;
+  minAgingDays?: number;
 }

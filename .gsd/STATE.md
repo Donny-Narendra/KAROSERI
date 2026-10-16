@@ -1,32 +1,30 @@
 ## Current Position
-- **Sprint**: Sprint 10 (Implement SQL Database Views for Financial Reporting Engine - Step 1)
+- **Sprint**: Sprint 11 (Implement Financial Reporting Service Layer and TypeScript Interfaces - Step 2)
 - **Status**: Sprint completed ✅
-- **Milestone**: (Ready for Step 2 - Financial Reporting UI & Dashboards)
+- **Milestone**: (Ready for Step 3 - Financial Reporting Frontend Dashboards & Visualizations)
 
-## Last Session Summary (Sprint 10 Completed)
-1. **Database Migration & Aggregation Views (`supabase/migrations/20261016_financial_reporting_views.sql`)**:
-   - Built an isolated aggregation layer in Supabase with zero mutation to active operational transaction flows.
-   - Non-invasive underlying adapters:
-     - `spk.spk_number`: Generated immutable alias for `spk_no`.
-     - `materials.category` & `materials.updated_at`: Added for warehouse valuation breakdown.
-     - `wbs_category_to_stage`: Immutable SQL function translating enum categories into standard WBS stage strings (`WBS 1: Pembongkaran` through `WBS 5: Kelistrikan/Hidrolik`).
-     - `spk_borongan.total_amount` & `spk_borongan.wbs_stage`: Generated columns mirroring `contract_value` and standard stage strings.
-     - `rab_items.wbs_stage` & `rab_items.item_type`: Generated columns for material vs labor classification.
-     - `material_issues`: Compatibility aggregation view bridging physical warehouse transactions (`inventory_transactions`) with snapshot pricing and WBS stages.
-     - `final_billing`: Compatibility aggregation view mapping Kasir billing invoices (`invoices`) to sequential invoice numbering and payment status.
-   - Core Financial Reporting Views:
-     - `view_spk_job_profitability`: Aggregates Revenue, Actual Material Cost, Actual Labor Cost, Total HPP/COGS, Gross Profit, Gross Margin %, and Payment Status per SPK.
-     - `view_wbs_cost_variance`: Aligns total budget (RAB + Approved Change Orders) with actual material and labor expenditure per WBS stage to identify cost overruns or savings.
-     - `view_inventory_valuation`: Computes tied-up inventory valuation at HPP cost vs potential market valuation at standard selling price.
-     - `view_project_receivables`: Tracks gross billings, down payments, settled balances, remaining receivable balances, aging days, and clearance gate status (`LUNAS (SIAP HANDOVER)` vs `UNIT SELESAI (TERTAHAN PELUNASAN)`).
-   - RLS & Grants: Granted `SELECT` on all 4 views and adapter views to `authenticated`.
-2. **Empirical Verification & Quality Gates**:
-   - `verify_financial_reporting_views.cjs`: 100% PASS across 5 automated stages confirming view presence, 100% column parity, and mathematical formula precision against real workshop data.
-   - `npm run build`: 100% PASS (0 errors, 588ms).
+## Last Session Summary (Sprint 11 Completed)
+1. **Executive Summary RPC (`supabase/migrations/20261016_financial_summary_rpc.sql`)**:
+   - Implemented `get_financial_executive_summary(start_date, end_date)` function in PostgreSQL.
+   - Calculates total projects, revenue, COGS, gross profit, average margin %, inventory valuation (HPP & Market), outstanding receivables, and pending handover unit counts in a single network round-trip.
+   - Executed and granted execution to `authenticated` role.
+2. **TypeScript Data Contracts (`src/types/financialReports.ts`)**:
+   - Defined strict interfaces for all 4 reporting views: `SpkJobProfitability`, `WbsCostVariance`, `InventoryValuation`, and `ProjectReceivable`.
+   - Added `FinancialExecutiveSummary` interface and filter parameter models: `DateRangeFilter`, `SpkJobProfitabilityFilter`, `WbsCostVarianceFilter`, `InventoryValuationFilter`, and `ProjectReceivableFilter`.
+   - Re-exported via `src/types/database.ts`.
+3. **Financial Reporting Service Layer (`src/services/financialReportsService.ts`)**:
+   - `getExecutiveSummary`: Invokes RPC with date range filters and numerical sanitization.
+   - `getSpkJobProfitability`: Queries `view_spk_job_profitability` with date filters, status filters, and multi-field ILIKE search (`spk_number`, `customer_name`, `vehicle_plate`).
+   - `getWbsCostVariance`: Queries `view_wbs_cost_variance` with SPK/stage filters, search, and `overBudgetOnly` thresholding.
+   - `getInventoryValuation`: Queries `view_inventory_valuation` with category filtering, item search, and `lowStockOnly` filtering.
+   - `getProjectReceivables`: Queries `view_project_receivables` with payment status, clearance status, `unpaidOnly`, `minAgingDays`, and multi-field search.
+4. **Empirical Verification & Quality Gates**:
+   - `verify_financial_reporting_service.ts`: 100% PASS across 5 verification stages against live database.
+   - `npm run build`: 100% PASS (0 errors, 693ms).
    - `npm run lint`: 100% PASS (0 errors, 66 pre-existing warnings).
 
 ## Blockers
 None.
 
 ## Next Steps
-1. Proceed to Step 2: Implement Frontend UI modules and interactive dashboard widgets utilizing these 4 database views (Job Profitability, RAB Variance, Inventory Valuation, and Accounts Receivable).
+1. Step 3: Implement Financial Reporting Frontend Dashboard and UI pages (Executive Summary Cards, Job Profitability Table, WBS Variance Breakdown, Inventory Valuation & Aging Receivables with clearance badges).
