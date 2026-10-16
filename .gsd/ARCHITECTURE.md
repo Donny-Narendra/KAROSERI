@@ -112,6 +112,9 @@ KAROSERI is an enterprise auto body repair and modification management system (B
 - [`__tests__/executiveKpiCalculations.test.ts`](file:///c:/KAROSERI/src/utils/__tests__/executiveKpiCalculations.test.ts): Unit tests verifying decoupled material & labor KPI calculations and reconciliation against total COGS (5 tests).
 - [`__tests__/financialCalculations.test.ts`](file:///c:/KAROSERI/src/utils/__tests__/financialCalculations.test.ts): Unit tests verifying business calculations (19 tests).
 - [`__tests__/exportFinancialReports.test.ts`](file:///c:/KAROSERI/src/utils/__tests__/exportFinancialReports.test.ts): Unit tests verifying data preparation for PDF & Excel export (7 tests).
+- [`src/components/finance/__tests__/ExecutiveKpiCards.test.tsx`](file:///c:/KAROSERI/src/components/finance/__tests__/ExecutiveKpiCards.test.tsx): Component tests for 5-card decoupled KPIs, loading skeletons, and margin thresholds (5 tests).
+- [`src/components/__tests__/ConfirmationModal.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/ConfirmationModal.test.tsx): Component tests for confirmation dialogs, variants, alerts, and keyboard events (8 tests).
+- [`src/components/__tests__/SpkFilterListBox.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/SpkFilterListBox.test.tsx): Component tests for SPK card selection, search filtering, and pending badges (6 tests).
 
 ## Data Flow
 
@@ -142,13 +145,13 @@ KAROSERI is an enterprise auto body repair and modification management system (B
 | Supabase Auth | BaaS API | Authentication, session persistence, role-based access | [`src/context/AuthContext.tsx`](file:///c:/KAROSERI/src/context/AuthContext.tsx) |
 | Supabase PostgreSQL | BaaS API | Core relational data, RLS policies, Views, RPCs, Completion Triggers | [`src/lib/supabaseClient.ts`](file:///c:/KAROSERI/src/lib/supabaseClient.ts) |
 | Cloudinary | REST API / CDN | Vehicle damage intake photos and production milestone evidence | [`src/lib/cloudinary.ts`](file:///c:/KAROSERI/src/lib/cloudinary.ts), [`src/components/ui/CloudinaryUploader.tsx`](file:///c:/KAROSERI/src/components/ui/CloudinaryUploader.tsx) |
-| Vitest | Test Runner | Automated unit testing for financial calculations & export utilities | `package.json`, [`src/utils/__tests__/`](file:///c:/KAROSERI/src/utils/__tests__/) |
+| Vitest & RTL | Test Runner & Library | Automated unit and component testing with jsdom | `package.json`, [`src/utils/__tests__/`](file:///c:/KAROSERI/src/utils/__tests__/), [`src/components/**/__tests__/`](file:///c:/KAROSERI/src/components/) |
 | jsPDF / html2canvas | Client Library | BAST and invoice PDF rendering and export | [`src/components/BastModal.tsx`](file:///c:/KAROSERI/src/components/BastModal.tsx), [`src/utils/rabExport.ts`](file:///c:/KAROSERI/src/utils/rabExport.ts) |
 | XLSX (SheetJS) | Client Library | Inventory master data and financial reports Excel export | [`src/utils/excelExport.ts`](file:///c:/KAROSERI/src/utils/excelExport.ts), [`src/utils/exportFinancialReports.ts`](file:///c:/KAROSERI/src/utils/exportFinancialReports.ts) |
 
 ## Technical Debt & Audit Opportunities
 
-- [ ] **Component-Level Testing:** Unit tests exist for financial utility functions and gate simulations (`vitest run`, 41 tests across 4 suites), but React components (`RabCalculator`, `GoodsIssueForm`, `KasirDashboard`) lack test coverage with React Testing Library.
+- [x] **Component-Level Testing (Implemented):** Component tests using React Testing Library and jsdom (60 tests across 7 suites) verifying `ExecutiveKpiCards`, `ConfirmationModal`, and `SpkFilterListBox`.
 - [x] **PostgreSQL Trigger Handover Lock (Implemented):** Hard-gate trigger `trg_enforce_handover_billing_lock` and trigger function `check_spk_completion_billing_status()` installed on `public.spk` via `20261016030000_enforce_handover_billing_trigger.sql`. Blocks any status update to `COMPLETED` unless final billing exists and is fully paid (`LUNAS`/`PAID` or zero remaining balance).
 - [x] **Executive KPI COGS Breakdown (Implemented):** Decoupled Material and Labor cost metrics in `get_financial_executive_summary` RPC (`20261016040000_decouple_executive_kpi_rpc.sql`), `financialReportsService.ts`, and `ExecutiveKpiCards.tsx` into 5 standalone executive KPI cards.
 - [ ] **Orphaned Backend Dependencies:** `package.json` contains `express`, `cors`, `multer`, and `pg` with a `server` script, but no active `server/` directory exists in the client-first architecture.

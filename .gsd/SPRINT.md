@@ -1,60 +1,66 @@
-# Sprint 17 — Decouple Material and Labor Cost KPI Cards on Executive Dashboard (Priority 2)
+# Sprint 18 — Implement Component-Level Testing with React Testing Library (Priority 3)
 
-> **Duration**: 2026-10-16 to 2026-10-17
+> **Duration**: 2026-10-17 to 2026-10-17
 > **Status**: Completed ✅
 
 ## Goal
-Expose independent aggregations for Actual Material Cost (`actual_material_cost`) and Actual Labor Cost (`actual_labor_cost`) in the executive financial summary RPC (`get_financial_executive_summary`), and decouple them into dedicated, high-impact KPI summary cards on the Executive Dashboard (`ExecutiveKpiCards.tsx`), providing the workshop owner and management with instant visibility into 5 standalone core financial metrics.
+Establish a comprehensive component-level testing suite using React Testing Library (`@testing-library/react`) and `jsdom` to validate critical UI components across RobelKaroseri workflows (Executive KPI Cards, Confirmation Modals, SPK Filter List Box, and Financial/Gate interaction elements).
 
 ## Scope
 
 ### Included
-- **Wave 1: Database Migration - RPC Function Update (`supabase/migrations/20261016040000_decouple_executive_kpi_rpc.sql`)**:
-  - Update `get_financial_executive_summary` PL/pgSQL RPC function.
-  - Return `total_actual_material_cost` and `total_actual_labor_cost` computed from `view_spk_job_profitability`.
-- **Wave 2: Service Layer & TypeScript Contracts**:
-  - Update `FinancialExecutiveSummary` interface in `src/types/financialReports.ts`.
-  - Update `financialReportsService.getExecutiveSummary` in `src/services/financialReportsService.ts`.
-  - Update multi-sheet Excel export helper (`src/utils/exportFinancialReports.ts`) and PDF print view (`src/components/finance/FinancialPrintReport.tsx`).
-- **Wave 3: Executive UI KPI Cards Redesign (`src/components/finance/ExecutiveKpiCards.tsx`)**:
-  - Redesign top row into 5 dedicated executive cards:
-    1. Total Omzet SPK (Revenue)
-    2. Total Biaya Aktual Bahan Baku (Goods Issued)
-    3. Total Biaya Borongan Mandor Terbayar
-    4. Estimasi Laba Operasional (Gross Profit) & Margin %
-    5. Total Piutang & Unit Tertahan Pelunasan
-  - Add proportion badges (% dari Omzet) for Material and Labor costs.
-  - Add responsive grid layout and loading skeletons.
-- **Wave 4: Vitest Test Suite & Verification**:
-  - Add test coverage for KPI calculations and service data transformation in `src/utils/__tests__/executiveKpiCalculations.test.ts`.
-  - Run `npm test`, `npm run lint`, and `npm run build`.
+- **Environment Setup**:
+  - Installed `@testing-library/react`, `@testing-library/jest-dom`, and `jsdom`.
+  - Configured `vite.config.ts` with `environment: 'jsdom'` and setup file `src/test/setup.ts`.
+  - Added `@testing-library/jest-dom/vitest` to `tsconfig.app.json` compiler types.
+- **Component Test Suites**:
+  1. [`src/components/finance/__tests__/ExecutiveKpiCards.test.tsx`](file:///c:/KAROSERI/src/components/finance/__tests__/ExecutiveKpiCards.test.tsx):
+     - Test loading skeleton rendering (5 pulse cards).
+     - Test decoupled 5 financial cards: Total Omzet, Biaya Bahan Baku (GI), Borongan Mandor, Laba Operasional & Margin, Piutang & Unit Tertahan.
+     - Test margin color thresholds (`Sehat`, `Waspada`, `Rendah`).
+     - Test zero values & null summary fallbacks.
+  2. [`src/components/__tests__/ConfirmationModal.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/ConfirmationModal.test.tsx):
+     - Test rendering with custom titles, messages, and theme variants (`danger`, `warning`, `info`, `success`).
+     - Test confirm and cancel callbacks.
+     - Test alert mode (`hideCancel: true`).
+     - Test loading states & disable behavior.
+     - Test keyboard navigation (`Escape` handler).
+  3. [`src/components/__tests__/SpkFilterListBox.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/SpkFilterListBox.test.tsx):
+     - Test rendering SPK cards with pending badges and status.
+     - Test "Semua SPK" selection vs individual SPK card selection.
+     - Test real-time search filtering (by SPK number, customer name, plate number).
+     - Test empty state when search finds no matches.
+- **Verification**:
+  - Run full test suite with `npm test` (60/60 tests passing across 7 test suites).
+  - Run `npm run lint` (0 errors).
+  - Run `npm run build` (clean Vite 8 build with 0 errors).
+  - Updated `.gsd/ARCHITECTURE.md` resolving component testing technical debt.
 
 ### Explicitly Excluded
-- Modifying underlying calculation logic in `view_spk_job_profitability` (view logic is already validated).
-- Modifying SPK billing or operational state machines.
+- End-to-end browser automation tests (Playwright/Cypress) requiring external Supabase cloud databases.
+- Modifying production component business logic unless a regression/bug is uncovered by tests.
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| 1. Create SQL Migration `20261016040000_decouple_executive_kpi_rpc.sql` | Antigravity | ✅ Done | 0.2h |
-| 2. Update TypeScript Contracts & Financial Service Layer | Antigravity | ✅ Done | 0.2h |
-| 3. Redesign `ExecutiveKpiCards.tsx` with 5 standalone financial cards | Antigravity | ✅ Done | 0.4h |
-| 4. Update Export & Print Documents with decoupled metrics | Antigravity | ✅ Done | 0.2h |
-| 5. Create Vitest Test Suite for Decoupled KPI Calculations | Antigravity | ✅ Done | 0.3h |
-| 6. Verify Tests, Lint, and TypeScript Production Build | Antigravity | ✅ Done | 0.2h |
+| 1. Configure Vitest with jsdom & React Testing Library | Antigravity | ✅ Done | 0.2h |
+| 2. Implement ExecutiveKpiCards component test suite | Antigravity | ✅ Done | 0.3h |
+| 3. Implement ConfirmationModal component test suite | Antigravity | ✅ Done | 0.3h |
+| 4. Implement SpkFilterListBox component test suite | Antigravity | ✅ Done | 0.3h |
+| 5. Run full test suite, lint, and production build | Antigravity | ✅ Done | 0.2h |
+| 6. Update ARCHITECTURE.md, STATE.md, and SPRINT.md | Antigravity | ✅ Done | 0.1h |
 
 ## Daily Log
 
-### 2026-10-16
-- Initialized Sprint 17 to decouple material and labor cost KPI cards on the Executive Dashboard.
-- Archived Sprint 16 to `.gsd/sprints/sprint-16-enforce-postgresql-hard-gate-trigger-for-spk-billing-handover-lock.md`.
-- Implemented `supabase/migrations/20261016040000_decouple_executive_kpi_rpc.sql` exposing `total_actual_material_cost` and `total_actual_labor_cost`.
-- Updated `FinancialExecutiveSummary` in `src/types/financialReports.ts` and `financialReportsService.ts`.
-- Updated multi-sheet Excel export helper (`exportFinancialReports.ts`) and PDF report canvas (`FinancialPrintReport.tsx`).
-- Redesigned `src/components/finance/ExecutiveKpiCards.tsx` into 5 high-impact, standalone cards with ratio badges and responsive layout.
-- Created unit test suite `src/utils/__tests__/executiveKpiCalculations.test.ts` (5 tests passing).
-- Verified full test suite (`npm test`: 41 tests passing across 4 files).
-- Verified linting (`npm run lint`: 0 errors).
-- Verified build (`npm run build`: bundled cleanly with 0 errors).
-- Updated `.gsd/ARCHITECTURE.md` resolving the Executive KPI COGS breakdown technical debt item.
+### 2026-10-17
+- Initialized Sprint 18 to implement component-level testing using React Testing Library.
+- Archived Sprint 17 to `.gsd/sprints/sprint-17-decouple-material-and-labor-cost-kpi-cards.md`.
+- Installed `@testing-library/react`, `@testing-library/jest-dom`, and `jsdom`.
+- Configured `vite.config.ts`, `src/test/setup.ts`, and `tsconfig.app.json`.
+- Implemented `src/components/finance/__tests__/ExecutiveKpiCards.test.tsx` (5 tests passing).
+- Implemented `src/components/__tests__/ConfirmationModal.test.tsx` (8 tests passing).
+- Implemented `src/components/__tests__/SpkFilterListBox.test.tsx` (6 tests passing).
+- Validated all 60 tests passing across 7 test files with Vitest.
+- Ran `npm run lint` (0 errors) and `npm run build` (production build succeeded).
+- Updated `.gsd/ARCHITECTURE.md` marking Component-Level Testing technical debt as implemented.

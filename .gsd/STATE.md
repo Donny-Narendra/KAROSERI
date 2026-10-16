@@ -1,21 +1,27 @@
 ## Current Position
-- **Sprint**: Sprint 17 — Decouple Material and Labor Cost KPI Cards on Executive Dashboard (Priority 2)
-- **Status**: Sprint completed ✅ | Codebase Mapped 🗺️
-- **Milestone**: Core Business Recommendations Hardening — Revenue & Executive Analytics [COMPLETED]
+- **Sprint**: Sprint 18 — Implement Component-Level Testing with React Testing Library (Priority 3)
+- **Status**: Sprint completed ✅
+- **Milestone**: Core Business Recommendations Hardening — Frontend Testing Infrastructure [COMPLETED]
 
 ## Last Session Summary
-Codebase mapping complete (2026-10-17).
-- **Architecture & Components Mapped**: Documented full system architecture in `.gsd/ARCHITECTURE.md` spanning 9 role dashboards/pages, 28+ operational components, 5 service layers, and 4 test suites.
-- **Technology Stack Analyzed**: Documented runtime and dependencies inventory in `.gsd/STACK.md` (20 production packages, 17 development packages).
-- **Quality & Test Baseline**: 41 Vitest unit tests passing (4/4 test files), 0 Oxlint errors across 103 files, clean Vite 8 production build.
-- **Technical Debt & Audit Status**:
-  - Handover billing hard-gate database trigger resolved (Sprint 16).
-  - Executive KPI cards decoupled with standalone material and labor cost metrics (Sprint 17).
-  - Remaining debt items cataloged: component-level React testing, orphaned backend dependencies cleanup, and explicit `any` typings elimination.
+Component-Level Testing Infrastructure & Critical Workflow Test Suites Complete (2026-10-17).
+- **Testing Infrastructure**:
+  - Installed `@testing-library/react`, `@testing-library/jest-dom`, and `jsdom`.
+  - Configured `vite.config.ts` (`environment: 'jsdom'`) and `src/test/setup.ts` (`@testing-library/jest-dom/vitest`).
+  - Added `@testing-library/jest-dom/vitest` to `tsconfig.app.json` compiler types.
+- **Component Test Suites Added**:
+  1. `src/components/finance/__tests__/ExecutiveKpiCards.test.tsx`: 5 tests covering loading pulse skeletons, decoupled 5-card financial metrics, margin threshold classifications, and null fallback safety.
+  2. `src/components/__tests__/ConfirmationModal.test.tsx`: 8 tests covering theme variants, confirm/cancel callbacks, alert mode (`hideCancel`), loading state button locking, escape key handling, and custom children.
+  3. `src/components/__tests__/SpkFilterListBox.test.tsx`: 6 tests covering SPK card rendering, pending badge counters, "Semua SPK" selection, plate and customer real-time filtering, and empty state matching.
+- **Verification**:
+  - `npm test`: 60 Vitest tests passing across 7 test suites (100% pass rate).
+  - `npm run lint`: Oxlint 0 errors across 107 files.
+  - `npm run build`: `tsc -b && vite build` bundled cleanly with 0 TypeScript errors.
+- **Documentation**: Updated `.gsd/ARCHITECTURE.md` resolving the Component-Level Testing technical debt item.
 
 ## Blockers
 None.
 
 ## Recommended Follow-up Actions
-1. **Component-Level Testing**: Implement React Testing Library tests for key workflow forms (`RabCalculator.tsx`, `GoodsIssueForm.tsx`, `KasirDashboard.tsx`).
-2. **Orphaned Dependencies Cleanup**: Clean up obsolete Express/pg backend dependencies in `package.json` since architecture is fully client-first with Supabase.
+1. **Orphaned Dependencies Cleanup (Opsi B)**: Remove obsolete backend packages (`express`, `cors`, `multer`, `pg`) from `package.json` since the architecture is fully client-first with Supabase.
+2. **Explicit `any` Typings Elimination**: Clean up `any` casts in `KasirDashboard.tsx` and `RabCalculator.tsx` select query results.
