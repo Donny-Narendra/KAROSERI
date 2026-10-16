@@ -8,6 +8,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { financialReportsService } from '../../../services/financialReportsService';
+import { exportToExcel, exportToCsv } from '../../../utils/exportFinancialReports';
 import type { InventoryValuation } from '../../../types/financialReports';
 
 interface InventoryValuationTabProps {
@@ -93,40 +94,6 @@ export const InventoryValuationTab: React.FC<InventoryValuationTabProps> = ({
     }
   };
 
-  const handleExportCsv = () => {
-    if (!sortedData.length) return;
-    const headers = [
-      'ID Material',
-      'Nama Material',
-      'Kategori',
-      'Stok Fisik',
-      'Satuan',
-      'HPP Satuan (Rp)',
-      'Harga Jual Satuan (Rp)',
-      'Total HPP Aset (Rp)',
-      'Potensi Nilai Pasar (Rp)',
-    ].join(',');
-
-    const rows = sortedData.map(row => [
-      `"${row.material_id}"`,
-      `"${row.material_name}"`,
-      `"${row.category || '-'}"`,
-      row.current_stock,
-      `"${row.unit}"`,
-      row.cost_price_hpp,
-      row.standard_selling_price,
-      row.total_inventory_valuation_hpp,
-      row.total_inventory_market_value,
-    ].join(',')).join('\n');
-
-    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + `${headers}\n${rows}`;
-    const link = document.createElement('a');
-    link.href = encodeURI(csvContent);
-    link.download = `Valuasi_Persediaan_Gudang_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   // Aggregates
   const totalStockCount = sortedData.reduce((acc, curr) => acc + curr.current_stock, 0);
@@ -185,15 +152,25 @@ export const InventoryValuationTab: React.FC<InventoryValuationTabProps> = ({
             <span>Segarkan</span>
           </button>
           <button
-            onClick={handleExportCsv}
+            onClick={() => exportToExcel('inventory', sortedData)}
             disabled={!sortedData.length}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg text-sm font-medium transition disabled:opacity-50"
+            title="Unduh format Excel (.xlsx)"
           >
             <Download className="w-4 h-4" />
-            <span>Ekspor CSV</span>
+            <span>Excel</span>
+          </button>
+          <button
+            onClick={() => exportToCsv('inventory', sortedData)}
+            disabled={!sortedData.length}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-hover hover:bg-surface-active text-text-muted hover:text-text border border-border rounded-lg text-sm font-medium transition disabled:opacity-50"
+            title="Unduh format CSV (.csv)"
+          >
+            <span>CSV</span>
           </button>
         </div>
       </div>
+
 
       {/* Error Notice */}
       {error && (

@@ -8,6 +8,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { financialReportsService } from '../../../services/financialReportsService';
+import { exportToExcel, exportToCsv } from '../../../utils/exportFinancialReports';
 import { supabase } from '../../../lib/supabaseClient';
 import type { WbsCostVariance } from '../../../types/financialReports';
 
@@ -87,48 +88,6 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
     fetchData();
   }, [fetchData, refreshTrigger]);
 
-  const handleExportCsv = () => {
-    if (!data.length) return;
-    const headers = [
-      'No SPK',
-      'Pelanggan',
-      'Plat Kendaraan',
-      'Tahapan WBS',
-      'Pagu Material (Rp)',
-      'Realisasi Material (Rp)',
-      'Varian Material (Rp)',
-      'Pagu Jasa (Rp)',
-      'Realisasi Jasa (Rp)',
-      'Varian Jasa (Rp)',
-      'Status Varian',
-    ].join(',');
-
-    const rows = data.map(row => {
-      const totalVar = row.material_variance + row.labor_variance;
-      const status = totalVar < 0 ? 'OVERBUDGET' : 'SURPLUS / HEMAT';
-      return [
-        `"${row.spk_number}"`,
-        `"${row.customer_name}"`,
-        `"${row.vehicle_plate || '-'}"`,
-        `"${row.wbs_stage}"`,
-        row.total_material_budget,
-        row.actual_material_spent,
-        row.material_variance,
-        row.total_labor_budget,
-        row.actual_labor_spent,
-        row.labor_variance,
-        `"${status}"`,
-      ].join(',');
-    }).join('\n');
-
-    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + `${headers}\n${rows}`;
-    const link = document.createElement('a');
-    link.href = encodeURI(csvContent);
-    link.download = `Analisis_Varian_WBS_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   // Aggregates
   const totalMatBudget = data.reduce((a, b) => a + b.total_material_budget, 0);
@@ -210,15 +169,25 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
             <span>Segarkan</span>
           </button>
           <button
-            onClick={handleExportCsv}
+            onClick={() => exportToExcel('variance', data)}
             disabled={!data.length}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg text-sm font-medium transition disabled:opacity-50"
+            title="Unduh format Excel (.xlsx)"
           >
             <Download className="w-4 h-4" />
-            <span>Ekspor CSV</span>
+            <span>Excel</span>
+          </button>
+          <button
+            onClick={() => exportToCsv('variance', data)}
+            disabled={!data.length}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-hover hover:bg-surface-active text-text-muted hover:text-text border border-border rounded-lg text-sm font-medium transition disabled:opacity-50"
+            title="Unduh format CSV (.csv)"
+          >
+            <span>CSV</span>
           </button>
         </div>
       </div>
+
 
       {/* Error Notice */}
       {error && (

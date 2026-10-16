@@ -9,6 +9,7 @@ import {
   ArrowUpDown
 } from 'lucide-react';
 import { financialReportsService } from '../../../services/financialReportsService';
+import { exportToExcel, exportToCsv } from '../../../utils/exportFinancialReports';
 import type { SpkJobProfitability } from '../../../types/financialReports';
 
 interface JobProfitabilityTabProps {
@@ -92,46 +93,6 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
     }
   };
 
-  const handleExportCsv = () => {
-    if (!sortedData.length) return;
-    const headers = [
-      'No SPK',
-      'Pelanggan',
-      'Plat Nomor',
-      'Tanggal Registrasi',
-      'Status SPK',
-      'Total Pendapatan (Rp)',
-      'HPP Material (Rp)',
-      'HPP Borongan (Rp)',
-      'Total COGS (Rp)',
-      'Laba Kotor (Rp)',
-      'Margin (%)',
-      'Status Pembayaran',
-    ].join(',');
-
-    const rows = sortedData.map(row => [
-      `"${row.spk_number}"`,
-      `"${row.customer_name}"`,
-      `"${row.vehicle_plate || '-'}"`,
-      `"${row.registration_date}"`,
-      `"${row.spk_status}"`,
-      row.total_revenue,
-      row.actual_material_cost,
-      row.actual_labor_cost,
-      row.total_cogs,
-      row.gross_profit,
-      row.gross_margin_percentage.toFixed(2),
-      `"${row.payment_status}"`,
-    ].join(',')).join('\n');
-
-    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + `${headers}\n${rows}`;
-    const link = document.createElement('a');
-    link.href = encodeURI(csvContent);
-    link.download = `Laporan_Laba_Rugi_Proyek_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   // Aggregates for footer
   const totalRevenueSum = sortedData.reduce((acc, curr) => acc + curr.total_revenue, 0);
@@ -192,15 +153,25 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
             <span>Segarkan</span>
           </button>
           <button
-            onClick={handleExportCsv}
+            onClick={() => exportToExcel('profitability', sortedData)}
             disabled={!sortedData.length}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg text-sm font-medium transition disabled:opacity-50"
+            title="Unduh format Excel (.xlsx)"
           >
             <Download className="w-4 h-4" />
-            <span>Ekspor CSV</span>
+            <span>Excel</span>
+          </button>
+          <button
+            onClick={() => exportToCsv('profitability', sortedData)}
+            disabled={!sortedData.length}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-hover hover:bg-surface-active text-text-muted hover:text-text border border-border rounded-lg text-sm font-medium transition disabled:opacity-50"
+            title="Unduh format CSV (.csv)"
+          >
+            <span>CSV</span>
           </button>
         </div>
       </div>
+
 
       {/* Error Notice */}
       {error && (

@@ -10,16 +10,28 @@ import {
   Search, 
   RefreshCw, 
   ArrowLeft,
-  DollarSign
+  DollarSign,
+  Download,
+  Printer,
+  FileSpreadsheet,
+  ChevronDown
 } from 'lucide-react';
 import { ExecutiveKpiCards } from '../components/finance/ExecutiveKpiCards';
 import { FinancialAuditPanel } from '../components/finance/FinancialAuditPanel';
+import { FinancialPrintReport } from '../components/finance/FinancialPrintReport';
 import { JobProfitabilityTab } from '../components/finance/tabs/JobProfitabilityTab';
 import { WbsCostVarianceTab } from '../components/finance/tabs/WbsCostVarianceTab';
 import { InventoryValuationTab } from '../components/finance/tabs/InventoryValuationTab';
 import { ReceivablesAgingTab } from '../components/finance/tabs/ReceivablesAgingTab';
 import { financialReportsService } from '../services/financialReportsService';
-import type { FinancialExecutiveSummary } from '../types/financialReports';
+import { exportToExcel, exportFullFinancialWorkbook, exportToCsv } from '../utils/exportFinancialReports';
+import type { 
+  FinancialExecutiveSummary,
+  SpkJobProfitability,
+  WbsCostVariance,
+  InventoryValuation,
+  ProjectReceivable
+} from '../types/financialReports';
 
 type ReportTab = 'profitability' | 'variance' | 'inventory' | 'receivables';
 
@@ -42,6 +54,18 @@ export const FinancialReportsPage: React.FC = () => {
 
   // Refresh trigger counter to signal child tabs
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
+
+  // Print & Export Engine States (Step 5)
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [printTab, setPrintTab] = useState<'all' | 'profitability' | 'variance' | 'inventory' | 'receivables'>('all');
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+
+  // Prefetched datasets for full workbook & print views
+  const [allProfitability, setAllProfitability] = useState<SpkJobProfitability[]>([]);
+  const [allVariance, setAllVariance] = useState<WbsCostVariance[]>([]);
+  const [allInventory, setAllInventory] = useState<InventoryValuation[]>([]);
+  const [allReceivables, setAllReceivables] = useState<ProjectReceivable[]>([]);
 
   const fetchSummary = useCallback(async () => {
     setLoadingSummary(true);
@@ -86,6 +110,112 @@ export const FinancialReportsPage: React.FC = () => {
     }
   };
 
+  const fetchAllReports = useCallback(async () => {
+    try {
+      const [prof, vari, inv, rec] = await Promise.all([
+        financialReportsService.getJobProfitability({
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
+          searchQuery: globalSearch || undefined,
+        }),
+        financialReportsService.getWbsCostVariance(undefined, undefined),
+        financialReportsService.getInventoryValuation(),
+        financialReportsService.getProjectReceivables(false),
+      ]);
+      setAllProfitability(prof);
+      setAllVariance(vari);
+      setAllInventory(inv);
+      setAllReceivables(rec);
+      return { prof, vari, inv, rec };
+    } catch (err) {
+      console.error('Error prefetching all reports for export:', err);
+      return null;
+    }
+  }, [startDate, endDate, globalSearch]);
+
+  const handleOpenPrintModal = async () => {
+    setPrintTab(activeTab);
+    setIsPrintModalOpen(true);
+    await fetchAllReports();
+  };
+
+  const handleExportCurrentTabExcel = async () => {
+    setExportLoading(true);
+    setIsExportMenuOpen(false);
+    try {
+      if (activeTab === 'profitability') {
+        const data = await financialReportsService.getJobProfitability({
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
+          searchQuery: globalSearch || undefined,
+        });
+        exportToExcel('profitability', data);
+      } else if (activeTab === 'variance') {
+        const data = await financialReportsService.getWbsCostVariance();
+        exportToExcel('variance', data);
+      } else if (activeTab === 'inventory') {
+        const data = await financialReportsService.getInventoryValuation();
+        exportToExcel('inventory', data);
+      } else if (activeTab === 'receivables') {
+        const data = await financialReportsService.getProjectReceivables(false);
+        exportToExcel('receivables', data);
+      }
+    } catch (err: any) {
+      alert(`Gagal mengekspor data: ${err.message}`);
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const handleExportFullWorkbook = async () => {
+    setExportLoading(true);
+    setIsExportMenuOpen(false);
+    try {
+      const res = await fetchAllReports();
+      if (res) {
+        exportFullFinancialWorkbook({
+          profitability: res.prof,
+          variance: res.vari,
+          inventory: res.inv,
+          receivables: res.rec,
+          summary,
+        });
+      }
+    } catch (err: any) {
+      alert(`Gagal mengekspor full workbook: ${err.message}`);
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const handleExportCurrentTabCsv = async () => {
+    setExportLoading(true);
+    setIsExportMenuOpen(false);
+    try {
+      if (activeTab === 'profitability') {
+        const data = await financialReportsService.getJobProfitability({
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
+          searchQuery: globalSearch || undefined,
+        });
+        exportToCsv('profitability', data);
+      } else if (activeTab === 'variance') {
+        const data = await financialReportsService.getWbsCostVariance();
+        exportToCsv('variance', data);
+      } else if (activeTab === 'inventory') {
+        const data = await financialReportsService.getInventoryValuation();
+        exportToCsv('inventory', data);
+      } else if (activeTab === 'receivables') {
+        const data = await financialReportsService.getProjectReceivables(false);
+        exportToCsv('receivables', data);
+      }
+    } catch (err: any) {
+      alert(`Gagal mengekspor CSV: ${err.message}`);
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background text-text flex flex-col">
       {/* Header Bar */}
@@ -108,7 +238,7 @@ export const FinancialReportsPage: React.FC = () => {
                   Laporan Keuangan & Executive Dashboard
                 </h1>
                 <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  Step 4 Audit
+                  Step 5 Export & Print
                 </span>
               </div>
               <p className="text-xs text-text-muted">
@@ -188,16 +318,84 @@ export const FinancialReportsPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Global Quick Search Box */}
-            <div className="relative min-w-[260px]">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
-              <input
-                type="text"
-                placeholder="Pencarian Global (SPK/Cust/Plat)..."
-                value={globalSearch}
-                onChange={(e) => setGlobalSearch(e.target.value)}
-                className="w-full bg-background/90 border border-border rounded-lg pl-9 pr-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary placeholder:text-text-muted/60"
-              />
+            {/* Global Quick Search Box & Export Actions */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative min-w-[240px]">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                <input
+                  type="text"
+                  placeholder="Pencarian Global (SPK/Cust/Plat)..."
+                  value={globalSearch}
+                  onChange={(e) => setGlobalSearch(e.target.value)}
+                  className="w-full bg-background/90 border border-border rounded-lg pl-9 pr-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary placeholder:text-text-muted/60"
+                />
+              </div>
+
+              {/* Action Buttons: Export Excel Dropdown & Print/PDF Button */}
+              <div className="flex items-center gap-2 relative">
+                {/* Excel Export Dropdown */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsExportMenuOpen((prev) => !prev)}
+                    disabled={exportLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/15 hover:bg-emerald-600/25 text-emerald-400 border border-emerald-500/30 text-xs font-semibold transition"
+                    title="Menu Ekspor Data Excel"
+                  >
+                    <FileSpreadsheet className="w-4 h-4" />
+                    <span>{exportLoading ? 'Mengekspor...' : 'Ekspor Excel'}</span>
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </button>
+
+                  {isExportMenuOpen && (
+                    <div className="absolute right-0 mt-1.5 w-64 bg-surface border border-border rounded-xl shadow-2xl z-40 py-1.5 text-xs text-text animate-in fade-in zoom-in-95 duration-100">
+                      <button
+                        type="button"
+                        onClick={handleExportCurrentTabExcel}
+                        className="w-full text-left px-3.5 py-2 hover:bg-surface-hover flex items-center gap-2.5 transition"
+                      >
+                        <Download className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <div>
+                          <div className="font-semibold text-text">Unduh Tab Ini (.xlsx)</div>
+                          <div className="text-[10px] text-text-muted">Sheet format sesuai filter aktif</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleExportFullWorkbook}
+                        className="w-full text-left px-3.5 py-2 hover:bg-surface-hover flex items-center gap-2.5 border-t border-border/70 transition"
+                      >
+                        <FileSpreadsheet className="w-4 h-4 text-primary shrink-0" />
+                        <div>
+                          <div className="font-semibold text-primary">Full Financial Workbook (.xlsx)</div>
+                          <div className="text-[10px] text-text-muted">4 Sheet lengkap + Ringkasan Eksekutif</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleExportCurrentTabCsv}
+                        className="w-full text-left px-3.5 py-2 hover:bg-surface-hover flex items-center gap-2.5 border-t border-border/70 transition text-text-muted hover:text-text"
+                      >
+                        <Download className="w-4 h-4 shrink-0" />
+                        <span>Unduh Format CSV (.csv)</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Print to PDF Button */}
+                <button
+                  type="button"
+                  onClick={handleOpenPrintModal}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-semibold shadow-sm transition"
+                  title="Buka Lembar Cetak Formal A4 atau Simpan sebagai PDF"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Cetak / PDF</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -307,6 +505,25 @@ export const FinancialReportsPage: React.FC = () => {
           )}
         </div>
       </main>
+
+      {/* Modal Cetak Formal PDF (Step 5) */}
+      <FinancialPrintReport
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+        activeTab={printTab}
+        setActiveTab={setPrintTab}
+        summary={summary}
+        profitabilityData={allProfitability}
+        varianceData={allVariance}
+        inventoryData={allInventory}
+        receivablesData={allReceivables}
+        startDate={startDate}
+        endDate={endDate}
+        currentUser={{
+          name: profile?.full_name || 'Petugas Keuangan',
+          role: profile?.role || 'Finance',
+        }}
+      />
     </div>
   );
 };

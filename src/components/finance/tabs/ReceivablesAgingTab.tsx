@@ -12,6 +12,7 @@ import {
   ArrowUpDown
 } from 'lucide-react';
 import { financialReportsService } from '../../../services/financialReportsService';
+import { exportToExcel, exportToCsv } from '../../../utils/exportFinancialReports';
 import type { ProjectReceivable } from '../../../types/financialReports';
 
 interface ReceivablesAgingTabProps {
@@ -90,46 +91,6 @@ export const ReceivablesAgingTab: React.FC<ReceivablesAgingTabProps> = ({
     }
   };
 
-  const handleExportCsv = () => {
-    if (!sortedData.length) return;
-    const headers = [
-      'No SPK',
-      'Pelanggan',
-      'No Telp',
-      'Plat Kendaraan',
-      'No Faktur',
-      'Total Tagihan (Rp)',
-      'DP Diterima (Rp)',
-      'Pembayaran Tambahan (Rp)',
-      'Sisa Piutang (Rp)',
-      'Umur Piutang (Hari)',
-      'Status Bayar',
-      'Status Serah Terima',
-    ].join(',');
-
-    const rows = sortedData.map(row => [
-      `"${row.spk_number}"`,
-      `"${row.customer_name}"`,
-      `"${row.customer_phone || '-'}"`,
-      `"${row.vehicle_plate || '-'}"`,
-      `"${row.invoice_number}"`,
-      row.total_billing_amount,
-      row.dp_paid,
-      row.additional_paid,
-      row.outstanding_balance,
-      row.receivable_aging_days,
-      `"${row.payment_status}"`,
-      `"${row.handover_clearance_status}"`,
-    ].join(',')).join('\n');
-
-    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + `${headers}\n${rows}`;
-    const link = document.createElement('a');
-    link.href = encodeURI(csvContent);
-    link.download = `Laporan_Piutang_Aging_${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   const openWhatsAppReminder = (row: ProjectReceivable) => {
     if (!row.customer_phone) {
@@ -221,15 +182,25 @@ export const ReceivablesAgingTab: React.FC<ReceivablesAgingTabProps> = ({
             <span>Segarkan</span>
           </button>
           <button
-            onClick={handleExportCsv}
+            onClick={() => exportToExcel('receivables', sortedData)}
             disabled={!sortedData.length}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg text-sm font-medium transition disabled:opacity-50"
+            title="Unduh format Excel (.xlsx)"
           >
             <Download className="w-4 h-4" />
-            <span>Ekspor CSV</span>
+            <span>Excel</span>
+          </button>
+          <button
+            onClick={() => exportToCsv('receivables', sortedData)}
+            disabled={!sortedData.length}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-hover hover:bg-surface-active text-text-muted hover:text-text border border-border rounded-lg text-sm font-medium transition disabled:opacity-50"
+            title="Unduh format CSV (.csv)"
+          >
+            <span>CSV</span>
           </button>
         </div>
       </div>
+
 
       {/* Blocked Handover Alert Banner */}
       {blockedUnits > 0 && (
