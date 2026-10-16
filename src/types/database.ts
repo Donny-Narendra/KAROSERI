@@ -65,3 +65,38 @@ export interface MaterialRequisitionItemRecord {
   wbs_stage?: string;
   created_at?: string;
 }
+
+export type ChangeOrderStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED';
+export type ChangeOrderItemType = 'MATERIAL' | 'LABOR';
+
+export interface ChangeOrderRecord {
+  id: string;
+  spk_id: string;
+  co_number?: string;
+  description: string;
+  cost_adjustment: number;
+  total_amount?: number;
+  status: ChangeOrderStatus;
+  approved_at?: string | null;
+  approved_by?: string | null;
+  created_by?: string | null;
+  created_at: string;
+  items?: ChangeOrderItemRecord[];
+}
+
+export interface ChangeOrderItemRecord {
+  id: string;
+  change_order_id: string;
+  spk_id: string;
+  wbs_stage: string;
+  item_type: ChangeOrderItemType;
+  material_id?: string | null;
+  item_name: string;
+  quantity: number;
+  unit: string;
+  unit_price: number; // Snapshot selling price
+  cost_price: number; // Snapshot warehouse HPP
+  subtotal?: number;  // Generated (quantity * unit_price)
+  notes?: string | null;
+  created_at?: string;
+}

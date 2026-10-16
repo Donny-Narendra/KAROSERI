@@ -50,17 +50,24 @@ Upgrade Change Orders on Service Advisor dashboard (`/service-advisor`) to recor
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| 1. Create and execute PostgreSQL migration for `change_orders`, `change_order_items`, and RLS policies | Antigravity | ⬜ Todo | 0.4h |
-| 2. Synchronize TypeScript types and service layer in `src/types/database.ts` and `src/services/spkService.ts` | Antigravity | ⬜ Todo | 0.3h |
-| 3. Upgrade `AmendmentManager.tsx` with itemized material/labor entry, price snapshotting, and WBS allocation | Antigravity | ⬜ Todo | 0.6h |
-| 4. Update Gate 2 Warehouse (`GoodsIssueForm.tsx`, `RequisitionApproval.tsx`) & Mandor (`MaterialRequisitionForm.tsx`) to recognize approved Change Order items | Antigravity | ⬜ Todo | 0.5h |
-| 5. Run empirical test script (`verify_change_orders.cjs`) and check `npm run build` & `npm run lint` | Antigravity | ⬜ Todo | 0.4h |
+| 1. Create and execute PostgreSQL migration for `change_orders`, `change_order_items`, and RLS policies | Antigravity | ✅ Done | 0.4h |
+| 2. Synchronize TypeScript types and service layer in `src/types/database.ts` and `src/services/spkService.ts` | Antigravity | ✅ Done | 0.3h |
+| 3. Upgrade `AmendmentManager.tsx` with itemized material/labor entry, price snapshotting, and WBS allocation | Antigravity | ✅ Done | 0.6h |
+| 4. Update Gate 2 Warehouse (`GoodsIssueForm.tsx`, `RequisitionApproval.tsx`) & Mandor (`MaterialRequisitionForm.tsx`) to recognize approved Change Order items | Antigravity | ✅ Done | 0.5h |
+| 5. Run empirical test script (`verify_change_orders.cjs`) and check `npm run build` & `npm run lint` | Antigravity | ✅ Done | 0.4h |
 
 ## Daily Log
 
 ### 2026-10-16
 - Archived Sprint 8 to `.gsd/sprints/sprint-8-implement-point-in-time-price-snapshot.md`.
 - Initialized Sprint 9 for Upgrading Change Orders to Itemized Point-in-Time Price Snapshot & WBS Allocation.
+- Created and executed migration `20261016020000_itemized_change_orders.sql` adding `change_orders` and `change_order_items` tables with RLS and trigger synchronization with legacy `spk_amendments`.
+- Updated `src/types/database.ts` (`ChangeOrderRecord`, `ChangeOrderItemRecord`, `ChangeOrderStatus`, `ChangeOrderItemType`).
+- Enhanced `src/services/spkService.ts` with `getChangeOrders`, `createChangeOrder`, `approveChangeOrder`, and `rejectChangeOrder`.
+- Completely revamped `AmendmentManager.tsx` with dynamic line items (Material/Labor), live gross margin & HPP calculations, WBS stage allocation, auto-generating sequential `co_number`, and expandable itemized detail cards.
+- Integrated approved Change Order materials into Gate 2 Warehouse budget (`RequisitionApproval.tsx`, `GoodsIssueForm.tsx`) and Mandor WBS source list (`MaterialRequisitionForm.tsx`), eliminating false over-budget warnings.
+- Ran empirical validation test `verify_change_orders.cjs` with 100% pass across 6 stages.
+- Verified TypeScript build (`npm run build`) and linting (`npm run lint`) with 0 errors.
 
 ## Risks & Blockers
 

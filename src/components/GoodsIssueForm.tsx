@@ -64,7 +64,7 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
     const { data: masterData } = await supabase.from('materials').select('id, name, current_stock, unit, waste_factor_percentage').order('name');
     if (masterData) setMasterMaterials(masterData);
 
-    const { data: rabData, error: rabError } = await supabase
+    const { data: rabData } = await supabase
       .from('rab_estimations')
       .select(`
         id,
@@ -77,11 +77,9 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
       .eq('spk_id', spkId)
       .single();
 
-    if (rabError) {
-      console.error('Error fetching RAB data:', rabError);
-      setRabMaterials([]);
-    } else if (rabData && rabData.rab_items && masterData) {
-      const mats = rabData.rab_items.map((item: any) => {
+    let mats: any[] = [];
+    if (rabData && rabData.rab_items && masterData) {
+      mats = rabData.rab_items.map((item: any) => {
         let matched = null;
         if (item.material_id) matched = masterData.find(m => m.id === item.material_id);
         else if (item.description) matched = masterData.find(m => m.name.toLowerCase() === item.description.toLowerCase());
@@ -89,7 +87,7 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
         if (matched) {
           return {
             material_id: matched.id,
-            quantity: item.quantity,
+            quantity: Number(item.quantity || 0),
             materials: {
               id: matched.id,
               name: matched.name,
@@ -99,8 +97,53 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
         }
         return null;
       }).filter(Boolean);
-      setRabMaterials(mats);
     }
+
+    // Ambil material dari Change Order yang telah APPROVED untuk memperluas kuota Gate 2
+    try {
+      const { data: coItemsData } = await supabase
+        .from('change_order_items')
+        .select(`
+          material_id,
+          item_name,
+          quantity,
+          item_type,
+          change_orders!inner ( status )
+        `)
+        .eq('spk_id', spkId)
+        .eq('item_type', 'MATERIAL')
+        .eq('change_orders.status', 'APPROVED');
+
+      if (coItemsData && masterData) {
+        coItemsData.forEach((coItem: any) => {
+          let matched = null;
+          if (coItem.material_id) matched = masterData.find(m => m.id === coItem.material_id);
+          else if (coItem.item_name) matched = masterData.find(m => m.name.toLowerCase() === coItem.item_name.toLowerCase());
+
+          if (matched) {
+            const existing = mats.find(m => m.material_id === matched.id);
+            const addQty = Number(coItem.quantity || 0);
+            if (existing) {
+              existing.quantity += addQty;
+            } else {
+              mats.push({
+                material_id: matched.id,
+                quantity: addQty,
+                materials: {
+                  id: matched.id,
+                  name: matched.name,
+                  waste_factor_percentage: matched.waste_factor_percentage || 0
+                }
+              });
+            }
+          }
+        });
+      }
+    } catch (coErr) {
+      console.warn('Notice: Could not load change order items for Gate 2 quota:', coErr);
+    }
+
+    setRabMaterials(mats);
 
     try {
       const totals = await inventoryService.getIssuedMaterialsBySpk(spkId);

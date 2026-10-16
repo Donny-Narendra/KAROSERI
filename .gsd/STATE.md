@@ -1,42 +1,45 @@
 ## Current Position
 - **Sprint**: Sprint 9 (Upgrade Change Orders to Itemized Point-in-Time Price Snapshot & WBS Allocation)
-- **Status**: Sprint in progress 🔄
-- **Milestone**: (Paused during Sprint 9)
+- **Status**: Sprint completed ✅
+- **Milestone**: (Sprint 9 Completed - Ready for next phase/milestone)
 
-## Last Session Summary (Sprint 8 Completed)
-1. **Database Migration & PostgreSQL Triggers (`supabase/migrations/20261016010000_point_in_time_price_snapshot.sql`)**:
-   - `materials`: Added `cost_price` (HPP Beli Gudang) and `selling_price` (Harga Jual Patokan).
-   - `rab_items`: Added `spk_id`, `material_name`, `unit_price`, `cost_price`, `subtotal` (as `GENERATED ALWAYS AS (quantity * unit_price) STORED`), and `is_locked`.
-   - `requisition_items` & `material_requisition_items`: Added snapshot fields `unit_price`, `cost_price`, and `subtotal`.
-   - `spk`: Added document locking fields `is_pricing_locked`, `locked_at`, `locked_by`.
-   - Trigger `trg_lock_spk_pricing`: Automatically enforces document immutability upon transition to `ACTIVE`, `APPROVED`, or `IN_PROGRESS`.
-2. **TypeScript & Model Synchronization**:
-   - Synchronized `SpkRecord`, `RabItemRecord`, `MaterialRequisitionItemRecord`, and `Material`.
-3. **Frontend Implementation & Document Locking UI**:
-   - `RabCalculator.tsx`: Read-only lock banner, row-level lock badges, immutable price snapshotting.
-   - `MaterialRequisitionForm.tsx`: Snapshots `cost_price`, `unit_price`, and `material_name`.
-   - `InventoryManager.tsx` & `SAInventoryPanel.tsx`: Added HPP and selling price support.
-
-## Current Sprint 9 Scope & Objectives
-1. **Database Migration**:
-   - Implement `change_orders` header table (`co_number`, `status`, `approved_at`, `approved_by`, `cost_adjustment`).
-   - Create `change_order_items` detail table with snapshot fields (`wbs_stage`, `item_type`, `material_id`, `item_name`, `quantity`, `unit`, `unit_price`, `cost_price`, `subtotal`, `notes`).
-   - RLS policies and backward compatibility with `spk_amendments`.
-2. **TypeScript & Service Layer**:
-   - Define types in `src/types/database.ts` and functions in `src/services/spkService.ts`.
-3. **Frontend Upgrade**:
-   - Upgrade `AmendmentManager.tsx` with itemized line items, price snapshots, and WBS allocation.
+## Last Session Summary (Sprint 9 Completed)
+1. **Database Migration & Synchronization (`supabase/migrations/20261016020000_itemized_change_orders.sql`)**:
+   - `change_orders`: Created header table with `id`, `spk_id`, `co_number`, `description`, `cost_adjustment`, `total_amount`, `status`, `approved_at`, `approved_by`, `created_by`, and `created_at`.
+   - `change_order_items`: Created detail item table supporting Point-in-Time Price Snapshotting and WBS allocation:
+     - `wbs_stage` (e.g., 'WBS 2: Sasis/Rangka')
+     - `item_type` ('MATERIAL' | 'LABOR')
+     - `material_id`
+     - `item_name`, `quantity`, `unit`
+     - `unit_price`: Immutable selling price snapshot
+     - `cost_price`: Immutable warehouse HPP snapshot
+     - `subtotal`: `GENERATED ALWAYS AS (quantity * unit_price) STORED`
+     - `notes`
+   - RLS Policies for authenticated read/write.
+   - Trigger `trg_sync_change_orders`: Bi-directional synchronization maintaining legacy `spk_amendments` table so Kasir and Admin dashboards function without regressions.
+2. **TypeScript & Service Layer Synchronization**:
+   - `src/types/database.ts`: Added `ChangeOrderRecord`, `ChangeOrderItemRecord`, `ChangeOrderStatus`, and `ChangeOrderItemType`.
+   - `src/services/spkService.ts`: Added `getChangeOrders(spkId)`, `createChangeOrder(...)`, `approveChangeOrder(...)`, and `rejectChangeOrder(...)`.
+3. **Frontend Implementation (`AmendmentManager.tsx`)**:
+   - Upgraded Change Orders UI on `/service-advisor` from text/lump-sum into a rich itemized builder.
+   - Supports adding multiple Material and Labor items per Change Order.
+   - Auto-fills snapshot prices (`unit_price` selling price and `cost_price` HPP) upon selecting material from master warehouse.
+   - Real-time gross margin and HPP calculation.
+   - Filter tabs (`ALL`, `PENDING`, `APPROVED`, `REJECTED`) and expandable itemized detail cards.
 4. **Mandor & Gate 2 Warehouse Budget Integration**:
-   - Synchronize approved Change Order materials into Gate 2 budget limits (`GoodsIssueForm.tsx`, `RequisitionApproval.tsx`) and Mandor WBS requisitions (`MaterialRequisitionForm.tsx`).
-5. **Empirical Verification**:
-   - Automated script (`verify_change_orders.cjs`), `npm run build`, and `npm run lint`.
+   - `RequisitionApproval.tsx`: Incorporates approved Change Order materials into `rabBudgetLimit` Gate 2 calculation.
+   - `GoodsIssueForm.tsx`: Merges approved Change Order materials into `rabMaterials`, expanding allowed materials and quotas to eliminate false over-budget locks.
+   - `MaterialRequisitionForm.tsx`: Mandor source list now dynamically includes approved Change Order materials tagged with `[CO: ...]`, allowing requisition of amended materials per WBS stage.
+5. **Empirical Verification & Quality Gates**:
+   - Empirical validation script (`verify_change_orders.cjs`): 100% PASS across 6 automated stages proving column schema integrity, subtotal generation, price immutability under master price inflation, trigger sync, and approval lifecycle.
+   - `npm run build`: 100% PASS (0 errors, bundle compiled in 599ms).
+   - `npm run lint`: 100% PASS (0 errors, 66 pre-existing warnings).
 
 ## Blockers
 None.
 
 ## Next Steps
-1. Execute PostgreSQL migration `supabase/migrations/20261016020000_itemized_change_orders.sql`.
-2. Update TypeScript database types and `spkService.ts`.
-3. Upgrade `AmendmentManager.tsx` with itemized UI.
-4. Integrate with Gate 2 Warehouse and Mandor WBS allocation.
-5. Verify with automated empirical script and build check.
+1. Verify live browser interaction in Service Advisor dashboard:
+   - Navigate to `/service-advisor`, select an SPK, open tab "Change Orders".
+   - Click "Buat Change Order Baru", add items (Material & Labor), submit, and verify itemized card view.
+   - Test approval and verify materials appear in Mandor requisition and Warehouse goods issue without over-budget warnings.

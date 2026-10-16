@@ -233,10 +233,72 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
               currentStock: matchedMat ? Number(matchedMat.current_stock || 0) : 0
             };
           });
-
-          setRawRabItems(sourceList);
         }
       }
+
+      // 3b. Fetch Approved Change Order Items for this SPK and WBS Stage (Alokasi Granular WBS)
+      try {
+        const { data: coItemsData } = await supabase
+          .from('change_order_items')
+          .select(`
+            id,
+            material_id,
+            item_name,
+            quantity,
+            unit,
+            unit_price,
+            cost_price,
+            wbs_stage,
+            item_type,
+            change_orders!inner ( status, co_number )
+          `)
+          .eq('spk_id', spkId)
+          .eq('item_type', 'MATERIAL')
+          .eq('change_orders.status', 'APPROVED');
+
+        if (coItemsData && coItemsData.length > 0) {
+          const coFiltered = coItemsData.filter((item: any) => {
+            if (!item.wbs_stage) return true;
+            const itemStageClean = item.wbs_stage.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
+            return (
+              itemStageClean === cleanWbsCategory.toLowerCase() ||
+              item.wbs_stage.toLowerCase() === wbsCategory.toLowerCase()
+            );
+          });
+
+          coFiltered.forEach((ci: any) => {
+            let matchedMat = null;
+            if (ci.material_id) matchedMat = loadedMaster.find(m => m.id === ci.material_id);
+            if (!matchedMat && ci.item_name) {
+              const cleanDesc = normalizeText(ci.item_name);
+              matchedMat = loadedMaster.find(m => normalizeText(m.name) === cleanDesc);
+            }
+
+            const materialId = matchedMat?.id || ci.material_id || null;
+            const coNum = (ci.change_orders as any)?.co_number || 'CO';
+            const name = `[${coNum}] ${matchedMat?.name || ci.item_name}`;
+            const unit = ci.unit || matchedMat?.unit || 'pcs';
+            const qty = Number(ci.quantity || 0);
+            const unitPrice = Number(ci.unit_price || matchedMat?.unit_price || 0);
+            const calculatedSubtotal = qty * unitPrice;
+
+            sourceList.push({
+              id: ci.id,
+              materialId,
+              name,
+              unit,
+              unitPrice,
+              rabQuantity: qty,
+              subtotal: calculatedSubtotal,
+              currentStock: matchedMat ? Number(matchedMat.current_stock || 0) : 0
+            });
+          });
+        }
+      } catch (coErr) {
+        console.warn('Notice: Could not load change order items for requisition source:', coErr);
+      }
+
+      setRawRabItems(sourceList);
 
       // 4. Fetch Active SPK Borongan Assignments for this SPK and WBS (Exclusion List)
       let matchingBorong: ActiveSpkBorongan[] = [];

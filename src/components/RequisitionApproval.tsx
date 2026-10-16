@@ -184,9 +184,10 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
       let approvedReqsData: any[] = [];
       let boronganRowsData: any[] = [];
       let directIssuesData: any[] = [];
+      let approvedCoData: any[] = [];
 
       if (spkIds.length > 0) {
-        const [rabRes, approvedRes, borongRes, directRes] = await Promise.all([
+        const [rabRes, approvedRes, borongRes, directRes, coRes] = await Promise.all([
           supabase
             .from('rab_estimations')
             .select(`
@@ -233,13 +234,32 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
               materials ( unit_price )
             `)
             .in('spk_id', spkIds)
-            .is('requisition_id', null)
+            .is('requisition_id', null),
+          supabase
+            .from('change_orders')
+            .select(`
+              id,
+              spk_id,
+              status,
+              cost_adjustment,
+              change_order_items (
+                id,
+                item_type,
+                quantity,
+                unit_price,
+                cost_price,
+                subtotal
+              )
+            `)
+            .in('spk_id', spkIds)
+            .eq('status', 'APPROVED')
         ]);
 
         if (rabRes.data) rabEstsData = rabRes.data;
         if (approvedRes.data) approvedReqsData = approvedRes.data;
         if (borongRes.data) boronganRowsData = borongRes.data;
         if (directRes.data) directIssuesData = directRes.data;
+        if (coRes.data) approvedCoData = coRes.data;
 
         rabEstsData.forEach((est: any) => {
           const items = est.rab_items || [];
@@ -265,6 +285,21 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
             const s: any = Array.isArray(spkObj) ? spkObj[0] : spkObj;
             if (s?.total_estimated_cost) rabBudget = Number(s.total_estimated_cost);
           }
+
+          // Tambahkan alokasi material dari Change Order yang telah APPROVED (Gate 2 Expansion)
+          let coMaterialBudget = 0;
+          approvedCoData
+            .filter((co: any) => co.spk_id === sId)
+            .forEach((co: any) => {
+              (co.change_order_items || []).forEach((ci: any) => {
+                if (ci.item_type === 'MATERIAL') {
+                  const qty = Number(ci.quantity || 0);
+                  const price = Number(ci.unit_price || ci.cost_price || 0);
+                  coMaterialBudget += (qty * price);
+                }
+              });
+            });
+          rabBudget += coMaterialBudget;
 
           // approvedReqCost: total biaya requisition yang sudah di-approve
           let approvedCost = 0;

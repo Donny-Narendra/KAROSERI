@@ -388,7 +388,7 @@ export const ServiceAdvisorDashboard: React.FC = () => {
             {activeTab === 'rab' ? (
               <RabCalculator spkId={selectedSpkId} />
             ) : activeTab === 'amendments' ? (
-              <AmendmentManager spkId={selectedSpkId} />
+              <AmendmentManager spkId={selectedSpkId} spkNo={spks.find(s => s.id === selectedSpkId)?.spk_no} />
             ) : (
               <WbsChecklist spkId={selectedSpkId} />
             )}
