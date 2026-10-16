@@ -106,6 +106,8 @@ KAROSERI is an enterprise auto body repair and modification management system (B
 - [`excelExport.ts`](file:///c:/KAROSERI/src/utils/excelExport.ts): Generic tabular Excel exporter using SheetJS.
 - [`rabExport.ts`](file:///c:/KAROSERI/src/utils/rabExport.ts): Quotation export and printable RAB layout.
 - [`rabItemAllocation.ts`](file:///c:/KAROSERI/src/utils/rabItemAllocation.ts): Distributes package items into WBS stages.
+- [`__tests__/billingHandoverLockTrigger.test.ts`](file:///c:/KAROSERI/src/utils/__tests__/billingHandoverLockTrigger.test.ts): Unit tests verifying PostgreSQL trigger gate simulation and business rules (10 tests).
+- [`__tests__/executiveKpiCalculations.test.ts`](file:///c:/KAROSERI/src/utils/__tests__/executiveKpiCalculations.test.ts): Unit tests verifying decoupled material & labor KPI calculations and reconciliation against total COGS (5 tests).
 - [`__tests__/financialCalculations.test.ts`](file:///c:/KAROSERI/src/utils/__tests__/financialCalculations.test.ts): Unit tests verifying business calculations (19 tests).
 - [`__tests__/exportFinancialReports.test.ts`](file:///c:/KAROSERI/src/utils/__tests__/exportFinancialReports.test.ts): Unit tests verifying data preparation for PDF & Excel export (7 tests).
 
@@ -145,7 +147,7 @@ KAROSERI is an enterprise auto body repair and modification management system (B
 
 - [ ] **Component-Level Testing:** Unit tests exist for financial utility functions (`vitest run`), but React components (`RabCalculator`, `GoodsIssueForm`, `KasirDashboard`) lack test coverage with React Testing Library.
 - [x] **PostgreSQL Trigger Handover Lock (Implemented):** Hard-gate trigger `trg_enforce_handover_billing_lock` and trigger function `check_spk_completion_billing_status()` installed on `public.spk` via `20261016030000_enforce_handover_billing_trigger.sql`. Blocks any status update to `COMPLETED` unless final billing exists and is fully paid (`LUNAS`/`PAID` or zero remaining balance).
-- [ ] **Executive KPI COGS Breakdown:** `get_financial_executive_summary` RPC combines Material and Borongan Mandor into a single `total_cogs` metric rather than two separate KPI cards.
+- [x] **Executive KPI COGS Breakdown (Implemented):** Decoupled Material and Labor cost metrics in `get_financial_executive_summary` RPC (`20261016040000_decouple_executive_kpi_rpc.sql`), `financialReportsService.ts`, and `ExecutiveKpiCards.tsx` into 5 standalone executive KPI cards.
 - [ ] **Orphaned Backend Dependencies:** `package.json` contains `express`, `cors`, `multer`, and `pg` with a `server` script, but no active `server/` directory exists in the client-first architecture.
 - [ ] **Explicit `any` Type Casts:** Select query join responses in `KasirDashboard.tsx`, `RabCalculator.tsx`, and `rabExport.ts` bypass strict TypeScript typings.
 - [ ] **Localization Alignment:** `react-i18next` is installed, but the UI is predominantly written directly in Indonesian strings.

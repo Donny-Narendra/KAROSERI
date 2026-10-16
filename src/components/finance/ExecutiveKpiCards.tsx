@@ -1,11 +1,10 @@
 import React from 'react';
 import { 
   TrendingUp, 
-  Layers, 
-  Percent, 
-  Warehouse, 
+  Package, 
+  Users, 
+  DollarSign, 
   AlertCircle,
-  ArrowUpRight,
   Car
 } from 'lucide-react';
 import type { FinancialExecutiveSummary } from '../../types/financialReports';
@@ -46,9 +45,11 @@ export const ExecutiveKpiCards: React.FC<ExecutiveKpiCardsProps> = ({ summary, i
     );
   }
 
-  const s = summary || {
+  const s: FinancialExecutiveSummary = summary || {
     total_projects: 0,
     total_revenue: 0,
+    total_actual_material_cost: 0,
+    total_actual_labor_cost: 0,
     total_cogs: 0,
     total_gross_profit: 0,
     average_gross_margin: 0,
@@ -58,8 +59,17 @@ export const ExecutiveKpiCards: React.FC<ExecutiveKpiCardsProps> = ({ summary, i
     units_pending_handover: 0,
   };
 
-  // Margin color classification
+  const totalRevenue = Number(s.total_revenue) || 0;
+  const materialCost = Number(s.total_actual_material_cost) || 0;
+  const laborCost = Number(s.total_actual_labor_cost) || 0;
+  const grossProfit = Number(s.total_gross_profit) || 0;
   const margin = Number(s.average_gross_margin) || 0;
+
+  // Percentage shares relative to Revenue
+  const materialPercent = totalRevenue > 0 ? (materialCost / totalRevenue) * 100 : 0;
+  const laborPercent = totalRevenue > 0 ? (laborCost / totalRevenue) * 100 : 0;
+
+  // Margin classification badge
   let marginBadgeClass = 'bg-status-danger/20 text-status-danger border-status-danger/40';
   let marginLabel = 'Rendah (<10%)';
   if (margin >= 25) {
@@ -72,11 +82,11 @@ export const ExecutiveKpiCards: React.FC<ExecutiveKpiCardsProps> = ({ summary, i
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-      {/* 1. Total Pendapatan / Omzet */}
-      <div className="bg-surface/90 border border-border rounded-xl p-5 hover:border-border-active transition-all duration-200 hover:shadow-lg hover:shadow-primary/5 flex flex-col justify-between">
+      {/* 1. Total Omzet SPK (Revenue) */}
+      <div className="bg-surface/90 border border-border rounded-xl p-5 hover:border-secondary/50 transition-all duration-200 hover:shadow-lg hover:shadow-secondary/5 flex flex-col justify-between">
         <div className="flex items-center justify-between">
           <span className="text-xs font-mono font-medium text-text-muted uppercase tracking-wider">
-            Total Omzet (Revenue)
+            1. Total Omzet (Revenue)
           </span>
           <div className="w-9 h-9 rounded-lg bg-secondary/15 text-secondary flex items-center justify-center">
             <TrendingUp className="w-5 h-5" />
@@ -84,7 +94,7 @@ export const ExecutiveKpiCards: React.FC<ExecutiveKpiCardsProps> = ({ summary, i
         </div>
         <div className="mt-4">
           <div className="text-2xl font-bold font-mono text-text tracking-tight">
-            {formatCurrency(s.total_revenue)}
+            {formatCurrency(totalRevenue)}
           </div>
           <div className="flex items-center gap-1.5 mt-2 text-xs text-text-muted">
             <span className="font-semibold text-secondary">{s.total_projects} Proyek</span>
@@ -93,83 +103,79 @@ export const ExecutiveKpiCards: React.FC<ExecutiveKpiCardsProps> = ({ summary, i
         </div>
       </div>
 
-      {/* 2. Total HPP Aktual (COGS) */}
-      <div className="bg-surface/90 border border-border rounded-xl p-5 hover:border-border-active transition-all duration-200 hover:shadow-lg hover:shadow-primary/5 flex flex-col justify-between">
+      {/* 2. Total Biaya Aktual Bahan Baku (Goods Issued) */}
+      <div className="bg-surface/90 border border-border rounded-xl p-5 hover:border-amber-500/50 transition-all duration-200 hover:shadow-lg hover:shadow-amber-500/5 flex flex-col justify-between">
         <div className="flex items-center justify-between">
           <span className="text-xs font-mono font-medium text-text-muted uppercase tracking-wider">
-            Total HPP Aktual (COGS)
+            2. Biaya Bahan Baku (GI)
           </span>
-          <div className="w-9 h-9 rounded-lg bg-orange-500/15 text-orange-400 flex items-center justify-center">
-            <Layers className="w-5 h-5" />
+          <div className="w-9 h-9 rounded-lg bg-amber-500/15 text-amber-400 flex items-center justify-center">
+            <Package className="w-5 h-5" />
           </div>
         </div>
         <div className="mt-4">
-          <div className="text-2xl font-bold font-mono text-text tracking-tight">
-            {formatCurrency(s.total_cogs)}
+          <div className="text-2xl font-bold font-mono text-amber-400 tracking-tight">
+            {formatCurrency(materialCost)}
           </div>
           <div className="flex items-center justify-between mt-2 text-xs">
-            <span className="text-text-muted">Laba Kotor Riil:</span>
-            <span className={`font-mono font-medium ${s.total_gross_profit >= 0 ? 'text-emerald-400' : 'text-status-danger'}`}>
-              {formatCurrency(s.total_gross_profit)}
-            </span>
+            <span className="text-text-muted font-mono">{materialPercent.toFixed(1)}% dari Omzet</span>
+            <span className="text-[11px] font-mono text-text-muted/80">Barang Keluar</span>
           </div>
         </div>
       </div>
 
-      {/* 3. Rata-rata Gross Margin */}
-      <div className="bg-surface/90 border border-border rounded-xl p-5 hover:border-border-active transition-all duration-200 hover:shadow-lg hover:shadow-primary/5 flex flex-col justify-between">
+      {/* 3. Total Biaya Borongan Mandor Terbayar */}
+      <div className="bg-surface/90 border border-border rounded-xl p-5 hover:border-violet-500/50 transition-all duration-200 hover:shadow-lg hover:shadow-violet-500/5 flex flex-col justify-between">
         <div className="flex items-center justify-between">
           <span className="text-xs font-mono font-medium text-text-muted uppercase tracking-wider">
-            Rata-rata Margin
+            3. Borongan Mandor
           </span>
-          <div className="w-9 h-9 rounded-lg bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
-            <Percent className="w-5 h-5" />
+          <div className="w-9 h-9 rounded-lg bg-violet-500/15 text-violet-400 flex items-center justify-center">
+            <Users className="w-5 h-5" />
           </div>
         </div>
         <div className="mt-4">
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-bold font-mono text-text">
+          <div className="text-2xl font-bold font-mono text-violet-400 tracking-tight">
+            {formatCurrency(laborCost)}
+          </div>
+          <div className="flex items-center justify-between mt-2 text-xs">
+            <span className="text-text-muted font-mono">{laborPercent.toFixed(1)}% dari Omzet</span>
+            <span className="text-[11px] font-mono text-text-muted/80">Upah Terbayar</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Estimasi Laba Operasional (Gross Profit) & Margin % */}
+      <div className="bg-surface/90 border border-border rounded-xl p-5 hover:border-emerald-500/50 transition-all duration-200 hover:shadow-lg hover:shadow-emerald-500/5 flex flex-col justify-between">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-mono font-medium text-text-muted uppercase tracking-wider">
+            4. Laba Operasional & Margin
+          </span>
+          <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${grossProfit >= 0 ? 'bg-emerald-500/15 text-emerald-400' : 'bg-status-danger/15 text-status-danger'}`}>
+            <DollarSign className="w-5 h-5" />
+          </div>
+        </div>
+        <div className="mt-4">
+          <div className="flex items-baseline justify-between gap-1">
+            <span className={`text-2xl font-bold font-mono tracking-tight ${grossProfit >= 0 ? 'text-emerald-400' : 'text-status-danger'}`}>
+              {formatCurrency(grossProfit)}
+            </span>
+            <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border whitespace-nowrap ${marginBadgeClass}`}>
               {margin.toFixed(1)}%
             </span>
-            <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${marginBadgeClass}`}>
-              {marginLabel}
-            </span>
-          </div>
-          <div className="flex items-center gap-1 mt-2 text-xs text-text-muted">
-            <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Target Benchmark: ≥ 25%</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 4. Valuasi Aset Gudang (HPP) */}
-      <div className="bg-surface/90 border border-border rounded-xl p-5 hover:border-border-active transition-all duration-200 hover:shadow-lg hover:shadow-primary/5 flex flex-col justify-between">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-mono font-medium text-text-muted uppercase tracking-wider">
-            Valuasi Aset Gudang
-          </span>
-          <div className="w-9 h-9 rounded-lg bg-blue-500/15 text-blue-400 flex items-center justify-center">
-            <Warehouse className="w-5 h-5" />
-          </div>
-        </div>
-        <div className="mt-4">
-          <div className="text-2xl font-bold font-mono text-text tracking-tight">
-            {formatCurrency(s.total_inventory_valuation)}
           </div>
           <div className="flex items-center justify-between mt-2 text-xs">
-            <span className="text-text-muted">Potensi Pasar:</span>
-            <span className="font-mono text-text-muted">
-              {formatCurrency(s.total_inventory_market_value)}
-            </span>
+            <span className="text-text-muted font-mono">HPP: {formatCurrency(s.total_cogs)}</span>
+            <span className="text-[11px] text-text-muted">{marginLabel}</span>
           </div>
         </div>
       </div>
 
-      {/* 5. Total Piutang Belum Lunas & Unit Tertahan */}
-      <div className="bg-surface/90 border border-border rounded-xl p-5 hover:border-border-active transition-all duration-200 hover:shadow-lg hover:shadow-primary/5 flex flex-col justify-between">
+      {/* 5. Total Piutang & Unit Tertahan Pelunasan */}
+      <div className="bg-surface/90 border border-border rounded-xl p-5 hover:border-rose-500/50 transition-all duration-200 hover:shadow-lg hover:shadow-rose-500/5 flex flex-col justify-between">
         <div className="flex items-center justify-between">
           <span className="text-xs font-mono font-medium text-text-muted uppercase tracking-wider">
-            Piutang Tertahan
+            5. Piutang & Unit Tertahan
           </span>
           <div className="w-9 h-9 rounded-lg bg-rose-500/15 text-rose-400 flex items-center justify-center">
             <AlertCircle className="w-5 h-5" />
@@ -183,7 +189,7 @@ export const ExecutiveKpiCards: React.FC<ExecutiveKpiCardsProps> = ({ summary, i
             {s.units_pending_handover > 0 ? (
               <span className="inline-flex items-center gap-1 text-amber-400 font-medium">
                 <Car className="w-3.5 h-3.5" />
-                {s.units_pending_handover} Unit Belum Serah Terima
+                {s.units_pending_handover} Unit Belum Lunas
               </span>
             ) : (
               <span className="text-emerald-400 font-medium">Semua Unit Bebas Piutang</span>

@@ -71,6 +71,8 @@ export interface ProjectReceivable {
 export interface FinancialExecutiveSummary {
   total_projects: number;
   total_revenue: number;
+  total_actual_material_cost: number;
+  total_actual_labor_cost: number;
   total_cogs: number;
   total_gross_profit: number;
   average_gross_margin: number;

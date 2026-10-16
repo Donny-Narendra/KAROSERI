@@ -203,10 +203,12 @@ export const FinancialPrintReport: React.FC<FinancialPrintReportProps> = ({
                   <tr className="bg-slate-100 text-slate-900 font-bold border-b border-black text-center">
                     <th className="border border-black p-2">Total Proyek SPK</th>
                     <th className="border border-black p-2">Total Revenue</th>
-                    <th className="border border-black p-2">Total HPP Riil (COGS)</th>
+                    <th className="border border-black p-2">Biaya Material</th>
+                    <th className="border border-black p-2">Borongan Mandor</th>
+                    <th className="border border-black p-2">Total HPP (COGS)</th>
                     <th className="border border-black p-2">Laba Kotor Kumulatif</th>
                     <th className="border border-black p-2">Rata-rata Margin</th>
-                    <th className="border border-black p-2">Valuasi Gudang (HPP)</th>
+                    <th className="border border-black p-2">Valuasi Gudang</th>
                     <th className="border border-black p-2">Piutang Tertahan</th>
                   </tr>
                 </thead>
@@ -214,6 +216,8 @@ export const FinancialPrintReport: React.FC<FinancialPrintReportProps> = ({
                   <tr>
                     <td className="border border-black p-2 font-bold">{summary.total_projects} SPK</td>
                     <td className="border border-black p-2 font-bold text-slate-900">{formatCurrency(summary.total_revenue)}</td>
+                    <td className="border border-black p-2 text-amber-900 font-semibold">{formatCurrency(summary.total_actual_material_cost)}</td>
+                    <td className="border border-black p-2 text-indigo-900 font-semibold">{formatCurrency(summary.total_actual_labor_cost)}</td>
                     <td className="border border-black p-2">{formatCurrency(summary.total_cogs)}</td>
                     <td className={`border border-black p-2 font-bold ${summary.total_gross_profit >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
                       {formatCurrency(summary.total_gross_profit)}

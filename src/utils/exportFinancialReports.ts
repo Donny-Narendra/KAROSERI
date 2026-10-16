@@ -221,6 +221,8 @@ export function exportFullFinancialWorkbook(
     const summaryRows = [
       { 'Indikator Kunci (KPI)': 'Total Proyek SPK Tercatat', 'Nilai': s.total_projects, 'Keterangan': 'Unit SPK Aktif & Selesai' },
       { 'Indikator Kunci (KPI)': 'Total Pendapatan (Revenue)', 'Nilai': s.total_revenue, 'Keterangan': 'Rupiah' },
+      { 'Indikator Kunci (KPI)': 'Total Biaya Bahan Baku (Goods Issued)', 'Nilai': s.total_actual_material_cost, 'Keterangan': 'Material Terpakai Riil' },
+      { 'Indikator Kunci (KPI)': 'Total Biaya Borongan Mandor Terbayar', 'Nilai': s.total_actual_labor_cost, 'Keterangan': 'Upah Borongan Riil' },
       { 'Indikator Kunci (KPI)': 'Total HPP Riil (COGS)', 'Nilai': s.total_cogs, 'Keterangan': 'Bahan Material + Jasa Borongan' },
       { 'Indikator Kunci (KPI)': 'Laba Kotor Kumulatif (Gross Profit)', 'Nilai': s.total_gross_profit, 'Keterangan': 'Revenue - HPP Riil' },
       { 'Indikator Kunci (KPI)': 'Rata-rata Gross Margin (%)', 'Nilai': `${s.average_gross_margin}%`, 'Keterangan': 'Target Benchmark >= 25%' },

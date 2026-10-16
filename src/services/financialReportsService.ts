@@ -31,6 +31,8 @@ export const financialReportsService = {
     return {
       total_projects: Number(res?.total_projects || 0),
       total_revenue: Number(res?.total_revenue || 0),
+      total_actual_material_cost: Number(res?.total_actual_material_cost || 0),
+      total_actual_labor_cost: Number(res?.total_actual_labor_cost || 0),
       total_cogs: Number(res?.total_cogs || 0),
       total_gross_profit: Number(res?.total_gross_profit || 0),
       average_gross_margin: Number(res?.average_gross_margin || 0),
