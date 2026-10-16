@@ -1,36 +1,27 @@
 ## Current Position
-- **Sprint**: Sprint 14 (Implement Financial Reporting Export & Printable PDF Engine - Step 5)
+- **Sprint**: Sprint 15 — Audit and Verification of Core Business Recommendations Implementation
 - **Status**: Sprint completed ✅
-- **Milestone**: Step 5 - Fitur Ekspor Dokumen & Mesin Cetak PDF (Reporting & Exporting Engine) [COMPLETED]
+- **Milestone**: Core Business Recommendations Verification & Audit [COMPLETED]
 
-## Last Session Summary (Sprint 14 Completed)
-1. **Financial Export Engine (`src/utils/exportFinancialReports.ts`)**:
-   - `exportToExcel(reportType, data)`: Exports single sheet `.xlsx` with formal Indonesian column titles and currency formatting.
-   - `exportFullFinancialWorkbook(allReportsData, summary)`: Generates 1 comprehensive multi-sheet Excel workbook (`Laba Rugi SPK`, `Varian Anggaran WBS`, `Valuasi Persediaan`, `Piutang & Aging`, and `Ringkasan Eksekutif`).
-   - `exportToCsv(reportType, data)`: Lightweight CSV exporter.
-2. **Formal Printable PDF View Component (`src/components/finance/FinancialPrintReport.tsx`)**:
-   - High-contrast A4 print-optimized layout.
-   - Formal RobelKaroseri letterhead, metadata, executive KPI table, detail tables, and official signature validation block (*Disiapkan Oleh: Kasir/Finance*, *Disetujui Oleh: Owner*).
-   - `@media print` rules hiding UI controls and forcing clean white-background printouts.
-3. **UI Integration (`src/pages/FinancialReportsPage.tsx` & Specialized Tabs)**:
-   - Header action dropdown "Ekspor Excel" (*Sheet Ini*, *Full Workbook*, *CSV*).
-   - Header button "Cetak / PDF" triggering print preview modal and `window.print()`.
-   - Tab-level quick download buttons for Excel and CSV across all 4 report tabs.
-4. **Automated Unit Tests (`src/utils/__tests__/exportFinancialReports.test.ts`)**:
-   - 7 unit tests validating data mapping, column headers, and date formatters.
-   - Vitest suite: 26/26 tests passing (100%).
-5. **Quality Gates**:
-   - `npm test`: PASS (26 tests, 235ms).
-   - `npm run build`: PASS (0 errors, 575ms).
-   - `npm run lint`: PASS (0 errors).
+## Last Session Summary (Sprint 15 Completed)
+1. **Audit Check 1 (Dashboard Eksekutif Finansial)**:
+   - Status: **PARSIAL**.
+   - Terpasang di `/finance-reports` (`FinancialReportsPage.tsx`) dan `JobProfitabilityTab.tsx`. Ke-4 metrik ada di tabel detail dan footer total.
+   - Celah: `ExecutiveKpiCards.tsx` dan RPC `get_financial_executive_summary` saat ini menggabungkan Biaya Bahan dan Borongan Mandor ke dalam satu metrik `total_cogs`, bukan 2 kartu KPI terpisah.
+2. **Audit Check 2 (HPP vs Harga Jual Master Material)**:
+   - Status: **SUDAH DITERAPKAN (LENGKAP DI DB, TYPES, DAN UI)**.
+   - Kolom `cost_price` dan `selling_price` terpasang di `materials`, `rab_items`, `change_order_items`, `material_requisition_items`.
+   - UI `InventoryManager.tsx` menyediakan 2 input terpisah: "Harga Modal / HPP" dan "Harga Jual Patokan".
+   - Catatan: Margin bahan vs jasa di level invoice konsumen masih turnkey/gabungan.
+3. **Audit Check 3 (Billing Handover Lock)**:
+   - Status: **PARSIAL**.
+   - Di UI `KasirDashboard.tsx`, tombol "Release Vehicle & Print BAST" memiliki hard-gate `disabled` dengan ikon gembok jika status bukan `LUNAS`.
+   - Di database view `view_project_receivables`, terdapat klasifikasi `UNIT SELESAI (TERTAHAN PELUNASAN)`.
+   - Celah: Belum ada database trigger (`BEFORE UPDATE ON public.spk`) di PostgreSQL yang secara absolut memblokir status `COMPLETED` jika tagihan belum lunas.
 
 ## Blockers
 None.
 
-## Final Milestone Status
-The entire 5-step Financial Reporting, Integrity Audit, and Export Engine is complete and production-ready:
-1. **Langkah 1**: Database Views (`supabase/migrations/20261016_financial_reporting_views.sql`)
-2. **Langkah 2**: Service Layer (`src/services/financialReportsService.ts`)
-3. **Langkah 3**: UI Dashboard (`/finance-reports`, `ExecutiveKpiCards`, 4 Specialized Tabs)
-4. **Langkah 4**: Data Integrity Audit (`audit_financial_sanity_check`, `FinancialAuditPanel`, 19 Vitest tests)
-5. **Langkah 5**: Reporting & Exporting Engine (Single Excel, Full Workbook, CSV, and Formal Printable A4 PDF)
+## Recommended Follow-up Actions
+1. **Peningkatan Executive KPI Cards & RPC**: Menambahkan metrik terpisah untuk Total Biaya Material Terpakai (Goods Issued) dan Total Biaya Borongan Mandor pada RPC `get_financial_executive_summary` dan `ExecutiveKpiCards.tsx`.
+2. **Database Trigger Billing Handover Lock**: Membuat migration trigger PostgreSQL `trg_enforce_handover_billing_lock` pada tabel `public.spk`.
