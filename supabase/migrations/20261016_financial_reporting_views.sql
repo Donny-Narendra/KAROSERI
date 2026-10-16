@@ -49,7 +49,15 @@ ADD COLUMN IF NOT EXISTS item_type TEXT GENERATED ALWAYS AS (
 ) STORED;
 
 -- F. View material_issues menghubungkan transaksi fisik riil inventory_transactions
-DROP TABLE IF EXISTS public.material_issues CASCADE;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.views WHERE table_schema = 'public' AND table_name = 'material_issues') THEN
+    EXECUTE 'DROP VIEW public.material_issues CASCADE';
+  ELSIF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'material_issues') THEN
+    EXECUTE 'DROP TABLE public.material_issues CASCADE';
+  END IF;
+END $$;
+
 CREATE OR REPLACE VIEW public.material_issues AS
 SELECT 
   it.id,
@@ -72,6 +80,15 @@ LEFT JOIN material_requisitions mr ON it.requisition_id = mr.id
 WHERE it.status = 'ACTIVE' OR it.status IS NULL;
 
 -- G. View final_billing menghubungkan faktur penagihan invoices & status pelunasan
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.views WHERE table_schema = 'public' AND table_name = 'final_billing') THEN
+    EXECUTE 'DROP VIEW public.final_billing CASCADE';
+  ELSIF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'final_billing') THEN
+    EXECUTE 'DROP TABLE public.final_billing CASCADE';
+  END IF;
+END $$;
+
 CREATE OR REPLACE VIEW public.final_billing AS
 SELECT 
   inv.id,
