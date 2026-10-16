@@ -9,7 +9,7 @@ import type {
   WbsCostVarianceFilter,
   InventoryValuationFilter,
   ProjectReceivableFilter,
-  FinancialSanityCheckResult,
+  FinancialSanityAuditResult,
 } from '../types/financialReports';
 
 export const financialReportsService = {
@@ -274,7 +274,7 @@ export const financialReportsService = {
   /**
    * 5. Menjalankan Audit & Rekonsiliasi Integritas Keuangan (Sanity Check)
    */
-  async auditFinancialSanityCheck(): Promise<FinancialSanityCheckResult> {
+  async auditFinancialSanityCheck(): Promise<FinancialSanityAuditResult> {
     const { data, error } = await supabase.rpc('audit_financial_sanity_check');
 
     if (error) {
