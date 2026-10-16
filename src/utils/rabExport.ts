@@ -1,7 +1,34 @@
 import * as XLSX from 'xlsx';
 
-export const exportRabToExcel = (spkDetails: any, rabItems: any[], totals: any) => {
-  const wsData = [
+export interface RabExportSpkDetails {
+  spk_no?: string | null;
+  customer_name?: string | null;
+  vehicle_number?: string | null;
+  vehicle_plate?: string | null;
+}
+
+export interface RabExportItem {
+  wbsCategory: string;
+  type: 'material' | 'overhead' | string;
+  description: string;
+  qty: number;
+  unitPrice: number;
+  wasteFactor?: number;
+}
+
+export interface RabExportTotals {
+  material: number;
+  labor: number;
+  overhead: number;
+  grandTotal: number;
+}
+
+export const exportRabToExcel = (
+  spkDetails: RabExportSpkDetails | null | undefined,
+  rabItems: RabExportItem[],
+  totals: RabExportTotals
+) => {
+  const wsData: (string | number)[][] = [
     ["RAB ESTIMATION - ROBEL KAROSERI"],
     [""],
     ["No. SPK", spkDetails?.spk_no || "-"],
@@ -32,7 +59,7 @@ export const exportRabToExcel = (spkDetails: any, rabItems: any[], totals: any) 
           item.description,
           item.qty,
           item.unitPrice,
-          item.type === 'material' ? item.wasteFactor : 0,
+          item.type === 'material' ? (item.wasteFactor ?? 0) : 0,
           subtotal
         ]);
       });
@@ -53,7 +80,11 @@ export const exportRabToExcel = (spkDetails: any, rabItems: any[], totals: any) 
   XLSX.writeFile(wb, fileName.replace(/\s+/g, '_'));
 };
 
-export const printRabQuotation = (spkDetails: any, rabItems: any[], totals: any) => {
+export const printRabQuotation = (
+  spkDetails: RabExportSpkDetails | null | undefined,
+  rabItems: RabExportItem[],
+  totals: RabExportTotals
+) => {
   const printWindow = window.open('', '_blank');
   if (!printWindow) return;
 

@@ -13,6 +13,37 @@ import type { RabItemPayload } from './PackageAllocationModal';
 import { exportRabToExcel, printRabQuotation } from '../utils/rabExport';
 import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
 
+interface RabSpkDetails {
+  id: string;
+  spk_no: string;
+  customer_name: string;
+  vehicle_number?: string | null;
+  vehicle_plate?: string | null;
+  status?: string | null;
+  is_pricing_locked?: boolean | null;
+  allocation_status?: 'PARTIAL' | 'COMPLETE' | null;
+  locked_at?: string | null;
+}
+
+interface DbRabItemRecord {
+  id: string;
+  wbs_category: string;
+  description?: string | null;
+  material_name?: string | null;
+  material_id?: string | null;
+  package_id?: string | null;
+  quantity?: number | string | null;
+  unit_price?: number | string | null;
+  cost_price?: number | string | null;
+  labor_hours?: number | string | null;
+  labor_rate?: number | string | null;
+  overhead_hours?: number | string | null;
+  overhead_rate?: number | string | null;
+  item_total?: number | string | null;
+  subtotal?: number | string | null;
+  is_locked?: boolean | null;
+}
+
 interface RabItem {
   id: string;
   wbsCategory: string;
@@ -41,7 +72,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     variant: ConfirmationModalVariant;
   } | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-  const [spkDetails, setSpkDetails] = useState<any>(null);
+  const [spkDetails, setSpkDetails] = useState<RabSpkDetails | null>(null);
   const isDocumentLocked = Boolean(spkDetails?.is_pricing_locked || (spkDetails?.status && spkDetails.status !== 'DRAFT'));
 
   // Package BOM state
@@ -85,7 +116,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
         
       const { data: spkData } = await supabase.from('spk').select('*').eq('id', spkId).single();
       if (spkData) {
-         setSpkDetails(spkData);
+         setSpkDetails(spkData as unknown as RabSpkDetails);
          if (spkData.allocation_status) {
            setAllocationStatus(spkData.allocation_status);
          }
@@ -98,26 +129,29 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
           .eq('rab_estimation_id', estData.id);
           
         if (!itemsError && itemsData) {
-          const loadedItems = itemsData.map((dbItem: any) => {
+          const loadedItems = (itemsData as unknown as DbRabItemRecord[]).map((dbItem: DbRabItemRecord) => {
             let type: 'material' | 'overhead' = 'material';
             let qty = 0;
             let unitPrice = Number(dbItem.unit_price) || 0;
             const costPrice = Number(dbItem.cost_price) || 0;
             
-            if (dbItem.labor_hours > 0) {
+            const laborHours = Number(dbItem.labor_hours || 0);
+            const overheadHours = Number(dbItem.overhead_hours || 0);
+
+            if (laborHours > 0) {
               type = 'material';
-              qty = Number(dbItem.labor_hours);
+              qty = laborHours;
               unitPrice = Number(dbItem.labor_rate) || unitPrice;
-            } else if (dbItem.overhead_hours > 0) {
+            } else if (overheadHours > 0) {
               type = 'overhead';
-              qty = Number(dbItem.overhead_hours) / 8;
+              qty = overheadHours / 8;
               unitPrice = Number(dbItem.overhead_rate) * 8 || unitPrice;
             } else {
               type = 'material';
-              qty = Number(dbItem.quantity);
+              qty = Number(dbItem.quantity || 0);
               // Recover unit price if still 0
               if (unitPrice === 0) {
-                unitPrice = Number(dbItem.item_total) / (Number(dbItem.quantity) || 1);
+                unitPrice = Number(dbItem.item_total || 0) / (Number(dbItem.quantity) || 1);
               }
             }
             
@@ -125,14 +159,14 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
               id: dbItem.id,
               wbsCategory: dbItem.wbs_category,
               type,
-              description: dbItem.material_name || dbItem.description,
+              description: dbItem.material_name || dbItem.description || '',
               qty,
               unitPrice,
               costPrice,
               subtotal: Number(dbItem.subtotal) || (qty * unitPrice),
-              isLocked: dbItem.is_locked,
+              isLocked: dbItem.is_locked ?? false,
               wasteFactor: 0,
-              packageId: dbItem.package_id,
+              packageId: dbItem.package_id || undefined,
               materialId: dbItem.material_id || undefined
             };
           });
@@ -391,13 +425,13 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
           variant: 'success',
         });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
       if (!silent) {
         setModalFeedback({
           isOpen: true,
           title: 'Gagal Menyimpan Estimasi',
-          message: 'Terjadi kesalahan saat menyimpan estimasi: ' + (err.message || 'Unknown error'),
+          message: 'Terjadi kesalahan saat menyimpan estimasi: ' + (err instanceof Error ? err.message : 'Unknown error'),
           variant: 'danger',
         });
       }
@@ -431,7 +465,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     }
 
     const newItems = allocatedItems.map((payload) => {
-      const payloadMatId = (payload as any).materialId;
+      const payloadMatId = payload.materialId;
       const matchedMat = materials.find(m => (payloadMatId && m.id === payloadMatId) || m.name.toLowerCase() === payload.description.toLowerCase());
       const costPrice = matchedMat?.cost_price !== undefined ? matchedMat.cost_price : Math.round(payload.unitPrice * 0.8);
       return {

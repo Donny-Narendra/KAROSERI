@@ -1,26 +1,22 @@
 ## Current Position
-- **Sprint**: Sprint 19 — Clean Up Orphaned Backend Dependencies and Dead Scripts (Priority 4)
+- **Sprint**: Sprint 20 — Eliminate `any` Type Casts and Enforce Strict TypeScript Data Contracts (Priority 5)
 - **Status**: Sprint completed ✅
-- **Milestone**: Core Business Recommendations Hardening — Dependency Hygiene [COMPLETED]
+- **Milestone**: Core Business Recommendations Hardening — TypeScript Type Safety
 
 ## Last Session Summary
-Orphaned Backend Dependencies Cleanup & Dependency Hygiene Complete (2026-10-17).
-- **Packages Purged**:
-  - Removed `express`, `cors`, `multer`, `pg`, `@types/express`, `@types/cors`, `@types/multer` (103 packages uninstalled from `node_modules`).
-  - Production dependencies reduced from 20 to 16.
-  - Development dependencies refined to 17 (including `@testing-library/react`, `@testing-library/jest-dom`, and `jsdom`).
-- **Scripts & Files Cleaned**:
-  - Removed dead `"server": "tsx server/index.ts"` from `package.json`.
-  - Removed obsolete scratch script `apply_rls.js`.
-- **Verification**:
-  - `npm test`: 60 Vitest tests passing across 7 test suites (100% pass rate).
-  - `npm run lint`: Oxlint 0 errors across 106 files.
-  - `npm run build`: `tsc -b && vite build` bundled cleanly with 0 TypeScript errors.
-- **Documentation**: Updated `.gsd/ARCHITECTURE.md` and `.gsd/STACK.md` marking the Orphaned Backend Dependencies technical debt item as resolved.
+TypeScript Strict Type Contracts Refactoring Complete (2026-10-17).
+- Refactored `src/utils/rabExport.ts` with strict TypeScript contracts (`RabExportSpkDetails`, `RabExportItem`, `RabExportTotals`, typed `wsData`).
+- Refactored `src/components/RabCalculator.tsx` and `src/components/PackageAllocationModal.tsx` (`RabSpkDetails`, `DbRabItemRecord`, `RabItemPayload.materialId`).
+- Refactored `src/pages/KasirDashboard.tsx` join query and mapping types (`KasirRabEstimationSummary`, `KasirRabItemSummary`, `KasirSpkJoinRow`), removing `as any` from `qcStatus` and `paymentStatus`.
+- 100% verified: `npx tsc -b` (0 errors), `npm run lint` (0 errors), `npm test` (60/60 tests passing), `npm run build` (success).
+- Updated `.gsd/ARCHITECTURE.md` resolving the "Explicit `any` Type Casts" technical debt item.
+
+## Active Plan & Waves
+- **Wave 1**: Complete — `rabExport.ts` typed.
+- **Wave 2**: Complete — `RabCalculator.tsx` and `PackageAllocationModal.tsx` typed.
+- **Wave 3**: Complete — `KasirDashboard.tsx` join query responses and state mappings typed.
+- **Wave 4**: Complete — Validated `tsc`, `lint`, `test`, `build`, and synced documentation.
 
 ## Blockers
 None.
 
-## Recommended Follow-up Actions
-1. **Explicit `any` Typings Elimination**: Clean up `any` type casts in `KasirDashboard.tsx` and `RabCalculator.tsx` select query results.
-2. **End-to-End Verification**: Run `/verify` to validate full system behavior against specifications.

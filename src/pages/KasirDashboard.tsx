@@ -11,6 +11,43 @@ import type { DPHistoryRecord } from '../services/billingService';
 import { packageService } from '../services/packageService';
 import type { ProductPackage } from '../types/package';
 
+interface KasirRabEstimationSummary {
+  id: string;
+  spk_id: string;
+  total_labor_cost: number | null;
+  total_overhead_cost: number | null;
+  total_estimated_cost: number | null;
+}
+
+interface KasirRabItemSummary {
+  rab_estimation_id: string;
+  item_total: number | null;
+  package_id: string | null;
+}
+
+interface KasirSpkJoinRow {
+  id: string;
+  spk_no: string;
+  customer_name: string;
+  vehicle_plate: string;
+  vehicle_vin?: string | null;
+  vehicle_number?: string | null;
+  vehicle_engine?: string | null;
+  status: string;
+  dp_amount?: number | null;
+  total_estimated_cost?: number | null;
+  qc_status?: string | null;
+  allocation_status?: string | null;
+  qc_inspections?: Array<{ status: string; inspected_at?: string }>;
+  invoices?: Array<{ status: string; created_at?: string }>;
+  inventory_transactions?: Array<{
+    quantity_issued: number;
+    custom_unit_price: number | null;
+    materials: { unit_price: number; is_customer_supplied?: boolean } | null;
+  }>;
+  spk_amendments?: Array<{ status: string; cost_adjustment: number }>;
+}
+
 interface MockSPK {
   id: string;
   dbId: string;
@@ -86,15 +123,15 @@ export const KasirDashboard: React.FC = () => {
 
   const fetchSpks = async () => {
     let fetchedPackages: ProductPackage[] = [];
-    let fetchedEstimations: any[] = [];
-    let fetchedItems: any[] = [];
+    let fetchedEstimations: KasirRabEstimationSummary[] = [];
+    let fetchedItems: KasirRabItemSummary[] = [];
     try {
       fetchedPackages = await packageService.getPackages();
       const { data: estData } = await supabase.from('rab_estimations').select('id, spk_id, total_labor_cost, total_overhead_cost, total_estimated_cost');
-      if (estData) fetchedEstimations = estData;
+      if (estData) fetchedEstimations = estData as KasirRabEstimationSummary[];
       
       const { data: itemData } = await supabase.from('rab_items').select('rab_estimation_id, item_total, package_id');
-      if (itemData) fetchedItems = itemData;
+      if (itemData) fetchedItems = itemData as KasirRabItemSummary[];
     } catch (err) {
       console.error("Failed to load flat data in kasir:", err);
     }
@@ -108,16 +145,13 @@ export const KasirDashboard: React.FC = () => {
     `).neq('status', 'CANCELLED').order('created_at', { ascending: false });
 
     if (data) {
-      const formatted = data.map((d: any) => {
+      const formatted: MockSPK[] = (data as unknown as KasirSpkJoinRow[]).map((d: KasirSpkJoinRow) => {
         // Manual merge of rab_estimations and rab_items
         const myEstimations = fetchedEstimations.filter(est => est.spk_id === d.id);
         
-        // const dpInvoices = d.invoices?.filter((i: any) => i.status === 'PAID') || [];
-        // const dpAmount = dpInvoices.length > 0 ? Number(d.dp_amount || 0) : 0;
-        
         let actualMaterialCost = 0;
         if (d.inventory_transactions && d.inventory_transactions.length > 0) {
-          actualMaterialCost = d.inventory_transactions.reduce((acc: number, curr: any) => {
+          actualMaterialCost = d.inventory_transactions.reduce((acc: number, curr) => {
             const isCustomerSupplied = curr.materials?.is_customer_supplied === true;
             if (isCustomerSupplied) return acc;
             const price = curr.custom_unit_price !== null && curr.custom_unit_price !== undefined 
@@ -143,16 +177,24 @@ export const KasirDashboard: React.FC = () => {
            actualMaterialCost = Math.max(0, totalEstimatedCost - actualLaborCost - overheadCost);
         }
 
-        const qcStatus = (d.qc_status || (d.qc_inspections?.length > 0 
+        const rawQc = d.qc_status || (d.qc_inspections && d.qc_inspections.length > 0 
           ? d.qc_inspections[0].status 
-          : 'PENDING')) as 'PENDING' | 'PASS' | 'FAIL';
+          : 'PENDING');
+        const qcStatus: 'PENDING' | 'PASS' | 'FAIL' = 
+          rawQc === 'PASS' ? 'PASS' : rawQc === 'FAIL' ? 'FAIL' : 'PENDING';
 
-        const validInvoices = d.invoices?.filter((i: any) => i.status !== 'CANCELLED') || [];
-        const paymentStatus = validInvoices.length > 0
+        const validInvoices = d.invoices?.filter(i => i.status !== 'CANCELLED') || [];
+        const rawPaymentStatus = validInvoices.length > 0
           ? validInvoices[0].status
           : 'NO_INVOICE';
+        const paymentStatus: 'NO_INVOICE' | 'UNPAID' | 'LUNAS' = 
+          rawPaymentStatus === 'LUNAS' || rawPaymentStatus === 'PAID'
+            ? 'LUNAS'
+            : rawPaymentStatus === 'UNPAID'
+            ? 'UNPAID'
+            : 'NO_INVOICE';
 
-        const amendmentCost = d.spk_amendments?.filter((a: any) => a.status === 'APPROVED').reduce((acc: number, curr: any) => acc + (Number(curr.cost_adjustment) || 0), 0) || 0;
+        const amendmentCost = d.spk_amendments?.filter(a => a.status === 'APPROVED').reduce((acc: number, curr) => acc + (Number(curr.cost_adjustment) || 0), 0) || 0;
 
         let packageSellingPrice = 0;
         let nonPackageMaterialCost = 0;
@@ -161,8 +203,8 @@ export const KasirDashboard: React.FC = () => {
             const estId = myEstimations[0].id;
             const rabItems = fetchedItems.filter(item => item.rab_estimation_id === estId) || [];
             
-            const uniquePackages = new Map();
-            rabItems.forEach((item: any) => {
+            const uniquePackages = new Map<string, number>();
+            rabItems.forEach((item: KasirRabItemSummary) => {
                 if (item.package_id) {
                     const pkg = fetchedPackages.find(p => p.id === item.package_id);
                     if (pkg) {
@@ -203,9 +245,9 @@ export const KasirDashboard: React.FC = () => {
           quotationAmount,
           packageSellingPrice,
           nonPackageMaterialCost,
-          qcStatus: qcStatus as any,
-          paymentStatus: paymentStatus as any,
-          allocationStatus: d.allocation_status,
+          qcStatus,
+          paymentStatus,
+          allocationStatus: d.allocation_status || undefined,
           amendmentCost,
         };
       });
@@ -414,12 +456,12 @@ export const KasirDashboard: React.FC = () => {
         confirmText: 'Mengerti',
         onConfirm: closeModal,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error cancelling invoice:', err);
       setModalConfig({
         isOpen: true,
         title: 'Gagal Membatalkan Faktur',
-        message: 'Terjadi kesalahan saat membatalkan faktur: ' + (err?.message || err),
+        message: 'Terjadi kesalahan saat membatalkan faktur: ' + (err instanceof Error ? err.message : String(err)),
         variant: 'danger',
         hideCancel: true,
         confirmText: 'Tutup',
@@ -470,12 +512,12 @@ export const KasirDashboard: React.FC = () => {
       setSelectedBastSpk({ ...selectedSpk, status: 'COMPLETED' });
       closeModal();
       setIsBastModalOpen(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to release vehicle:', err);
       setModalConfig({
         isOpen: true,
         title: 'Gagal Memproses Serah Terima',
-        message: 'Terjadi kesalahan saat memproses BAST: ' + (err?.message || err),
+        message: 'Terjadi kesalahan saat memproses BAST: ' + (err instanceof Error ? err.message : String(err)),
         variant: 'danger',
         hideCancel: true,
         confirmText: 'Tutup',

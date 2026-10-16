@@ -9,6 +9,7 @@ export interface RabItemPayload {
   qty: number;
   unitPrice: number;
   wasteFactor?: number;
+  materialId?: string;
 }
 
 interface PackageAllocationModalProps {
@@ -125,6 +126,7 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
             qty,
             unitPrice: item.cost_per_unit,
             wasteFactor: 0,
+            materialId: (item.item_type === 'MATERIAL' ? (item.material_id || item.material?.id) : undefined) || undefined,
           });
         }
       });
