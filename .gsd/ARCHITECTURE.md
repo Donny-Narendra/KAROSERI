@@ -156,6 +156,7 @@ KAROSERI is an enterprise auto body repair and modification management system (B
 - [x] **Executive KPI COGS Breakdown (Implemented):** Decoupled Material and Labor cost metrics in `get_financial_executive_summary` RPC (`20261016040000_decouple_executive_kpi_rpc.sql`), `financialReportsService.ts`, and `ExecutiveKpiCards.tsx` into 5 standalone executive KPI cards.
 - [x] **Orphaned Backend Dependencies (Resolved):** Purged express, cors, multer, pg, and related types from `package.json`, and removed dead `"server"` script.
 - [x] **Explicit `any` Type Casts (Resolved):** All untyped `any` type casts across `KasirDashboard.tsx`, `RabCalculator.tsx`, `rabExport.ts`, and `PackageAllocationModal.tsx` have been refactored with strict TypeScript interfaces (`KasirSpkJoinRow`, `KasirRabEstimationSummary`, `KasirRabItemSummary`, `RabSpkDetails`, `DbRabItemRecord`, `RabExportSpkDetails`, `RabExportItem`, `RabExportTotals`, `RabItemPayload`). Zero `any` casts remain.
+- [ ] **Audit Log Monitoring for Cancelled SPKs:** While cancellation reasons are captured during void operations in `CancelSpkModal.tsx` and `AdminDashboardPage.tsx`, adding a dedicated audit monitoring table view for cancelled SPKs (with timestamps and cancellation reasons) will provide immediate executive oversight without manual table filtering.
 - [ ] **Localization Alignment:** `react-i18next` is installed, but the UI is predominantly written directly in Indonesian strings.
 
 ## Conventions
