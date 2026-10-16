@@ -144,7 +144,7 @@ KAROSERI is an enterprise auto body repair and modification management system (B
 ## Technical Debt & Audit Opportunities
 
 - [ ] **Component-Level Testing:** Unit tests exist for financial utility functions (`vitest run`), but React components (`RabCalculator`, `GoodsIssueForm`, `KasirDashboard`) lack test coverage with React Testing Library.
-- [ ] **PostgreSQL Trigger Handover Lock:** Handover gate is enforced at the UI level (`disabled` BAST button until `LUNAS`) and view level, but a database trigger `trg_enforce_handover_billing_lock` on `public.spk` is recommended to prevent any direct SQL or bypass update to `COMPLETED`.
+- [x] **PostgreSQL Trigger Handover Lock (Implemented):** Hard-gate trigger `trg_enforce_handover_billing_lock` and trigger function `check_spk_completion_billing_status()` installed on `public.spk` via `20261016030000_enforce_handover_billing_trigger.sql`. Blocks any status update to `COMPLETED` unless final billing exists and is fully paid (`LUNAS`/`PAID` or zero remaining balance).
 - [ ] **Executive KPI COGS Breakdown:** `get_financial_executive_summary` RPC combines Material and Borongan Mandor into a single `total_cogs` metric rather than two separate KPI cards.
 - [ ] **Orphaned Backend Dependencies:** `package.json` contains `express`, `cors`, `multer`, and `pg` with a `server` script, but no active `server/` directory exists in the client-first architecture.
 - [ ] **Explicit `any` Type Casts:** Select query join responses in `KasirDashboard.tsx`, `RabCalculator.tsx`, and `rabExport.ts` bypass strict TypeScript typings.
