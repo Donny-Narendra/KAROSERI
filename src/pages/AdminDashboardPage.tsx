@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
   BarChart3, AlertTriangle, ShieldCheck, Factory, LogOut, Package, 
-  Settings, Bell, Check, X, Search, RotateCcw, FileSpreadsheet, Ban 
+  Settings, Bell, Check, X, Search, RotateCcw, FileSpreadsheet, Ban, TrendingUp 
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useTranslation } from 'react-i18next';
@@ -275,6 +275,14 @@ export const AdminDashboardPage: React.FC = () => {
             )}
           </button>
           <span className="text-sm text-text-muted font-mono">{profile?.full_name} ({profile?.role})</span>
+          <button 
+            onClick={() => window.location.href = '/finance-reports'}
+            className="flex items-center gap-2 text-sm bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded transition font-medium"
+            title="Buka Laporan Keuangan & Executive Dashboard"
+          >
+            <TrendingUp className="w-4 h-4" />
+            Laporan Keuangan
+          </button>
           <button 
             onClick={() => window.location.href = '/kasir'}
             className="flex items-center gap-2 text-sm bg-surface-hover hover:bg-surface-active px-3 py-1.5 rounded transition text-text"

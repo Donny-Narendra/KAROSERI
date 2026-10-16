@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { AlertCircle, FileText, CheckCircle, Calculator, Lock, Receipt } from 'lucide-react';
+import { AlertCircle, FileText, CheckCircle, Calculator, Lock, Receipt, TrendingUp } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { DownPaymentModal } from '../components/DownPaymentModal';
 import { DpHistoryList } from '../components/DpHistoryList';
@@ -517,6 +517,14 @@ export const KasirDashboard: React.FC = () => {
               <p className="font-medium text-text-primary">{profile?.full_name}</p>
               <p className="text-text-muted text-xs capitalize">{profile?.role?.replace('_', ' ')}</p>
             </div>
+            <button
+              onClick={() => window.location.href = '/finance-reports'}
+              className="text-xs bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded transition-colors flex items-center gap-1.5 font-medium"
+              title="Buka Laporan Keuangan & Executive Dashboard"
+            >
+              <TrendingUp className="w-3.5 h-3.5" />
+              Laporan Keuangan
+            </button>
             {profile?.role !== 'kasir' && (
               <button
                 onClick={() => window.location.href = '/'}

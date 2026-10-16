@@ -13,6 +13,7 @@ import { WarehouseDashboard } from './pages/WarehouseDashboard';
 import { MandorDashboard } from './pages/MandorDashboard';
 import { KasirDashboard } from './pages/KasirDashboard';
 import { PublicProgressTracking } from './pages/PublicProgressTracking';
+import { FinancialReportsPage } from './pages/FinancialReportsPage';
 
 const RootRedirect: React.FC = () => {
   const { user, profile, loading } = useAuth();
@@ -98,6 +99,11 @@ function App() {
           {/* Protected Routes for Kasir, Service Advisor & Owner */}
           <Route element={<ProtectedRoute allowedRoles={['kasir', 'owner', 'service_advisor']} />}>
             <Route path="/kasir" element={<KasirDashboard />} />
+          </Route>
+          
+          {/* Protected Routes for Financial Reports (Owner & Kasir) */}
+          <Route element={<ProtectedRoute allowedRoles={['owner', 'kasir']} />}>
+            <Route path="/finance-reports" element={<FinancialReportsPage />} />
           </Route>
           
           {/* Catch all */}

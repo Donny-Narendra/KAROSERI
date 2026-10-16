@@ -1,28 +1,27 @@
 ## Current Position
 - **Sprint**: Sprint 12 (Implement Financial Reporting UI Module & Executive Dashboard - Step 3)
-- **Status**: Sprint in progress 🚀
-- **Milestone**: Step 3 - Perancangan Antarmuka Modul Keuangan (UI / UX Layer)
+- **Status**: Sprint completed ✅
+- **Milestone**: Step 3 - Perancangan Antarmuka Modul Keuangan (UI / UX Layer) [COMPLETED]
 
-## Last Session Summary (Sprint 11 Completed)
-1. **Executive Summary RPC (`supabase/migrations/20261016_financial_summary_rpc.sql`)**:
-   - Implemented `get_financial_executive_summary(start_date, end_date)` function in PostgreSQL.
-   - Aggregates revenue, COGS, gross margin, inventory valuation, and receivables in a single network round-trip.
-2. **TypeScript Data Contracts (`src/types/financialReports.ts`)**:
-   - Defined strict data contracts and filter interfaces for all 4 reporting views.
-3. **Financial Reporting Service Layer (`src/services/financialReportsService.ts`)**:
-   - Fully implemented 5 query methods with multi-field search and flexible filtering.
-4. **Archived**: Sprint 11 saved to `.gsd/sprints/sprint-11-implement-financial-reporting-service-layer.md`.
+## Last Session Summary (Sprint 12 Completed)
+1. **Executive KPI Cards (`src/components/finance/ExecutiveKpiCards.tsx`)**:
+   - Total Revenue (`total_revenue`), Total COGS (`total_cogs`), Average Gross Margin % (`average_gross_margin`), Inventory Valuation (`total_inventory_valuation`), and Outstanding Receivables (`total_outstanding_receivables` + `units_pending_handover`).
+   - Dynamic threshold badges (Green $\ge 25\%$, Amber $10-24\%$, Red $< 10\%$) and loading skeleton states.
+2. **Four Specialized Report Tabs (`src/components/finance/tabs/`)**:
+   - `JobProfitabilityTab.tsx`: Profitability breakdown by SPK, multi-column sorting, margin status badges, and CSV export.
+   - `WbsCostVarianceTab.tsx`: SPK dropdown selector, WBS Stages 1-5 breakdown, budget vs actual material & labor, surplus/deficit color coding.
+   - `InventoryValuationTab.tsx`: Category filter, search, low-stock filter ($\le 5$), HPP vs market valuation, and footer accumulation.
+   - `ReceivablesAgingTab.tsx`: Outstanding filter, aging badges, handover clearance indicators (`LUNAS (SIAP HANDOVER)` vs `UNIT SELESAI (TERTAHAN PELUNASAN)`), and direct WhatsApp notification action.
+3. **Main Page & Navigation (`src/pages/FinancialReportsPage.tsx`, `src/App.tsx`, `AdminDashboardPage.tsx`, `KasirDashboard.tsx`)**:
+   - Assembled `/finance-reports` with date range filter (with quick presets), search box, refresh button, and tab switching.
+   - Protected route for `owner` and `kasir` roles.
+   - Direct access buttons added to Admin Dashboard and Kasir Dashboard.
+4. **Quality Gates**:
+   - `npm run build`: 100% PASS (0 errors, 591ms).
+   - `npm run lint`: 100% PASS (0 errors).
 
-## Active Sprint Plan (Sprint 12)
-1. **Wave 1**: `ExecutiveKpiCards.tsx` (Total Revenue, COGS, Gross Margin %, Inventory Valuation, Receivables & Pending Handover).
-2. **Wave 2**: Four report tab components in `src/components/finance/tabs/`:
-   - `JobProfitabilityTab.tsx`
-   - `WbsCostVarianceTab.tsx`
-   - `InventoryValuationTab.tsx`
-   - `ReceivablesAgingTab.tsx`
-3. **Wave 3**:
-   - `src/pages/FinancialReportsPage.tsx`
-   - Routing in `src/App.tsx` (`/finance-reports`)
-   - Navigation links in `AdminDashboardPage.tsx` & `KasirDashboard.tsx`.
-4. **Quality Gates & Verification**:
-   - Type check (`npm run build`) and lint (`npm run lint`).
+## Blockers
+None.
+
+## Next Steps
+All 3 steps of the Financial Reporting Module (Database Views, Service Layer, and UI Dashboards) are completed and fully integrated.
