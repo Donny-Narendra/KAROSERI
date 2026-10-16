@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { financialReportsService } from '../../services/financialReportsService';
 import type { 
-  FinancialSanityCheckResult, 
+  FinancialSanityAuditResult, 
   OverBudgetAnomaly, 
   NegativeMarginAnomaly, 
   UnbilledCompletedAnomaly, 
@@ -41,7 +41,7 @@ export const FinancialAuditPanel: React.FC<FinancialAuditPanelProps> = ({
   onRefreshParent,
   onSelectTab,
 }) => {
-  const [auditData, setAuditData] = useState<FinancialSanityCheckResult | null>(null);
+  const [auditData, setAuditData] = useState<FinancialSanityAuditResult | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
@@ -53,7 +53,7 @@ export const FinancialAuditPanel: React.FC<FinancialAuditPanelProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const result = await financialReportsService.auditFinancialSanityCheck();
+      const result = await financialReportsService.getSanityAudit();
       setAuditData(result);
 
       // Otomatis pilih tab anomali pertama yang memiliki temuan jika belum terpilih

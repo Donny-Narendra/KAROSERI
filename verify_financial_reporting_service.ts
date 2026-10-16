@@ -69,13 +69,13 @@ async function runServiceValidation() {
     console.log('✅ Stage 5 PASS: getProjectReceivables() monitors aging and clearance gates.\n');
 
     // 6. Financial Sanity Check Audit
-    console.log('--- Stage 6: Testing auditFinancialSanityCheck() ---');
-    const sanityCheck = await financialReportsService.auditFinancialSanityCheck();
-    console.log('Sanity Check Result:', JSON.stringify(sanityCheck, null, 2));
+    console.log('--- Stage 6: Testing getSanityAudit() & auditFinancialSanityCheck() ---');
+    const sanityCheck = await financialReportsService.getSanityAudit();
+    console.log('Sanity Audit Result:', JSON.stringify(sanityCheck, null, 2));
     if (typeof sanityCheck.is_healthy !== 'boolean') {
       throw new Error('Invalid sanity check output format');
     }
-    console.log('✅ Stage 6 PASS: auditFinancialSanityCheck() successfully executed and validated.\n');
+    console.log('✅ Stage 6 PASS: getSanityAudit() successfully executed and validated.\n');
 
     console.log('==============================================================================');
     console.log('🏆 EMPIRICAL VALIDATION COMPLETE: SERVICE LAYER AUDIT SANITY CHECK PASS!');
