@@ -65,7 +65,7 @@ export interface ProjectReceivable {
   payment_status: string;
   invoice_date: string;
   receivable_aging_days: number;
-  handover_clearance_status: string;
+  handover_clearance_status: 'LUNAS (SIAP HANDOVER)' | 'UNIT SELESAI (TERTAHAN PELUNASAN)' | 'PENGERJAAN BERJALAN' | string;
 }
 
 export interface FinancialExecutiveSummary {
@@ -80,6 +80,15 @@ export interface FinancialExecutiveSummary {
   units_pending_handover: number;
 }
 
+export interface FinancialReportFilter {
+  startDate?: string;
+  endDate?: string;
+  searchQuery?: string;
+  spkStatus?: string;
+  paymentStatus?: string;
+  wbsStage?: string;
+}
+
 export interface DateRangeFilter {
   startDate?: string | null;
   endDate?: string | null;
@@ -87,6 +96,7 @@ export interface DateRangeFilter {
 
 export interface SpkJobProfitabilityFilter extends DateRangeFilter {
   search?: string;
+  searchQuery?: string;
   spkStatus?: string;
   paymentStatus?: string;
 }
@@ -96,17 +106,20 @@ export interface WbsCostVarianceFilter {
   spkNumber?: string;
   wbsStage?: string;
   search?: string;
+  searchQuery?: string;
   overBudgetOnly?: boolean;
 }
 
 export interface InventoryValuationFilter {
   category?: string;
   search?: string;
+  searchQuery?: string;
   lowStockOnly?: boolean;
 }
 
 export interface ProjectReceivableFilter {
   search?: string;
+  searchQuery?: string;
   paymentStatus?: string;
   handoverClearanceStatus?: string;
   unpaidOnly?: boolean;

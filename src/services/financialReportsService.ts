@@ -5,6 +5,7 @@ import type {
   InventoryValuation,
   ProjectReceivable,
   FinancialExecutiveSummary,
+  FinancialReportFilter,
   DateRangeFilter,
   SpkJobProfitabilityFilter,
   WbsCostVarianceFilter,
@@ -16,7 +17,7 @@ export const financialReportsService = {
   /**
    * 1. Ambil ringkasan eksekutif KPI keuangan dalam satu panggilan efisien (RPC)
    */
-  async getExecutiveSummary(filter?: DateRangeFilter): Promise<FinancialExecutiveSummary> {
+  async getExecutiveSummary(filter?: DateRangeFilter | FinancialReportFilter): Promise<FinancialExecutiveSummary> {
     try {
       const { data, error } = await supabase.rpc('get_financial_executive_summary', {
         start_date: filter?.startDate || null,
@@ -49,7 +50,9 @@ export const financialReportsService = {
   /**
    * 2. Laporan Laba Rugi per Proyek SPK (Job Profitability)
    */
-  async getSpkJobProfitability(filter?: SpkJobProfitabilityFilter): Promise<SpkJobProfitability[]> {
+  async getSpkJobProfitability(
+    filter?: SpkJobProfitabilityFilter | FinancialReportFilter
+  ): Promise<SpkJobProfitability[]> {
     try {
       let query = supabase
         .from('view_spk_job_profitability')
@@ -72,8 +75,8 @@ export const financialReportsService = {
         query = query.eq('payment_status', filter.paymentStatus);
       }
 
-      if (filter?.search && filter.search.trim()) {
-        const s = filter.search.trim();
+      const s = (filter?.searchQuery || (filter as any)?.search || '').trim();
+      if (s) {
         query = query.or(`spk_number.ilike.%${s}%,customer_name.ilike.%${s}%,vehicle_plate.ilike.%${s}%`);
       }
 
@@ -110,7 +113,9 @@ export const financialReportsService = {
   /**
    * 3. Laporan Analisis Varian Anggaran WBS (RAB vs Realisasi Aktual)
    */
-  async getWbsCostVariance(filter?: WbsCostVarianceFilter): Promise<WbsCostVariance[]> {
+  async getWbsCostVariance(
+    filter?: WbsCostVarianceFilter | FinancialReportFilter
+  ): Promise<WbsCostVariance[]> {
     try {
       let query = supabase
         .from('view_wbs_cost_variance')
@@ -118,20 +123,20 @@ export const financialReportsService = {
         .order('spk_number', { ascending: true })
         .order('wbs_stage', { ascending: true });
 
-      if (filter?.spkId) {
-        query = query.eq('spk_id', filter.spkId);
+      if ((filter as any)?.spkId) {
+        query = query.eq('spk_id', (filter as any).spkId);
       }
 
-      if (filter?.spkNumber) {
-        query = query.eq('spk_number', filter.spkNumber);
+      if ((filter as any)?.spkNumber) {
+        query = query.eq('spk_number', (filter as any).spkNumber);
       }
 
       if (filter?.wbsStage && filter.wbsStage !== 'ALL') {
         query = query.eq('wbs_stage', filter.wbsStage);
       }
 
-      if (filter?.search && filter.search.trim()) {
-        const s = filter.search.trim();
+      const s = (filter?.searchQuery || (filter as any)?.search || '').trim();
+      if (s) {
         query = query.or(`spk_number.ilike.%${s}%,customer_name.ilike.%${s}%,vehicle_plate.ilike.%${s}%`);
       }
 
@@ -156,7 +161,7 @@ export const financialReportsService = {
         labor_variance: Number(row.labor_variance || 0),
       }));
 
-      if (filter?.overBudgetOnly) {
+      if ((filter as any)?.overBudgetOnly) {
         formatted = formatted.filter(
           item => item.material_variance < 0 || item.labor_variance < 0
         );
@@ -172,23 +177,25 @@ export const financialReportsService = {
   /**
    * 4. Laporan Valuasi Mutasi & Persediaan Gudang
    */
-  async getInventoryValuation(filter?: InventoryValuationFilter): Promise<InventoryValuation[]> {
+  async getInventoryValuation(
+    filter?: InventoryValuationFilter | FinancialReportFilter
+  ): Promise<InventoryValuation[]> {
     try {
       let query = supabase
         .from('view_inventory_valuation')
         .select('*')
         .order('total_inventory_valuation_hpp', { ascending: false });
 
-      if (filter?.category && filter.category !== 'ALL') {
-        query = query.eq('category', filter.category);
+      if ((filter as any)?.category && (filter as any).category !== 'ALL') {
+        query = query.eq('category', (filter as any).category);
       }
 
-      if (filter?.search && filter.search.trim()) {
-        const s = filter.search.trim();
+      const s = (filter?.searchQuery || (filter as any)?.search || '').trim();
+      if (s) {
         query = query.ilike('material_name', `%${s}%`);
       }
 
-      if (filter?.lowStockOnly) {
+      if ((filter as any)?.lowStockOnly) {
         query = query.lte('current_stock', 5);
       }
 
@@ -220,7 +227,9 @@ export const financialReportsService = {
   /**
    * 5. Laporan Piutang Proyek & Kontrol Serah Terima (Aging Receivables)
    */
-  async getProjectReceivables(filter?: ProjectReceivableFilter): Promise<ProjectReceivable[]> {
+  async getProjectReceivables(
+    filter?: ProjectReceivableFilter | FinancialReportFilter
+  ): Promise<ProjectReceivable[]> {
     try {
       let query = supabase
         .from('view_project_receivables')
@@ -232,20 +241,20 @@ export const financialReportsService = {
         query = query.eq('payment_status', filter.paymentStatus);
       }
 
-      if (filter?.handoverClearanceStatus && filter.handoverClearanceStatus !== 'ALL') {
-        query = query.eq('handover_clearance_status', filter.handoverClearanceStatus);
+      if ((filter as any)?.handoverClearanceStatus && (filter as any).handoverClearanceStatus !== 'ALL') {
+        query = query.eq('handover_clearance_status', (filter as any).handoverClearanceStatus);
       }
 
-      if (filter?.unpaidOnly) {
+      if ((filter as any)?.unpaidOnly) {
         query = query.gt('outstanding_balance', 0);
       }
 
-      if (filter?.minAgingDays !== undefined && filter.minAgingDays > 0) {
-        query = query.gte('receivable_aging_days', filter.minAgingDays);
+      if ((filter as any)?.minAgingDays !== undefined && (filter as any).minAgingDays > 0) {
+        query = query.gte('receivable_aging_days', (filter as any).minAgingDays);
       }
 
-      if (filter?.search && filter.search.trim()) {
-        const s = filter.search.trim();
+      const s = (filter?.searchQuery || (filter as any)?.search || '').trim();
+      if (s) {
         query = query.or(
           `spk_number.ilike.%${s}%,customer_name.ilike.%${s}%,vehicle_plate.ilike.%${s}%,invoice_number.ilike.%${s}%`
         );
