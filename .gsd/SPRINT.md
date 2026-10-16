@@ -1,95 +1,63 @@
-# Sprint 7 — Enable Warehouse Operations on Service Advisor Portal with Audit Logging
+# Sprint 8 — Implement Immutable Point-in-Time Price Snapshot & Document Locking across KaroseriOps
 
 > **Duration**: 2026-10-16 to 2026-10-16
 > **Status**: Completed
 
 ## Goal
-Enable Service Advisor (SA) with backup operational authority to execute core warehouse activities (Issue Material directly to SPK, Return Material, and Mandor Requisition verification & approval) from the Service Advisor portal, enforced with complete audit trails (`user_id`, `user_name`, `user_role`, `timestamp`, and execution context notes) and aligned database schema and RLS policies.
+Implement decoupled point-in-time pricing snapshots across all transaction detail entities (`rab_items`, `material_requisition_items`, `requisition_items`, `inventory_transactions`) and enforce strict document lifecycle locking on SPK and RAB upon transitioning to `ACTIVE` or `APPROVED`, ensuring raw material price fluctuations in master inventory never alter approved contracts, active work orders, or billing records.
 
 ## Scope
 
 ### Included
-- **Database Schema & Audit Logging**:
-  - Add audit columns to `inventory_transactions`:
-    - `issued_by_user_id` UUID REFERENCES auth.users(id)
-    - `issued_by_name` VARCHAR(100)
-    - `issued_by_role` VARCHAR(50)
-    - `audit_notes` TEXT
-    - `processed_by_user_id` UUID REFERENCES auth.users(id)
-    - `processed_by_name` VARCHAR(100)
-    - `processed_by_role` VARCHAR(50)
-  - Add audit columns to `material_requisitions`:
-    - `approved_by_user_id` UUID REFERENCES auth.users(id)
-    - `approved_by_name` VARCHAR(100)
-    - `approved_by_role` VARCHAR(50)
-    - `approved_at` TIMESTAMPTZ
-    - `audit_notes` TEXT
-  - Provide table/view aliases `material_issues`, `material_returns`, and `mandor_requisitions` with identical audit columns to ensure full compatibility with SQL specifications.
-  - Create migration script in `supabase/migrations/20261016_enable_sa_warehouse_ops_audit.sql` and apply via database client.
-- **Row Level Security (RLS) Synchronization**:
-  - Allow `service_advisor` role to INSERT, UPDATE, SELECT on `inventory_transactions`.
-  - Allow `service_advisor` role to UPDATE stock on `materials` for issue/return adjustments.
-  - Verify and ensure complete access for `service_advisor` on `material_requisitions` and `material_requisition_items`.
-- **Component Audit Logging Instrumentation**:
-  - `GoodsIssueForm.tsx`: Capture `user.id`, `profile.full_name`, `profile.role`, and automatic `audit_notes` (e.g. "Diproses oleh Service Advisor (Backup Gudang)").
-  - `GoodsReturnForm.tsx`: Capture `user.id`, `profile.full_name`, `profile.role`, and automatic `audit_notes`.
-  - `RequisitionApproval.tsx`: Capture `approved_by_user_id`, `approved_by_name`, `approved_by_role`, `approved_at`, `audit_notes`, and propagate executor details into `inventory_transactions`.
-- **Service Advisor Portal Integration**:
-  - In `ServiceAdvisorDashboard.tsx`, expand navigation to support Warehouse Backup Operations:
-    - Tab "Operasional Gudang (Backup)" featuring Issue Material, Return Material, Mandor Requests with pending counter, and Warehouse Audit Trail.
-    - Banner/indicator alerting that operations are logged under the SA's identity with backup accountability.
-- **Verification & QA**:
-  - Verify TypeScript compilation (`npm run build`).
-  - Verify ESLint check (`npm run lint`).
-  - Test transactions and verify audit fields in Supabase / PostgreSQL.
+- **Database Schema & Migrations**:
+  - `materials`: Add `cost_price` (HPP) and `selling_price` (Harga Jual Patokan).
+  - `rab_items`: Add `spk_id`, `material_name`, `unit_price`, `cost_price`, `subtotal` (GENERATED ALWAYS AS `(quantity * unit_price)` STORED), `is_locked`.
+  - `requisition_items` & `material_requisition_items`: Ensure independent `unit_price`, `cost_price`, `subtotal` snapshot storage.
+  - `spk`: Add document locking fields `is_pricing_locked`, `locked_at`, `locked_by`.
+  - Trigger `trg_lock_spk_pricing`: Automatically set `is_pricing_locked = TRUE`, `locked_at = NOW()`, and lock all corresponding `rab_items` (`is_locked = TRUE`) when SPK status transitions from `DRAFT` (or unapproved) to `ACTIVE`, `APPROVED`, or `IN_PROGRESS`.
+  - Data backfill for existing records to ensure data integrity and zero broken relations.
+- **Frontend & Service Layer Integration**:
+  - `src/types/database.ts` & `src/services/inventoryService.ts`: Synchronize TypeScript types with new snapshot and locking fields.
+  - `RabCalculator.tsx`:
+    - Persist `spk_id`, `material_name`, `unit_price`, `cost_price` snapshot to `rab_items`.
+    - Retrieve price snapshots directly from `rab_items` rather than calculating from total.
+    - Enforce Document Locking: If `spkDetails.is_pricing_locked` or SPK is not in `DRAFT`, set RAB editor to read-only with a prominent lock banner prohibiting direct modifications (mandating Change Order / SPK Tambahan).
+  - `MaterialRequisitionForm.tsx`:
+    - Persist `cost_price`, `unit_price`, `material_name`, and `subtotal` snapshot when submitting items.
+  - `InventoryManager.tsx` & `SAInventoryPanel.tsx`:
+    - Provide input and visibility for `cost_price` (HPP) and `selling_price` (Harga Jual Patokan) alongside `unit_price`.
+- **Quality Assurance & Empirical Verification**:
+  - Full TypeScript build check (`npm run build`).
+  - Linting validation (`npm run lint`).
+  - Empirical database verification script proving:
+    - Master inventory price changes do NOT affect historical RAB or requisition item prices.
+    - Trigger `trg_lock_spk_pricing` automatically locks SPK and RAB items when SPK moves to `ACTIVE`.
 
 ### Explicitly Excluded
-- Changing Gate 2 budget calculations or validation rules.
-- Modifying inventory pricing logic outside audit metadata.
+- Re-architecting the WBS stage categories.
+- Modifying cash payments recording table schema.
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| Create and execute PostgreSQL migration for audit logging schema and RLS policies | Antigravity | ✅ Done | 0.5h |
-| Instrument `GoodsIssueForm.tsx` and `GoodsReturnForm.tsx` with audit metadata | Antigravity | ✅ Done | 0.5h |
-| Instrument `RequisitionApproval.tsx` with approver audit trail and transaction metadata | Antigravity | ✅ Done | 0.5h |
-| Integrate Warehouse Operations tab and backup execution UI in `ServiceAdvisorDashboard.tsx` | Antigravity | ✅ Done | 0.5h |
-| Verify TypeScript compilation (`npm run build`), ESLint (`npm run lint`), and empirical database validation | Antigravity | ✅ Done | 0.5h |
+| Create and execute PostgreSQL migration for immutable price snapshots, SPK document locking, and trigger | Antigravity | ✅ Done | 0.5h |
+| Update TypeScript database types & service layers (`inventoryService.ts`, etc.) | Antigravity | ✅ Done | 0.3h |
+| Update `RabCalculator.tsx` with immutable price snapshot persistence and document status locking UI | Antigravity | ✅ Done | 0.5h |
+| Update `MaterialRequisitionForm.tsx` to snapshot cost price & unit price | Antigravity | ✅ Done | 0.3h |
+| Update inventory management components to support HPP (`cost_price`) and selling price (`selling_price`) | Antigravity | ✅ Done | 0.4h |
+| Run empirical tests, verification script, and verify `npm run build` & `npm run lint` | Antigravity | ✅ Done | 0.5h |
 
 ## Daily Log
 
 ### 2026-10-16
-- Sprint 7 initialized based on user request.
-- Completed and archived Sprint 6 to `.gsd/sprints/sprint-6-implement-dynamic-tiered-gate-2-budget-warning.md`.
-- Analyzed existing database schema, RLS policies, and warehouse components.
-- Identified missing RLS write permissions for `service_advisor` on `inventory_transactions` and `materials`.
-- Created SQL migration `supabase/migrations/20261016000000_enable_sa_warehouse_ops_audit.sql`:
-  - Added audit columns (`issued_by_user_id`, `issued_by_name`, `issued_by_role`, `audit_notes`, `processed_by_user_id`, `processed_by_name`, `processed_by_role`) on `inventory_transactions`.
-  - Added audit columns (`approved_by_user_id`, `approved_by_name`, `approved_by_role`, `approved_at`, `audit_notes`) on `material_requisitions`.
-  - Created tables `material_issues`, `mandor_requisitions`, and `material_returns` with full RLS and audit schema.
-  - Added RLS policies granting `service_advisor` SELECT, INSERT, UPDATE on `inventory_transactions` and UPDATE on `materials`.
-  - Executed migration directly on PostgreSQL via node pg client successfully.
-- Updated `GoodsIssueForm.tsx`:
-  - Injected `profile` from `useAuth()`.
-  - Added `auditNotes` state and input field.
-  - Added SA Backup role warning banner.
-  - Populated audit columns and mirrored to `material_issues`.
-- Updated `GoodsReturnForm.tsx`:
-  - Injected `profile` and added `auditNotes` input field.
-  - Added SA Backup role warning banner.
-  - Added physical stock restoration in `materials.current_stock` (`stockAfter = stockBefore + qty`).
-  - Populated audit columns in `inventory_transactions` and mirrored to `material_returns`.
-- Updated `RequisitionApproval.tsx`:
-  - Populated `approved_by_user_id`, `approved_by_name`, `approved_by_role`, `approved_at`, `audit_notes` on `material_requisitions`.
-  - Populated audit columns on generated `inventory_transactions`.
-  - Mirrored approval and rejection to `mandor_requisitions`.
-- Updated `RecentMaterialIssues.tsx` and `RecentApprovedMaterials.tsx`:
-  - Added "Eksekutor / Audit" column and badge to show who processed transactions (with distinct `SA (Backup)` styling).
-- Updated `ServiceAdvisorDashboard.tsx`:
-  - Added "Operasional Gudang (Backup)" tab with pending requisition counter badge.
-  - Integrated complete operational workspace (Mandor Requests, Goods Issue, Goods Return, Inventaris, SPK filter, Recent Issues, Recent Approvals).
-- Quality Assurance & Empirical Verification:
-  - `npm run build`: Passed with 0 errors.
-  - `npm run lint`: Passed with 0 errors.
-  - Empirical database verification script `verify_audit_sprint7.cjs` verified all tables, audit columns, RLS policies, and test record inserts/cleanups with 100% PASS rate.
+- Archived Sprint 7 to `.gsd/sprints/sprint-7-enable-sa-warehouse-ops-audit.md`.
+- Initialized Sprint 8 for Immutable Point-in-Time Price Snapshot & Document Locking across KaroseriOps.
+- Executed migration `20261016010000_point_in_time_price_snapshot.sql` adding decoupled snapshot pricing to `materials`, `rab_items`, `material_requisition_items`, and `requisition_items`.
+- Created PostgreSQL trigger `trg_lock_spk_pricing` to automatically lock SPK and associated `rab_items` when transitioning to `ACTIVE`/`APPROVED`.
+- Backfilled existing historical records with 100% data integrity.
+- Updated `src/types/database.ts` and `src/services/inventoryService.ts`.
+- Integrated `RabCalculator.tsx` with read-only document locking banner, row lock badges, and Change Order modal guidance.
+- Updated `MaterialRequisitionForm.tsx`, `InventoryManager.tsx`, and `SAInventoryPanel.tsx` with `cost_price` (HPP) and `selling_price`.
+- Ran empirical database test `verify_price_immutability.cjs` with 100% pass rate confirming decoupled historical pricing and automated trigger locking.
+- Verified TypeScript build (`npm run build`) and linting (`npm run lint`) with 0 errors.

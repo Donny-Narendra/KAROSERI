@@ -20,6 +20,7 @@ interface MasterMaterial {
   name: string;
   unit: string;
   unit_price: number;
+  cost_price?: number;
   current_stock: number;
 }
 
@@ -29,6 +30,7 @@ interface RabSourceItem {
   name: string;
   unit: string;
   unitPrice: number;
+  costPrice?: number;
   rabQuantity: number;
   subtotal: number;
   currentStock: number;
@@ -45,6 +47,8 @@ interface RequisitionItem {
   unit: string;
   unitPrice: number;
   unit_price?: number;
+  costPrice?: number;
+  cost_price?: number;
   estimated_price?: number;
   quantity: number;
   subtotal: number;
@@ -690,6 +694,8 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
         }
 
         const unitPrice = Number(item.estimated_price || item.unit_price || item.unitPrice || 0);
+        const matchedMat = masterMaterials.find(m => m.id === resolvedMaterialId);
+        const costPrice = Number(item.cost_price || item.costPrice || (matchedMat?.cost_price !== undefined ? matchedMat.cost_price : Math.round(unitPrice * 0.8)));
         const quantity = Number(item.quantity) || 1;
         const subtotal = Number(item.subtotal) || (quantity * unitPrice);
         const wbsStage = item.wbs_stage || cleanWbsCategory;
@@ -702,6 +708,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
           quantity,
           unit: item.unit || 'pcs',
           unit_price: unitPrice,
+          cost_price: costPrice,
           subtotal,
           wbs_stage: wbsStage
         };

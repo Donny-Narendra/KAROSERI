@@ -80,6 +80,8 @@ export const SAInventoryPanel: React.FC = () => {
     setFormData({
       current_stock: mat.current_stock,
       unit_price: mat.unit_price,
+      cost_price: mat.cost_price !== undefined ? mat.cost_price : Math.round(mat.unit_price * 0.8),
+      selling_price: mat.selling_price !== undefined ? mat.selling_price : mat.unit_price,
       name: mat.name,
       unit: mat.unit,
       minimum_stock: mat.minimum_stock,
@@ -101,12 +103,21 @@ export const SAInventoryPanel: React.FC = () => {
     setError('');
 
     try {
+      const submitData = {
+        ...formData,
+        unit_price: formData.selling_price || formData.unit_price || 0,
+        cost_price: formData.cost_price || 0,
+        selling_price: formData.selling_price || formData.unit_price || 0
+      };
+
       const actionType = editMode === 'STOCK' ? 'STOCK_ADJUSTMENT' : 
-                         (formData.unit_price !== selectedMaterial.unit_price ? 'PRICE_CHANGE' : 'DETAIL_UPDATE');
+                         (submitData.unit_price !== selectedMaterial.unit_price || submitData.cost_price !== selectedMaterial.cost_price ? 'PRICE_CHANGE' : 'DETAIL_UPDATE');
       
       const prevData = {
         current_stock: selectedMaterial.current_stock,
         unit_price: selectedMaterial.unit_price,
+        cost_price: selectedMaterial.cost_price,
+        selling_price: selectedMaterial.selling_price,
         name: selectedMaterial.name,
         unit: selectedMaterial.unit,
         minimum_stock: selectedMaterial.minimum_stock
@@ -114,7 +125,7 @@ export const SAInventoryPanel: React.FC = () => {
 
       await inventoryService.updateMaterialWithAudit(
         selectedMaterial.id,
-        formData,
+        submitData,
         actionType as any,
         notes,
         prevData
@@ -237,7 +248,8 @@ export const SAInventoryPanel: React.FC = () => {
                     <tr>
                       <th className="px-4 py-3 rounded-tl-lg">Nama Material</th>
                       <th className="px-4 py-3">Stok</th>
-                      <th className="px-4 py-3">Harga Satuan</th>
+                      <th className="px-4 py-3">Harga Modal (HPP)</th>
+                      <th className="px-4 py-3">Harga Jual</th>
                       <th className="px-4 py-3">Satuan</th>
                       <th className="px-4 py-3 rounded-tr-lg text-right">Aksi</th>
                     </tr>
@@ -260,7 +272,10 @@ export const SAInventoryPanel: React.FC = () => {
                           </span>
                         </td>
                         <td className="px-4 py-3 font-mono text-text-muted">
-                          Rp {mat.unit_price.toLocaleString('id-ID')}
+                          Rp {(mat.cost_price || Math.round(mat.unit_price * 0.8)).toLocaleString('id-ID')}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-text font-medium">
+                          Rp {(mat.selling_price || mat.unit_price).toLocaleString('id-ID')}
                         </td>
                         <td className="px-4 py-3 font-mono text-text-muted">{mat.unit}</td>
                         <td className="px-4 py-3 text-right">
@@ -556,29 +571,41 @@ export const SAInventoryPanel: React.FC = () => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-text-muted mb-1">
-                        Harga Satuan (Rp)
+                        Harga Modal / HPP (Rp)
                       </label>
                       <input
                         type="number"
                         required
-                        value={formData.unit_price ?? ''}
-                        onChange={e => setFormData({...formData, unit_price: parseInt(e.target.value)})}
+                        value={formData.cost_price ?? ''}
+                        onChange={e => setFormData({...formData, cost_price: parseFloat(e.target.value) || 0})}
                         className="w-full bg-background border border-border rounded px-3 py-2 text-text font-mono focus:border-primary focus:outline-none transition"
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-text-muted mb-1">
-                        Stok Minimum
+                        Harga Jual (Rp)
                       </label>
                       <input
                         type="number"
-                        step="0.01"
                         required
-                        value={formData.minimum_stock ?? ''}
-                        onChange={e => setFormData({...formData, minimum_stock: parseFloat(e.target.value)})}
+                        value={formData.selling_price ?? ''}
+                        onChange={e => setFormData({...formData, selling_price: parseFloat(e.target.value) || 0, unit_price: parseFloat(e.target.value) || 0})}
                         className="w-full bg-background border border-border rounded px-3 py-2 text-text font-mono focus:border-primary focus:outline-none transition"
                       />
                     </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-text-muted mb-1">
+                      Stok Minimum
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      value={formData.minimum_stock ?? ''}
+                      onChange={e => setFormData({...formData, minimum_stock: parseFloat(e.target.value) || 0})}
+                      className="w-full bg-background border border-border rounded px-3 py-2 text-text font-mono focus:border-primary focus:outline-none transition"
+                    />
                   </div>
                 </>
               )}

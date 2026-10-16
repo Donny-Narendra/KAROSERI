@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, Plus, Trash2, Edit2, Download, Printer } from 'lucide-react';
+import { Calculator, Plus, Trash2, Edit2, Download, Printer, Lock, ShieldCheck, Info } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
 import { inventoryService } from '../services/inventoryService';
@@ -20,6 +20,9 @@ interface RabItem {
   description: string;
   qty: number;
   unitPrice: number;
+  costPrice?: number;
+  subtotal?: number;
+  isLocked?: boolean;
   wasteFactor?: number; // percentage (0-100)
   packageId?: string;
   materialId?: string;
@@ -39,6 +42,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   } | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [spkDetails, setSpkDetails] = useState<any>(null);
+  const isDocumentLocked = Boolean(spkDetails?.is_pricing_locked || (spkDetails?.status && spkDetails.status !== 'DRAFT'));
 
   // Package BOM state
   const [packages, setPackages] = useState<ProductPackage[]>([]);
@@ -97,30 +101,36 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
           const loadedItems = itemsData.map((dbItem: any) => {
             let type: 'material' | 'overhead' = 'material';
             let qty = 0;
-            let unitPrice = 0;
+            let unitPrice = Number(dbItem.unit_price) || 0;
+            const costPrice = Number(dbItem.cost_price) || 0;
             
             if (dbItem.labor_hours > 0) {
               type = 'material';
               qty = Number(dbItem.labor_hours);
-              unitPrice = Number(dbItem.labor_rate);
+              unitPrice = Number(dbItem.labor_rate) || unitPrice;
             } else if (dbItem.overhead_hours > 0) {
               type = 'overhead';
               qty = Number(dbItem.overhead_hours) / 8;
-              unitPrice = Number(dbItem.overhead_rate) * 8;
+              unitPrice = Number(dbItem.overhead_rate) * 8 || unitPrice;
             } else {
               type = 'material';
               qty = Number(dbItem.quantity);
-              // Recover unit price (without waste factor)
-              unitPrice = Number(dbItem.item_total) / (Number(dbItem.quantity) || 1);
+              // Recover unit price if still 0
+              if (unitPrice === 0) {
+                unitPrice = Number(dbItem.item_total) / (Number(dbItem.quantity) || 1);
+              }
             }
             
             return {
               id: dbItem.id,
               wbsCategory: dbItem.wbs_category,
               type,
-              description: dbItem.description,
+              description: dbItem.material_name || dbItem.description,
               qty,
               unitPrice,
+              costPrice,
+              subtotal: Number(dbItem.subtotal) || (qty * unitPrice),
+              isLocked: dbItem.is_locked,
               wasteFactor: 0,
               packageId: dbItem.package_id,
               materialId: dbItem.material_id || undefined
@@ -158,17 +168,26 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   }, [spkId]);
 
   useEffect(() => {
-    if (isInitialLoad) return;
+    if (isInitialLoad || isDocumentLocked) return;
     
     const timer = setTimeout(() => {
       handleSaveEstimation(true); // true = silent save
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [items, isInitialLoad]);
+  }, [items, isInitialLoad, isDocumentLocked]);
 
   const handleAddItem = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isDocumentLocked) {
+      setModalFeedback({
+        isOpen: true,
+        title: 'Dokumen Terkunci',
+        message: 'Tidak dapat menambah item karena RAB dan SPK telah berstatus terkunci (read-only).',
+        variant: 'danger',
+      });
+      return;
+    }
     if (!newItem.description || !newItem.qty || newItem.unitPrice === undefined) return;
     
     const totalManualAllocated = wbsCategories.reduce((sum, cat) => sum + (parseFloat(manualAllocations[cat.id]) || 0), 0);
@@ -176,6 +195,9 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     const isAllocationPassed = Math.abs(manualRemaining) < 0.001;
     
     if (!isAllocationPassed || newItem.qty <= 0) return;
+
+    const matchedMat = materials.find(m => m.id === newItem.materialId);
+    const costPrice = matchedMat?.cost_price !== undefined ? matchedMat.cost_price : (newItem.unitPrice ? Math.round((newItem.unitPrice as number) * 0.8) : 0);
 
     const newItemsToPush: RabItem[] = [];
     wbsCategories.forEach(cat => {
@@ -188,6 +210,9 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
              description: newItem.description as string,
              qty: wbsQty,
              unitPrice: newItem.unitPrice as number,
+             costPrice,
+             subtotal: wbsQty * (newItem.unitPrice as number),
+             isLocked: false,
              wasteFactor: newItem.type === 'material' ? newItem.wasteFactor : 0,
              materialId: newItem.materialId,
           });
@@ -226,6 +251,15 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   };
 
   const handleEditItem = (item: RabItem) => {
+    if (isDocumentLocked) {
+      setModalFeedback({
+        isOpen: true,
+        title: 'Dokumen Terkunci',
+        message: 'Item ini telah terkunci dan tidak dapat diedit secara langsung.',
+        variant: 'danger',
+      });
+      return;
+    }
     setNewItem({
       type: item.type,
       description: item.description,
@@ -239,10 +273,20 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   };
 
   const handleRemoveItem = (id: string) => {
+    if (isDocumentLocked) {
+      setModalFeedback({
+        isOpen: true,
+        title: 'Dokumen Terkunci',
+        message: 'Item tidak dapat dihapus karena dokumen SPK telah disetujui / aktif.',
+        variant: 'danger',
+      });
+      return;
+    }
     setItemToDelete(id);
   };
 
   const confirmRemoveItem = () => {
+    if (isDocumentLocked) return;
     if (itemToDelete) {
       setItems(items.filter(item => item.id !== itemToDelete));
       setItemToDelete(null);
@@ -274,6 +318,19 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       }
       return;
     }
+
+    if (isDocumentLocked) {
+      if (!silent) {
+        setModalFeedback({
+          isOpen: true,
+          title: 'Dokumen Terkunci (Read-Only)',
+          message: `RAB dan harga SPK ini telah dikunci (status: ${spkDetails?.status || 'LOCKED'}). Nilai harga bersifat permanen (point-in-time snapshot). Setiap perubahan wajib melalui Change Order (SPK Tambahan).`,
+          variant: 'danger',
+        });
+      }
+      return;
+    }
+
     try {
       // 1. Upsert estimation
       const { data: estData, error: estError } = await supabase.from('rab_estimations').upsert({
@@ -286,24 +343,34 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
 
       if (estError) throw estError;
 
-      // 2. Insert items
+      // 2. Insert items with point-in-time price snapshot
       const { error: delError } = await supabase.from('rab_items').delete().eq('rab_estimation_id', estData.id);
       if (delError && !silent) console.error("Error deleting old items:", delError);
 
       if (items.length > 0) {
-        const itemsToInsert = items.map(item => ({
-          rab_estimation_id: estData.id,
-          wbs_category: item.wbsCategory,
-          description: item.description,
-          quantity: item.type === 'material' ? item.qty : 0,
-          labor_hours: 0,
-          labor_rate: 0,
-          overhead_hours: item.type === 'overhead' ? item.qty * 8 : 0,
-          overhead_rate: item.type === 'overhead' ? item.unitPrice / 8 : 0,
-          item_total: calculateItemTotal(item),
-          package_id: item.packageId || null,
-          material_id: item.materialId || null
-        }));
+        const itemsToInsert = items.map(item => {
+          const matchedMat = materials.find(m => m.id === item.materialId);
+          const unitPrice = item.type === 'material' ? item.unitPrice : 0;
+          const costPrice = item.costPrice !== undefined ? item.costPrice : (matchedMat?.cost_price !== undefined ? matchedMat.cost_price : Math.round(unitPrice * 0.8));
+          return {
+            rab_estimation_id: estData.id,
+            spk_id: spkId,
+            wbs_category: item.wbsCategory,
+            description: item.description,
+            material_name: item.description,
+            quantity: item.type === 'material' ? item.qty : 0,
+            unit_price: unitPrice,
+            cost_price: costPrice,
+            labor_hours: 0,
+            labor_rate: 0,
+            overhead_hours: item.type === 'overhead' ? item.qty * 8 : 0,
+            overhead_rate: item.type === 'overhead' ? item.unitPrice / 8 : 0,
+            item_total: calculateItemTotal(item),
+            package_id: item.packageId || null,
+            material_id: item.materialId || null,
+            is_locked: false
+          };
+        });
 
         const { error: itemsError } = await supabase.from('rab_items').insert(itemsToInsert);
         if (itemsError) throw itemsError;
@@ -320,7 +387,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
         setModalFeedback({
           isOpen: true,
           title: 'Estimasi Berhasil Disimpan',
-          message: 'Data estimasi RAB dan status alokasi berhasil diperbarui ke database.',
+          message: 'Data estimasi RAB dan status alokasi berhasil diperbarui ke database dengan snapshot harga permanen.',
           variant: 'success',
         });
       }
@@ -338,6 +405,15 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   };
 
   const handleApplyPackageAllocation = async (allocatedItems: RabItemPayload[], isComplete: boolean, templateToSave?: Record<string, Record<string, number>>) => {
+    if (isDocumentLocked) {
+      setModalFeedback({
+        isOpen: true,
+        title: 'Dokumen Terkunci',
+        message: 'Tidak dapat mengubah alokasi paket karena SPK telah berstatus terkunci.',
+        variant: 'danger',
+      });
+      return;
+    }
     if (!selectedPackage) return;
     const pkgId = selectedPackage.id;
 
@@ -354,16 +430,25 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       }
     }
 
-    const newItems = allocatedItems.map((payload) => ({
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-      wbsCategory: payload.wbsCategory,
-      type: payload.type,
-      description: payload.description,
-      qty: payload.qty,
-      unitPrice: payload.unitPrice,
-      wasteFactor: payload.wasteFactor || 0,
-      packageId: pkgId,
-    }));
+    const newItems = allocatedItems.map((payload) => {
+      const payloadMatId = (payload as any).materialId;
+      const matchedMat = materials.find(m => (payloadMatId && m.id === payloadMatId) || m.name.toLowerCase() === payload.description.toLowerCase());
+      const costPrice = matchedMat?.cost_price !== undefined ? matchedMat.cost_price : Math.round(payload.unitPrice * 0.8);
+      return {
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        wbsCategory: payload.wbsCategory,
+        type: payload.type,
+        description: payload.description,
+        qty: payload.qty,
+        unitPrice: payload.unitPrice,
+        costPrice,
+        subtotal: payload.qty * payload.unitPrice,
+        isLocked: false,
+        wasteFactor: payload.wasteFactor || 0,
+        packageId: pkgId,
+        materialId: payloadMatId || matchedMat?.id,
+      };
+    });
     
     setItems((prev) => [
       ...prev.filter(i => i.packageId !== pkgId),
@@ -382,14 +467,25 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
 
   return (
     <div className="bg-surface border border-border rounded-lg overflow-hidden">
-      <div className="px-5 py-4 border-b border-border bg-surface-hover flex items-center justify-between">
-         <h3 className="font-bold text-text font-display flex items-center gap-2">
-           <Calculator className="w-5 h-5 text-primary"/> RAB Calculator
-         </h3>
+      <div className="px-5 py-4 border-b border-border bg-surface-hover flex items-center justify-between flex-wrap gap-3">
+         <div className="flex items-center gap-3">
+           <h3 className="font-bold text-text font-display flex items-center gap-2">
+             <Calculator className="w-5 h-5 text-primary"/> RAB Calculator
+           </h3>
+           {isDocumentLocked ? (
+             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 font-mono">
+               <Lock className="w-3.5 h-3.5" /> STATUS: TERKUNCI ({spkDetails?.status || 'LOCKED'})
+             </span>
+           ) : (
+             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded bg-blue-500/15 text-blue-400 border border-blue-500/30 font-mono">
+               <ShieldCheck className="w-3.5 h-3.5" /> STATUS: DRAFT (EDITABLE)
+             </span>
+           )}
+         </div>
          <div className="flex gap-2">
            <button 
               onClick={handleExportXlsx}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-status-success/10 text-status-success border border-status-success/20 rounded hover:bg-status-success/20 transition"
+              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-status-success/10 text-status-success border border-status-success/20 rounded hover:bg-status-success/20 transition cursor-pointer"
               title="Export to XLSX"
            >
               <Download className="w-4 h-4" /> Export XLSX
@@ -403,14 +499,71 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
            </button>
          </div>
       </div>
+
+      {isDocumentLocked && (
+        <div className="mx-6 mt-6 p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 flex items-start gap-3">
+          <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 mt-0.5 shrink-0">
+            <Lock className="w-5 h-5" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h4 className="text-sm font-bold text-amber-400 uppercase tracking-wider">
+                Dokumen Harga Terkunci (Point-in-Time Price Snapshot Enforced)
+              </h4>
+              <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                STATUS: {spkDetails?.status || 'ACTIVE'}
+              </span>
+            </div>
+            <p className="text-xs text-text-muted mt-1 leading-relaxed">
+              SPK ini telah berstatus resmi <strong>{spkDetails?.status}</strong>. Seluruh nilai nominal harga satuan bahan baku dan subtotal item RAB telah dibekukan (point-in-time snapshot). Fluktuasi harga master material di gudang tidak akan mengubah nilai kontrak ini. Perubahan spesifikasi pekerjaan wajib melalui <strong>Change Order (SPK Tambahan)</strong>.
+            </p>
+            {spkDetails?.locked_at && (
+              <p className="text-[11px] font-mono text-amber-400/80 mt-2">
+                🔒 Terkunci sejak: {new Date(spkDetails.locked_at).toLocaleString('id-ID')}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
       
       <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Left Col - Input Form */}
+        {/* Left Col - Input Form or Read-Only Locked Card */}
         <div className="lg:col-span-1 space-y-6">
-          
-          <div className="bg-background border border-border rounded-lg p-4 mb-6">
-            <h4 className="font-bold text-sm text-text border-b border-border pb-2 mb-3">Pilih Paket Barang Jadi (Assembly List)</h4>
+          {isDocumentLocked ? (
+            <div className="bg-background border border-amber-500/20 rounded-xl p-5 space-y-4 shadow-sm">
+              <div className="flex items-center gap-2.5 text-amber-400 border-b border-border pb-3">
+                <Lock className="w-5 h-5" />
+                <h4 className="font-bold text-sm">Mode Read-Only Aktif</h4>
+              </div>
+              <p className="text-xs text-text-muted leading-relaxed">
+                Penambahan, perubahan harga, atau penghapusan item estimasi dinonaktifkan karena dokumen SPK telah disetujui.
+              </p>
+              <div className="bg-surface p-3 rounded-lg border border-border text-xs space-y-2">
+                <div className="flex justify-between items-center text-text-muted">
+                  <span>Status Dokumen:</span>
+                  <span className="font-mono font-bold text-amber-400">{spkDetails?.status}</span>
+                </div>
+                <div className="flex justify-between items-center text-text-muted">
+                  <span>Kebijakan Harga:</span>
+                  <span className="font-mono text-text">Point-in-Time Snapshot</span>
+                </div>
+                <div className="flex justify-between items-center text-text-muted">
+                  <span>Total Item RAB:</span>
+                  <span className="font-mono font-bold text-text">{items.length} item</span>
+                </div>
+              </div>
+              <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg text-xs text-text-muted">
+                <p className="text-primary font-semibold mb-1 flex items-center gap-1.5">
+                  <Info className="w-3.5 h-3.5" /> Butuh Perubahan Pekerjaan?
+                </p>
+                Ajukan <strong>Change Order (SPK Tambahan)</strong> melalui modul Service Advisor untuk penambahan material atau jasa baru.
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="bg-background border border-border rounded-lg p-4 mb-6">
+                <h4 className="font-bold text-sm text-text border-b border-border pb-2 mb-3">Pilih Paket Barang Jadi (Assembly List)</h4>
             <div className="flex flex-col gap-2">
               <select
                 className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-primary transition"
@@ -633,7 +786,9 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
               </button>
             )}
           </form>
-        </div>
+        </>
+      )}
+    </div>
 
         {/* Right Col - Estimation Table */}
         <div className="lg:col-span-2 flex flex-col h-full">
@@ -648,53 +803,68 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                 <table className="w-full text-left text-sm text-text">
                   <thead className="bg-surface sticky top-0 border-b border-border text-text-muted font-mono text-xs uppercase shadow-sm">
                     <tr>
-                      <th className="px-4 py-3">Description</th>
-                      <th className="px-4 py-3">Type</th>
-                      <th className="px-4 py-3">WBS</th>
-                      <th className="px-4 py-3 text-right">Qty/Hrs/Days</th>
-                      <th className="px-4 py-3 text-right">Price/Rate</th>
-                      <th className="px-4 py-3 text-right">Waste</th>
-                      <th className="px-4 py-3 text-right">Total</th>
-                      <th className="px-4 py-3 text-center"></th>
+                      <th className="px-3 py-3">Description</th>
+                      <th className="px-3 py-3">Type</th>
+                      <th className="px-3 py-3">WBS</th>
+                      <th className="px-3 py-3 text-right">Qty</th>
+                      <th className="px-3 py-3 text-right">Harga Satuan</th>
+                      <th className="px-3 py-3 text-right">Harga Modal (HPP)</th>
+                      <th className="px-3 py-3 text-right">Waste</th>
+                      <th className="px-3 py-3 text-right">Subtotal</th>
+                      <th className="px-3 py-3 text-center">Aksi / Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {items.map((item) => (
                       <tr key={item.id} className="hover:bg-surface-hover/30 transition">
-                        <td className="px-4 py-3 font-medium">{item.description}</td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3 font-medium">
+                          <div className="flex items-center gap-1.5">
+                            {isDocumentLocked && <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
+                            <span>{item.description}</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3">
                           <span className={`px-2 py-0.5 rounded text-xs font-mono ${item.type === 'material' ? 'bg-status-info/10 text-status-info border border-status-info/20' : 'bg-status-danger/10 text-status-danger border border-status-danger/20'}`}>
                             {item.type}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-xs text-text-muted truncate max-w-[100px]">{item.wbsCategory}</td>
-                        <td className="px-4 py-3 text-right font-mono">{item.qty}</td>
-                        <td className="px-4 py-3 text-right font-mono text-text-muted">
+                        <td className="px-3 py-3 text-xs text-text-muted truncate max-w-[100px]">{item.wbsCategory}</td>
+                        <td className="px-3 py-3 text-right font-mono">{item.qty}</td>
+                        <td className="px-3 py-3 text-right font-mono text-text">
                           Rp {item.unitPrice.toLocaleString('id-ID')}
                         </td>
-                        <td className="px-4 py-3 text-right font-mono text-text-muted">
+                        <td className="px-3 py-3 text-right font-mono text-text-muted">
+                          Rp {(item.costPrice || 0).toLocaleString('id-ID')}
+                        </td>
+                        <td className="px-3 py-3 text-right font-mono text-text-muted">
                           {item.type === 'material' ? `${item.wasteFactor}%` : '-'}
                         </td>
-                        <td className="px-4 py-3 text-right font-mono font-medium text-primary">
+                        <td className="px-3 py-3 text-right font-mono font-medium text-primary">
                           Rp {calculateItemTotal(item).toLocaleString('id-ID')}
                         </td>
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <button 
-                              onClick={() => handleEditItem(item)}
-                              className="text-primary hover:text-primary-hover p-1 rounded hover:bg-primary/10 transition"
-                              title="Edit item"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button 
-                              onClick={() => handleRemoveItem(item.id)}
-                              className="text-status-danger hover:text-red-400 p-1 rounded hover:bg-status-danger/10 transition"
-                              title="Remove item"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
+                        <td className="px-3 py-3 text-center">
+                          {isDocumentLocked ? (
+                            <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono">
+                              <Lock className="w-3 h-3" /> Locked
+                            </span>
+                          ) : (
+                            <div className="flex items-center justify-center gap-2">
+                              <button 
+                                onClick={() => handleEditItem(item)}
+                                className="text-primary hover:text-primary-hover p-1 rounded hover:bg-primary/10 transition cursor-pointer"
+                                title="Edit item"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <button 
+                                onClick={() => handleRemoveItem(item.id)}
+                                className="text-status-danger hover:text-red-400 p-1 rounded hover:bg-status-danger/10 transition cursor-pointer"
+                                title="Remove item"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}

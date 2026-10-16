@@ -33,6 +33,8 @@ export const InventoryManager: React.FC = () => {
     current_stock: 0,
     minimum_stock: 0,
     unit_price: 0,
+    cost_price: 0,
+    selling_price: 0,
     waste_factor_percentage: 0
   });
 
@@ -87,6 +89,8 @@ export const InventoryManager: React.FC = () => {
         current_stock: material.current_stock,
         minimum_stock: material.minimum_stock,
         unit_price: material.unit_price,
+        cost_price: material.cost_price !== undefined ? material.cost_price : Math.round(material.unit_price * 0.8),
+        selling_price: material.selling_price !== undefined ? material.selling_price : material.unit_price,
         waste_factor_percentage: material.waste_factor_percentage
       });
     } else {
@@ -97,6 +101,8 @@ export const InventoryManager: React.FC = () => {
         current_stock: 0,
         minimum_stock: 0,
         unit_price: 0,
+        cost_price: 0,
+        selling_price: 0,
         waste_factor_percentage: 0
       });
     }
@@ -108,12 +114,19 @@ export const InventoryManager: React.FC = () => {
     setIsSubmitting(true);
     setError(null);
 
+    const submitData = {
+      ...formData,
+      unit_price: formData.selling_price || formData.unit_price || 0,
+      cost_price: formData.cost_price || 0,
+      selling_price: formData.selling_price || formData.unit_price || 0
+    };
+
     try {
       if (editingMaterial) {
-        await inventoryService.updateMaterial(editingMaterial.id, formData);
+        await inventoryService.updateMaterial(editingMaterial.id, submitData);
         showMessage('Material berhasil diperbarui');
       } else {
-        await inventoryService.addMaterial(formData);
+        await inventoryService.addMaterial(submitData);
         showMessage('Material berhasil ditambahkan');
       }
       setIsModalOpen(false);
@@ -282,7 +295,8 @@ export const InventoryManager: React.FC = () => {
               <th className="px-4 py-3">Satuan</th>
               <th className="px-4 py-3 text-right">Stok Saat Ini</th>
               <th className="px-4 py-3 text-right">Stok Min</th>
-              <th className="px-4 py-3 text-right">Harga Satuan (Rp)</th>
+              <th className="px-4 py-3 text-right">Harga Modal (HPP)</th>
+              <th className="px-4 py-3 text-right">Harga Jual</th>
               <th className="px-4 py-3 text-right">Waste %</th>
               <th className="px-4 py-3 text-center">Aksi</th>
             </tr>
@@ -290,11 +304,11 @@ export const InventoryManager: React.FC = () => {
           <tbody className="divide-y divide-border">
             {loading ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-text-muted">Loading data...</td>
+                <td colSpan={9} className="px-4 py-8 text-center text-text-muted">Loading data...</td>
               </tr>
             ) : filteredMaterials.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-text-muted">Tidak ada material ditemukan.</td>
+                <td colSpan={9} className="px-4 py-8 text-center text-text-muted">Tidak ada material ditemukan.</td>
               </tr>
             ) : (
               paginatedMaterials.map((m) => (
@@ -314,7 +328,10 @@ export const InventoryManager: React.FC = () => {
                   </td>
                   <td className="px-4 py-3 text-right text-text-muted font-mono">{m.minimum_stock}</td>
                   <td className="px-4 py-3 text-right font-mono text-text-muted">
-                    {new Intl.NumberFormat('id-ID').format(m.unit_price)}
+                    {new Intl.NumberFormat('id-ID').format(m.cost_price || Math.round(m.unit_price * 0.8))}
+                  </td>
+                  <td className="px-4 py-3 text-right font-mono text-text font-medium">
+                    {new Intl.NumberFormat('id-ID').format(m.selling_price || m.unit_price)}
                   </td>
                   <td className="px-4 py-3 text-right text-text-muted font-mono">{m.waste_factor_percentage}%</td>
                   <td className="px-4 py-3 flex justify-center gap-2">
@@ -451,16 +468,30 @@ export const InventoryManager: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-text-muted mb-1">Harga Satuan (Rp)</label>
+                    <label className="block text-sm font-medium text-text-muted mb-1">Harga Modal / HPP (Rp)</label>
                     <input 
                       type="number" 
                       required
                       min="0"
-                      value={formData.unit_price}
-                      onChange={e => setFormData({...formData, unit_price: parseFloat(e.target.value) || 0})}
+                      value={formData.cost_price}
+                      onChange={e => setFormData({...formData, cost_price: parseFloat(e.target.value) || 0})}
                       className="w-full bg-background border border-border rounded px-3 py-2 text-text focus:outline-none focus:border-primary font-mono"
                     />
+                    <p className="text-[11px] text-text-muted mt-0.5">Harga modal / beli gudang</p>
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-text-muted mb-1">Harga Jual Patokan (Rp)</label>
+                  <input 
+                    type="number" 
+                    required
+                    min="0"
+                    value={formData.selling_price}
+                    onChange={e => setFormData({...formData, selling_price: parseFloat(e.target.value) || 0, unit_price: parseFloat(e.target.value) || 0})}
+                    className="w-full bg-background border border-border rounded px-3 py-2 text-text focus:outline-none focus:border-primary font-mono"
+                  />
+                  <p className="text-[11px] text-text-muted mt-0.5">Harga jual patokan untuk RAB / Penawaran konsumen</p>
                 </div>
                 
                 <div>
