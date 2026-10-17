@@ -1,66 +1,53 @@
-# Sprint 22 — Localization Alignment (`react-i18next` Alignment)
+# Sprint 23 — Fix Zero Labor Budget and Enable LABOR Item Entry in RAB Calculator
 
 > **Duration**: 2026-10-17 to 2026-10-17
-> **Status**: Completed ✅
+> **Status**: In Progress 🟡
 
 ## Goal
-Resolve the final technical debt item in the codebase by aligning `react-i18next` localization. Expand translation catalogs (`id.json` & `en.json`) with symmetric enterprise dictionaries covering all workshop roles, create an interactive `LanguageSwitcher` component, integrate multi-language toggling into key views (`LoginPage`, `AdminDashboardPage`, `AdminSettingsPage`), and verify with automated tests.
+Fix zero labor budget in WBS variance reports (`/finance-reports`) by transitioning `rab_items.item_type` from a locked generated column to an editable column with standard `'MATERIAL' | 'LABOR'` defaults, backfilling historical labor items across `rab_items` and `change_order_items`, enabling explicit `LABOR` item entry and BOM package allocation in `RabCalculator` and `PackageAllocationModal`, and synchronizing real labor budgets in `rab_estimations` and `view_wbs_cost_variance`.
 
 ## Scope
 
 ### Included
-- **Translation Catalogs (`src/locales/id.json` & `src/locales/en.json`)**:
-  - Build comprehensive, symmetric localization dictionaries across namespaces:
-    - `common` (Actions, buttons, dialogs, feedback, pagination)
-    - `auth` (Login form, credentials, terminal release, security badges)
-    - `roles` (Owner, Service Advisor, Mandor, Petugas Gudang, Kasir, Public)
-    - `admin` (Executive KPIs, WIP, Bay metrics, SPK monitoring, change orders)
-    - `settings` (User management, workshop config, financial parameters, database)
-    - `spk` (SPK lifecycle, status, vehicle credentials, cancellation audit)
-    - `wbs` (7 stages of fabrication, quality control, borongan labor)
-    - `warehouse` (Inventory catalog, goods issue, requisitions, returns)
-    - `cashier` (Down payment, settlement invoices, handover lock, BAST)
-    - `finance` (Executive summary, COGS breakdown, margin analysis, sanity audit)
-- **Reusable Component (`src/components/LanguageSwitcher.tsx`)**:
-  - Quick language toggle button / dropdown with Globe icon.
-  - Seamless switching between Indonesian (`id`) and English (`en`).
-  - Active language highlighting and persistence in browser `localStorage`.
-- **UI Integration**:
-  - `src/pages/LoginPage.tsx`: Header language switcher, translated left panel and terminal login form.
-  - `src/pages/AdminDashboardPage.tsx`: Top bar language toggle, translated KPI titles, table headers, and tab labels.
-  - `src/pages/AdminSettingsPage.tsx`: Synchronized system preferences language select.
-- **Automated Tests (`src/components/__tests__/LanguageSwitcher.test.tsx`)**:
-  - Unit & component tests for language switcher rendering, click handling, language change emission, and translation resolution.
-- **Verification & Documentation**:
-  - `npx tsc -b` clean compile.
-  - `npm run lint` 0 errors.
-  - `npm test` 100% pass across all test suites (71/71 tests passing).
-  - `npm run build` production bundle success.
-  - Update `.gsd/ARCHITECTURE.md` resolving the "Localization Alignment" technical debt.
+- **Database Schema & Historical Data Migration**:
+  - Replace generated `item_type` on `public.rab_items` with standard `VARCHAR(20) DEFAULT 'MATERIAL'`.
+  - Recreate `view_wbs_cost_variance` with enhanced variance calculation.
+  - Backfill historical `rab_items` and `change_order_items` where item name contains workshop labor keywords (`jasa`, `ongkos`, `borongan`, `tukang`, `upah`, `tenaga`).
+  - Backfill `total_labor_cost` and `total_material_cost` on `public.rab_estimations` based on updated item types.
+  - Document migration in `supabase/migrations/20261017000000_enable_labor_item_type_in_rab_items.sql`.
+- **RAB Calculator Component (`src/components/RabCalculator.tsx`)**:
+  - Expand `RabItem` interface to support distinct `type: 'material' | 'labor' | 'overhead'`.
+  - Add explicit item type selector (`Material`, `Tenaga Kerja / Jasa (Labor)`, `Overhead`).
+  - Enable input of labor items (description, quantity, unit rate, automatic 0% waste factor).
+  - Update `handleSaveEstimation` to save `item_type: 'LABOR'`, `labor_hours`, and `labor_rate`.
+  - Calculate `totalLaborCost` dynamically from labor items instead of hardcoded 0.
+  - Update `fetchExistingRab` item loader to recognize `dbItem.item_type === 'LABOR'` or labor attributes.
+  - Add distinct UI visual badges for `LABOR` items in the estimation table.
+- **Package BOM Allocation (`src/components/PackageAllocationModal.tsx`)**:
+  - Allow `RabItemPayload` to preserve `type: 'labor'` when package BOM items have `item_type === 'LABOR'`.
+  - Pass allocated labor items to `RabCalculator` with appropriate labor types.
+- **Export & Financial Reporting Consistency**:
+  - Verify `rabExport.ts`, `WbsCostVarianceTab.tsx`, and `FinancialPrintReport.tsx` correctly display pagu jasa.
+- **Automated Tests & Empirical Verification**:
+  - Add automated component and unit tests covering `RabCalculator` labor item entry, labor calculation, and WBS variance resolution.
+  - Verify full test suite (`npm test`), linter (`npm run lint`), and production build (`npm run build`).
 
 ### Explicitly Excluded
-- Database-stored text content (e.g. user-entered custom customer names or vehicle plate values).
+- Changing the 7 standard WBS categories or fabrication workflow stages.
+- Altering existing SPK billing trigger policies or handover gates.
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| 1. Expand `src/locales/id.json` and `src/locales/en.json` with comprehensive symmetric catalogs | Antigravity | ✅ Done | 0.5h |
-| 2. Create `LanguageSwitcher.tsx` component with persistence | Antigravity | ✅ Done | 0.3h |
-| 3. Integrate localization into `LoginPage.tsx`, `AdminDashboardPage.tsx`, and `AdminSettingsPage.tsx` | Antigravity | ✅ Done | 0.5h |
-| 4. Create automated component tests in `LanguageSwitcher.test.tsx` | Antigravity | ✅ Done | 0.3h |
-| 5. Validate full test suite, linting, build, and resolve technical debt in ARCHITECTURE.md | Antigravity | ✅ Done | 0.2h |
+| 1. Execute database migration replacing generated `item_type` on `rab_items`, updating historical records & `rab_estimations` | Antigravity | ⬜ Todo | 0.4h |
+| 2. Upgrade `RabCalculator.tsx` with LABOR item entry, dynamic labor totals, and distinct UI badges | Antigravity | ⬜ Todo | 0.5h |
+| 3. Upgrade `PackageAllocationModal.tsx` to preserve `item_type === 'LABOR'` during package allocation | Antigravity | ⬜ Todo | 0.2h |
+| 4. Verify finance reports & WBS cost variance data alignment | Antigravity | ⬜ Todo | 0.3h |
+| 5. Create automated test suite and validate `npm test`, `npm run lint`, `npm run build` | Antigravity | ⬜ Todo | 0.4h |
 
 ## Daily Log
 
 ### 2026-10-17
-- Archived Sprint 21 to `.gsd/sprints/sprint-21-implement-audit-log-monitoring-for-cancelled-spks.md`.
-- Initialized Sprint 22: Localization Alignment (`react-i18next` Alignment).
-- Created symmetric translation catalogs in `src/locales/id.json` and `src/locales/en.json` spanning 11 namespaces (`common`, `roles`, `auth`, `admin`, `settings`, `cancellations`, `spk`, `wbs`, `warehouse`, `cashier`, `finance`).
-- Developed reusable, persistent `LanguageSwitcher.tsx` supporting both segmented pill button and dropdown variants.
-- Integrated `LanguageSwitcher` and localized string mappings into `LoginPage.tsx`, `AdminDashboardPage.tsx`, and `AdminSettingsPage.tsx`.
-- Created component test suite `src/components/__tests__/LanguageSwitcher.test.tsx` (5 tests passing).
-- Verified full test suite (`npm test`, 71/71 tests passing across 9 test files).
-- Verified TypeScript compilation (`npx tsc -b`) and linter (`npm run lint`, 0 errors).
-- Validated production build (`npm run build`).
-- Marked Localization Alignment as resolved in `.gsd/ARCHITECTURE.md` and updated `.gsd/STACK.md`.
+- Analyzed root cause of `Rp 0` "PAGU JASA": `rab_items.item_type` was defined as `GENERATED ALWAYS AS (CASE WHEN (labor_hours > 0 OR labor_rate > 0) THEN 'LABOR' ELSE 'MATERIAL' END) STORED` while `RabCalculator` was hardcoding `labor_hours: 0, labor_rate: 0` and `totalLaborCost = 0`.
+- Initialized Sprint 23: Fix Zero Labor Budget and Enable LABOR Item Entry in RAB Calculator.

@@ -1,7 +1,7 @@
 ## Current Position
-- **Sprint**: Sprint 22 — Localization Alignment (`react-i18next` Alignment)
-- **Status**: Sprint completed ✅
-- **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness
+- **Sprint**: Sprint 23 — Fix Zero Labor Budget and Enable LABOR Item Entry in RAB Calculator
+- **Status**: Sprint in progress 🟡
+- **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness (Sprint active)
 
 ## Last Session Summary
 Sprint 22 Completed (2026-10-17).
@@ -11,10 +11,13 @@ Sprint 22 Completed (2026-10-17).
 - Localized key views: `LoginPage.tsx`, `AdminDashboardPage.tsx`, and `AdminSettingsPage.tsx`.
 - Created component test suite `src/components/__tests__/LanguageSwitcher.test.tsx` (5 tests passing).
 - All 71 tests passing across 9 test files (`npm test`), zero TypeScript errors (`tsc -b`), zero linter errors (`npm run lint`), and clean production build (`npm run build`).
-- Resolved final pending technical debt item in `.gsd/ARCHITECTURE.md`. All technical debt items are now 100% resolved.
 
 ## Active Plan & Waves
-All planned sprints and technical debt remediation items have been completed.
+Sprint 23 in progress:
+- Replacing generated `item_type` column on `rab_items` with standard `VARCHAR(20) DEFAULT 'MATERIAL'`.
+- Backfilling historical labor items across `rab_items` and `change_order_items`.
+- Enabling explicit LABOR item entry and BOM package allocation in `RabCalculator` and `PackageAllocationModal`.
+- Synchronizing labor budgets in `rab_estimations` and `view_wbs_cost_variance`.
 
 ## Blockers
 None.
