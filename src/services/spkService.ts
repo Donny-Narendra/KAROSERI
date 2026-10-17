@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
+import type { ChangeOrderItemType } from '../types/database';
 
 export interface CancelSpkParams {
   spkId: string;
@@ -279,7 +280,7 @@ export const spkService = {
     description: string;
     items: Array<{
       wbs_stage: string;
-      item_type: 'MATERIAL' | 'LABOR';
+      item_type: ChangeOrderItemType;
       material_id?: string | null;
       item_name: string;
       quantity: number;

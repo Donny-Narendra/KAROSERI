@@ -71,7 +71,7 @@ export interface MaterialRequisitionItemRecord {
 }
 
 export type ChangeOrderStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED';
-export type ChangeOrderItemType = 'MATERIAL' | 'LABOR';
+export type ChangeOrderItemType = 'MATERIAL' | 'LABOR' | 'OVERHEAD';
 
 export interface ChangeOrderRecord {
   id: string;

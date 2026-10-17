@@ -1,61 +1,57 @@
-# Sprint 38 — Fix RAB Overhead Constraint and Enable Overhead Budget in 3-Element Costing
+# Sprint 39 — Change Order 3-Element Costing (Overhead Support in Amendments)
 
 > **Duration**: 2026-10-18 to 2026-10-18
 > **Status**: Completed ✅
 
 ## Goal
-Ensure overhead items in RAB are saved to `rab_items` with `item_type = 'OVERHEAD'` and proper `unit_price`, expand PostgreSQL check constraint `rab_items_item_type_check` to allow `'OVERHEAD'`, backfill historical overhead records, and ensure `view_wbs_cost_variance.rab_overhead_budget` aggregates accurately across the 3-element costing pipeline.
+Enable 3-element Job Order Costing (Material, Labor, and Factory Overhead) in Change Orders / Amendments:
+1. Expand TypeScript contract `ChangeOrderItemType` to `'MATERIAL' | 'LABOR' | 'OVERHEAD'`.
+2. Update `spkService.createChangeOrder` to accept `'OVERHEAD'` item type.
+3. Enhance `AmendmentManager.tsx` with a dedicated `+ Item Overhead (FOH)` action, activity description input, purple badge styling, and overhead summary count.
+4. Create a dedicated test suite `AmendmentManager.test.tsx` verifying overhead change order creation and subtotal calculations.
 
 ## Scope
 
 ### Included
-- **Database Schema & Migrations (`supabase/migrations/`)**:
-  - Migration `20261018000000_enable_overhead_item_type_in_rab_items.sql`.
-  - Drop and recreate `rab_items_item_type_check` to `CHECK (item_type IN ('MATERIAL', 'LABOR', 'OVERHEAD'))`.
-  - Backfill existing overhead items (e.g. 'Listrik') in `rab_items` to set `item_type = 'OVERHEAD'` and restore `unit_price`.
-  - Update `view_wbs_cost_variance` with resilient `COALESCE(item_total, quantity * unit_price)` overhead budget aggregation.
-- **TypeScript Types (`src/types/database.ts`)**:
-  - Update `RabItemRecord.item_type` to `'MATERIAL' | 'LABOR' | 'OVERHEAD'`.
-- **UI & Service Logic (`src/components/RabCalculator.tsx`)**:
-  - Update `handleSaveEstimation` to set `item_type = 'OVERHEAD'` and preserve `unitPrice` for overhead items.
-  - Update `fetchExistingRab` to recognize `dbItem.item_type === 'OVERHEAD'`.
-  - Ensure `overhead_hours`, `overhead_rate`, and `unit_price` are synchronized.
+- **TypeScript Types & Services**:
+  - `src/types/database.ts`: `ChangeOrderItemType = 'MATERIAL' | 'LABOR' | 'OVERHEAD'`.
+  - `src/services/spkService.ts`: `createChangeOrder` items payload type using `ChangeOrderItemType`.
+- **UI Components (`src/components/AmendmentManager.tsx`)**:
+  - Added `+ Item Overhead (FOH)` button with `Clock` icon and purple styling.
+  - Implemented form handling for `OVERHEAD` items (default unit `'hari'`, clear `material_id`).
+  - Rendered overhead activity description input (e.g. "Sewa Ruang Oven Lembur").
+  - Updated draft summary box to include `overheadCount` alongside material and labor counts.
+  - Styled `OVERHEAD` badge across draft cards and expandable detail table (`bg-purple-500/10 text-purple-400 border-purple-500/20`).
 - **Testing & Verification**:
-  - Added assertion in `RabCalculatorOverhead.test.tsx` verifying `rab_items.insert` payload includes `item_type: 'OVERHEAD'`, `unit_price: 1600000`, `quantity: 0.5`, `item_total: 800000`, and `material_id: null`.
-  - Ran empirical database validation script against Supabase PostgreSQL verifying constraint and view calculation.
-  - Verified all 16 Vitest test suites (130 tests passing 100%), clean `tsc -b`, and production build (`npm run build`).
+  - Created `src/components/__tests__/AmendmentManager.test.tsx` covering list view rendering, form display, overhead creation, live margins calculation, and submission payload.
+  - Ran full test suite (17 test files, 133 tests passing 100%).
+  - Verified clean TypeScript build (`tsc -b`) and Vite production bundle (`npm run build` in 516ms).
 
 ### Explicitly Excluded
-- Change Order / Amendment Manager overhead support (scheduled for Sprint 39).
 - Mandor operational actual overhead logging UI (scheduled for Sprint 40).
+- Oxlint code hygiene cleanup (scheduled for Sprint 41).
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| 1. Create SQL Migration `20261018000000_enable_overhead_item_type_in_rab_items.sql` | Antigravity | ✅ Done | 0.2h |
-| 2. Apply migration to Supabase PostgreSQL and verify constraints | Antigravity | ✅ Done | 0.2h |
-| 3. Update TypeScript contract in `src/types/database.ts` | Antigravity | ✅ Done | 0.1h |
-| 4. Update saving and loading logic in `src/components/RabCalculator.tsx` | Antigravity | ✅ Done | 0.3h |
-| 5. Update unit test `RabCalculatorOverhead.test.tsx` and run full verification | Antigravity | ✅ Done | 0.2h |
+| 1. Update TypeScript contract in `src/types/database.ts` and `src/services/spkService.ts` | Antigravity | ✅ Done | 0.2h |
+| 2. Implement Overhead item entry and badge styling in `src/components/AmendmentManager.tsx` | Antigravity | ✅ Done | 0.3h |
+| 3. Create unit test suite `src/components/__tests__/AmendmentManager.test.tsx` | Antigravity | ✅ Done | 0.3h |
+| 4. Verify with full test suite, `tsc -b`, and production build | Antigravity | ✅ Done | 0.2h |
 
 ## Daily Log
 
 ### 2026-10-18
-- Initialized Sprint 38: Fix RAB Overhead Constraint and Enable Overhead Budget in 3-Element Costing.
-- Confirmed PostgreSQL constraint `rab_items_item_type_check` currently restricts `item_type` to `('MATERIAL', 'LABOR')`.
-- Identified 2 historical rows ('Listrik') with `overhead_hours = 4` that had `item_type = 'MATERIAL'` and `unit_price = 0.00`.
-- Authored migration `20261018000000_enable_overhead_item_type_in_rab_items.sql`.
-- Applied migration successfully to Supabase PostgreSQL:
-  - `rab_items_item_type_check` expanded to `CHECK (item_type IN ('MATERIAL', 'LABOR', 'OVERHEAD'))`.
-  - Historical rows backfilled to `item_type = 'OVERHEAD'` and `unit_price = 1600000.00`.
-  - `view_wbs_cost_variance` synchronized; live query verified `total_overhead_budget = 800000.00` per stage.
-- Updated `src/types/database.ts` to include `'OVERHEAD'` in `RabItemRecord.item_type`.
-- Updated `src/components/RabCalculator.tsx`:
-  - `DbRabItemRecord` interface includes `'OVERHEAD'`.
-  - `fetchExistingRab` parses `dbItem.item_type === 'OVERHEAD'`.
-  - `handleSaveEstimation` persists `item_type: 'OVERHEAD'`, keeps `unit_price`, sets `material_id: null`.
-- Added new test in `RabCalculatorOverhead.test.tsx`:
-  - `persists overhead items with item_type="OVERHEAD", non-zero unit_price, and null material_id` passed.
-- Ran all 16 Vitest test suites: 130 tests passed (100%).
-- Ran `tsc -b` and `npm run build`: built cleanly in 521ms.
+- Initialized Sprint 39: Change Order 3-Element Costing (Overhead Support in Amendments).
+- Verified `view_wbs_cost_variance` already supports `co_overhead_budget` via `COALESCE(SUM(CASE WHEN item_type = 'OVERHEAD' ...))`.
+- Updated `ChangeOrderItemType` in `src/types/database.ts` and `src/services/spkService.ts`.
+- Enhanced `AmendmentManager.tsx`:
+  - Added `+ Item Overhead (FOH)` button with purple styling.
+  - Handled item type switching: resets `material_id = null` and sets `unit = 'hari'`.
+  - Added label `Uraian Biaya Overhead (FOH) *` and placeholder.
+  - Updated draft summary box with `overheadCount`.
+  - Applied purple badge in draft line item cards and expandable detail table.
+- Created unit test suite `src/components/__tests__/AmendmentManager.test.tsx` (3 tests passing).
+- Ran all 17 test suites: 133 tests passed (100%).
+- Ran `tsc -b` and `npm run build`: cleanly built in 516ms.

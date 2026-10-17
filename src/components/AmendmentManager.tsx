@@ -119,7 +119,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
       material_id: null,
       item_name: '',
       quantity: 1,
-      unit: type === 'MATERIAL' ? 'pcs' : 'jam',
+      unit: type === 'MATERIAL' ? 'pcs' : (type === 'OVERHEAD' ? 'hari' : 'jam'),
       unit_price: 0,
       cost_price: 0,
       notes: ''
@@ -155,6 +155,9 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
         if (value === 'LABOR') {
           updated.material_id = null;
           updated.unit = 'jam';
+        } else if (value === 'OVERHEAD') {
+          updated.material_id = null;
+          updated.unit = 'hari';
         } else {
           updated.unit = 'pcs';
         }
@@ -170,6 +173,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
     let totalHpp = 0;
     let materialCount = 0;
     let laborCount = 0;
+    let overheadCount = 0;
 
     draftItems.forEach(item => {
       const qty = Number(item.quantity || 0);
@@ -180,7 +184,8 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
       totalHpp += (qty * hpp);
 
       if (item.item_type === 'MATERIAL') materialCount++;
-      else laborCount++;
+      else if (item.item_type === 'LABOR') laborCount++;
+      else overheadCount++;
     });
 
     const profit = totalSelling - totalHpp;
@@ -192,7 +197,8 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
       profit,
       marginPct,
       materialCount,
-      laborCount
+      laborCount,
+      overheadCount
     };
   }, [draftItems]);
 
@@ -392,6 +398,14 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                   <Wrench className="w-3.5 h-3.5 text-sky-400" />
                   + Item Jasa / Mandor
                 </button>
+                <button
+                  type="button"
+                  onClick={() => handleAddItem('OVERHEAD')}
+                  className="bg-surface-active hover:bg-surface-active/80 text-text text-xs px-2.5 py-1 rounded border border-border flex items-center gap-1 transition cursor-pointer"
+                >
+                  <Clock className="w-3.5 h-3.5 text-purple-400" />
+                  + Item Overhead (FOH)
+                </button>
               </div>
             </div>
 
@@ -419,9 +433,17 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                           <span className={`text-[11px] font-bold px-2 py-0.5 rounded flex items-center gap-1 ${
                             item.item_type === 'MATERIAL' 
                               ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                              : 'bg-sky-500/10 text-sky-400 border border-sky-500/20'
+                              : item.item_type === 'OVERHEAD'
+                                ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+                                : 'bg-sky-500/10 text-sky-400 border border-sky-500/20'
                           }`}>
-                            {item.item_type === 'MATERIAL' ? <Package className="w-3 h-3" /> : <Wrench className="w-3 h-3" />}
+                            {item.item_type === 'MATERIAL' ? (
+                              <Package className="w-3 h-3" />
+                            ) : item.item_type === 'OVERHEAD' ? (
+                              <Clock className="w-3 h-3" />
+                            ) : (
+                              <Wrench className="w-3 h-3" />
+                            )}
                             {item.item_type}
                           </span>
                           <span className="text-xs text-text-muted font-mono">
@@ -463,7 +485,11 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                         {/* Material / Item Name */}
                         <div className="md:col-span-4">
                           <label className="block text-[11px] text-text-muted mb-1 font-medium">
-                            {item.item_type === 'MATERIAL' ? 'Pilih Material Gudang *' : 'Uraian Jasa / Pekerjaan *'}
+                            {item.item_type === 'MATERIAL' 
+                              ? 'Pilih Material Gudang *' 
+                              : item.item_type === 'OVERHEAD'
+                                ? 'Uraian Biaya Overhead (FOH) *'
+                                : 'Uraian Jasa / Pekerjaan *'}
                           </label>
                           {item.item_type === 'MATERIAL' ? (
                             <select
@@ -482,7 +508,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                             <input
                               type="text"
                               required
-                              placeholder="Misal: Jasa las struktur tambahan"
+                              placeholder={item.item_type === 'OVERHEAD' ? "Misal: Sewa alat derek / oven lembur" : "Misal: Jasa las struktur tambahan"}
                               className="w-full bg-surface border border-border rounded px-2.5 py-1.5 text-text focus:border-primary transition"
                               value={item.item_name}
                               onChange={(e) => handleItemChange(item.id, 'item_name', e.target.value)}
@@ -583,7 +609,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                 Rp {draftSummary.totalSelling.toLocaleString('id-ID')}
               </span>
               <span className="text-[11px] text-text-muted">
-                {draftSummary.materialCount} Material, {draftSummary.laborCount} Jasa
+                {draftSummary.materialCount} Material, {draftSummary.laborCount} Jasa, {draftSummary.overheadCount} Overhead
               </span>
             </div>
 
@@ -799,7 +825,9 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
                                       it.item_type === 'MATERIAL' 
                                         ? 'bg-emerald-500/10 text-emerald-400' 
-                                        : 'bg-sky-500/10 text-sky-400'
+                                        : it.item_type === 'OVERHEAD'
+                                          ? 'bg-purple-500/10 text-purple-400'
+                                          : 'bg-sky-500/10 text-sky-400'
                                     }`}>
                                       {it.item_type}
                                     </span>
