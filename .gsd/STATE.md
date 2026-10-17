@@ -1,18 +1,17 @@
 ## Current Position
-- **Sprint**: Sprint 36 — Integrate 3-Element Job Order Costing into Financial Reports UI and KPI Cards
-- **Status**: Sprint completed ✅
+- **Sprint**: Sprint 37 — Audit and Verification of Overhead Tracking and 3-Element Costing Implementation
+- **Status**: Audit completed ✅
 - **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness
 
 ## Last Session Summary
-- Archived Sprint 35 to `.gsd/sprints/sprint-35-implement-spk-overhead-logs-and-update-financial-database-views-for-3-element-job-order-costing.md`.
-- Completed Sprint 36:
-  - Updated TypeScript contracts in `src/types/financialReports.ts` (`FinancialExecutiveSummary`, `WbsCostVarianceItem`, `SpkJobProfitabilityItem`).
-  - Updated `ExecutiveKpiCards.tsx` to 6-card grid (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6`) with dedicated Card 4 for `total_actual_overhead_cost` (Overhead Pabrikasi FOH).
-  - Updated `WbsCostVarianceTab.tsx` with 3 FOH analytical columns (`Pagu FOH`, `Realisasi FOH`, `Varian FOH`), 3-way variance status calculation, and colSpan=12.
-  - Updated `JobProfitabilityTab.tsx` with `Biaya Overhead (FOH)` column, row cells, and summary aggregates.
-  - Synchronized `FinancialPrintReport.tsx` printable report with overhead columns across Executive Summary, Job Profitability, and WBS Cost Variance tables.
-  - Updated `ExecutiveKpiCards.test.tsx` and `executiveKpiCalculations.test.ts`.
-  - All 15 Vitest test suites (123 tests) passing, Oxlint 0 errors, and `npm run build` passing.
+- Archived Sprint 36 to `.gsd/sprints/sprint-36-integrate-3-element-job-order-costing-into-financial-reports-ui-and-kpi-cards.md`.
+- Completed Sprint 37 (Audit and Verification of Overhead Tracking and 3-Element Costing Implementation):
+  - Performed deep empirical codebase audit covering database schema, PostgreSQL views/RPCs, field operational interfaces, and `/finance-reports` dashboard.
+  - Identified critical schema gap: `rab_items` check constraint and `RabCalculator.tsx` mapping save overhead as `'MATERIAL'` instead of `'OVERHEAD'`, zeroing out `rab_overhead_budget` in `view_wbs_cost_variance`.
+  - Identified operational UI gap: `spk_overhead_logs` exists in database and service layer, but Mandor terminal (`WbsChecklist.tsx`, `QcInspectionForm.tsx`) has no manual or automated entry point.
+  - Identified Change Order gap: `AmendmentManager.tsx` only supports `MATERIAL` and `LABOR`, lacking `OVERHEAD` allocation.
+  - Verified database views, RPC `get_financial_executive_summary`, and UI reporting tabs (`ExecutiveKpiCards.tsx`, `WbsCostVarianceTab.tsx`, `JobProfitabilityTab.tsx`) have complete 3-element costing support.
+  - Formulated prioritized roadmap for subsequent implementation sprints.
 
 ## Blockers
 None.
