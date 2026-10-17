@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, CheckCircle2, AlertTriangle } from 'lucide-react';
 import type { ProductPackage } from '../types/package';
+import { parseDecimal } from '../utils/numberUtils';
 
 export interface RabItemPayload {
   wbsCategory: string;
@@ -88,18 +89,18 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
   };
 
   const isComplete = items.every((item, idx) => {
-    const totalAllocated = WBS_CATEGORIES.reduce((sum, cat) => sum + (parseFloat(allocations[idx]?.[cat]) || 0), 0);
+    const totalAllocated = WBS_CATEGORIES.reduce((sum, cat) => sum + parseDecimal(allocations[idx]?.[cat]), 0);
     // Use a small epsilon for floating point comparison
     return Math.abs(totalAllocated - item.quantity) < 0.001;
   });
 
   const hasNegativeRemainder = items.some((item, idx) => {
-    const totalAllocated = WBS_CATEGORIES.reduce((sum, cat) => sum + (parseFloat(allocations[idx]?.[cat]) || 0), 0);
+    const totalAllocated = WBS_CATEGORIES.reduce((sum, cat) => sum + parseDecimal(allocations[idx]?.[cat]), 0);
     return item.quantity - totalAllocated < -0.001;
   });
 
   const totalAllocatedSum = items.reduce((total, _, idx) => {
-    const itemTotal = WBS_CATEGORIES.reduce((sum, cat) => sum + (parseFloat(allocations[idx]?.[cat]) || 0), 0);
+    const itemTotal = WBS_CATEGORIES.reduce((sum, cat) => sum + parseDecimal(allocations[idx]?.[cat]), 0);
     return total + itemTotal;
   }, 0);
 
@@ -187,9 +188,11 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
                           <input
                             type="number"
                             min="0"
-                            step="0.01"
+                            step="any"
                             value={allocations[idx]?.[cat] || ''}
                             onChange={(e) => handleAllocationChange(idx, cat, e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            onMouseUp={(e) => e.preventDefault()}
                             className="w-20 mx-auto block bg-surface border border-border rounded px-2 py-1 text-center font-mono focus:border-primary focus:outline-none"
                           />
                         </td>

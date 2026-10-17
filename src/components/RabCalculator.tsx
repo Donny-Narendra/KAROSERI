@@ -11,6 +11,7 @@ import type { ProductPackage } from '../types/package';
 import { PackageAllocationModal } from './PackageAllocationModal';
 import type { RabItemPayload } from './PackageAllocationModal';
 import { exportRabToExcel, printRabQuotation } from '../utils/rabExport';
+import { parseDecimal } from '../utils/numberUtils';
 import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
 
 interface RabSpkDetails {
@@ -109,10 +110,12 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     'Kelistrikan/Hidrolik': '0',
   });
 
-  const laborTotalQty = wbsCategories.reduce(
-    (sum, cat) => sum + (parseFloat(laborAllocations[cat.id]) || 0),
-    0
-  );
+  const laborTotalQty = Math.round(
+    wbsCategories.reduce(
+      (sum, cat) => sum + parseDecimal(laborAllocations[cat.id] ?? 0),
+      0
+    ) * 100
+  ) / 100;
 
   // Package BOM & Inventory master state
   const [packages, setPackages] = useState<ProductPackage[]>([]);
@@ -186,7 +189,14 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   const [selectedPackage, setSelectedPackage] = useState<ProductPackage | null>(null);
   const [allocationStatus, setAllocationStatus] = useState<'PARTIAL' | 'COMPLETE'>('COMPLETE');
   
-  const [newItem, setNewItem] = useState<Partial<RabItem>>({
+  const [newItem, setNewItem] = useState<{
+    type: 'material' | 'labor' | 'overhead';
+    description?: string;
+    qty: string | number;
+    unitPrice?: number;
+    wasteFactor?: number;
+    materialId?: string;
+  }>({
     type: 'material',
     qty: 1,
     unitPrice: 0,
@@ -337,7 +347,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
 
     const newLaborItemsToPush: RabItem[] = [];
     wbsCategories.forEach(cat => {
-      const wbsQty = parseFloat(laborAllocations[cat.id]) || 0;
+      const wbsQty = parseDecimal(laborAllocations[cat.id] ?? 0);
       if (wbsQty > 0) {
         newLaborItemsToPush.push({
           id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
@@ -348,7 +358,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
           unit: 'lot',
           unitPrice: laborForm.estimatedCost,
           costPrice: laborForm.estimatedCost,
-          subtotal: wbsQty * laborForm.estimatedCost,
+          subtotal: Math.round(wbsQty * laborForm.estimatedCost),
           isLocked: false,
           wasteFactor: 0,
           notes: laborForm.notes.trim() || undefined,
@@ -411,13 +421,16 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       });
       return;
     }
-    if (!newItem.description || !newItem.qty || newItem.unitPrice === undefined) return;
+    const currentQty = parseDecimal(newItem.qty);
+    if (!newItem.description || currentQty <= 0 || newItem.unitPrice === undefined) return;
     
-    const totalManualAllocated = wbsCategories.reduce((sum, cat) => sum + (parseFloat(manualAllocations[cat.id]) || 0), 0);
-    const manualRemaining = (newItem.qty || 0) - totalManualAllocated;
-    const isAllocationPassed = Math.abs(manualRemaining) < 0.001;
+    const totalAllocated = Math.round(
+      wbsCategories.reduce((sum, cat) => sum + parseDecimal(manualAllocations[cat.id] ?? 0), 0) * 100
+    ) / 100;
+    const remaining = Math.round((currentQty - totalAllocated) * 100) / 100;
+    const isAllocationPassed = Math.abs(remaining) < 0.001 && currentQty > 0;
     
-    if (!isAllocationPassed || newItem.qty <= 0) return;
+    if (!isAllocationPassed || currentQty <= 0) return;
 
     const matchedMat = materials.find(m => m.id === newItem.materialId);
     const costPrice = matchedMat?.cost_price !== undefined 
@@ -428,7 +441,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
 
     const newItemsToPush: RabItem[] = [];
     wbsCategories.forEach(cat => {
-       const wbsQty = parseFloat(manualAllocations[cat.id]) || 0;
+       const wbsQty = parseDecimal(manualAllocations[cat.id] ?? 0);
        if (wbsQty > 0) {
           newItemsToPush.push({
              id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
@@ -719,9 +732,12 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
 
   const appliedPackagesData = packages.filter(p => items.some(i => i.packageId === p.id));
 
-  const totalManualAllocated = wbsCategories.reduce((sum, cat) => sum + (parseFloat(manualAllocations[cat.id]) || 0), 0);
-  const manualRemaining = (newItem.qty || 0) - totalManualAllocated;
-  const isAllocationPassed = Math.abs(manualRemaining) < 0.001;
+  const totalQty = parseDecimal(newItem.qty);
+  const totalManualAllocated = Math.round(
+    wbsCategories.reduce((sum, cat) => sum + parseDecimal(manualAllocations[cat.id] ?? 0), 0) * 100
+  ) / 100;
+  const manualRemaining = Math.round((totalQty - totalManualAllocated) * 100) / 100;
+  const isAllocationPassed = Math.abs(manualRemaining) < 0.001 && totalQty > 0;
 
   return (
     <div className="bg-surface border border-border rounded-lg overflow-hidden">
@@ -1059,7 +1075,12 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                           step="any"
                           aria-label={`Alokasi ${cat.label}`}
                           value={laborAllocations[cat.id] ?? ''}
-                          onChange={(e) => setLaborAllocations({ ...laborAllocations, [cat.id]: e.target.value })}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setLaborAllocations(prev => ({ ...prev, [cat.id]: val }));
+                          }}
+                          onFocus={(e) => e.target.select()}
+                          onMouseUp={(e) => e.preventDefault()}
                           className="w-12 mx-auto block bg-background border border-border rounded px-1 py-1 text-center font-mono focus:border-amber-500 focus:outline-none text-xs text-text"
                           placeholder="0"
                         />
@@ -1085,9 +1106,11 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                     type="number"
                     required
                     min="1"
-                    step="1"
+                    step="any"
                     value={laborForm.estimatedCost || ''}
                     onChange={(e) => setLaborForm({ ...laborForm, estimatedCost: parseFloat(e.target.value) || 0 })}
+                    onFocus={(e) => e.target.select()}
+                    onMouseUp={(e) => e.preventDefault()}
                     placeholder="misal: 500000"
                     className="w-full bg-surface border border-border rounded pl-10 pr-3 py-2 text-sm text-text font-mono focus:outline-none focus:border-amber-500"
                   />
@@ -1150,7 +1173,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                   <MaterialAutocomplete
                     materials={materials}
                     initialValue={newItem.description || ''}
-                    onSelect={(m) => setNewItem({ ...newItem, description: m.name, unitPrice: m.unit_price || 0, materialId: m.id })}
+                    onSelect={(m) => setNewItem(prev => ({ ...prev, description: m.name, unitPrice: m.unit_price || 0, materialId: m.id }))}
                     placeholder="Cari material gudang..."
                   />
                 ) : (
@@ -1158,7 +1181,10 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                     type="text"
                     required
                     value={newItem.description || ''}
-                    onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setNewItem(prev => ({ ...prev, description: val }));
+                    }}
                     placeholder="e.g. Workshop Bay Overhead"
                     className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
                   />
@@ -1167,16 +1193,22 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
+                  <label htmlFor="material-qty-input" className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
                     {itemMode === 'material' ? 'Qty (Bahan)' : 'Days (Hari Kerja)'}
                   </label>
                   <input
+                    id="material-qty-input"
                     type="number"
                     required
-                    min="0.1"
-                    step="0.1"
-                    value={newItem.qty || ''}
-                    onChange={(e) => setNewItem({ ...newItem, qty: parseFloat(e.target.value) })}
+                    min="0"
+                    step="any"
+                    value={newItem.qty ?? ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setNewItem(prev => ({ ...prev, qty: val }));
+                    }}
+                    onFocus={(e) => e.target.select()}
+                    onMouseUp={(e) => e.preventDefault()}
                     className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
                   />
                 </div>
@@ -1188,8 +1220,14 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                     type="number"
                     required
                     min="0"
+                    step="any"
                     value={newItem.unitPrice === 0 ? '' : newItem.unitPrice}
-                    onChange={(e) => setNewItem({ ...newItem, unitPrice: parseFloat(e.target.value) })}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value) || 0;
+                      setNewItem(prev => ({ ...prev, unitPrice: val }));
+                    }}
+                    onFocus={(e) => e.target.select()}
+                    onMouseUp={(e) => e.preventDefault()}
                     className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
                   />
                 </div>
@@ -1221,7 +1259,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                     <tbody className="bg-surface">
                       <tr>
                         <td className="px-2 py-3 font-mono font-bold text-center text-primary border-r border-border bg-surface-hover/50">
-                          {newItem.qty || 0}
+                          {totalQty || 0}
                         </td>
                         {wbsCategories.map((cat) => (
                           <td key={cat.id} className="px-1 py-3 text-center">
@@ -1229,8 +1267,14 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                               type="number"
                               min="0"
                               step="any"
-                              value={manualAllocations[cat.id] || ''}
-                              onChange={(e) => setManualAllocations({ ...manualAllocations, [cat.id]: e.target.value })}
+                              aria-label={`Alokasi Bahan ${cat.label}`}
+                              value={manualAllocations[cat.id] ?? ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setManualAllocations(prev => ({ ...prev, [cat.id]: val }));
+                              }}
+                              onFocus={(e) => e.target.select()}
+                              onMouseUp={(e) => e.preventDefault()}
                               className="w-14 mx-auto block bg-background border border-border rounded px-1 py-1 text-center font-mono focus:border-primary focus:outline-none text-xs"
                               placeholder="0"
                             />
@@ -1240,7 +1284,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                           <span className={`inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold ${
                             isAllocationPassed ? 'bg-status-success/20 text-status-success' : 'bg-status-danger/20 text-status-danger'
                           }`}>
-                            {isAllocationPassed ? 'PASSED' : (manualRemaining > 0 ? `Sisa: ${manualRemaining.toFixed(2)}` : `Over: ${Math.abs(manualRemaining).toFixed(2)}`)}
+                            {isAllocationPassed ? 'Sesuai / Pas (0.00)' : (manualRemaining > 0 ? `Sisa: ${manualRemaining.toFixed(2)}` : `Over: ${Math.abs(manualRemaining).toFixed(2)}`)}
                           </span>
                         </td>
                       </tr>
@@ -1251,7 +1295,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
 
               <button
                 type="submit"
-                disabled={!isAllocationPassed || !newItem.qty || newItem.qty <= 0}
+                disabled={!isAllocationPassed || totalQty <= 0}
                 className="w-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-bold py-2 px-4 rounded text-sm transition flex items-center justify-center gap-2 mt-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
