@@ -1248,7 +1248,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="material-qty-input" className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
-                    {itemMode === 'material' ? 'Qty (Bahan)' : 'Days (Hari Kerja)'}
+                    {itemMode === 'material' ? 'Qty (Bahan)' : 'FREKWENSI DALAM PROYEK INI'}
                   </label>
                   <input
                     id="material-qty-input"
@@ -1267,10 +1267,11 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
-                    {itemMode === 'material' ? 'Harga Satuan Bahan' : 'Bay Rate / Hari'}
+                  <label htmlFor="overhead-bay-rate-input" className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
+                    {itemMode === 'material' ? 'Harga Satuan Bahan' : 'BAY RATE / FREKWENSI'}
                   </label>
                   <input
+                    id="overhead-bay-rate-input"
                     type="number"
                     required
                     min="0"
@@ -1353,7 +1354,9 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                 className="w-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-bold py-2 px-4 rounded text-sm transition flex items-center justify-center gap-2 mt-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
-                {editingId ? 'Update Item' : 'Tambah Bahan ke RAB'}
+                {editingId 
+                  ? 'Update Item' 
+                  : (itemMode === 'overhead' ? 'Tambah Overhead ke RAB' : 'Tambah Bahan ke RAB')}
               </button>
 
               {editingId && (
