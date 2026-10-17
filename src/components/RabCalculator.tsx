@@ -110,12 +110,18 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     'Kelistrikan/Hidrolik': '0',
   });
 
-  const laborTotalQty = Math.round(
+  const [laborTargetQty, setLaborTargetQty] = useState<number | string>(1);
+
+  const laborTarget = parseDecimal(laborTargetQty);
+  const laborAllocatedSum = Math.round(
     wbsCategories.reduce(
       (sum, cat) => sum + parseDecimal(laborAllocations[cat.id] ?? 0),
       0
     ) * 100
   ) / 100;
+
+  const laborRemaining = Math.round((laborTarget - laborAllocatedSum) * 100) / 100;
+  const isLaborAllocationMatch = Math.abs(laborRemaining) < 0.001 && laborAllocatedSum > 0;
 
   // Package BOM & Inventory master state
   const [packages, setPackages] = useState<ProductPackage[]>([]);
@@ -335,11 +341,13 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     }
     if (!laborForm.name.trim() || !laborForm.estimatedCost || laborForm.estimatedCost <= 0) return;
 
-    if (laborTotalQty <= 0) {
+    if (!isLaborAllocationMatch) {
       setModalFeedback({
         isOpen: true,
-        title: 'Alokasi WBS Kosong',
-        message: 'Harap tentukan alokasi tahapan WBS minimal 1.',
+        title: 'Alokasi WBS Belum Sesuai',
+        message: laborRemaining > 0
+          ? `Alokasi WBS masih memiliki sisa ${laborRemaining.toFixed(2)}. Harap sesuaikan total alokasi dengan Total Qty (${laborTarget}).`
+          : `Alokasi WBS melebihi Total Qty sebesar ${Math.abs(laborRemaining).toFixed(2)}. Harap sesuaikan total alokasi.`,
         variant: 'danger',
       });
       return;
@@ -372,6 +380,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     setEditingId(null);
     setIsLaborSuggestOpen(false);
 
+    setLaborTargetQty(1);
     setLaborForm({
       name: '',
       estimatedCost: 0,
@@ -389,6 +398,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   const handleCancelEdit = () => {
     setEditingId(null);
     setIsLaborSuggestOpen(false);
+    setLaborTargetQty(1);
     setLaborForm({
       name: '',
       estimatedCost: 0,
@@ -504,6 +514,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     setEditingId(item.id);
     if (item.type === 'labor') {
       setItemMode('labor');
+      setLaborTargetQty(item.qty);
       setLaborForm({
         name: item.description,
         estimatedCost: item.unitPrice,
@@ -919,6 +930,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
               onClick={() => {
                 setItemMode('labor');
                 setIsLaborSuggestOpen(false);
+                setLaborTargetQty(1);
                 setLaborAllocations({
                   'Pembongkaran': '1',
                   'Sasis/Rangka': '0',
@@ -1055,18 +1067,21 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                   ALOKASI WBS <span className="text-status-danger">*</span>
                 </label>
                 <div className="border border-border rounded-md overflow-hidden bg-surface">
-                  <div className="grid grid-cols-6 text-center text-xs font-semibold border-b border-border bg-surface-hover/90 py-1.5 text-text-muted font-mono">
+                  <div className="grid grid-cols-7 text-center text-xs font-semibold border-b border-border bg-surface-hover/90 py-1.5 text-text-muted font-mono">
                     <div className="border-r border-border">TOTAL QTY</div>
                     <div title="WBS 1: Pembongkaran">WBS 1</div>
                     <div title="WBS 2: Sasis/Rangka">WBS 2</div>
                     <div title="WBS 3: Dinding/Fabrikasi">WBS 3</div>
                     <div title="WBS 4: Pengecatan">WBS 4</div>
                     <div title="WBS 5: Kelistrikan/Hidrolik">WBS 5</div>
+                    <div className="border-l border-border">STATUS</div>
                   </div>
-                  <div className="grid grid-cols-6 text-center items-center py-2 px-1 gap-1">
+                  <div className="grid grid-cols-7 text-center items-center py-2 px-1 gap-1">
+                    {/* Kolom 1: Total Target Qty */}
                     <div className="text-sm font-bold text-amber-500 font-mono border-r border-border">
-                      {laborTotalQty}
+                      {laborTargetQty}
                     </div>
+                    {/* Kolom 2 - 6: Input WBS 1 s/d WBS 5 */}
                     {wbsCategories.map((cat) => (
                       <div key={cat.id} className="flex justify-center">
                         <input
@@ -1086,41 +1101,80 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                         />
                       </div>
                     ))}
+                    {/* Kolom 7: Badge STATUS */}
+                    <div className="flex justify-center items-center px-1 border-l border-border">
+                      {isLaborAllocationMatch ? (
+                        <span className="text-[11px] font-medium px-2 py-1 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800 whitespace-nowrap">
+                          Sesuai / Pas (0.00)
+                        </span>
+                      ) : laborRemaining > 0 ? (
+                        <span className="text-[11px] font-medium px-2 py-1 rounded bg-rose-950/80 text-rose-400 border border-rose-800 whitespace-nowrap">
+                          Sisa: {laborRemaining.toFixed(2)}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-medium px-2 py-1 rounded bg-amber-950/80 text-amber-400 border border-amber-800 whitespace-nowrap">
+                          Lebih: {Math.abs(laborRemaining).toFixed(2)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-                {laborTotalQty <= 0 && (
+                {!isLaborAllocationMatch && (
                   <p className="text-[11px] font-mono text-status-danger">
-                    Harap tentukan alokasi tahapan WBS minimal 1.
+                    {laborRemaining > 0 
+                      ? `Harap tentukan alokasi tahapan WBS (sisa ${laborRemaining.toFixed(2)} dari target ${laborTargetQty}).`
+                      : `Alokasi tahapan WBS melebihi target ${laborTargetQty} (lebih ${Math.abs(laborRemaining).toFixed(2)}).`}
                   </p>
                 )}
               </div>
 
-              <div>
-                <label htmlFor="labor-cost-input" className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
-                  Estimasi Biaya Jasa / Upah (Rp) <span className="text-status-danger">*</span>
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2 text-sm font-bold text-text-muted font-mono">Rp</span>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="labor-target-qty-input" className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
+                    Target Qty (Lot / Unit) <span className="text-status-danger">*</span>
+                  </label>
                   <input
-                    id="labor-cost-input"
+                    id="labor-target-qty-input"
                     type="number"
                     required
-                    min="1"
+                    min="0"
                     step="any"
-                    value={laborForm.estimatedCost || ''}
-                    onChange={(e) => setLaborForm({ ...laborForm, estimatedCost: parseFloat(e.target.value) || 0 })}
+                    value={laborTargetQty}
+                    onChange={(e) => setLaborTargetQty(e.target.value)}
                     onFocus={(e) => e.target.select()}
                     onMouseUp={(e) => e.preventDefault()}
-                    placeholder="misal: 500000"
-                    className="w-full bg-surface border border-border rounded pl-10 pr-3 py-2 text-sm text-text font-mono focus:outline-none focus:border-amber-500"
+                    placeholder="1"
+                    className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text font-mono focus:outline-none focus:border-amber-500"
                   />
                 </div>
-                {laborForm.estimatedCost > 0 && (
-                  <p className="text-[11px] font-mono text-amber-400 mt-1">
-                    Terbilang: Rp {laborForm.estimatedCost.toLocaleString('id-ID')} (per 1 unit / lot pekerjaan)
-                  </p>
-                )}
+
+                <div>
+                  <label htmlFor="labor-cost-input" className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
+                    Estimasi Biaya Jasa / Upah (Rp) <span className="text-status-danger">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-sm font-bold text-text-muted font-mono">Rp</span>
+                    <input
+                      id="labor-cost-input"
+                      type="number"
+                      required
+                      min="1"
+                      step="any"
+                      value={laborForm.estimatedCost || ''}
+                      onChange={(e) => setLaborForm({ ...laborForm, estimatedCost: parseFloat(e.target.value) || 0 })}
+                      onFocus={(e) => e.target.select()}
+                      onMouseUp={(e) => e.preventDefault()}
+                      placeholder="misal: 500000"
+                      className="w-full bg-surface border border-border rounded pl-10 pr-3 py-2 text-sm text-text font-mono focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
               </div>
+              {laborForm.estimatedCost > 0 && (
+                <p className="text-[11px] font-mono text-amber-400">
+                  Terbilang: Rp {laborForm.estimatedCost.toLocaleString('id-ID')} (per 1 unit / lot pekerjaan)
+                </p>
+              )}
 
               <div>
                 <label htmlFor="labor-notes-input" className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
@@ -1139,7 +1193,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
               <div className="space-y-2 pt-1">
                 <button
                   type="submit"
-                  disabled={!laborForm.name.trim() || !laborForm.estimatedCost || laborForm.estimatedCost <= 0 || laborTotalQty <= 0}
+                  disabled={!laborForm.name.trim() || !laborForm.estimatedCost || laborForm.estimatedCost <= 0 || !isLaborAllocationMatch}
                   className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded text-sm transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-sm"
                 >
                   <Plus className="w-4 h-4" />

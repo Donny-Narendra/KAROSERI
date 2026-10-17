@@ -1,50 +1,63 @@
-# Sprint 29 — Enable Decimal Precision and Auto-Select on Focus for QTY and WBS Allocation Inputs
+# Sprint 30 — Add Allocation Status Column to Labor WBS Grid in RAB Calculator
 
 > **Duration**: 2026-10-17 to 2026-10-17
 > **Status**: Completed ✅
 
 ## Goal
-Enable decimal precision (supporting both '.' and ',' decimal separators) and auto-select on focus (`onFocus={(e) => e.target.select()}`, `onMouseUp={(e) => e.preventDefault()}`) for QTY and WBS 1-5 allocation inputs in RabCalculator (both Material and Labor forms), with rounded remainder tolerance.
+Add a dedicated STATUS column to the Labor / Tukang ALOKASI WBS table grid in RabCalculator (`/service-advisor`), compute allocation balance dynamically (`allocatedSum`, `remaining`), show dynamic status badges (`Sesuai / Pas (0.00)`, `Sisa: X.XX`, `Lebih: X.XX`), and enforce allocation completeness validation before adding/updating labor items.
 
 ## Scope
 
 ### Included
-- **Decimal Precision & Input Attributes**:
-  - Configure `step="any"` and `min="0"` on QTY and WBS 1 to WBS 5 allocation inputs in `RabCalculator.tsx` and `PackageAllocationModal.tsx`.
-  - Provide `parseDecimal(val)` helper in `src/utils/numberUtils.ts` normalizing comma `,` to dot `.` and safely parsing floats without forced `parseInt()`.
-  - Ensure users can input fractional material quantities (e.g., 1.5 plat bordes, 0.5 kg kawat las, 2.5 liter cat) and split across WBS stages.
-- **Auto-Select on Focus**:
-  - Attached `onFocus={(e) => e.target.select()}` and `onMouseUp={(e) => e.preventDefault()}` on QTY and WBS 1 to WBS 5 inputs across both Material and Labor tabs.
-- **Allocation Remainder & Status Badge**:
-  - Recalculated remaining allocation using JavaScript floating-point rounding tolerance: `Math.round((totalQty - sumWbsAllocated) * 100) / 100`.
-  - Updated status badge to display exact Indonesian status: `Sesuai / Pas (0.00)` when balanced, `Sisa: X.XX` when remaining, or `Over: X.XX` when over quota.
-- **Labor Form Parity**:
-  - Applied the same decimal precision and auto-select behaviors to the Labor / Tukang tab allocation grid.
-- **Automated Testing & Verification**:
-  - Added unit test suite `src/components/__tests__/RabCalculatorDecimal.test.tsx` verifying decimal inputs, fractional WBS splitting, comma/dot format, and auto-select attributes.
-  - Ran `npm test`, `npm run lint`, and `npm run build`.
+- **7-Column Grid Layout for Labor WBS**:
+  - Updated grid container header from 6 columns to 7 columns: `TOTAL QTY`, `WBS 1`, `WBS 2`, `WBS 3`, `WBS 4`, `WBS 5`, and `STATUS`.
+  - Updated row layout to 7 columns:
+    - Column 1: `TOTAL QTY` (displays `laborTargetQty`).
+    - Columns 2–6: WBS 1 to WBS 5 allocation inputs with `step="any"` and `onFocus` auto-select.
+    - Column 7: Dynamic STATUS badge:
+      - `Sesuai / Pas (0.00)` (`bg-emerald-950/80 text-emerald-400 border border-emerald-800`) when `remaining === 0`.
+      - `Sisa: X.XX` (`bg-rose-950/80 text-rose-400 border border-rose-800`) when `remaining > 0`.
+      - `Lebih: X.XX` (`bg-amber-950/80 text-amber-400 border border-amber-800`) when `remaining < 0`.
+- **Target Quantity & Balance Calculation**:
+  - Introduced `laborTargetQty` (default 1) with editable Target Qty field in labor form.
+  - Computed `laborAllocatedSum = round((wbs1 + wbs2 + wbs3 + wbs4 + wbs5) * 100) / 100`.
+  - Computed `laborRemaining = round((laborTargetQty - laborAllocatedSum) * 100) / 100`.
+  - Determined `isLaborAllocationMatch = Math.abs(laborRemaining) < 0.001 && laborAllocatedSum > 0`.
+- **Form Guard & Feedback**:
+  - Guarded "+ Tambah Jasa ke RAB" button with `disabled={!isLaborAllocationMatch || ...}`.
+  - Provided modal feedback explaining the remaining/excess allocation if submit attempted while unbalanced.
+  - Synchronized `laborTargetQty` across edit item, cancel edit, and mode toggle resets.
+- **Automated Testing & Quality**:
+  - Unit tests verifying 7-column header/row structure, dynamic badge transitions (Sisa -> Sesuai / Pas -> Lebih), and button guard behavior.
+  - 103 Vitest unit tests passing across 12 test files, 0 linter errors, and clean production build.
 
 ### Explicitly Excluded
 - Database schema changes.
-- Altering unrelated financial reporting services.
+- Modifying Material or Overhead tab layouts.
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| 1. Refactor QTY and WBS 1-5 inputs in `RabCalculator.tsx` with `step="any"`, `min="0"`, `parseDecimal`, and `onFocus` auto-select | Antigravity | ✅ Done | 0.4h |
-| 2. Update remaining calculation and status badge with floating-point tolerance | Antigravity | ✅ Done | 0.2h |
-| 3. Add automated tests for decimal input handling and auto-select | Antigravity | ✅ Done | 0.3h |
-| 4. Verification with Vitest, linter, and production build | Antigravity | ✅ Done | 0.2h |
+| 1. Update Labor WBS grid header and row to 7 columns with STATUS column | Antigravity | ✅ Done | 0.3h |
+| 2. Implement `laborTargetQty`, `laborAllocatedSum`, `laborRemaining`, and badge rendering | Antigravity | ✅ Done | 0.3h |
+| 3. Enforce button disabled guard and modal feedback for incomplete/over allocation | Antigravity | ✅ Done | 0.2h |
+| 4. Update and expand unit tests in `RabCalculatorLabor.test.tsx` and `RabCalculatorDecimal.test.tsx` | Antigravity | ✅ Done | 0.3h |
+| 5. Validation with Vitest, linter, and production build | Antigravity | ✅ Done | 0.2h |
 
 ## Daily Log
 
 ### 2026-10-17
-- Initialized Sprint 29: Enable Decimal Precision and Auto-Select on Focus for QTY and WBS Allocation Inputs.
-- Created `src/utils/numberUtils.ts` exporting `parseDecimal(val)` helper to safely normalize comma/dot decimals and handle string/number/null types.
-- Updated `RabCalculator.tsx` QTY and WBS 1 to WBS 5 allocation inputs with `step="any"`, `min="0"`, `onFocus={(e) => e.target.select()}`, and `onMouseUp={(e) => e.preventDefault()}`.
-- Refactored allocation remaining calculation and badge display in `RabCalculator.tsx` to handle 2-decimal float tolerance and display `Sesuai / Pas (0.00)` / `Sisa: X.XX` / `Over: X.XX`.
-- Applied functional state updaters (`prev => ({ ...prev, ... })`) for `newItem`, `manualAllocations`, and `laborAllocations` to eliminate stale closure bugs during multi-cell edits.
-- Enhanced `PackageAllocationModal.tsx` WBS inputs with `step="any"`, `parseDecimal`, and auto-select on focus.
-- Implemented comprehensive test suite in `src/components/__tests__/RabCalculatorDecimal.test.tsx` covering `parseDecimal`, auto-select focus events, fractional allocation math (1.5 QTY -> 1 + 0.5), comma notation (1,5), and Labor multi-WBS allocations.
-- Validated all 101 Vitest unit tests pass across 12 test files, 0 linter errors, and verified production build with Vite.
+- Initialized Sprint 30: Add Allocation Status Column to Labor WBS Grid in RAB Calculator.
+- Refactored `RabCalculator.tsx` to add `laborTargetQty` state (default 1) and editable `Target Qty (Lot / Unit)` field.
+- Implemented `laborAllocatedSum`, `laborRemaining`, and `isLaborAllocationMatch` with 2-decimal rounding tolerance.
+- Expanded Labor ALOKASI WBS grid to 7 columns with `STATUS` column in both header and row.
+- Rendered dynamic status badges with exact styling:
+  - Exact match: `Sesuai / Pas (0.00)` (`bg-emerald-950/80 text-emerald-400 border border-emerald-800`).
+  - Under-allocated: `Sisa: X.XX` (`bg-rose-950/80 text-rose-400 border border-rose-800`).
+  - Over-allocated: `Lebih: X.XX` (`bg-amber-950/80 text-amber-400 border border-amber-800`).
+- Updated submit button to disable until `isLaborAllocationMatch === true` and provide descriptive warning message below grid.
+- Synchronized `laborTargetQty` on `handleEditItem`, `handleCancelEdit`, and `toggle-mode-labor`.
+- Added unit tests in `RabCalculatorLabor.test.tsx` verifying STATUS header, dynamic badge transitions, and submit button guard.
+- Updated `RabCalculatorDecimal.test.tsx` to align with the Target Qty workflow.
+- Verified 103/103 Vitest tests pass across all 12 test files, 0 linter errors, and successful production build with Vite.

@@ -171,7 +171,9 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
     expect(screen.getByText('WBS 3')).toBeInTheDocument();
     expect(screen.getByText('WBS 4')).toBeInTheDocument();
     expect(screen.getByText('WBS 5')).toBeInTheDocument();
+    expect(screen.getByText('STATUS')).toBeInTheDocument();
 
+    expect(screen.getByText(/Target Qty/i)).toBeInTheDocument();
     expect(screen.getByText(/Estimasi Biaya Jasa \/ Upah/i)).toBeInTheDocument();
     expect(screen.getByText(/Catatan \/ Scope Pekerjaan/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Tambah Jasa ke RAB/i })).toBeInTheDocument();
@@ -234,7 +236,10 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
     const nameInput = screen.getByPlaceholderText('misal: Jasa Tukang Las Sasis');
     fireEvent.change(nameInput, { target: { value: 'Jasa Perakitan Rangka & Dinding' } });
 
-    // Multi-WBS allocation: WBS 1 = 0, WBS 2 = 1, WBS 3 = 1
+    // Multi-WBS allocation: set Target Qty = 2, then WBS 1 = 0, WBS 2 = 1, WBS 3 = 1
+    const targetQtyInput = screen.getByLabelText(/Target Qty/i);
+    fireEvent.change(targetQtyInput, { target: { value: '2' } });
+
     const wbs1Input = screen.getByLabelText('Alokasi WBS 1: Pembongkaran');
     const wbs2Input = screen.getByLabelText('Alokasi WBS 2: Sasis/Rangka');
     const wbs3Input = screen.getByLabelText('Alokasi WBS 3: Dinding/Fabrikasi');
@@ -393,6 +398,80 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
 
     // Verify fallback prompt appears
     expect(screen.getByText('Tidak ditemukan di master inventaris jasa. Tekan Enter untuk gunakan nama kustom.')).toBeInTheDocument();
+  });
+
+  it('verifies Labor WBS STATUS badge dynamically updates: Sisa (red), Sesuai / Pas (green), and Lebih (amber)', async () => {
+    render(<RabCalculator spkId="spk-test-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Jasa / Tukang (Labor)')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Jasa / Tukang (Labor)'));
+
+    // By default, Target Qty is 1 and WBS 1 is 1 -> balanced (0.00)
+    expect(screen.getByText('Sesuai / Pas (0.00)')).toBeInTheDocument();
+
+    const wbs1Input = screen.getByLabelText('Alokasi WBS 1: Pembongkaran');
+    const wbs2Input = screen.getByLabelText('Alokasi WBS 2: Sasis/Rangka');
+
+    // Case 1: Target Qty = 1, WBS 1 = 0, all others = 0 -> Sisa: 1.00 (under-allocated)
+    fireEvent.change(wbs1Input, { target: { value: '0' } });
+    const sisaBadge = screen.getByText('Sisa: 1.00');
+    expect(sisaBadge).toBeInTheDocument();
+    expect(sisaBadge.className).toContain('text-rose-400');
+
+    // Case 2: Target Qty = 1, WBS 1 = 0.5, WBS 2 = 0.5 -> Sesuai / Pas (0.00)
+    fireEvent.change(wbs1Input, { target: { value: '0.5' } });
+    fireEvent.change(wbs2Input, { target: { value: '0.5' } });
+    const pasBadge = screen.getByText('Sesuai / Pas (0.00)');
+    expect(pasBadge).toBeInTheDocument();
+    expect(pasBadge.className).toContain('text-emerald-400');
+
+    // Case 3: Target Qty = 1, WBS 1 = 1, WBS 2 = 0.5 -> Lebih: 0.50 (over-allocated)
+    fireEvent.change(wbs1Input, { target: { value: '1' } });
+    fireEvent.change(wbs2Input, { target: { value: '0.5' } });
+    const lebihBadge = screen.getByText('Lebih: 0.50');
+    expect(lebihBadge).toBeInTheDocument();
+    expect(lebihBadge.className).toContain('text-amber-400');
+  });
+
+  it('guards "+ Tambah Jasa ke RAB" button disabled state strictly until WBS allocation matches Target Qty', async () => {
+    render(<RabCalculator spkId="spk-test-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Jasa / Tukang (Labor)')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Jasa / Tukang (Labor)'));
+
+    const nameInput = screen.getByPlaceholderText('misal: Jasa Tukang Las Sasis');
+    fireEvent.change(nameInput, { target: { value: 'Jasa Setel Pintu' } });
+
+    const costInput = screen.getByPlaceholderText('misal: 500000');
+    fireEvent.change(costInput, { target: { value: '250000' } });
+
+    const submitBtn = screen.getByRole('button', { name: /Tambah Jasa ke RAB/i });
+
+    // Initially WBS 1 = 1, Target = 1 -> button enabled
+    expect(submitBtn).toBeEnabled();
+
+    // Set WBS 1 = 0 -> remaining = 1.00 -> button disabled
+    const wbs1Input = screen.getByLabelText('Alokasi WBS 1: Pembongkaran');
+    fireEvent.change(wbs1Input, { target: { value: '0' } });
+    expect(submitBtn).toBeDisabled();
+
+    // Set WBS 1 = 0.75, WBS 2 = 0.25 -> sum = 1.00 -> button re-enabled
+    const wbs2Input = screen.getByLabelText('Alokasi WBS 2: Sasis/Rangka');
+    fireEvent.change(wbs1Input, { target: { value: '0.75' } });
+    fireEvent.change(wbs2Input, { target: { value: '0.25' } });
+    expect(submitBtn).toBeEnabled();
+
+    // Submit and verify addition
+    fireEvent.click(submitBtn);
+    await waitFor(() => {
+      expect(screen.getAllByText('Jasa Setel Pintu').length).toBe(2);
+    });
   });
 });
 

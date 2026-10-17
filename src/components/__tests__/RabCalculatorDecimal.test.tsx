@@ -294,6 +294,10 @@ describe('Component: RabCalculator (Decimal Precision and Auto-Select on Focus)'
     const costInput = screen.getByPlaceholderText('misal: 500000');
     fireEvent.change(costInput, { target: { value: '400000' } });
 
+    // Set Target Qty = 2 to match multi-stage allocations (1.5 + 0.5)
+    const targetQtyInput = screen.getByLabelText(/Target Qty/i);
+    fireEvent.change(targetQtyInput, { target: { value: '2' } });
+
     // Set WBS 1 = 0, WBS 2 = 1.5, WBS 3 = 0.5 (or 0,5)
     const wbs1Input = screen.getByLabelText(/Alokasi WBS 1: Pembongkaran/i);
     const wbs2Input = screen.getByLabelText(/Alokasi WBS 2: Sasis\/Rangka/i);
