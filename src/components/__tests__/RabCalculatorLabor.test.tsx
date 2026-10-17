@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { RabCalculator } from '../RabCalculator';
 
 // Mock supabase client
@@ -103,7 +103,12 @@ vi.mock('../../lib/supabaseClient', () => {
 vi.mock('../../services/inventoryService', () => ({
   inventoryService: {
     getMaterials: vi.fn().mockResolvedValue([
-      { id: 'mat-1', name: 'Plat Besi 3mm', unit_price: 250000, cost_price: 200000 },
+      { id: 'mat-1', name: 'Plat Besi 3mm', unit_price: 250000, cost_price: 200000, category: 'BAHAN BAKU' },
+      { id: 'mat-2', name: 'Kawat Las RD-260', unit_price: 45000, cost_price: 40000, category: 'CONSUMABLE' },
+      { id: 'mat-3', name: 'Thinner ND High Gloss', unit_price: 65000, cost_price: 50000, category: 'CAT' },
+      { id: 'labor-1', name: 'Jasa Tukang Las Sasis', selling_price: 550000, cost_price: 450000, unit_price: 550000, category: 'JASA' },
+      { id: 'labor-2', name: 'Ongkos Borongan Cat Oven', selling_price: 850000, cost_price: 700000, unit_price: 850000, category: 'LABOR' },
+      { id: 'labor-3', name: 'Upah Tenaga Bending Plat', selling_price: 350000, cost_price: 300000, unit_price: 350000 },
     ]),
   },
 }));
@@ -314,6 +319,80 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
     const hiddenWasteInput = document.getElementById('waste-factor-input') as HTMLInputElement;
     expect(hiddenWasteInput).toBeInTheDocument();
     expect(hiddenWasteInput.value).toBe('0');
+  });
+
+  it('filters master inventory materials strictly to labor keywords and excludes physical items from auto-suggest', async () => {
+    render(<RabCalculator spkId="spk-test-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Jasa / Tukang (Labor)')).toBeInTheDocument();
+    });
+
+    // Switch to labor mode
+    fireEvent.click(screen.getByText('Jasa / Tukang (Labor)'));
+
+    // Verify auto-suggest badge shows 3 catalog items (excludes Plat Besi, Kawat Las, Thinner)
+    await waitFor(() => {
+      expect(screen.getByText(/3 katalog jasa/i)).toBeInTheDocument();
+    });
+
+    // Type "las" into labor search input
+    const laborInput = screen.getByPlaceholderText('misal: Jasa Tukang Las Sasis, Ongkos Borongan Dempul & Cat, Jasa Bongkar');
+    fireEvent.focus(laborInput);
+    fireEvent.change(laborInput, { target: { value: 'las' } });
+
+    // Suggestion dropdown should show "Jasa Tukang Las Sasis"
+    const suggestionsList = screen.getByRole('list');
+    expect(within(suggestionsList).getByText('Jasa Tukang Las Sasis')).toBeInTheDocument();
+
+    // Physical items with "las" (e.g. Kawat Las RD-260) or without labor keywords must NOT appear in suggestions
+    expect(within(suggestionsList).queryByText('Kawat Las RD-260')).not.toBeInTheDocument();
+    expect(within(suggestionsList).queryByText('Plat Besi 3mm')).not.toBeInTheDocument();
+    expect(within(suggestionsList).queryByText('Thinner ND High Gloss')).not.toBeInTheDocument();
+  });
+
+  it('auto-fills labor name and standard selling/cost rate when a suggestion is clicked', async () => {
+    render(<RabCalculator spkId="spk-test-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Jasa / Tukang (Labor)')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Jasa / Tukang (Labor)'));
+
+    const laborInput = screen.getByPlaceholderText('misal: Jasa Tukang Las Sasis, Ongkos Borongan Dempul & Cat, Jasa Bongkar') as HTMLInputElement;
+    fireEvent.focus(laborInput);
+    fireEvent.change(laborInput, { target: { value: 'cat' } });
+
+    // Dropdown shows "Ongkos Borongan Cat Oven"
+    const suggestionItem = screen.getByText('Ongkos Borongan Cat Oven');
+    expect(suggestionItem).toBeInTheDocument();
+
+    // Select the item via mousedown
+    fireEvent.mouseDown(suggestionItem);
+
+    // Verify name and standard rate auto-filled
+    expect(laborInput.value).toBe('Ongkos Borongan Cat Oven');
+
+    const costInput = screen.getByPlaceholderText('misal: 500000') as HTMLInputElement;
+    expect(costInput.value).toBe('850000');
+  });
+
+  it('shows fallback notice when searching for a labor item that does not exist in inventory catalog', async () => {
+    render(<RabCalculator spkId="spk-test-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Jasa / Tukang (Labor)')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Jasa / Tukang (Labor)'));
+
+    const laborInput = screen.getByPlaceholderText('misal: Jasa Tukang Las Sasis, Ongkos Borongan Dempul & Cat, Jasa Bongkar');
+    fireEvent.focus(laborInput);
+    fireEvent.change(laborInput, { target: { value: 'Jasa Tidak Dikenal 12345' } });
+
+    // Verify fallback prompt appears
+    expect(screen.getByText('Tidak ditemukan di master inventaris jasa. Tekan Enter untuk gunakan nama kustom.')).toBeInTheDocument();
   });
 });
 

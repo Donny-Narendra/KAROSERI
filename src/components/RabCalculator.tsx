@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Calculator, Plus, Trash2, Edit2, Download, Printer, Lock, ShieldCheck, Info, Wrench, Package, Clock } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -65,6 +65,8 @@ interface RabItem {
   materialId?: string;
 }
 
+const LABOR_KEYWORDS = ['jasa', 'ongkos', 'borongan', 'tukang', 'upah', 'tenaga'];
+
 export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   const [items, setItems] = useState<RabItem[]>([]);
   const [manualAllocations, setManualAllocations] = useState<Record<string, string>>({});
@@ -112,10 +114,75 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     0
   );
 
-  // Package BOM state
+  // Package BOM & Inventory master state
   const [packages, setPackages] = useState<ProductPackage[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [isPackageModalOpen, setIsPackageModalOpen] = useState(false);
+
+  // Filter master inventory items specifically for labor
+  const availableLaborItems = useMemo(() => {
+    return materials.filter(item => {
+      const nameLower = (item.name || '').toLowerCase();
+      const categoryLower = (item.category || '').toLowerCase();
+      return (
+        categoryLower === 'jasa' || 
+        categoryLower === 'labor' ||
+        LABOR_KEYWORDS.some(kw => nameLower.includes(kw))
+      );
+    });
+  }, [materials]);
+
+  const [isLaborSuggestOpen, setIsLaborSuggestOpen] = useState(false);
+  const [laborHighlightedIndex, setLaborHighlightedIndex] = useState(-1);
+  const laborListRef = useRef<HTMLUListElement>(null);
+
+  const filteredLaborItems = useMemo(() => {
+    const q = (laborForm.name || '').trim().toLowerCase();
+    if (!q) return availableLaborItems;
+    return availableLaborItems.filter(item => item.name.toLowerCase().includes(q));
+  }, [availableLaborItems, laborForm.name]);
+
+  const handleSelectLaborItem = (item: Material) => {
+    const standardRate = item.selling_price || item.cost_price || item.unit_price || 0;
+    setLaborForm(prev => ({
+      ...prev,
+      name: item.name,
+      estimatedCost: standardRate > 0 ? standardRate : prev.estimatedCost,
+    }));
+    setIsLaborSuggestOpen(false);
+  };
+
+  const handleLaborInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isLaborSuggestOpen) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        setIsLaborSuggestOpen(true);
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setLaborHighlightedIndex(prev => (prev + 1) % (filteredLaborItems.length || 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setLaborHighlightedIndex(prev => (prev - 1 + (filteredLaborItems.length || 1)) % (filteredLaborItems.length || 1));
+    } else if (e.key === 'Enter') {
+      if (laborHighlightedIndex >= 0 && laborHighlightedIndex < filteredLaborItems.length) {
+        e.preventDefault();
+        handleSelectLaborItem(filteredLaborItems[laborHighlightedIndex]);
+      } else {
+        setIsLaborSuggestOpen(false);
+      }
+    } else if (e.key === 'Escape') {
+      setIsLaborSuggestOpen(false);
+    }
+  };
+
+  const handleLaborBlur = () => {
+    setTimeout(() => {
+      setIsLaborSuggestOpen(false);
+    }, 150);
+  };
   const [selectedPackage, setSelectedPackage] = useState<ProductPackage | null>(null);
   const [allocationStatus, setAllocationStatus] = useState<'PARTIAL' | 'COMPLETE'>('COMPLETE');
   
@@ -293,6 +360,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     const baseItems = editingId ? items.filter(i => i.id !== editingId) : items;
     setItems([...baseItems, ...newLaborItemsToPush]);
     setEditingId(null);
+    setIsLaborSuggestOpen(false);
 
     setLaborForm({
       name: '',
@@ -310,6 +378,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
 
   const handleCancelEdit = () => {
     setEditingId(null);
+    setIsLaborSuggestOpen(false);
     setLaborForm({
       name: '',
       estimatedCost: 0,
@@ -833,6 +902,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
               id="toggle-mode-labor"
               onClick={() => {
                 setItemMode('labor');
+                setIsLaborSuggestOpen(false);
                 setLaborAllocations({
                   'Pembongkaran': '1',
                   'Sasis/Rangka': '0',
@@ -885,19 +955,82 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                 </span>
               </div>
 
-              <div>
-                <label htmlFor="labor-name-input" className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
-                  Nama Jasa / Pekerjaan Tukang <span className="text-status-danger">*</span>
+              <div className="relative">
+                <label htmlFor="labor-name-input" className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono flex items-center justify-between">
+                  <span>Nama Jasa / Pekerjaan Tukang <span className="text-status-danger">*</span></span>
+                  {availableLaborItems.length > 0 && (
+                    <span className="text-[10px] font-mono font-normal text-amber-400">
+                      Auto-suggest aktif ({availableLaborItems.length} katalog jasa)
+                    </span>
+                  )}
                 </label>
-                <input
-                  id="labor-name-input"
-                  type="text"
-                  required
-                  value={laborForm.name}
-                  onChange={(e) => setLaborForm({ ...laborForm, name: e.target.value })}
-                  placeholder="misal: Jasa Tukang Las Sasis, Ongkos Borongan Dempul & Cat, Jasa Bongkar"
-                  className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-amber-500"
-                />
+                <div className="relative">
+                  <input
+                    id="labor-name-input"
+                    type="text"
+                    required
+                    value={laborForm.name}
+                    onChange={(e) => {
+                      setLaborForm({ ...laborForm, name: e.target.value });
+                      setIsLaborSuggestOpen(true);
+                    }}
+                    onFocus={() => setIsLaborSuggestOpen(true)}
+                    onBlur={handleLaborBlur}
+                    onKeyDown={handleLaborInputKeyDown}
+                    placeholder="misal: Jasa Tukang Las Sasis, Ongkos Borongan Dempul & Cat, Jasa Bongkar"
+                    className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-amber-500"
+                    autoComplete="off"
+                  />
+                  {availableLaborItems.length > 0 && (
+                    <span className="absolute right-2.5 top-2.5 text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 pointer-events-none">
+                      Katalog Jasa
+                    </span>
+                  )}
+                </div>
+
+                {/* Floating Suggestions Dropdown */}
+                {isLaborSuggestOpen && (
+                  <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-surface border border-border rounded-lg shadow-2xl max-h-60 overflow-y-auto">
+                    {filteredLaborItems.length > 0 ? (
+                      <ul ref={laborListRef} className="divide-y divide-border/60">
+                        {filteredLaborItems.map((item, index) => {
+                          const standardRate = item.selling_price || item.cost_price || item.unit_price || 0;
+                          const isHighlighted = index === laborHighlightedIndex;
+                          return (
+                            <li
+                              key={item.id}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                handleSelectLaborItem(item);
+                              }}
+                              onMouseEnter={() => setLaborHighlightedIndex(index)}
+                              className={`p-2.5 cursor-pointer text-xs transition-colors flex items-center justify-between gap-2 ${
+                                isHighlighted ? 'bg-amber-500/15 text-amber-300' : 'text-text hover:bg-surface-hover'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">
+                                  JASA
+                                </span>
+                                <span className="font-medium truncate">{item.name}</span>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <div className="font-mono font-bold text-amber-400">
+                                  Rp {standardRate.toLocaleString('id-ID')}
+                                </div>
+                                <div className="text-[10px] text-text-muted">Tarif Standar</div>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : (
+                      <div className="p-3 text-center text-xs text-text-muted font-mono">
+                        Tidak ditemukan di master inventaris jasa. Tekan Enter untuk gunakan nama kustom.
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Multi-stage Labor WBS Allocation Grid */}

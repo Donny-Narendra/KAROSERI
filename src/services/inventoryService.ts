@@ -7,6 +7,7 @@ export interface Material {
   unit_price: number;
   cost_price?: number;
   selling_price?: number;
+  category?: string;
   waste_factor_percentage: number;
   current_stock: number;
   minimum_stock: number;

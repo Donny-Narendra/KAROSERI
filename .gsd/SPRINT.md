@@ -1,67 +1,49 @@
-# Sprint 27 — Replace WBS Dropdown with Multi-Stage Allocation Grid in Labor RAB Calculator
+# Sprint 28 — Implement Inventory-driven Auto-Suggest Search for Labor/Jasa in RAB Calculator
 
 > **Duration**: 2026-10-17 to 2026-10-17
 > **Status**: Completed ✅
 
 ## Goal
-Replace the single-select dropdown `TAHAPAN WBS` in the Labor/Jasa sub-form of `RabCalculator.tsx` with an interactive, multi-stage **ALOKASI WBS** grid (WBS 1 to WBS 5) matching the UX of the Material form, supporting both single and multi-WBS labor budget allocations with automatic total quantity calculation and robust validation.
+Implement an inventory-driven auto-suggest search field for "NAMA JASA / PEKERJAAN TUKANG" in the Service Advisor RAB Calculator (`RabCalculator.tsx`), strictly filtered to master catalog items containing labor keywords (`jasa`, `ongkos`, `borongan`, `tukang`, `upah`, `tenaga`) or category `jasa`/`labor`, automatically filling standard rates (`selling_price` or `cost_price`) while retaining custom input flexibility.
 
 ## Scope
 
 ### Included
-- **UI Refactoring in `RabCalculator.tsx`**:
-  - Removed `<select id="labor-wbs-select">`.
-  - Added interactive **ALOKASI WBS** grid with columns: `TOTAL QTY`, `WBS 1`, `WBS 2`, `WBS 3`, `WBS 4`, `WBS 5`.
-  - Display computed `laborTotalQty` in high-visibility amber accent.
-  - Symmetrical number inputs for each WBS stage with real-time total updates.
-- **State Synchronization & Logic**:
-  - `laborAllocations` state initialized to default (WBS 1: '1', others: '0').
-  - Validation: at least 1 WBS must have quantity > 0 (`laborTotalQty > 0`); shows warning message and disables submit button when total is 0.
-  - Iterative item creation: for each allocated WBS, creates a distinct `RabItem` with `item_type: 'LABOR'`, `wbsCategory: cat.id`, `qty: allocationQty`, and `subtotal: allocationQty * estimatedCost`.
-  - Edit support: loading an existing labor item populates its corresponding WBS allocation.
+- **Keyword-filtered Master Inventory Querying**:
+  - Filter `materials` using `LABOR_KEYWORDS = ['jasa', 'ongkos', 'borongan', 'tukang', 'upah', 'tenaga']` and `category === 'jasa' | 'labor'`.
+  - Exclude physical goods (e.g., steel plates, electrodes, consumables) from labor auto-suggest.
+- **Auto-Suggest Search & Floating Dropdown**:
+  - Auto-suggest input with focus/query triggers, keyboard navigation (ArrowUp, ArrowDown, Enter, Escape), and click-outside dismissal.
+  - Floating suggestion list displaying item name, `[JASA]` badge, and standard rate (`Rp`).
+  - Fallback prompt: *"Tidak ditemukan di master inventaris jasa. Tekan Enter untuk gunakan nama kustom."*
+- **Auto-Fill & Custom Override**:
+  - Selecting an item populates `name` and auto-fills `estimatedCost` with `selling_price || cost_price || unit_price`.
+  - Allows manual adjustment of cost or typing arbitrary custom task names.
 - **Automated Testing & Quality**:
-  - Updated tests in `RabCalculatorLabor.test.tsx` to verify grid display, single allocation, and multi-stage allocation (91/91 tests pass).
-  - Clean TypeScript compilation, zero lint errors, and production build verified.
+  - Add test suite in `RabCalculatorLabor.test.tsx` verifying labor auto-suggest filtering, physical items exclusion, and rate auto-population.
+  - Run `npm test`, `npm run lint`, and `npm run build`.
 
 ### Explicitly Excluded
-- Changing existing database schema or views (already compatible with multiple labor rows per SPK).
+- Restricting users from creating custom ad-hoc labor items.
+- Modifying warehouse inventory tables.
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| 1. Refactor state and handlers in `RabCalculator.tsx` for `laborAllocations` | Antigravity | ✅ Done | 0.2h |
-| 2. Replace dropdown with ALOKASI WBS grid in Labor form JSX | Antigravity | ✅ Done | 0.2h |
-| 3. Update tests in `RabCalculatorLabor.test.tsx` for multi-stage allocation | Antigravity | ✅ Done | 0.2h |
+| 1. Add `category` to `Material` interface and define `LABOR_KEYWORDS` in `RabCalculator.tsx` | Antigravity | ✅ Done | 0.2h |
+| 2. Implement auto-suggest search and dropdown in Labor form JSX | Antigravity | ✅ Done | 0.3h |
+| 3. Add automated tests for labor auto-suggest filtering and auto-fill in `RabCalculatorLabor.test.tsx` | Antigravity | ✅ Done | 0.2h |
 | 4. Validate with `npm test`, `npm run lint`, and `npm run build` | Antigravity | ✅ Done | 0.2h |
 
 ## Daily Log
 
 ### 2026-10-17
-- Initialized Sprint 27: Replace WBS Dropdown with Multi-Stage Allocation Grid in Labor RAB Calculator.
-- Refactored `RabCalculator.tsx`:
-  - Added `laborAllocations` state (`Record<string, string>`) and computed `laborTotalQty`.
-  - Replaced `<select id="labor-wbs-select">` with interactive 6-column **ALOKASI WBS** table grid.
-  - Updated `handleAddLaborItem` to iterate over all WBS stages with quantity > 0 and create distinct `RabItem` entries with proper subtotals.
-  - Updated `handleEditItem`, `handleCancelEdit`, and mode toggles to sync `laborAllocations`.
-  - Added validation warning and disabled state when `laborTotalQty <= 0`.
-- Updated test suites in `RabCalculatorLabor.test.tsx`:
-  - Verified dropdown removal and presence of ALOKASI WBS grid.
-  - Verified single-WBS and multi-WBS labor allocation.
-- Ran quality checks:
-  - Vitest: 91/91 tests passing (11 test files).
-  - Linter: 0 errors.
-  - Build: Successful production bundle.
-
-## Retrospective (2026-10-17)
-
-### What Went Well
-- Unified UX between Material and Labor input forms: both now utilize the interactive multi-WBS allocation matrix.
-- Service Advisors can now allocate labor jobs across multiple WBS stages simultaneously in a single submission without re-entering the form multiple times.
-- 100% test pass rate with 0 linter errors and verified build.
-
-### What Could Improve
-- None noted; implementation directly aligns with business requirements.
-
-### Action Items
-- [x] Create atomic commit: `refactor(rab): replace labor wbs dropdown with interactive allocation grid`.
+- Initialized Sprint 28: Implement Inventory-driven Auto-Suggest Search for Labor/Jasa in RAB Calculator.
+- Added `category?: string` to `Material` interface in `src/services/inventoryService.ts`.
+- Integrated `LABOR_KEYWORDS` filter and `availableLaborItems` / `filteredLaborItems` memoized states in `src/components/RabCalculator.tsx`.
+- Built keyboard accessible (`ArrowUp`, `ArrowDown`, `Enter`, `Escape`) floating suggestion dropdown showing standard selling/cost rate and `JASA` badge.
+- Connected `handleSelectLaborItem` to auto-fill name and standard labor cost.
+- Preserved fallback allowing custom non-catalog work names and custom rates.
+- Added unit tests in `src/components/__tests__/RabCalculatorLabor.test.tsx` verifying strict labor keyword filtering, physical item exclusion, rate auto-fill, and fallback notice.
+- Passed all 94 Vitest test cases across 11 test files, 0 linter errors, and verified production build with Vite.
