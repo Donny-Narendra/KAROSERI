@@ -1,23 +1,29 @@
 ## Current Position
 - **Sprint**: Sprint 23 — Fix Zero Labor Budget and Enable LABOR Item Entry in RAB Calculator
-- **Status**: Sprint in progress 🟡
-- **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness (Sprint active)
+- **Status**: Sprint completed ✅
+- **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness
 
 ## Last Session Summary
-Sprint 22 Completed (2026-10-17).
-- Archived Sprint 22 to `.gsd/sprints/sprint-22-align-react-i18next-localization.md`.
-- Expanded symmetric localization catalogs in `src/locales/id.json` and `src/locales/en.json` (11 namespaces: common, roles, auth, admin, settings, cancellations, spk, wbs, warehouse, cashier, finance).
-- Built reusable, persistent `LanguageSwitcher.tsx` with segmented pill and dropdown options.
-- Localized key views: `LoginPage.tsx`, `AdminDashboardPage.tsx`, and `AdminSettingsPage.tsx`.
-- Created component test suite `src/components/__tests__/LanguageSwitcher.test.tsx` (5 tests passing).
-- All 71 tests passing across 9 test files (`npm test`), zero TypeScript errors (`tsc -b`), zero linter errors (`npm run lint`), and clean production build (`npm run build`).
+Sprint 23 Completed (2026-10-17).
+- Archived Sprint 23 to `.gsd/sprints/sprint-23-fix-zero-labor-budget-and-enable-labor-item-entry-in-rab-calculator.md`.
+- Executed PostgreSQL migration `supabase/migrations/20261017000000_enable_labor_item_type_in_rab_items.sql`:
+  - Converted `rab_items.item_type` from a generated column to a standard editable `VARCHAR(20) DEFAULT 'MATERIAL'`.
+  - Backfilled 58 historical labor items across `rab_items` and `change_order_items` matching workshop labor keywords (`jasa`, `ongkos`, `borongan`, `tukang`, `upah`, `tenaga`).
+  - Synchronized `rab_estimations.total_labor_cost` and `total_material_cost`.
+  - Recreated `view_wbs_cost_variance` with union of active stages and item_total fallback.
+- Upgraded `RabCalculator.tsx`:
+  - Added 3-way toggle (Bahan Baku, Jasa / Labor, Overhead) with Lucide icons (`Package`, `Wrench`, `Clock`).
+  - Implemented specialized inputs for labor description, quantity, and rate (without waste factor).
+  - Calculated `totalLaborCost` dynamically from labor items instead of hardcoding 0.
+  - Saved `item_type: 'LABOR'` along with `labor_hours` and `labor_rate`.
+  - Rendered distinctive amber `JASA` badge in estimation table.
+  - Displayed 3-way cost breakdown (Pagu Material, Pagu Jasa, Overhead) in footer summary.
+- Upgraded `PackageAllocationModal.tsx` to preserve `item_type === 'LABOR'` when allocating BOM packages.
+- Added 12 new automated tests: `src/utils/__tests__/rabLaborBudget.test.ts` (8 tests) and `src/components/__tests__/RabCalculatorLabor.test.tsx` (4 tests).
+- All 83 tests passing across 11 test files (`npm test`), zero TypeScript errors (`tsc -b`), zero linter errors (`npm run lint`), and clean production build (`npm run build`).
 
 ## Active Plan & Waves
-Sprint 23 in progress:
-- Replacing generated `item_type` column on `rab_items` with standard `VARCHAR(20) DEFAULT 'MATERIAL'`.
-- Backfilling historical labor items across `rab_items` and `change_order_items`.
-- Enabling explicit LABOR item entry and BOM package allocation in `RabCalculator` and `PackageAllocationModal`.
-- Synchronizing labor budgets in `rab_estimations` and `view_wbs_cost_variance`.
+All planned sprints, technical debt remediation items, and labor budget variance fixes have been successfully resolved.
 
 ## Blockers
 None.

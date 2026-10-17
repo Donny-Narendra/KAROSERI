@@ -4,7 +4,7 @@ import type { ProductPackage } from '../types/package';
 
 export interface RabItemPayload {
   wbsCategory: string;
-  type: 'material' | 'overhead';
+  type: 'material' | 'labor' | 'overhead';
   description: string;
   qty: number;
   unitPrice: number;
@@ -19,7 +19,7 @@ interface PackageAllocationModalProps {
   onApply: (allocatedItems: RabItemPayload[], isComplete: boolean, templateToSave?: Record<string, Record<string, number>>) => void;
   existingItems?: {
     wbsCategory: string;
-    type: 'material' | 'overhead';
+    type: 'material' | 'labor' | 'overhead';
     description: string;
     qty: number;
     unitPrice: number;
@@ -121,7 +121,7 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
         if (qty > 0) {
           payload.push({
             wbsCategory: cat,
-            type: 'material',
+            type: item.item_type === 'LABOR' ? 'labor' : 'material',
             description: item.item_type === 'MATERIAL' ? (item.material?.name || 'Unknown Material') : (item.labor_name || 'Unknown Labor'),
             qty,
             unitPrice: item.cost_per_unit,

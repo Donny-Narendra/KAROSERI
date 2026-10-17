@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, Plus, Trash2, Edit2, Download, Printer, Lock, ShieldCheck, Info } from 'lucide-react';
+import { Calculator, Plus, Trash2, Edit2, Download, Printer, Lock, ShieldCheck, Info, Wrench, Package, Clock } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
 import { inventoryService } from '../services/inventoryService';
@@ -28,6 +28,7 @@ interface RabSpkDetails {
 interface DbRabItemRecord {
   id: string;
   wbs_category: string;
+  item_type?: 'MATERIAL' | 'LABOR' | string | null;
   description?: string | null;
   material_name?: string | null;
   material_id?: string | null;
@@ -47,7 +48,7 @@ interface DbRabItemRecord {
 interface RabItem {
   id: string;
   wbsCategory: string;
-  type: 'material' | 'overhead';
+  type: 'material' | 'labor' | 'overhead';
   description: string;
   qty: number;
   unitPrice: number;
@@ -130,7 +131,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
           
         if (!itemsError && itemsData) {
           const loadedItems = (itemsData as unknown as DbRabItemRecord[]).map((dbItem: DbRabItemRecord) => {
-            let type: 'material' | 'overhead' = 'material';
+            let type: 'material' | 'labor' | 'overhead' = 'material';
             let qty = 0;
             let unitPrice = Number(dbItem.unit_price) || 0;
             const costPrice = Number(dbItem.cost_price) || 0;
@@ -138,10 +139,13 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
             const laborHours = Number(dbItem.labor_hours || 0);
             const overheadHours = Number(dbItem.overhead_hours || 0);
 
-            if (laborHours > 0) {
-              type = 'material';
-              qty = laborHours;
-              unitPrice = Number(dbItem.labor_rate) || unitPrice;
+            if (dbItem.item_type === 'LABOR' || laborHours > 0 || Number(dbItem.labor_rate || 0) > 0) {
+              type = 'labor';
+              qty = Number(dbItem.quantity) || laborHours || 1;
+              unitPrice = Number(dbItem.unit_price) || Number(dbItem.labor_rate) || 0;
+              if (unitPrice === 0 && Number(dbItem.item_total || 0) > 0) {
+                unitPrice = Number(dbItem.item_total) / qty;
+              }
             } else if (overheadHours > 0) {
               type = 'overhead';
               qty = overheadHours / 8;
@@ -231,7 +235,11 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     if (!isAllocationPassed || newItem.qty <= 0) return;
 
     const matchedMat = materials.find(m => m.id === newItem.materialId);
-    const costPrice = matchedMat?.cost_price !== undefined ? matchedMat.cost_price : (newItem.unitPrice ? Math.round((newItem.unitPrice as number) * 0.8) : 0);
+    const costPrice = matchedMat?.cost_price !== undefined 
+      ? matchedMat.cost_price 
+      : (newItem.type === 'labor' 
+          ? (newItem.unitPrice as number) 
+          : (newItem.unitPrice ? Math.round((newItem.unitPrice as number) * 0.8) : 0));
 
     const newItemsToPush: RabItem[] = [];
     wbsCategories.forEach(cat => {
@@ -240,14 +248,14 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
           newItemsToPush.push({
              id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
              wbsCategory: cat.id,
-             type: newItem.type as 'material' | 'overhead',
+             type: newItem.type as 'material' | 'labor' | 'overhead',
              description: newItem.description as string,
              qty: wbsQty,
              unitPrice: newItem.unitPrice as number,
              costPrice,
              subtotal: wbsQty * (newItem.unitPrice as number),
              isLocked: false,
-             wasteFactor: newItem.type === 'material' ? newItem.wasteFactor : 0,
+             wasteFactor: newItem.type === 'material' ? (newItem.wasteFactor || 0) : 0,
              materialId: newItem.materialId,
           });
        }
@@ -335,10 +343,10 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     return item.qty * item.unitPrice;
   };
 
-  const totalCost = items.reduce((sum, item) => sum + calculateItemTotal(item), 0);
   const totalMaterialCost = items.filter(i => i.type === 'material').reduce((sum, i) => sum + calculateItemTotal(i), 0);
-  const totalLaborCost = 0; // Labor cost is integrated into materials
+  const totalLaborCost = items.filter(i => i.type === 'labor').reduce((sum, i) => sum + calculateItemTotal(i), 0);
   const totalOverheadCost = items.filter(i => i.type === 'overhead').reduce((sum, i) => sum + calculateItemTotal(i), 0);
+  const totalCost = totalMaterialCost + totalLaborCost + totalOverheadCost;
 
   const handleSaveEstimation = async (silent = false) => {
     if (!spkId) {
@@ -384,19 +392,25 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       if (items.length > 0) {
         const itemsToInsert = items.map(item => {
           const matchedMat = materials.find(m => m.id === item.materialId);
-          const unitPrice = item.type === 'material' ? item.unitPrice : 0;
-          const costPrice = item.costPrice !== undefined ? item.costPrice : (matchedMat?.cost_price !== undefined ? matchedMat.cost_price : Math.round(unitPrice * 0.8));
+          const unitPrice = (item.type === 'material' || item.type === 'labor') ? item.unitPrice : 0;
+          const costPrice = item.costPrice !== undefined 
+            ? item.costPrice 
+            : (item.type === 'labor' 
+                ? item.unitPrice 
+                : (matchedMat?.cost_price !== undefined ? matchedMat.cost_price : Math.round(unitPrice * 0.8)));
+
           return {
             rab_estimation_id: estData.id,
             spk_id: spkId,
             wbs_category: item.wbsCategory,
+            item_type: item.type === 'labor' ? 'LABOR' : 'MATERIAL',
             description: item.description,
             material_name: item.description,
-            quantity: item.type === 'material' ? item.qty : 0,
+            quantity: item.qty,
             unit_price: unitPrice,
             cost_price: costPrice,
-            labor_hours: 0,
-            labor_rate: 0,
+            labor_hours: item.type === 'labor' ? item.qty : 0,
+            labor_rate: item.type === 'labor' ? item.unitPrice : 0,
             overhead_hours: item.type === 'overhead' ? item.qty * 8 : 0,
             overhead_rate: item.type === 'overhead' ? item.unitPrice / 8 : 0,
             item_total: calculateItemTotal(item),
@@ -467,7 +481,9 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     const newItems = allocatedItems.map((payload) => {
       const payloadMatId = payload.materialId;
       const matchedMat = materials.find(m => (payloadMatId && m.id === payloadMatId) || m.name.toLowerCase() === payload.description.toLowerCase());
-      const costPrice = matchedMat?.cost_price !== undefined ? matchedMat.cost_price : Math.round(payload.unitPrice * 0.8);
+      const costPrice = matchedMat?.cost_price !== undefined 
+        ? matchedMat.cost_price 
+        : (payload.type === 'labor' ? payload.unitPrice : Math.round(payload.unitPrice * 0.8));
       return {
         id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
         wbsCategory: payload.wbsCategory,
@@ -656,41 +672,64 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
           <form onSubmit={handleAddItem} className="bg-background border border-border rounded-lg p-4 space-y-4">
             <h4 className="font-bold text-sm text-text border-b border-border pb-2">Add Estimation Item</h4>
             
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 text-sm text-text cursor-pointer">
+            <div className="grid grid-cols-3 gap-2">
+              <label className={`flex items-center justify-center gap-1.5 p-2 rounded-lg border text-xs font-semibold cursor-pointer transition ${newItem.type === 'material' ? 'bg-primary/10 border-primary text-primary' : 'bg-surface border-border text-text-muted hover:border-text-muted'}`}>
                 <input 
                   type="radio" 
                   name="type" 
                   value="material"
                   checked={newItem.type === 'material'}
-                  onChange={() => setNewItem({...newItem, type: 'material'})}
-                  className="accent-primary"
+                  onChange={() => setNewItem({...newItem, type: 'material', wasteFactor: 5})}
+                  className="sr-only"
                 />
-                Material / Tenaga Kerja
+                <Package className="w-3.5 h-3.5" />
+                <span>Bahan Baku</span>
               </label>
-              <label className="flex items-center gap-2 text-sm text-text cursor-pointer">
+              <label className={`flex items-center justify-center gap-1.5 p-2 rounded-lg border text-xs font-semibold cursor-pointer transition ${newItem.type === 'labor' ? 'bg-amber-500/10 border-amber-500 text-amber-400' : 'bg-surface border-border text-text-muted hover:border-text-muted'}`}>
+                <input 
+                  type="radio" 
+                  name="type" 
+                  value="labor"
+                  checked={newItem.type === 'labor'}
+                  onChange={() => setNewItem({...newItem, type: 'labor', wasteFactor: 0, materialId: undefined})}
+                  className="sr-only"
+                />
+                <Wrench className="w-3.5 h-3.5" />
+                <span>Jasa / Labor</span>
+              </label>
+              <label className={`flex items-center justify-center gap-1.5 p-2 rounded-lg border text-xs font-semibold cursor-pointer transition ${newItem.type === 'overhead' ? 'bg-purple-500/10 border-purple-500 text-purple-400' : 'bg-surface border-border text-text-muted hover:border-text-muted'}`}>
                 <input 
                   type="radio" 
                   name="type" 
                   value="overhead"
                   checked={newItem.type === 'overhead'}
-                  onChange={() => setNewItem({...newItem, type: 'overhead', wasteFactor: 0, unitPrice: bayHourlyRate * 8})}
-                  className="accent-primary"
+                  onChange={() => setNewItem({...newItem, type: 'overhead', wasteFactor: 0, unitPrice: bayHourlyRate * 8, materialId: undefined})}
+                  className="sr-only"
                 />
-                Overhead
+                <Clock className="w-3.5 h-3.5" />
+                <span>Overhead</span>
               </label>
             </div>
 
             <div>
               <label className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
-                {newItem.type === 'material' ? 'Item (Bahan/Jasa)' : 'Description'}
+                {newItem.type === 'material' ? 'Item Bahan Baku' : newItem.type === 'labor' ? 'Uraian Jasa / Pekerjaan Tukang' : 'Deskripsi Overhead'}
               </label>
               {newItem.type === 'material' ? (
                 <MaterialAutocomplete
                   materials={materials}
                   initialValue={newItem.description || ''}
                   onSelect={(m) => setNewItem({...newItem, description: m.name, unitPrice: m.unit_price || 0, materialId: m.id})}
-                  placeholder="Cari material atau jasa..."
+                  placeholder="Cari material gudang..."
+                />
+              ) : newItem.type === 'labor' ? (
+                <input
+                  type="text"
+                  required
+                  value={newItem.description || ''}
+                  onChange={(e) => setNewItem({...newItem, description: e.target.value})}
+                  placeholder="e.g. Jasa Pengelasan Dudukan Sasis, Upah Borongan Tukang Cat..."
+                  className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
                 />
               ) : (
                 <input
@@ -707,7 +746,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
-                  {newItem.type === 'material' ? 'Qty' : newItem.type === 'overhead' ? 'Days' : 'Hours'}
+                  {newItem.type === 'material' ? 'Qty (Bahan)' : newItem.type === 'labor' ? 'Volume / Qty Jasa' : 'Days (Hari Kerja)'}
                 </label>
                 <input
                   type="number"
@@ -720,7 +759,9 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">Unit Price / Rate</label>
+                <label className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
+                  {newItem.type === 'material' ? 'Harga Satuan Bahan' : newItem.type === 'labor' ? 'Tarif Upah / Jasa Borongan' : 'Bay Rate / Hari'}
+                </label>
                 <input
                   type="number"
                   required
@@ -858,9 +899,19 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                           </div>
                         </td>
                         <td className="px-3 py-3">
-                          <span className={`px-2 py-0.5 rounded text-xs font-mono ${item.type === 'material' ? 'bg-status-info/10 text-status-info border border-status-info/20' : 'bg-status-danger/10 text-status-danger border border-status-danger/20'}`}>
-                            {item.type}
-                          </span>
+                          {item.type === 'labor' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                              <Wrench className="w-3 h-3" /> JASA
+                            </span>
+                          ) : item.type === 'overhead' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                              <Clock className="w-3 h-3" /> OVERHEAD
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono font-semibold bg-status-info/10 text-status-info border border-status-info/20">
+                              <Package className="w-3 h-3" /> BAHAN
+                            </span>
+                          )}
                         </td>
                         <td className="px-3 py-3 text-xs text-text-muted truncate max-w-[100px]">{item.wbsCategory}</td>
                         <td className="px-3 py-3 text-right font-mono">{item.qty}</td>
@@ -909,6 +960,21 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
 
             {/* Total Footer */}
             <div className="bg-surface border-t border-border p-4 flex flex-col gap-3">
+               <div className="grid grid-cols-3 gap-2 pb-2 border-b border-border text-xs">
+                 <div className="bg-background/60 p-2 rounded border border-border">
+                   <span className="text-text-muted block text-[10px] font-mono uppercase">Pagu Material</span>
+                   <span className="font-mono font-bold text-status-info text-sm">Rp {totalMaterialCost.toLocaleString('id-ID')}</span>
+                 </div>
+                 <div className="bg-background/60 p-2 rounded border border-border">
+                   <span className="text-text-muted block text-[10px] font-mono uppercase">Pagu Jasa (Labor)</span>
+                   <span className="font-mono font-bold text-amber-400 text-sm">Rp {totalLaborCost.toLocaleString('id-ID')}</span>
+                 </div>
+                 <div className="bg-background/60 p-2 rounded border border-border">
+                   <span className="text-text-muted block text-[10px] font-mono uppercase">Overhead</span>
+                   <span className="font-mono font-bold text-purple-400 text-sm">Rp {totalOverheadCost.toLocaleString('id-ID')}</span>
+                 </div>
+               </div>
+
                <div className="flex items-center justify-between">
                  <span className="text-sm font-mono text-text-muted uppercase">Total Estimated Cost (RAB Modal)</span>
                  <div className="flex items-center gap-2">

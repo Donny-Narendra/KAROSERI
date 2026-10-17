@@ -9,7 +9,7 @@ export interface RabExportSpkDetails {
 
 export interface RabExportItem {
   wbsCategory: string;
-  type: 'material' | 'overhead' | string;
+  type: 'material' | 'labor' | 'overhead' | string;
   description: string;
   qty: number;
   unitPrice: number;
