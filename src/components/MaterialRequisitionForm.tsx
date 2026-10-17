@@ -34,6 +34,7 @@ interface RabSourceItem {
   rabQuantity: number;
   subtotal: number;
   currentStock: number;
+  item_type?: string | null;
 }
 
 interface RequisitionItem {
@@ -53,6 +54,7 @@ interface RequisitionItem {
   quantity: number;
   subtotal: number;
   wbs_stage?: string;
+  item_type?: string | null;
   isManual?: boolean;
   isPersisted?: boolean; // true if already saved in database
   dbRequisitionItemId?: string; // id in material_requisition_items
@@ -169,6 +171,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
             description,
             item_total,
             material_id,
+            item_type,
             materials (
               id,
               name,
@@ -177,13 +180,19 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
               current_stock
             )
           `)
-          .eq('rab_estimation_id', rabEst.id);
+          .eq('rab_estimation_id', rabEst.id)
+          .or('item_type.eq.MATERIAL,item_type.is.null');
 
         if (itemsError) throw itemsError;
 
         if (itemsData) {
-          // Filter tolerantly for WBS category
+          // Filter tolerantly for WBS category & strictly require item_type = 'MATERIAL' (or null legacy) and NOT 'LABOR' or 'OVERHEAD'
           const filtered = itemsData.filter((item: any) => {
+            const isMaterialType = item.item_type === 'MATERIAL' || !item.item_type;
+            const isNotLabor = item.item_type !== 'LABOR';
+            const isNotOverhead = item.item_type !== 'OVERHEAD';
+            if (!isMaterialType || !isNotLabor || !isNotOverhead) return false;
+
             if (!item.wbs_category) return true;
             const itemCatClean = item.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
             return (
@@ -230,7 +239,8 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
               unitPrice,
               rabQuantity: qty,
               subtotal: calculatedSubtotal,
-              currentStock: matchedMat ? Number(matchedMat.current_stock || 0) : 0
+              currentStock: matchedMat ? Number(matchedMat.current_stock || 0) : 0,
+              item_type: item.item_type || 'MATERIAL'
             };
           });
         }
@@ -290,7 +300,8 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
               unitPrice,
               rabQuantity: qty,
               subtotal: calculatedSubtotal,
-              currentStock: matchedMat ? Number(matchedMat.current_stock || 0) : 0
+              currentStock: matchedMat ? Number(matchedMat.current_stock || 0) : 0,
+              item_type: 'MATERIAL'
             });
           });
         }
@@ -504,6 +515,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
       quantity: sourceItem.rabQuantity > 0 ? sourceItem.rabQuantity : 1,
       subtotal: sourceItem.subtotal,
       wbs_stage: cleanWbsCategory,
+      item_type: sourceItem.item_type || 'MATERIAL',
       isManual: false,
       isPersisted: false
     };
