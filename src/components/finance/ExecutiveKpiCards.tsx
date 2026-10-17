@@ -3,6 +3,7 @@ import {
   TrendingUp, 
   Package, 
   Users, 
+  Factory,
   DollarSign, 
   AlertCircle,
   Car
@@ -25,8 +26,8 @@ const formatCurrency = (amount: number): string => {
 export const ExecutiveKpiCards: React.FC<ExecutiveKpiCardsProps> = ({ summary, isLoading }) => {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {[1, 2, 3, 4, 5].map((idx) => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        {[1, 2, 3, 4, 5, 6].map((idx) => (
           <div
             key={idx}
             className="bg-surface/80 border border-border/80 rounded-xl p-5 animate-pulse flex flex-col justify-between h-36"
@@ -63,12 +64,14 @@ export const ExecutiveKpiCards: React.FC<ExecutiveKpiCardsProps> = ({ summary, i
   const totalRevenue = Number(s.total_revenue) || 0;
   const materialCost = Number(s.total_actual_material_cost) || 0;
   const laborCost = Number(s.total_actual_labor_cost) || 0;
+  const overheadCost = Number(s.total_actual_overhead_cost) || 0;
   const grossProfit = Number(s.total_gross_profit) || 0;
   const margin = Number(s.average_gross_margin) || 0;
 
   // Percentage shares relative to Revenue
   const materialPercent = totalRevenue > 0 ? (materialCost / totalRevenue) * 100 : 0;
   const laborPercent = totalRevenue > 0 ? (laborCost / totalRevenue) * 100 : 0;
+  const overheadPercent = totalRevenue > 0 ? (overheadCost / totalRevenue) * 100 : 0;
 
   // Margin classification badge
   let marginBadgeClass = 'bg-status-danger/20 text-status-danger border-status-danger/40';
@@ -82,7 +85,7 @@ export const ExecutiveKpiCards: React.FC<ExecutiveKpiCardsProps> = ({ summary, i
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
       {/* 1. Total Omzet SPK (Revenue) */}
       <div className="bg-surface/90 border border-border rounded-xl p-5 hover:border-secondary/50 transition-all duration-200 hover:shadow-lg hover:shadow-secondary/5 flex flex-col justify-between">
         <div className="flex items-center justify-between">
@@ -146,11 +149,32 @@ export const ExecutiveKpiCards: React.FC<ExecutiveKpiCardsProps> = ({ summary, i
         </div>
       </div>
 
-      {/* 4. Estimasi Laba Operasional (Gross Profit) & Margin % */}
+      {/* 4. Total Biaya Overhead Pabrikasi (FOH) */}
+      <div className="bg-surface/90 border border-border rounded-xl p-5 hover:border-sky-500/50 transition-all duration-200 hover:shadow-lg hover:shadow-sky-500/5 flex flex-col justify-between">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-mono font-medium text-text-muted uppercase tracking-wider">
+            4. Overhead Pabrikasi (FOH)
+          </span>
+          <div className="w-9 h-9 rounded-lg bg-sky-500/15 text-sky-400 flex items-center justify-center">
+            <Factory className="w-5 h-5" />
+          </div>
+        </div>
+        <div className="mt-4">
+          <div className="text-2xl font-bold font-mono text-sky-400 tracking-tight">
+            {formatCurrency(overheadCost)}
+          </div>
+          <div className="flex items-center justify-between mt-2 text-xs">
+            <span className="text-text-muted font-mono">{overheadPercent.toFixed(1)}% dari Omzet</span>
+            <span className="text-[11px] font-mono text-text-muted/80">Bay & Mesin Riil</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 5. Estimasi Laba Operasional (Gross Profit) & Margin % */}
       <div className="bg-surface/90 border border-border rounded-xl p-5 hover:border-emerald-500/50 transition-all duration-200 hover:shadow-lg hover:shadow-emerald-500/5 flex flex-col justify-between">
         <div className="flex items-center justify-between">
           <span className="text-xs font-mono font-medium text-text-muted uppercase tracking-wider">
-            4. Laba Operasional & Margin
+            5. Laba Operasional & Margin
           </span>
           <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${grossProfit >= 0 ? 'bg-emerald-500/15 text-emerald-400' : 'bg-status-danger/15 text-status-danger'}`}>
             <DollarSign className="w-5 h-5" />
@@ -172,11 +196,11 @@ export const ExecutiveKpiCards: React.FC<ExecutiveKpiCardsProps> = ({ summary, i
         </div>
       </div>
 
-      {/* 5. Total Piutang & Unit Tertahan Pelunasan */}
+      {/* 6. Total Piutang & Unit Tertahan Pelunasan */}
       <div className="bg-surface/90 border border-border rounded-xl p-5 hover:border-rose-500/50 transition-all duration-200 hover:shadow-lg hover:shadow-rose-500/5 flex flex-col justify-between">
         <div className="flex items-center justify-between">
           <span className="text-xs font-mono font-medium text-text-muted uppercase tracking-wider">
-            5. Piutang & Unit Tertahan
+            6. Piutang & Unit Tertahan
           </span>
           <div className="w-9 h-9 rounded-lg bg-rose-500/15 text-rose-400 flex items-center justify-center">
             <AlertCircle className="w-5 h-5" />

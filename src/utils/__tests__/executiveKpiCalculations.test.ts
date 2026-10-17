@@ -52,6 +52,32 @@ describe('Sprint 17: Executive Dashboard Decoupled Material & Labor KPI Tests', 
       expect(summary.average_gross_margin).toBe(30.0);
     });
 
+    it('should correctly reconcile 3-element COGS (Material + Labor + Overhead) against Total COGS and Operating Gross Profit', () => {
+      const summary: FinancialExecutiveSummary = {
+        total_projects: 4,
+        total_revenue: 120_000_000,
+        total_actual_material_cost: 50_000_000,
+        total_actual_labor_cost: 30_000_000,
+        total_actual_overhead_cost: 10_000_000,
+        total_cogs: 90_000_000,
+        total_gross_profit: 30_000_000,
+        average_gross_margin: 25.0,
+        total_inventory_valuation: 40_000_000,
+        total_inventory_market_value: 50_000_000,
+        total_outstanding_receivables: 10_000_000,
+        units_pending_handover: 1,
+      };
+
+      const computedCogs = summary.total_actual_material_cost + summary.total_actual_labor_cost + summary.total_actual_overhead_cost;
+      expect(computedCogs).toBe(summary.total_cogs);
+
+      const overheadPercent = (summary.total_actual_overhead_cost / summary.total_revenue) * 100;
+      expect(overheadPercent).toBeCloseTo(8.33, 2);
+
+      expect(summary.total_revenue - summary.total_cogs).toBe(summary.total_gross_profit);
+      expect((summary.total_gross_profit / summary.total_revenue) * 100).toBe(summary.average_gross_margin);
+    });
+
     it('should safely handle zero revenue without division by zero errors', () => {
       const summary: FinancialExecutiveSummary = {
         total_projects: 0,

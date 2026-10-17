@@ -4,21 +4,21 @@ import { ExecutiveKpiCards } from '../ExecutiveKpiCards';
 import type { FinancialExecutiveSummary } from '../../../types/financialReports';
 
 describe('Component: ExecutiveKpiCards', () => {
-  it('renders 5 loading skeleton cards when isLoading is true', () => {
+  it('renders 6 loading skeleton cards when isLoading is true', () => {
     const { container } = render(<ExecutiveKpiCards summary={null} isLoading={true} />);
 
     const skeletonCards = container.querySelectorAll('.animate-pulse');
-    expect(skeletonCards.length).toBe(5);
+    expect(skeletonCards.length).toBe(6);
   });
 
-  it('renders all 5 decoupled financial metrics correctly when summary data is provided', () => {
+  it('renders all 6 decoupled financial metrics correctly when summary data is provided', () => {
     const mockSummary: FinancialExecutiveSummary = {
       total_projects: 8,
       total_revenue: 100_000_000,
       total_actual_material_cost: 45_000_000,
       total_actual_labor_cost: 25_000_000,
-      total_actual_overhead_cost: 0,
-      total_cogs: 70_000_000,
+      total_actual_overhead_cost: 5_000_000,
+      total_cogs: 75_000_000,
       total_gross_profit: 30_000_000,
       average_gross_margin: 30.0,
       total_inventory_valuation: 50_000_000,
@@ -35,21 +35,26 @@ describe('Component: ExecutiveKpiCards', () => {
 
     // Card 2: Material Cost
     expect(screen.getByText(/2\. Biaya Bahan Baku \(GI\)/i)).toBeInTheDocument();
-    expect(screen.getByText(/45\.0% dari Omzet/i)).toBeInTheDocument();
+    expect(screen.getByText(/\b45\.0% dari Omzet/i)).toBeInTheDocument();
     expect(screen.getByText(/Barang Keluar/i)).toBeInTheDocument();
 
     // Card 3: Borongan Mandor
     expect(screen.getByText(/3\. Borongan Mandor/i)).toBeInTheDocument();
-    expect(screen.getByText(/25\.0% dari Omzet/i)).toBeInTheDocument();
+    expect(screen.getByText(/\b25\.0% dari Omzet/i)).toBeInTheDocument();
     expect(screen.getByText(/Upah Terbayar/i)).toBeInTheDocument();
 
-    // Card 4: Operating Gross Profit & Margin
-    expect(screen.getByText(/4\. Laba Operasional & Margin/i)).toBeInTheDocument();
+    // Card 4: Overhead Pabrikasi (FOH)
+    expect(screen.getByText(/4\. Overhead Pabrikasi \(FOH\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/\b5\.0% dari Omzet/i)).toBeInTheDocument();
+    expect(screen.getByText(/Bay & Mesin Riil/i)).toBeInTheDocument();
+
+    // Card 5: Operating Gross Profit & Margin
+    expect(screen.getByText(/5\. Laba Operasional & Margin/i)).toBeInTheDocument();
     expect(screen.getByText('30.0%')).toBeInTheDocument();
     expect(screen.getByText(/Sehat \(≥25%\)/i)).toBeInTheDocument();
 
-    // Card 5: Receivables & Pending Units
-    expect(screen.getByText(/5\. Piutang & Unit Tertahan/i)).toBeInTheDocument();
+    // Card 6: Receivables & Pending Units
+    expect(screen.getByText(/6\. Piutang & Unit Tertahan/i)).toBeInTheDocument();
     expect(screen.getByText(/3 Unit Belum Lunas/i)).toBeInTheDocument();
   });
 

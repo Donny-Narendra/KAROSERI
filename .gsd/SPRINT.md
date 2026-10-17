@@ -1,57 +1,58 @@
-# Sprint 35 — Implement spk_overhead_logs and Update Financial Database Views for 3-Element Job Order Costing
+# Sprint 36 — Integrate 3-Element Job Order Costing into Financial Reports UI and KPI Cards
 
 > **Duration**: 2026-10-17 to 2026-10-17
-> **Status**: In Progress 🟡
+> **Status**: Completed ✅
 
 ## Goal
-Implement comprehensive 3-Element Job Order Costing (Direct Material, Direct Labor, Factory Overhead) by creating table `public.spk_overhead_logs`, updating `view_wbs_cost_variance` for 3-pillar budget variance analysis, updating `view_spk_job_profitability` to incorporate actual overhead costs into total COGS and accurate gross profit / margin calculations, and updating the `get_financial_executive_summary` RPC to expose real factory overhead aggregations.
+Integrate 3-element Job Order Costing (Direct Material, Direct Labor, Factory Overhead) proportionally into the `/finance-reports` user interface:
+1. Executive summary KPI cards (`ExecutiveKpiCards.tsx`) with dedicated Card 4 for `total_actual_overhead_cost` (Overhead Pabrikasi FOH).
+2. WBS Cost Variance tab (`WbsCostVarianceTab.tsx`) with 3 overhead analytical columns (`Pagu FOH`, `Realisasi FOH`, `Varian FOH`) alongside Material and Labor.
+3. Job Profitability tab (`JobProfitabilityTab.tsx`) with Biaya Overhead (FOH) column and 3-element HPP/COGS formula.
+4. Printable Financial Report (`FinancialPrintReport.tsx`) with overhead sections and columns.
+5. Unit tests (`ExecutiveKpiCards.test.tsx`, `executiveKpiCalculations.test.ts`) covering 6-card layout, skeleton loading, and percentage thresholds.
 
 ## Scope
 
 ### Included
-- **Database Migration (`supabase/migrations/20261017010000_job_order_costing_overhead.sql`)**:
-  - Create table `public.spk_overhead_logs` with generated stored column `total_amount = frequency_qty * rate_per_unit`, RLS policies, and indexes on `spk_id` and `wbs_stage`.
-  - Update `view_wbs_cost_variance` to aggregate 3 budget pillars (Material, Labor, Overhead) from `rab_items` and `change_order_items`, and compare with actual spent (`material_issues`, `spk_borongan`, `spk_overhead_logs`).
-  - Update `view_spk_job_profitability` to compute 3-element HPP/COGS (`actual_material_cost + actual_labor_cost + actual_overhead_cost`), net operating profit (`gross_profit`), and `gross_margin_percentage`, maintaining backward compatibility (`payment_status`, `customer_phone`, `target_date`).
-  - Update RPC `get_financial_executive_summary` to include `total_actual_overhead_cost` and accurate 3-element HPP/COGS.
-- **Application Services & TypeScript Contracts**:
-  - Update `src/types/financialReports.ts` (`SpkJobProfitability`, `WbsCostVariance`, `FinancialExecutiveSummary`).
-  - Update `src/services/financialReportsService.ts` mapping and parsing for overhead fields.
-  - Update `src/utils/financialCalculations.ts` (`calculateJobProfitability`) to support optional 4th parameter `overheadCost`.
-  - Update `src/utils/exportFinancialReports.ts` to export overhead columns in Excel/CSV.
+- **TypeScript Types & Contracts (`src/types/financialReports.ts`)**:
+  - `FinancialExecutiveSummary`: `total_actual_overhead_cost: number;`
+  - `WbsCostVariance`: `total_overhead_budget: number; actual_overhead_spent: number; overhead_variance: number;`
+  - `SpkJobProfitability`: `actual_overhead_cost: number;`
+  - Type aliases `WbsCostVarianceItem = WbsCostVariance` and `SpkJobProfitabilityItem = SpkJobProfitability`.
 - **UI Components & Reporting Tabs**:
-  - Update `JobProfitabilityTab.tsx` to display Biaya Overhead (FOH) and incorporate it into total COGS.
-  - Update `WbsCostVarianceTab.tsx` to display the 3rd pillar (Pagu Overhead, Realisasi Overhead, Varian Overhead).
-  - Update `ExecutiveKpiCards.tsx` to reference comprehensive 3-element COGS.
+  - `ExecutiveKpiCards.tsx`: Expanded top-row executive cards to 6 decoupled cards (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6`), adding Card 4 for Overhead Pabrikasi (FOH) with `Factory` icon and proportion against Omzet.
+  - `WbsCostVarianceTab.tsx`: Added 3 analytical columns (`Pagu FOH`, `Realisasi FOH`, `Varian FOH`), updated row calculations for 3-way variance status (`totalVar = matVar + laborVar + overheadVar`), and formatted table footer totals with colSpan=12.
+  - `JobProfitabilityTab.tsx`: Added `Biaya Overhead (FOH)` column, row cells, and summary footer totals.
+  - `FinancialPrintReport.tsx`: Synchronized printable Executive Summary, Job Profitability, and WBS Cost Variance tables with overhead metrics.
 - **Testing & Verification**:
-  - Apply migration to PostgreSQL database via `apply_migration.cjs`.
-  - Update and execute `verify_financial_reporting_views.cjs`.
-  - Run all Vitest suites (`npm test`), Oxlint (`npx oxlint`), and production build (`npm run build`).
+  - Updated `ExecutiveKpiCards.test.tsx` to assert 6 skeleton loading cards and all 6 financial KPI metrics with regex word boundary safety.
+  - Added unit test in `executiveKpiCalculations.test.ts` for 3-element COGS reconciliation.
+  - Ran 15 Vitest test suites (123 tests passing), Oxlint (0 errors), and production build (`npm run build` passing).
 
 ### Explicitly Excluded
-- Retroactive manual recalculations of closed invoices.
-- Physical bay hardware sensors or automated check-in logging devices.
+- Database view and RPC modifications (completed in Sprint 35).
+- Physical bay sensor tracking or automated IoT logging hardware.
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| 1. Create SQL migration `20261017010000_job_order_costing_overhead.sql` and apply to database | Antigravity | ✅ Done | 0.3h |
-| 2. Update TypeScript types, service layer, calculation formulas, and export helpers | Antigravity | ✅ Done | 0.3h |
-| 3. Update Financial Reporting UI tabs (`JobProfitabilityTab`, `WbsCostVarianceTab`, `ExecutiveKpiCards`, `FinancialPrintReport`) | Antigravity | ✅ Done | 0.3h |
-| 4. Verification with empirical database script, unit tests, linter, and build | Antigravity | ✅ Done | 0.3h |
+| 1. Update TypeScript contracts (`FinancialExecutiveSummary`, `WbsCostVarianceItem`, `SpkJobProfitabilityItem`) | Antigravity | ✅ Done | 0.2h |
+| 2. Update `ExecutiveKpiCards.tsx` to 6-card grid with Card 4 Overhead Pabrikasi (FOH) | Antigravity | ✅ Done | 0.3h |
+| 3. Update `WbsCostVarianceTab.tsx` with 3 FOH analytical columns and 3-way variance status | Antigravity | ✅ Done | 0.3h |
+| 4. Update `JobProfitabilityTab.tsx` and `FinancialPrintReport.tsx` with Overhead FOH columns | Antigravity | ✅ Done | 0.2h |
+| 5. Update unit tests (`ExecutiveKpiCards.test.tsx`, `executiveKpiCalculations.test.ts`) and verify with build | Antigravity | ✅ Done | 0.3h |
 
 ## Daily Log
 
 ### 2026-10-17
-- Archived Sprint 34 to `.gsd/sprints/sprint-34-filter-material-requisition-rab-reference-to-exclusively-show-material-items.md`.
-- Initialized Sprint 35 for 3-element Job Order Costing (Direct Material, Direct Labor, Factory Overhead).
-- Created migration `supabase/migrations/20261017010000_job_order_costing_overhead.sql` with table `spk_overhead_logs`, updated views `view_wbs_cost_variance` and `view_spk_job_profitability`, and updated RPC `get_financial_executive_summary`.
-- Successfully applied migration to Supabase PostgreSQL database via `apply_migration.cjs`.
-- Updated TypeScript contracts in `src/types/financialReports.ts` (`SpkOverheadLog`, `SpkJobProfitability`, `WbsCostVariance`, `FinancialExecutiveSummary`).
-- Updated service layer in `src/services/financialReportsService.ts` to map overhead fields and added `getSpkOverheadLogs`.
-- Updated financial calculation formulas in `src/utils/financialCalculations.ts` (`calculateJobProfitability`) and added comprehensive Vitest unit tests in `src/utils/__tests__/financialCalculations.test.ts`.
-- Updated export mapping in `src/utils/exportFinancialReports.ts` and test assertions in `src/utils/__tests__/exportFinancialReports.test.ts`.
-- Updated UI reporting tabs (`JobProfitabilityTab.tsx`, `WbsCostVarianceTab.tsx`, `ExecutiveKpiCards.tsx`, `FinancialPrintReport.tsx`) to render Factory Overhead (FOH) and 3-element costing calculations.
-- Verified empirical database validation via `verify_financial_reporting_views.cjs` (All 5 stages passed 100%).
-- Ran full test suite (15 test suites, 122 tests passed), Oxlint (0 errors), and production build (`npm run build` succeeded).
+- Initialized Sprint 36 for UI integration of 3-Element Job Order Costing across the `/finance-reports` dashboard.
+- Verified TypeScript contracts in `src/types/financialReports.ts` including aliases `WbsCostVarianceItem` and `SpkJobProfitabilityItem`.
+- Implemented Card 4 "Overhead Pabrikasi (FOH)" in `ExecutiveKpiCards.tsx`, expanding responsive layout to 6 cards.
+- Integrated `Pagu FOH`, `Realisasi FOH`, and `Varian FOH` into `WbsCostVarianceTab.tsx` with deficit/surplus status.
+- Added `Biaya Overhead (FOH)` into `JobProfitabilityTab.tsx` and updated printable canvas in `FinancialPrintReport.tsx`.
+- Updated test suite in `ExecutiveKpiCards.test.tsx` to validate 6 skeleton cards and metrics.
+- Added 3-element COGS reconciliation test in `src/utils/__tests__/executiveKpiCalculations.test.ts`.
+- Ran full test suite: 15 suites, 123 tests passing (100%).
+- Ran Oxlint: 0 errors.
+- Ran production build: `npm run build` succeeded cleanly.

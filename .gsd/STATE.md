@@ -1,17 +1,18 @@
 ## Current Position
-- **Sprint**: Sprint 35 — Implement spk_overhead_logs and Update Financial Database Views for 3-Element Job Order Costing
-- **Status**: Sprint in progress 🟡
+- **Sprint**: Sprint 36 — Integrate 3-Element Job Order Costing into Financial Reports UI and KPI Cards
+- **Status**: Sprint completed ✅
 - **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness
 
 ## Last Session Summary
-- Archived Sprint 34 to `.gsd/sprints/sprint-34-filter-material-requisition-rab-reference-to-exclusively-show-material-items.md`.
-- Implemented comprehensive 3-Element Job Order Costing (Direct Material, Direct Labor, Factory Overhead) via migration `supabase/migrations/20261017010000_job_order_costing_overhead.sql`.
-- Created table `public.spk_overhead_logs` with auto-computed stored amount (`frequency_qty * rate_per_unit`), RLS policies, and performance indexes.
-- Updated `view_wbs_cost_variance` for 3-pillar budget variance analysis (Material, Labor, Overhead).
-- Updated `view_spk_job_profitability` to incorporate `actual_overhead_cost` into `total_cogs`, `gross_profit`, and `gross_margin_percentage`, maintaining full backward compatibility.
-- Updated `get_financial_executive_summary` RPC to expose `total_actual_overhead_cost` and accurate 3-element COGS.
-- Updated TypeScript types, service layer, calculation formulas, Excel/CSV export mapping, and financial UI reporting tabs.
-- Empirically validated with PostgreSQL database script (`verify_financial_reporting_views.cjs`), 122 Vitest unit tests, Oxlint (0 errors), and production build.
+- Archived Sprint 35 to `.gsd/sprints/sprint-35-implement-spk-overhead-logs-and-update-financial-database-views-for-3-element-job-order-costing.md`.
+- Completed Sprint 36:
+  - Updated TypeScript contracts in `src/types/financialReports.ts` (`FinancialExecutiveSummary`, `WbsCostVarianceItem`, `SpkJobProfitabilityItem`).
+  - Updated `ExecutiveKpiCards.tsx` to 6-card grid (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6`) with dedicated Card 4 for `total_actual_overhead_cost` (Overhead Pabrikasi FOH).
+  - Updated `WbsCostVarianceTab.tsx` with 3 FOH analytical columns (`Pagu FOH`, `Realisasi FOH`, `Varian FOH`), 3-way variance status calculation, and colSpan=12.
+  - Updated `JobProfitabilityTab.tsx` with `Biaya Overhead (FOH)` column, row cells, and summary aggregates.
+  - Synchronized `FinancialPrintReport.tsx` printable report with overhead columns across Executive Summary, Job Profitability, and WBS Cost Variance tables.
+  - Updated `ExecutiveKpiCards.test.tsx` and `executiveKpiCalculations.test.ts`.
+  - All 15 Vitest test suites (123 tests) passing, Oxlint 0 errors, and `npm run build` passing.
 
 ## Blockers
 None.

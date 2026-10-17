@@ -52,6 +52,10 @@ export interface WbsCostVariance {
   overhead_variance: number;
 }
 
+// Type aliases for flexible contract naming
+export type WbsCostVarianceItem = WbsCostVariance;
+export type SpkJobProfitabilityItem = SpkJobProfitability;
+
 export interface InventoryValuation {
   material_id: string;
   material_name: string;
