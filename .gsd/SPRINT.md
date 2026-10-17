@@ -1,49 +1,43 @@
-# Sprint 28 — Implement Inventory-driven Auto-Suggest Search for Labor/Jasa in RAB Calculator
+# Sprint 29 — Enable Decimal Precision and Auto-Select on Focus for QTY and WBS Allocation Inputs
 
 > **Duration**: 2026-10-17 to 2026-10-17
-> **Status**: Completed ✅
+> **Status**: In Progress
 
 ## Goal
-Implement an inventory-driven auto-suggest search field for "NAMA JASA / PEKERJAAN TUKANG" in the Service Advisor RAB Calculator (`RabCalculator.tsx`), strictly filtered to master catalog items containing labor keywords (`jasa`, `ongkos`, `borongan`, `tukang`, `upah`, `tenaga`) or category `jasa`/`labor`, automatically filling standard rates (`selling_price` or `cost_price`) while retaining custom input flexibility.
+Enable decimal precision (supporting both '.' and ',' decimal separators) and auto-select on focus (`onFocus={(e) => e.target.select()}`, `onMouseUp={(e) => e.preventDefault()}`) for QTY and WBS 1-5 allocation inputs in RabCalculator (both Material and Labor forms), with rounded remainder tolerance.
 
 ## Scope
 
 ### Included
-- **Keyword-filtered Master Inventory Querying**:
-  - Filter `materials` using `LABOR_KEYWORDS = ['jasa', 'ongkos', 'borongan', 'tukang', 'upah', 'tenaga']` and `category === 'jasa' | 'labor'`.
-  - Exclude physical goods (e.g., steel plates, electrodes, consumables) from labor auto-suggest.
-- **Auto-Suggest Search & Floating Dropdown**:
-  - Auto-suggest input with focus/query triggers, keyboard navigation (ArrowUp, ArrowDown, Enter, Escape), and click-outside dismissal.
-  - Floating suggestion list displaying item name, `[JASA]` badge, and standard rate (`Rp`).
-  - Fallback prompt: *"Tidak ditemukan di master inventaris jasa. Tekan Enter untuk gunakan nama kustom."*
-- **Auto-Fill & Custom Override**:
-  - Selecting an item populates `name` and auto-fills `estimatedCost` with `selling_price || cost_price || unit_price`.
-  - Allows manual adjustment of cost or typing arbitrary custom task names.
-- **Automated Testing & Quality**:
-  - Add test suite in `RabCalculatorLabor.test.tsx` verifying labor auto-suggest filtering, physical items exclusion, and rate auto-population.
+- **Decimal Precision & Input Attributes**:
+  - Configure `step="any"` and `min="0"` on QTY and WBS 1 to WBS 5 allocation inputs in `RabCalculator.tsx`.
+  - Provide `parseDecimal(val)` helper that normalizes comma `,` to dot `.` and safely parses floats without forced `parseInt()`.
+  - Ensure users can input fractional material quantities (e.g., 1.5 plat bordes, 0.5 kg kawat las, 2.5 liter cat) and split across WBS stages.
+- **Auto-Select on Focus**:
+  - Attach `onFocus={(e) => e.target.select()}` and `onMouseUp={(e) => e.preventDefault()}` on QTY and WBS 1 to WBS 5 inputs across both Material and Labor tabs.
+- **Allocation Remainder & Status Badge**:
+  - Recalculate remaining allocation using JavaScript floating-point rounding tolerance: `Math.round((totalQty - sumWbsAllocated) * 100) / 100`.
+  - Ensure status badge displays exact status (e.g. `PASSED` / `Sesuai / Pas (0.00)` when balanced, or clean decimal remainder `Sisa: 0.50`).
+- **Labor Form Parity**:
+  - Apply the same decimal and auto-select behaviors to the Labor / Tukang tab allocation grid.
+- **Automated Testing & Verification**:
+  - Add test cases in `RabCalculatorLabor.test.tsx` verifying decimal inputs, fractional WBS splitting, and auto-select attributes.
   - Run `npm test`, `npm run lint`, and `npm run build`.
 
 ### Explicitly Excluded
-- Restricting users from creating custom ad-hoc labor items.
-- Modifying warehouse inventory tables.
+- Database schema changes.
+- Altering unrelated financial reporting services.
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| 1. Add `category` to `Material` interface and define `LABOR_KEYWORDS` in `RabCalculator.tsx` | Antigravity | ✅ Done | 0.2h |
-| 2. Implement auto-suggest search and dropdown in Labor form JSX | Antigravity | ✅ Done | 0.3h |
-| 3. Add automated tests for labor auto-suggest filtering and auto-fill in `RabCalculatorLabor.test.tsx` | Antigravity | ✅ Done | 0.2h |
-| 4. Validate with `npm test`, `npm run lint`, and `npm run build` | Antigravity | ✅ Done | 0.2h |
+| 1. Refactor QTY and WBS 1-5 inputs in `RabCalculator.tsx` with `step="any"`, `min="0"`, `parseDecimal`, and `onFocus` auto-select | Antigravity | 🔄 In Progress | 0.4h |
+| 2. Update remaining calculation and status badge with floating-point tolerance | Antigravity | ⬜ Todo | 0.2h |
+| 3. Add automated tests for decimal input handling and auto-select | Antigravity | ⬜ Todo | 0.3h |
+| 4. Verification with Vitest, linter, and production build | Antigravity | ⬜ Todo | 0.2h |
 
 ## Daily Log
 
 ### 2026-10-17
-- Initialized Sprint 28: Implement Inventory-driven Auto-Suggest Search for Labor/Jasa in RAB Calculator.
-- Added `category?: string` to `Material` interface in `src/services/inventoryService.ts`.
-- Integrated `LABOR_KEYWORDS` filter and `availableLaborItems` / `filteredLaborItems` memoized states in `src/components/RabCalculator.tsx`.
-- Built keyboard accessible (`ArrowUp`, `ArrowDown`, `Enter`, `Escape`) floating suggestion dropdown showing standard selling/cost rate and `JASA` badge.
-- Connected `handleSelectLaborItem` to auto-fill name and standard labor cost.
-- Preserved fallback allowing custom non-catalog work names and custom rates.
-- Added unit tests in `src/components/__tests__/RabCalculatorLabor.test.tsx` verifying strict labor keyword filtering, physical item exclusion, rate auto-fill, and fallback notice.
-- Passed all 94 Vitest test cases across 11 test files, 0 linter errors, and verified production build with Vite.
+- Initialized Sprint 29: Enable Decimal Precision and Auto-Select on Focus for QTY and WBS Allocation Inputs.
