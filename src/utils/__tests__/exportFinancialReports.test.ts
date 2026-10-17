@@ -44,9 +44,10 @@ describe('Financial Report Export Engine & Mapping (exportFinancialReports)', ()
           total_revenue: 50_000_000,
           actual_material_cost: 25_000_000,
           actual_labor_cost: 10_000_000,
-          total_cogs: 35_000_000,
-          gross_profit: 15_000_000,
-          gross_margin_percentage: 30,
+          actual_overhead_cost: 2_000_000,
+          total_cogs: 37_000_000,
+          gross_profit: 13_000_000,
+          gross_margin_percentage: 26,
           payment_status: 'PARTIAL',
         },
       ];
@@ -60,9 +61,10 @@ describe('Financial Report Export Engine & Mapping (exportFinancialReports)', ()
       expect(row['Pendapatan Tagihan (Rp)']).toBe(50_000_000);
       expect(row['HPP Bahan/Material (Rp)']).toBe(25_000_000);
       expect(row['HPP Jasa/Borongan (Rp)']).toBe(10_000_000);
-      expect(row['Total HPP Aktual (Rp)']).toBe(35_000_000);
-      expect(row['Laba Kotor (Rp)']).toBe(15_000_000);
-      expect(row['Margin Kotor (%)']).toBe(30);
+      expect(row['HPP Overhead Pabrikasi (Rp)']).toBe(2_000_000);
+      expect(row['Total HPP Aktual (Rp)']).toBe(37_000_000);
+      expect(row['Laba Kotor (Rp)']).toBe(13_000_000);
+      expect(row['Margin Kotor (%)']).toBe(26);
       expect(row['Status Penagihan']).toBe('PARTIAL');
     });
   });
@@ -82,6 +84,9 @@ describe('Financial Report Export Engine & Mapping (exportFinancialReports)', ()
           total_labor_budget: 5_000_000,
           actual_labor_spent: 4_500_000,
           labor_variance: 500_000,
+          total_overhead_budget: 1_000_000,
+          actual_overhead_spent: 800_000,
+          overhead_variance: 200_000,
         },
       ];
 
@@ -89,9 +94,12 @@ describe('Financial Report Export Engine & Mapping (exportFinancialReports)', ()
       expect(rows).toHaveLength(1);
 
       const row = rows[0];
-      expect(row['Total Pagu (Rp)']).toBe(15_000_000);
-      expect(row['Total Aktual (Rp)']).toBe(12_500_000);
-      expect(row['Total Varian (Rp)']).toBe(2_500_000);
+      expect(row['Total Pagu (Rp)']).toBe(16_000_000);
+      expect(row['Total Aktual (Rp)']).toBe(13_300_000);
+      expect(row['Total Varian (Rp)']).toBe(2_700_000);
+      expect(row['Pagu Overhead/FOH (Rp)']).toBe(1_000_000);
+      expect(row['Aktual Overhead/FOH (Rp)']).toBe(800_000);
+      expect(row['Varian Overhead (Rp)']).toBe(200_000);
       expect(row['Status Anggaran']).toBe('SURPLUS');
     });
 
@@ -109,6 +117,9 @@ describe('Financial Report Export Engine & Mapping (exportFinancialReports)', ()
           total_labor_budget: 5_000_000,
           actual_labor_spent: 5_000_000,
           labor_variance: 0,
+          total_overhead_budget: 1_000_000,
+          actual_overhead_spent: 1_000_000,
+          overhead_variance: 0,
         },
       ];
 

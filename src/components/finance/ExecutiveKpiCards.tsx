@@ -50,6 +50,7 @@ export const ExecutiveKpiCards: React.FC<ExecutiveKpiCardsProps> = ({ summary, i
     total_revenue: 0,
     total_actual_material_cost: 0,
     total_actual_labor_cost: 0,
+    total_actual_overhead_cost: 0,
     total_cogs: 0,
     total_gross_profit: 0,
     average_gross_margin: 0,

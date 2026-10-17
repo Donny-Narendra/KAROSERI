@@ -3,6 +3,19 @@
  * Single source of truth for RobelKaroseri financial analytics & owner/cashier dashboard.
  */
 
+export interface SpkOverheadLog {
+  id: string;
+  spk_id: string;
+  wbs_stage: string;
+  overhead_name: string;
+  frequency_qty: number;
+  rate_per_unit: number;
+  total_amount: number;
+  notes?: string | null;
+  recorded_at: string;
+  created_by?: string | null;
+}
+
 export interface SpkJobProfitability {
   spk_id: string;
   spk_number: string;
@@ -15,6 +28,7 @@ export interface SpkJobProfitability {
   total_revenue: number;
   actual_material_cost: number;
   actual_labor_cost: number;
+  actual_overhead_cost: number;
   total_cogs: number;
   gross_profit: number;
   gross_margin_percentage: number;
@@ -33,6 +47,9 @@ export interface WbsCostVariance {
   total_labor_budget: number;
   actual_labor_spent: number;
   labor_variance: number;
+  total_overhead_budget: number;
+  actual_overhead_spent: number;
+  overhead_variance: number;
 }
 
 export interface InventoryValuation {
@@ -73,6 +90,7 @@ export interface FinancialExecutiveSummary {
   total_revenue: number;
   total_actual_material_cost: number;
   total_actual_labor_cost: number;
+  total_actual_overhead_cost: number;
   total_cogs: number;
   total_gross_profit: number;
   average_gross_margin: number;

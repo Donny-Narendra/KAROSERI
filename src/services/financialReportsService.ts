@@ -33,6 +33,7 @@ export const financialReportsService = {
       total_revenue: Number(res?.total_revenue || 0),
       total_actual_material_cost: Number(res?.total_actual_material_cost || 0),
       total_actual_labor_cost: Number(res?.total_actual_labor_cost || 0),
+      total_actual_overhead_cost: Number(res?.total_actual_overhead_cost || 0),
       total_cogs: Number(res?.total_cogs || 0),
       total_gross_profit: Number(res?.total_gross_profit || 0),
       average_gross_margin: Number(res?.average_gross_margin || 0),
@@ -81,6 +82,7 @@ export const financialReportsService = {
       total_revenue: Number(row.total_revenue || 0),
       actual_material_cost: Number(row.actual_material_cost || 0),
       actual_labor_cost: Number(row.actual_labor_cost || 0),
+      actual_overhead_cost: Number(row.actual_overhead_cost || 0),
       total_cogs: Number(row.total_cogs || 0),
       gross_profit: Number(row.gross_profit || 0),
       gross_margin_percentage: Number(row.gross_margin_percentage || 0),
@@ -147,15 +149,41 @@ export const financialReportsService = {
       total_labor_budget: Number(row.total_labor_budget || 0),
       actual_labor_spent: Number(row.actual_labor_spent || 0),
       labor_variance: Number(row.labor_variance || 0),
+      total_overhead_budget: Number(row.total_overhead_budget || 0),
+      actual_overhead_spent: Number(row.actual_overhead_spent || 0),
+      overhead_variance: Number(row.overhead_variance || 0),
     })) as WbsCostVariance[];
 
     if (overBudgetOnly) {
       formatted = formatted.filter(
-        item => item.material_variance < 0 || item.labor_variance < 0
+        item => item.material_variance < 0 || item.labor_variance < 0 || item.overhead_variance < 0
       );
     }
 
     return formatted;
+  },
+
+  /**
+   * Mengambil log pembebanan overhead riil proyek SPK
+   */
+  async getSpkOverheadLogs(spkId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('spk_overhead_logs')
+      .select('*')
+      .eq('spk_id', spkId)
+      .order('recorded_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching SPK overhead logs:', error);
+      throw new Error(`Gagal mengambil log overhead: ${error.message}`);
+    }
+
+    return (data || []).map(row => ({
+      ...row,
+      frequency_qty: Number(row.frequency_qty || 0),
+      rate_per_unit: Number(row.rate_per_unit || 0),
+      total_amount: Number(row.total_amount || 0),
+    }));
   },
 
   /**

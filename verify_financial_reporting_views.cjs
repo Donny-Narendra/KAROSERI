@@ -33,7 +33,23 @@ async function verifyFinancialViews() {
       }
       console.log(`  ✓ View exists: ${v}`);
     }
-    console.log('✅ Stage 1 PASS: All 4 views are registered in public schema.\n');
+
+    // Also check table spk_overhead_logs
+    const tableRes = await client.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_schema = 'public' AND table_name = 'spk_overhead_logs'
+    `);
+    if (tableRes.rows.length === 0) {
+      throw new Error('Table spk_overhead_logs does not exist!');
+    }
+    const overheadCols = tableRes.rows.map(r => r.column_name);
+    const expectedOverheadCols = ['id', 'spk_id', 'wbs_stage', 'overhead_name', 'frequency_qty', 'rate_per_unit', 'total_amount'];
+    for (const c of expectedOverheadCols) {
+      if (!overheadCols.includes(c)) throw new Error(`Missing column in spk_overhead_logs: ${c}`);
+    }
+    console.log(`  ✓ Table spk_overhead_logs exists with ${overheadCols.length} columns.`);
+    console.log('✅ Stage 1 PASS: All 4 views and spk_overhead_logs table are registered in public schema.\n');
 
     // 2. Verify View 1: view_spk_job_profitability
     console.log('--- Stage 2: Verify View 1 (view_spk_job_profitability) ---');
@@ -46,7 +62,7 @@ async function verifyFinancialViews() {
     const requiredCols1 = [
       'spk_id', 'spk_number', 'customer_name', 'customer_phone', 'vehicle_plate',
       'spk_status', 'registration_date', 'target_date', 'total_revenue',
-      'actual_material_cost', 'actual_labor_cost', 'total_cogs', 'gross_profit',
+      'actual_material_cost', 'actual_labor_cost', 'actual_overhead_cost', 'total_cogs', 'gross_profit',
       'gross_margin_percentage', 'payment_status'
     ];
     for (const col of requiredCols1) {
@@ -62,19 +78,20 @@ async function verifyFinancialViews() {
       const rev = Number(row.total_revenue);
       const mat = Number(row.actual_material_cost);
       const lab = Number(row.actual_labor_cost);
+      const foh = Number(row.actual_overhead_cost || 0);
       const cogs = Number(row.total_cogs);
       const profit = Number(row.gross_profit);
 
-      // Verify cogs formula: cogs = mat + lab
-      if (Math.abs(cogs - (mat + lab)) > 0.01) {
-        throw new Error(`COGS mismatch for ${row.spk_number}: ${cogs} != ${mat} + ${lab}`);
+      // Verify 3-element COGS formula: cogs = mat + lab + foh
+      if (Math.abs(cogs - (mat + lab + foh)) > 0.01) {
+        throw new Error(`COGS mismatch for ${row.spk_number}: ${cogs} != ${mat} + ${lab} + ${foh}`);
       }
       // Verify profit formula: profit = rev - cogs
       if (Math.abs(profit - (rev - cogs)) > 0.01) {
         throw new Error(`Gross profit mismatch for ${row.spk_number}: ${profit} != ${rev} - ${cogs}`);
       }
     }
-    console.log('✅ Stage 2 PASS: View 1 formulas (COGS, Gross Profit, Gross Margin %) verified.\n');
+    console.log('✅ Stage 2 PASS: View 1 formulas (3-Element COGS, Gross Profit, Gross Margin %) verified.\n');
 
     // 3. Verify View 2: view_wbs_cost_variance
     console.log('--- Stage 3: Verify View 2 (view_wbs_cost_variance) ---');
@@ -87,7 +104,8 @@ async function verifyFinancialViews() {
     const requiredCols2 = [
       'spk_id', 'spk_number', 'customer_name', 'vehicle_plate', 'wbs_stage',
       'total_material_budget', 'actual_material_spent', 'material_variance',
-      'total_labor_budget', 'actual_labor_spent', 'labor_variance'
+      'total_labor_budget', 'actual_labor_spent', 'labor_variance',
+      'total_overhead_budget', 'actual_overhead_spent', 'overhead_variance'
     ];
     for (const col of requiredCols2) {
       if (!cols2.includes(col)) throw new Error(`Missing column in View 2: ${col}`);
@@ -107,15 +125,22 @@ async function verifyFinancialViews() {
       const actLab = Number(row.actual_labor_spent);
       const varLab = Number(row.labor_variance);
 
-      // Verify variance formula: budget - actual
+      const budFoh = Number(row.total_overhead_budget);
+      const actFoh = Number(row.actual_overhead_spent);
+      const varFoh = Number(row.overhead_variance);
+
+      // Verify variance formula: budget - actual for 3 pillars
       if (Math.abs(varMat - (budMat - actMat)) > 0.01) {
         throw new Error(`Material variance mismatch for ${row.spk_number} ${row.wbs_stage}`);
       }
       if (Math.abs(varLab - (budLab - actLab)) > 0.01) {
         throw new Error(`Labor variance mismatch for ${row.spk_number} ${row.wbs_stage}`);
       }
+      if (Math.abs(varFoh - (budFoh - actFoh)) > 0.01) {
+        throw new Error(`Overhead variance mismatch for ${row.spk_number} ${row.wbs_stage}`);
+      }
     }
-    console.log('✅ Stage 3 PASS: View 2 variance calculations verified across WBS stages.\n');
+    console.log('✅ Stage 3 PASS: View 2 variance calculations verified across all 3 pillars (Material, Labor, Overhead).\n');
 
     // 4. Verify View 3: view_inventory_valuation
     console.log('--- Stage 4: Verify View 3 (view_inventory_valuation) ---');

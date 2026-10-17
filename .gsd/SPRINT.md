@@ -1,50 +1,57 @@
-# Sprint 34 — Filter Material Requisition RAB Reference to Exclusively Show MATERIAL Items
+# Sprint 35 — Implement spk_overhead_logs and Update Financial Database Views for 3-Element Job Order Costing
 
 > **Duration**: 2026-10-17 to 2026-10-17
-> **Status**: Completed ✅
+> **Status**: In Progress 🟡
 
 ## Goal
-Filter the RAB reference panel ("Alokasi RAB (WBS Terkait)") in the Mandor Material Requisition modal (`MaterialRequisitionForm.tsx`) to strictly and exclusively display items where `item_type = 'MATERIAL'` (or `item_type IS NULL` for legacy unclassified data), preventing labor services (e.g., `LABOR`) and overhead entries (e.g., `OVERHEAD` / `Listrik`) from appearing in the material requisition reference list, while ensuring accurate count badges and valid transfer actions (`<<` / double-click).
+Implement comprehensive 3-Element Job Order Costing (Direct Material, Direct Labor, Factory Overhead) by creating table `public.spk_overhead_logs`, updating `view_wbs_cost_variance` for 3-pillar budget variance analysis, updating `view_spk_job_profitability` to incorporate actual overhead costs into total COGS and accurate gross profit / margin calculations, and updating the `get_financial_executive_summary` RPC to expose real factory overhead aggregations.
 
 ## Scope
 
 ### Included
-- **Supabase Query & Client Filter in `MaterialRequisitionForm.tsx`**:
-  - Add `.or('item_type.eq.MATERIAL,item_type.is.null')` to Supabase `rab_items` query.
-  - Include `item_type` in the `.select(...)` query of `rab_items`.
-  - Add strict client-side checks in filtering: ensure item is MATERIAL or null legacy, and strictly NOT `LABOR` and NOT `OVERHEAD`.
-- **Interface & Payload Verification**:
-  - Update `RabSourceItem` and `RequisitionItem` interfaces to include `item_type?: string`.
-  - Ensure transferring items (`<<` or double click) preserves physical material data (`material_id`, `unit_price`, `quantity`, `unit`, `item_type`).
-- **Header Badge & Count Verification**:
-  - Ensure the count badge beside `Alokasi RAB (WBS Terkait)` strictly reflects the filtered physical material items.
-  - Verify empty state and footer counters display proper material counts.
-- **Unit Testing & Empirical Verification**:
-  - Create comprehensive unit tests in `src/components/__tests__/MaterialRequisitionForm.test.tsx` verifying MATERIAL filtering, exclusion of LABOR and OVERHEAD, count badges, and transfer functionality.
-  - Run full test suite (`npm test`), linter (`npx oxlint`), and production build (`npm run build`).
+- **Database Migration (`supabase/migrations/20261017010000_job_order_costing_overhead.sql`)**:
+  - Create table `public.spk_overhead_logs` with generated stored column `total_amount = frequency_qty * rate_per_unit`, RLS policies, and indexes on `spk_id` and `wbs_stage`.
+  - Update `view_wbs_cost_variance` to aggregate 3 budget pillars (Material, Labor, Overhead) from `rab_items` and `change_order_items`, and compare with actual spent (`material_issues`, `spk_borongan`, `spk_overhead_logs`).
+  - Update `view_spk_job_profitability` to compute 3-element HPP/COGS (`actual_material_cost + actual_labor_cost + actual_overhead_cost`), net operating profit (`gross_profit`), and `gross_margin_percentage`, maintaining backward compatibility (`payment_status`, `customer_phone`, `target_date`).
+  - Update RPC `get_financial_executive_summary` to include `total_actual_overhead_cost` and accurate 3-element HPP/COGS.
+- **Application Services & TypeScript Contracts**:
+  - Update `src/types/financialReports.ts` (`SpkJobProfitability`, `WbsCostVariance`, `FinancialExecutiveSummary`).
+  - Update `src/services/financialReportsService.ts` mapping and parsing for overhead fields.
+  - Update `src/utils/financialCalculations.ts` (`calculateJobProfitability`) to support optional 4th parameter `overheadCost`.
+  - Update `src/utils/exportFinancialReports.ts` to export overhead columns in Excel/CSV.
+- **UI Components & Reporting Tabs**:
+  - Update `JobProfitabilityTab.tsx` to display Biaya Overhead (FOH) and incorporate it into total COGS.
+  - Update `WbsCostVarianceTab.tsx` to display the 3rd pillar (Pagu Overhead, Realisasi Overhead, Varian Overhead).
+  - Update `ExecutiveKpiCards.tsx` to reference comprehensive 3-element COGS.
+- **Testing & Verification**:
+  - Apply migration to PostgreSQL database via `apply_migration.cjs`.
+  - Update and execute `verify_financial_reporting_views.cjs`.
+  - Run all Vitest suites (`npm test`), Oxlint (`npx oxlint`), and production build (`npm run build`).
 
 ### Explicitly Excluded
-- Database schema changes or migrations.
-- Modifications to warehouse Goods Issue or Requisition Approval logic.
+- Retroactive manual recalculations of closed invoices.
+- Physical bay hardware sensors or automated check-in logging devices.
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| 1. Update Supabase query and client-side filter in `MaterialRequisitionForm.tsx` to require `item_type === 'MATERIAL'` (or null legacy) and exclude `LABOR` / `OVERHEAD` | Antigravity | ✅ Done | 0.2h |
-| 2. Verify count badge and transfer mechanics (`<<` & double click) for material items | Antigravity | ✅ Done | 0.2h |
-| 3. Create comprehensive unit tests in `src/components/__tests__/MaterialRequisitionForm.test.tsx` | Antigravity | ✅ Done | 0.3h |
-| 4. Validation (Vitest, Oxlint, Vite build) and Commit | Antigravity | ✅ Done | 0.2h |
+| 1. Create SQL migration `20261017010000_job_order_costing_overhead.sql` and apply to database | Antigravity | ✅ Done | 0.3h |
+| 2. Update TypeScript types, service layer, calculation formulas, and export helpers | Antigravity | ✅ Done | 0.3h |
+| 3. Update Financial Reporting UI tabs (`JobProfitabilityTab`, `WbsCostVarianceTab`, `ExecutiveKpiCards`, `FinancialPrintReport`) | Antigravity | ✅ Done | 0.3h |
+| 4. Verification with empirical database script, unit tests, linter, and build | Antigravity | ✅ Done | 0.3h |
 
 ## Daily Log
 
 ### 2026-10-17
-- Initialized Sprint 34: Filter Material Requisition RAB Reference to Exclusively Show MATERIAL Items.
-- Archived Sprint 33 to `.gsd/sprints/sprint-33-filter-spk-borongan-rab-reference-to-exclusively-show-labor-items.md`.
-- Updated `RabSourceItem` and `RequisitionItem` interfaces in `src/components/MaterialRequisitionForm.tsx` with `item_type?: string | null`.
-- Added `.or('item_type.eq.MATERIAL,item_type.is.null')` to Supabase query for `rab_items` and included `item_type` in `.select(...)`.
-- Enforced strict predicate filtering (`isMaterialType && isNotLabor && isNotOverhead`) in client-side mapping.
-- Preserved `item_type` on item transfer (`handleMoveToRequisition`).
-- Created unit tests in `src/components/__tests__/MaterialRequisitionForm.test.tsx` (5/5 tests passing).
-- Executed full test suite (15/15 test files, 120/120 tests passing), linter (0 errors), and production build (`npm run build` succeeded).
-- Prepared commit `fix(mandor): filter requisition rab reference list to strictly require item_type = 'MATERIAL'`.
+- Archived Sprint 34 to `.gsd/sprints/sprint-34-filter-material-requisition-rab-reference-to-exclusively-show-material-items.md`.
+- Initialized Sprint 35 for 3-element Job Order Costing (Direct Material, Direct Labor, Factory Overhead).
+- Created migration `supabase/migrations/20261017010000_job_order_costing_overhead.sql` with table `spk_overhead_logs`, updated views `view_wbs_cost_variance` and `view_spk_job_profitability`, and updated RPC `get_financial_executive_summary`.
+- Successfully applied migration to Supabase PostgreSQL database via `apply_migration.cjs`.
+- Updated TypeScript contracts in `src/types/financialReports.ts` (`SpkOverheadLog`, `SpkJobProfitability`, `WbsCostVariance`, `FinancialExecutiveSummary`).
+- Updated service layer in `src/services/financialReportsService.ts` to map overhead fields and added `getSpkOverheadLogs`.
+- Updated financial calculation formulas in `src/utils/financialCalculations.ts` (`calculateJobProfitability`) and added comprehensive Vitest unit tests in `src/utils/__tests__/financialCalculations.test.ts`.
+- Updated export mapping in `src/utils/exportFinancialReports.ts` and test assertions in `src/utils/__tests__/exportFinancialReports.test.ts`.
+- Updated UI reporting tabs (`JobProfitabilityTab.tsx`, `WbsCostVarianceTab.tsx`, `ExecutiveKpiCards.tsx`, `FinancialPrintReport.tsx`) to render Factory Overhead (FOH) and 3-element costing calculations.
+- Verified empirical database validation via `verify_financial_reporting_views.cjs` (All 5 stages passed 100%).
+- Ran full test suite (15 test suites, 122 tests passed), Oxlint (0 errors), and production build (`npm run build` succeeded).

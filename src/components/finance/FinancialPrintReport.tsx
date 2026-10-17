@@ -205,6 +205,7 @@ export const FinancialPrintReport: React.FC<FinancialPrintReportProps> = ({
                     <th className="border border-black p-2">Total Revenue</th>
                     <th className="border border-black p-2">Biaya Material</th>
                     <th className="border border-black p-2">Borongan Mandor</th>
+                    <th className="border border-black p-2">Overhead Pabrikasi</th>
                     <th className="border border-black p-2">Total HPP (COGS)</th>
                     <th className="border border-black p-2">Laba Kotor Kumulatif</th>
                     <th className="border border-black p-2">Rata-rata Margin</th>
@@ -218,6 +219,7 @@ export const FinancialPrintReport: React.FC<FinancialPrintReportProps> = ({
                     <td className="border border-black p-2 font-bold text-slate-900">{formatCurrency(summary.total_revenue)}</td>
                     <td className="border border-black p-2 text-amber-900 font-semibold">{formatCurrency(summary.total_actual_material_cost)}</td>
                     <td className="border border-black p-2 text-indigo-900 font-semibold">{formatCurrency(summary.total_actual_labor_cost)}</td>
+                    <td className="border border-black p-2 text-purple-900 font-semibold">{formatCurrency(summary.total_actual_overhead_cost || 0)}</td>
                     <td className="border border-black p-2">{formatCurrency(summary.total_cogs)}</td>
                     <td className={`border border-black p-2 font-bold ${summary.total_gross_profit >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
                       {formatCurrency(summary.total_gross_profit)}
@@ -255,6 +257,7 @@ export const FinancialPrintReport: React.FC<FinancialPrintReportProps> = ({
                         <th className="border border-black p-1.5 text-right">Revenue (Rp)</th>
                         <th className="border border-black p-1.5 text-right">HPP Bahan (Rp)</th>
                         <th className="border border-black p-1.5 text-right">HPP Jasa (Rp)</th>
+                        <th className="border border-black p-1.5 text-right">HPP Overhead (Rp)</th>
                         <th className="border border-black p-1.5 text-right">Total HPP (Rp)</th>
                         <th className="border border-black p-1.5 text-right">Laba Kotor (Rp)</th>
                         <th className="border border-black p-1.5 text-right">Margin %</th>
@@ -264,7 +267,7 @@ export const FinancialPrintReport: React.FC<FinancialPrintReportProps> = ({
                     <tbody className="divide-y divide-black font-mono">
                       {profitabilityData.length === 0 ? (
                         <tr>
-                          <td colSpan={11} className="border border-black p-3 text-center text-slate-500 italic">
+                          <td colSpan={12} className="border border-black p-3 text-center text-slate-500 italic">
                             Tidak ada data transaksi laba rugi untuk periode yang dipilih.
                           </td>
                         </tr>
@@ -278,6 +281,7 @@ export const FinancialPrintReport: React.FC<FinancialPrintReportProps> = ({
                             <td className="border border-black p-1 text-right font-bold">{formatCurrency(row.total_revenue)}</td>
                             <td className="border border-black p-1 text-right">{formatCurrency(row.actual_material_cost)}</td>
                             <td className="border border-black p-1 text-right">{formatCurrency(row.actual_labor_cost)}</td>
+                            <td className="border border-black p-1 text-right">{formatCurrency(row.actual_overhead_cost || 0)}</td>
                             <td className="border border-black p-1 text-right">{formatCurrency(row.total_cogs)}</td>
                             <td className={`border border-black p-1 text-right font-bold ${row.gross_profit < 0 ? 'text-rose-700' : 'text-slate-900'}`}>
                               {formatCurrency(row.gross_profit)}
@@ -314,19 +318,22 @@ export const FinancialPrintReport: React.FC<FinancialPrintReportProps> = ({
                         <th className="border border-black p-1.5 text-right">Pagu Jasa</th>
                         <th className="border border-black p-1.5 text-right">Aktual Jasa</th>
                         <th className="border border-black p-1.5 text-right">Varian Jasa</th>
+                        <th className="border border-black p-1.5 text-right">Pagu FOH</th>
+                        <th className="border border-black p-1.5 text-right">Aktual FOH</th>
+                        <th className="border border-black p-1.5 text-right">Varian FOH</th>
                         <th className="border border-black p-1.5 text-center">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-black font-mono">
                       {varianceData.length === 0 ? (
                         <tr>
-                          <td colSpan={11} className="border border-black p-3 text-center text-slate-500 italic">
+                          <td colSpan={14} className="border border-black p-3 text-center text-slate-500 italic">
                             Tidak ada data varian anggaran WBS yang sesuai.
                           </td>
                         </tr>
                       ) : (
                         varianceData.slice(0, activeTab === 'all' ? 25 : varianceData.length).map((row, idx) => {
-                          const isOver = row.material_variance < 0 || row.labor_variance < 0;
+                          const isOver = row.material_variance < 0 || row.labor_variance < 0 || (row.overhead_variance || 0) < 0;
                           return (
                             <tr key={idx} className="border-b border-black">
                               <td className="border border-black p-1 text-center font-sans">{idx + 1}</td>
@@ -342,6 +349,11 @@ export const FinancialPrintReport: React.FC<FinancialPrintReportProps> = ({
                               <td className="border border-black p-1 text-right">{formatCurrency(row.actual_labor_spent)}</td>
                               <td className={`border border-black p-1 text-right font-bold ${row.labor_variance < 0 ? 'text-rose-700' : 'text-slate-900'}`}>
                                 {formatCurrency(row.labor_variance)}
+                              </td>
+                              <td className="border border-black p-1 text-right">{formatCurrency(row.total_overhead_budget || 0)}</td>
+                              <td className="border border-black p-1 text-right">{formatCurrency(row.actual_overhead_spent || 0)}</td>
+                              <td className={`border border-black p-1 text-right font-bold ${(row.overhead_variance || 0) < 0 ? 'text-rose-700' : 'text-slate-900'}`}>
+                                {formatCurrency(row.overhead_variance || 0)}
                               </td>
                               <td className={`border border-black p-1 text-center text-[9px] font-sans font-bold ${isOver ? 'text-rose-700' : 'text-emerald-700'}`}>
                                 {isOver ? 'DEFISIT' : 'SURPLUS'}

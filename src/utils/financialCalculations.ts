@@ -7,6 +7,7 @@ export interface ProfitabilityCalculation {
   totalRevenue: number;
   materialCost: number;
   laborCost: number;
+  overheadCost: number;
   totalCogs: number;
   grossProfit: number;
   grossMarginPercentage: number;
@@ -29,18 +30,20 @@ export type HandoverClearanceStatus =
   | 'PENGERJAAN BERJALAN';
 
 /**
- * Menghitung Total HPP, Laba Kotor, dan Margin Persentase Proyek SPK
+ * Menghitung Total HPP (3 Unsur: Material, Labor, Overhead), Laba Kotor, dan Margin Persentase Proyek SPK
  */
 export function calculateJobProfitability(
   revenue: number,
   materialCost: number,
-  laborCost: number
+  laborCost: number,
+  overheadCost: number = 0
 ): ProfitabilityCalculation {
   const safeRevenue = Math.max(0, Number(revenue) || 0);
   const safeMaterial = Math.max(0, Number(materialCost) || 0);
   const safeLabor = Math.max(0, Number(laborCost) || 0);
+  const safeOverhead = Math.max(0, Number(overheadCost) || 0);
   
-  const totalCogs = safeMaterial + safeLabor;
+  const totalCogs = safeMaterial + safeLabor + safeOverhead;
   const grossProfit = safeRevenue - totalCogs;
   
   let grossMarginPercentage = 0;
@@ -52,6 +55,7 @@ export function calculateJobProfitability(
     totalRevenue: safeRevenue,
     materialCost: safeMaterial,
     laborCost: safeLabor,
+    overheadCost: safeOverhead,
     totalCogs,
     grossProfit,
     grossMarginPercentage,

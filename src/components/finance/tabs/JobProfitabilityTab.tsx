@@ -98,6 +98,7 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
   const totalRevenueSum = sortedData.reduce((acc, curr) => acc + curr.total_revenue, 0);
   const totalMaterialSum = sortedData.reduce((acc, curr) => acc + curr.actual_material_cost, 0);
   const totalLaborSum = sortedData.reduce((acc, curr) => acc + curr.actual_labor_cost, 0);
+  const totalOverheadSum = sortedData.reduce((acc, curr) => acc + (curr.actual_overhead_cost || 0), 0);
   const totalGrossProfitSum = sortedData.reduce((acc, curr) => acc + curr.gross_profit, 0);
   const avgMargin = totalRevenueSum > 0 ? (totalGrossProfitSum / totalRevenueSum) * 100 : 0;
 
@@ -208,6 +209,7 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
                 </th>
                 <th className="py-3 px-4 text-right">Biaya Bahan</th>
                 <th className="py-3 px-4 text-right">Biaya Borongan</th>
+                <th className="py-3 px-4 text-right">Biaya Overhead (FOH)</th>
                 <th 
                   className="py-3 px-4 text-right cursor-pointer hover:text-text transition"
                   onClick={() => toggleSort('profit')}
@@ -232,7 +234,7 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
             <tbody className="divide-y divide-border/60">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-text-muted">
+                  <td colSpan={9} className="py-12 text-center text-text-muted">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <RefreshCw className="w-6 h-6 animate-spin text-primary" />
                       <span>Memuat data profitabilitas...</span>
@@ -241,7 +243,7 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
                 </tr>
               ) : sortedData.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-text-muted">
+                  <td colSpan={9} className="py-12 text-center text-text-muted">
                     Tidak ada catatan SPK yang memenuhi kriteria filter.
                   </td>
                 </tr>
@@ -299,6 +301,9 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
                       <td className="py-3 px-4 text-right font-mono text-text-muted">
                         {formatCurrency(row.actual_labor_cost)}
                       </td>
+                      <td className="py-3 px-4 text-right font-mono text-text-muted">
+                        {formatCurrency(row.actual_overhead_cost || 0)}
+                      </td>
                       <td className={`py-3 px-4 text-right font-mono font-bold ${row.gross_profit >= 0 ? 'text-emerald-400' : 'text-status-danger'}`}>
                         {formatCurrency(row.gross_profit)}
                       </td>
@@ -339,6 +344,9 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
                   </td>
                   <td className="py-3 px-4 text-right text-text-muted">
                     {formatCurrency(totalLaborSum)}
+                  </td>
+                  <td className="py-3 px-4 text-right text-text-muted">
+                    {formatCurrency(totalOverheadSum)}
                   </td>
                   <td className={`py-3 px-4 text-right ${totalGrossProfitSum >= 0 ? 'text-emerald-400' : 'text-status-danger'}`}>
                     {formatCurrency(totalGrossProfitSum)}

@@ -24,6 +24,7 @@ describe('Sprint 17: Executive Dashboard Decoupled Material & Labor KPI Tests', 
         total_revenue: 200_000_000,
         total_actual_material_cost: 95_000_000,
         total_actual_labor_cost: 45_000_000,
+        total_actual_overhead_cost: 0,
         total_cogs: 140_000_000,
         total_gross_profit: 60_000_000,
         average_gross_margin: 30.0,
@@ -34,7 +35,7 @@ describe('Sprint 17: Executive Dashboard Decoupled Material & Labor KPI Tests', 
       };
 
       // Sum of decoupled components matches total COGS
-      expect(summary.total_actual_material_cost + summary.total_actual_labor_cost).toBe(summary.total_cogs);
+      expect(summary.total_actual_material_cost + summary.total_actual_labor_cost + summary.total_actual_overhead_cost).toBe(summary.total_cogs);
 
       // Percentage of revenue calculations
       const materialPercent = (summary.total_actual_material_cost / summary.total_revenue) * 100;
@@ -57,6 +58,7 @@ describe('Sprint 17: Executive Dashboard Decoupled Material & Labor KPI Tests', 
         total_revenue: 0,
         total_actual_material_cost: 0,
         total_actual_labor_cost: 0,
+        total_actual_overhead_cost: 0,
         total_cogs: 0,
         total_gross_profit: 0,
         average_gross_margin: 0,
@@ -114,6 +116,7 @@ describe('Sprint 17: Executive Dashboard Decoupled Material & Labor KPI Tests', 
         total_revenue: Number(mockRpcResponse?.total_revenue || 0),
         total_actual_material_cost: Number(mockRpcResponse?.total_actual_material_cost || 0),
         total_actual_labor_cost: Number(mockRpcResponse?.total_actual_labor_cost || 0),
+        total_actual_overhead_cost: Number((mockRpcResponse as any)?.total_actual_overhead_cost || 0),
         total_cogs: Number(mockRpcResponse?.total_cogs || 0),
         total_gross_profit: Number(mockRpcResponse?.total_gross_profit || 0),
         average_gross_margin: Number(mockRpcResponse?.average_gross_margin || 0),

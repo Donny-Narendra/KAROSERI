@@ -98,7 +98,11 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
   const totalLaborSpent = data.reduce((a, b) => a + b.actual_labor_spent, 0);
   const totalLaborVariance = data.reduce((a, b) => a + b.labor_variance, 0);
 
-  const totalOverallVariance = totalMatVariance + totalLaborVariance;
+  const totalOverheadBudget = data.reduce((a, b) => a + (b.total_overhead_budget || 0), 0);
+  const totalOverheadSpent = data.reduce((a, b) => a + (b.actual_overhead_spent || 0), 0);
+  const totalOverheadVariance = data.reduce((a, b) => a + (b.overhead_variance || 0), 0);
+
+  const totalOverallVariance = totalMatVariance + totalLaborVariance + totalOverheadVariance;
 
   return (
     <div className="space-y-4">
@@ -205,19 +209,22 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
               <tr>
                 <th className="py-3 px-4">SPK & Pelanggan</th>
                 <th className="py-3 px-4">Tahapan WBS</th>
-                <th className="py-3 px-4 text-right">Pagu Material (RAB+CO)</th>
+                <th className="py-3 px-4 text-right">Pagu Material</th>
                 <th className="py-3 px-4 text-right">Realisasi Material</th>
                 <th className="py-3 px-4 text-right">Varian Material (+/-)</th>
                 <th className="py-3 px-4 text-right">Pagu Jasa</th>
                 <th className="py-3 px-4 text-right">Realisasi Jasa</th>
                 <th className="py-3 px-4 text-right">Varian Jasa (+/-)</th>
+                <th className="py-3 px-4 text-right">Pagu FOH</th>
+                <th className="py-3 px-4 text-right">Realisasi FOH</th>
+                <th className="py-3 px-4 text-right">Varian FOH (+/-)</th>
                 <th className="py-3 px-4 text-center">Status Varian</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-text-muted">
+                  <td colSpan={12} className="py-12 text-center text-text-muted">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <RefreshCw className="w-6 h-6 animate-spin text-primary" />
                       <span>Memuat analisis varian anggaran WBS...</span>
@@ -226,7 +233,7 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
                 </tr>
               ) : data.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-text-muted">
+                  <td colSpan={12} className="py-12 text-center text-text-muted">
                     Tidak ada data varian WBS yang sesuai filter.
                   </td>
                 </tr>
@@ -234,7 +241,8 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
                 data.map((row, idx) => {
                   const isMatOver = row.material_variance < 0;
                   const isLaborOver = row.labor_variance < 0;
-                  const totalVar = row.material_variance + row.labor_variance;
+                  const isOverheadOver = (row.overhead_variance || 0) < 0;
+                  const totalVar = row.material_variance + row.labor_variance + (row.overhead_variance || 0);
                   const isTotalOver = totalVar < 0;
 
                   return (
@@ -278,6 +286,17 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
                         isLaborOver ? 'text-status-danger' : 'text-emerald-400'
                       }`}>
                         {formatCurrency(row.labor_variance)}
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono text-text">
+                        {formatCurrency(row.total_overhead_budget || 0)}
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono text-text-muted">
+                        {formatCurrency(row.actual_overhead_spent || 0)}
+                      </td>
+                      <td className={`py-3 px-4 text-right font-mono font-bold ${
+                        isOverheadOver ? 'text-status-danger' : 'text-emerald-400'
+                      }`}>
+                        {formatCurrency(row.overhead_variance || 0)}
                       </td>
                       <td className="py-3 px-4 text-center">
                         <span className={`inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full border ${
@@ -328,6 +347,15 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
                   </td>
                   <td className={`py-3 px-4 text-right ${totalLaborVariance < 0 ? 'text-status-danger' : 'text-emerald-400'}`}>
                     {formatCurrency(totalLaborVariance)}
+                  </td>
+                  <td className="py-3 px-4 text-right text-text">
+                    {formatCurrency(totalOverheadBudget)}
+                  </td>
+                  <td className="py-3 px-4 text-right text-text-muted">
+                    {formatCurrency(totalOverheadSpent)}
+                  </td>
+                  <td className={`py-3 px-4 text-right ${totalOverheadVariance < 0 ? 'text-status-danger' : 'text-emerald-400'}`}>
+                    {formatCurrency(totalOverheadVariance)}
                   </td>
                   <td className="py-3 px-4 text-center">
                     <span className={`inline-block px-2 py-0.5 rounded text-[11px] ${

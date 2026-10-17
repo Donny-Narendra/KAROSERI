@@ -57,6 +57,7 @@ export function mapProfitabilityToExcelRows(items: SpkJobProfitability[]) {
     'Pendapatan Tagihan (Rp)': Number(item.total_revenue) || 0,
     'HPP Bahan/Material (Rp)': Number(item.actual_material_cost) || 0,
     'HPP Jasa/Borongan (Rp)': Number(item.actual_labor_cost) || 0,
+    'HPP Overhead Pabrikasi (Rp)': Number(item.actual_overhead_cost) || 0,
     'Total HPP Aktual (Rp)': Number(item.total_cogs) || 0,
     'Laba Kotor (Rp)': Number(item.gross_profit) || 0,
     'Margin Kotor (%)': Number(item.gross_margin_percentage) || 0,
@@ -75,8 +76,11 @@ export function mapVarianceToExcelRows(items: WbsCostVariance[]) {
     const labBudget = Number(item.total_labor_budget) || 0;
     const labSpent = Number(item.actual_labor_spent) || 0;
     const labVar = Number(item.labor_variance) || 0;
-    const totalBudget = matBudget + labBudget;
-    const totalSpent = matSpent + labSpent;
+    const fohBudget = Number(item.total_overhead_budget) || 0;
+    const fohSpent = Number(item.actual_overhead_spent) || 0;
+    const fohVar = Number(item.overhead_variance) || 0;
+    const totalBudget = matBudget + labBudget + fohBudget;
+    const totalSpent = matSpent + labSpent + fohSpent;
     const totalVar = totalBudget - totalSpent;
 
     return {
@@ -91,10 +95,13 @@ export function mapVarianceToExcelRows(items: WbsCostVariance[]) {
       'Pagu Jasa/Labor (Rp)': labBudget,
       'Aktual Jasa/Labor (Rp)': labSpent,
       'Varian Jasa (Rp)': labVar,
+      'Pagu Overhead/FOH (Rp)': fohBudget,
+      'Aktual Overhead/FOH (Rp)': fohSpent,
+      'Varian Overhead (Rp)': fohVar,
       'Total Pagu (Rp)': totalBudget,
       'Total Aktual (Rp)': totalSpent,
       'Total Varian (Rp)': totalVar,
-      'Status Anggaran': matVar < 0 || labVar < 0 ? 'OVER BUDGET (DEFISIT)' : 'SURPLUS',
+      'Status Anggaran': matVar < 0 || labVar < 0 || fohVar < 0 ? 'OVER BUDGET (DEFISIT)' : 'SURPLUS',
     };
   });
 }
@@ -223,7 +230,8 @@ export function exportFullFinancialWorkbook(
       { 'Indikator Kunci (KPI)': 'Total Pendapatan (Revenue)', 'Nilai': s.total_revenue, 'Keterangan': 'Rupiah' },
       { 'Indikator Kunci (KPI)': 'Total Biaya Bahan Baku (Goods Issued)', 'Nilai': s.total_actual_material_cost, 'Keterangan': 'Material Terpakai Riil' },
       { 'Indikator Kunci (KPI)': 'Total Biaya Borongan Mandor Terbayar', 'Nilai': s.total_actual_labor_cost, 'Keterangan': 'Upah Borongan Riil' },
-      { 'Indikator Kunci (KPI)': 'Total HPP Riil (COGS)', 'Nilai': s.total_cogs, 'Keterangan': 'Bahan Material + Jasa Borongan' },
+      { 'Indikator Kunci (KPI)': 'Total Biaya Overhead Pabrikasi (FOH)', 'Nilai': s.total_actual_overhead_cost, 'Keterangan': 'Overhead Mesin & Bay Riil' },
+      { 'Indikator Kunci (KPI)': 'Total HPP Riil (COGS)', 'Nilai': s.total_cogs, 'Keterangan': 'Bahan Material + Jasa Borongan + Overhead' },
       { 'Indikator Kunci (KPI)': 'Laba Kotor Kumulatif (Gross Profit)', 'Nilai': s.total_gross_profit, 'Keterangan': 'Revenue - HPP Riil' },
       { 'Indikator Kunci (KPI)': 'Rata-rata Gross Margin (%)', 'Nilai': `${s.average_gross_margin}%`, 'Keterangan': 'Target Benchmark >= 25%' },
       { 'Indikator Kunci (KPI)': 'Valuasi Aset Gudang (HPP)', 'Nilai': s.total_inventory_valuation, 'Keterangan': 'Biaya Pokok Persediaan' },

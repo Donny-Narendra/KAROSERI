@@ -65,6 +65,38 @@ describe('Financial Reconciliation & Integrity Calculations', () => {
       expect(result.grossMarginPercentage).toBe(0);
       expect(result.isNegativeMargin).toBe(false);
     });
+
+    it('should correctly calculate 3-element job order costing with Factory Overhead (FOH)', () => {
+      const revenue = 60_000_000;
+      const materialCost = 25_000_000;
+      const laborCost = 15_000_000;
+      const overheadCost = 5_000_000; // total COGS = 45_000_000
+
+      const result = calculateJobProfitability(revenue, materialCost, laborCost, overheadCost);
+
+      expect(result.totalRevenue).toBe(60_000_000);
+      expect(result.materialCost).toBe(25_000_000);
+      expect(result.laborCost).toBe(15_000_000);
+      expect(result.overheadCost).toBe(5_000_000);
+      expect(result.totalCogs).toBe(45_000_000);
+      expect(result.grossProfit).toBe(15_000_000); // 60m - 45m = 15m
+      expect(result.grossMarginPercentage).toBe(25); // (15m / 60m) * 100 = 25%
+      expect(result.isNegativeMargin).toBe(false);
+    });
+
+    it('should flag negative margin when overhead surges total COGS beyond revenue', () => {
+      const revenue = 40_000_000;
+      const materialCost = 20_000_000;
+      const laborCost = 15_000_000;
+      const overheadCost = 10_000_000; // total COGS = 45_000_000
+
+      const result = calculateJobProfitability(revenue, materialCost, laborCost, overheadCost);
+
+      expect(result.totalCogs).toBe(45_000_000);
+      expect(result.grossProfit).toBe(-5_000_000);
+      expect(result.grossMarginPercentage).toBe(-12.5);
+      expect(result.isNegativeMargin).toBe(true);
+    });
   });
 
   describe('2. WBS Cost Variance & Change Order Adjustment (calculateWbsBudgetVariance)', () => {
