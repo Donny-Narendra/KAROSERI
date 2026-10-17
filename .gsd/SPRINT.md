@@ -1,57 +1,61 @@
-# Sprint 39 — Change Order 3-Element Costing (Overhead Support in Amendments)
+# Sprint 40 — Mandor Floor Terminal Overhead Logging Module
 
 > **Duration**: 2026-10-18 to 2026-10-18
 > **Status**: Completed ✅
 
 ## Goal
-Enable 3-element Job Order Costing (Material, Labor, and Factory Overhead) in Change Orders / Amendments:
-1. Expand TypeScript contract `ChangeOrderItemType` to `'MATERIAL' | 'LABOR' | 'OVERHEAD'`.
-2. Update `spkService.createChangeOrder` to accept `'OVERHEAD'` item type.
-3. Enhance `AmendmentManager.tsx` with a dedicated `+ Item Overhead (FOH)` action, activity description input, purple badge styling, and overhead summary count.
-4. Create a dedicated test suite `AmendmentManager.test.tsx` verifying overhead change order creation and subtotal calculations.
+Implement real-time factory overhead (FOH) actual logging module directly accessible from the Mandor floor terminal:
+1. Extend `src/types/financialReports.ts` and `src/services/financialReportsService.ts` with `createSpkOverheadLog` and `deleteSpkOverheadLog`.
+2. Build `src/components/SpkOverheadModal.tsx`:
+   - Quick overhead presets tailored for karoseri operations:
+     - "Oven Spray Booth & Gas"
+     - "Listrik Mesin Las & Fabrikasi"
+     - "Kompresor & Alat Pneumatik"
+     - "Sewa Crane / Derek / Alat Angkat"
+   - Real-time calculation (`frequency_qty * rate_per_unit = total_amount`).
+   - Stage breakdown selection (`Pembongkaran`, `Sasis/Rangka`, `Dinding/Fabrikasi`, `Cat/Finishing`, `Kelistrikan/Hidrolik`).
+   - Overhead log history table with deletion capability and total overhead spent summary.
+3. Integrate into `src/components/WbsChecklist.tsx`:
+   - Stage-level "Catat Overhead" button next to "SPK Borongan" and "Minta Material".
+   - Global "Overhead (FOH)" header button for direct access.
+   - Synchronize updates via `onWbsUpdated`.
+4. Comprehensive unit test suite `src/components/__tests__/SpkOverheadModal.test.tsx` verifying:
+   - Rendering modal dialog and SPK details.
+   - Selecting presets and calculating live totals.
+   - Submitting a new overhead log to Supabase.
+   - Viewing existing records and deleting an entry.
+5. Verification via Vitest (18 test files, 137 tests passing 100%), `tsc -b`, and Vite build.
 
 ## Scope
 
 ### Included
-- **TypeScript Types & Services**:
-  - `src/types/database.ts`: `ChangeOrderItemType = 'MATERIAL' | 'LABOR' | 'OVERHEAD'`.
-  - `src/services/spkService.ts`: `createChangeOrder` items payload type using `ChangeOrderItemType`.
-- **UI Components (`src/components/AmendmentManager.tsx`)**:
-  - Added `+ Item Overhead (FOH)` button with `Clock` icon and purple styling.
-  - Implemented form handling for `OVERHEAD` items (default unit `'hari'`, clear `material_id`).
-  - Rendered overhead activity description input (e.g. "Sewa Ruang Oven Lembur").
-  - Updated draft summary box to include `overheadCount` alongside material and labor counts.
-  - Styled `OVERHEAD` badge across draft cards and expandable detail table (`bg-purple-500/10 text-purple-400 border-purple-500/20`).
-- **Testing & Verification**:
-  - Created `src/components/__tests__/AmendmentManager.test.tsx` covering list view rendering, form display, overhead creation, live margins calculation, and submission payload.
-  - Ran full test suite (17 test files, 133 tests passing 100%).
-  - Verified clean TypeScript build (`tsc -b`) and Vite production bundle (`npm run build` in 516ms).
+- Service layer CRUD: `getSpkOverheadLogs`, `createSpkOverheadLog`, `deleteSpkOverheadLog`.
+- Component: `src/components/SpkOverheadModal.tsx`.
+- WBS checklist integration: `src/components/WbsChecklist.tsx`.
+- Unit tests: `src/components/__tests__/SpkOverheadModal.test.tsx`.
 
 ### Explicitly Excluded
-- Mandor operational actual overhead logging UI (scheduled for Sprint 40).
 - Oxlint code hygiene cleanup (scheduled for Sprint 41).
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| 1. Update TypeScript contract in `src/types/database.ts` and `src/services/spkService.ts` | Antigravity | ✅ Done | 0.2h |
-| 2. Implement Overhead item entry and badge styling in `src/components/AmendmentManager.tsx` | Antigravity | ✅ Done | 0.3h |
-| 3. Create unit test suite `src/components/__tests__/AmendmentManager.test.tsx` | Antigravity | ✅ Done | 0.3h |
-| 4. Verify with full test suite, `tsc -b`, and production build | Antigravity | ✅ Done | 0.2h |
+| 1. Update `src/types/financialReports.ts` and `src/services/financialReportsService.ts` | Antigravity | ✅ Done | 0.2h |
+| 2. Implement `src/components/SpkOverheadModal.tsx` | Antigravity | ✅ Done | 0.4h |
+| 3. Integrate into `src/components/WbsChecklist.tsx` | Antigravity | ✅ Done | 0.2h |
+| 4. Create unit tests `src/components/__tests__/SpkOverheadModal.test.tsx` | Antigravity | ✅ Done | 0.3h |
+| 5. Full test verification, TypeScript check, and Vite build | Antigravity | ✅ Done | 0.2h |
 
 ## Daily Log
 
 ### 2026-10-18
-- Initialized Sprint 39: Change Order 3-Element Costing (Overhead Support in Amendments).
-- Verified `view_wbs_cost_variance` already supports `co_overhead_budget` via `COALESCE(SUM(CASE WHEN item_type = 'OVERHEAD' ...))`.
-- Updated `ChangeOrderItemType` in `src/types/database.ts` and `src/services/spkService.ts`.
-- Enhanced `AmendmentManager.tsx`:
-  - Added `+ Item Overhead (FOH)` button with purple styling.
-  - Handled item type switching: resets `material_id = null` and sets `unit = 'hari'`.
-  - Added label `Uraian Biaya Overhead (FOH) *` and placeholder.
-  - Updated draft summary box with `overheadCount`.
-  - Applied purple badge in draft line item cards and expandable detail table.
-- Created unit test suite `src/components/__tests__/AmendmentManager.test.tsx` (3 tests passing).
-- Ran all 17 test suites: 133 tests passed (100%).
-- Ran `tsc -b` and `npm run build`: cleanly built in 516ms.
+- Initialized Sprint 40 for Mandor Floor Terminal Overhead Logging Module.
+- Inspected table schema `spk_overhead_logs` created in migration `20261017010000_job_order_costing_overhead.sql`.
+- Added `CreateSpkOverheadLogPayload` contract in `src/types/financialReports.ts`.
+- Implemented `createSpkOverheadLog`, `deleteSpkOverheadLog`, and typed `getSpkOverheadLogs` in `src/services/financialReportsService.ts`.
+- Created `src/components/SpkOverheadModal.tsx` with presets, live calculation, form submission, and history table with deletion.
+- Integrated `SpkOverheadModal` into `src/components/WbsChecklist.tsx` with global header button and per-stage action buttons.
+- Created `src/components/__tests__/SpkOverheadModal.test.tsx` with 4 test scenarios passing cleanly.
+- Executed full test suite: 18 test files, 137 tests passing (100%).
+- Verified `npx tsc -b` and production bundle built cleanly in 532ms.

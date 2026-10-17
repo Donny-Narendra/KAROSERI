@@ -10,6 +10,8 @@ import type {
   InventoryValuationFilter,
   ProjectReceivableFilter,
   FinancialSanityAuditResult,
+  SpkOverheadLog,
+  CreateSpkOverheadLogPayload,
 } from '../types/financialReports';
 
 export const financialReportsService = {
@@ -166,7 +168,7 @@ export const financialReportsService = {
   /**
    * Mengambil log pembebanan overhead riil proyek SPK
    */
-  async getSpkOverheadLogs(spkId: string): Promise<any[]> {
+  async getSpkOverheadLogs(spkId: string): Promise<SpkOverheadLog[]> {
     const { data, error } = await supabase
       .from('spk_overhead_logs')
       .select('*')
@@ -178,12 +180,61 @@ export const financialReportsService = {
       throw new Error(`Gagal mengambil log overhead: ${error.message}`);
     }
 
-    return (data || []).map(row => ({
+    return ((data || []) as any[]).map(row => ({
       ...row,
       frequency_qty: Number(row.frequency_qty || 0),
       rate_per_unit: Number(row.rate_per_unit || 0),
       total_amount: Number(row.total_amount || 0),
-    }));
+    })) as SpkOverheadLog[];
+  },
+
+  /**
+   * Mencatat pembebanan overhead riil baru untuk proyek SPK (Mandor / Supervisor)
+   */
+  async createSpkOverheadLog(payload: CreateSpkOverheadLogPayload): Promise<SpkOverheadLog> {
+    const insertData = {
+      spk_id: payload.spk_id,
+      wbs_stage: payload.wbs_stage,
+      overhead_name: payload.overhead_name,
+      frequency_qty: payload.frequency_qty,
+      rate_per_unit: payload.rate_per_unit,
+      notes: payload.notes || null,
+      recorded_at: payload.recorded_at || new Date().toISOString(),
+      created_by: payload.created_by || null,
+    };
+
+    const { data, error } = await supabase
+      .from('spk_overhead_logs')
+      .insert([insertData])
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('Error creating SPK overhead log:', error);
+      throw new Error(`Gagal mencatat pembebanan overhead: ${error.message}`);
+    }
+
+    return {
+      ...data,
+      frequency_qty: Number(data.frequency_qty || 0),
+      rate_per_unit: Number(data.rate_per_unit || 0),
+      total_amount: Number(data.total_amount || 0),
+    } as SpkOverheadLog;
+  },
+
+  /**
+   * Menghapus catatan pembebanan overhead
+   */
+  async deleteSpkOverheadLog(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('spk_overhead_logs')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting SPK overhead log:', error);
+      throw new Error(`Gagal menghapus log overhead: ${error.message}`);
+    }
   },
 
   /**

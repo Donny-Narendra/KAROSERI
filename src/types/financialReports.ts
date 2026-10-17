@@ -16,6 +16,17 @@ export interface SpkOverheadLog {
   created_by?: string | null;
 }
 
+export interface CreateSpkOverheadLogPayload {
+  spk_id: string;
+  wbs_stage: string;
+  overhead_name: string;
+  frequency_qty: number;
+  rate_per_unit: number;
+  notes?: string | null;
+  recorded_at?: string;
+  created_by?: string | null;
+}
+
 export interface SpkJobProfitabilityItem {
   spk_id: string;
   spk_number: string;

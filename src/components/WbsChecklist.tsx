@@ -6,9 +6,10 @@ import { SpkBoronganPanel } from './SpkBoronganPanel';
 import { WbsGalleryUploader } from './WbsGalleryUploader';
 import type { WbsAsset } from './WbsGalleryUploader';
 import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
-import { AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 import { isRabItemAllocated } from '../utils/rabItemAllocation';
 import { WbsPendingMaterialModal, type PendingWbsMaterial } from './WbsPendingMaterialModal';
+import { SpkOverheadModal } from './SpkOverheadModal';
 
 interface WbsChecklistProps {
   spkId: string;
@@ -46,6 +47,7 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
   // Requisition Modal State
   const [requisitionCategory, setRequisitionCategory] = useState<string | null>(null);
   const [boronganCategory, setBoronganCategory] = useState<string | null>(null);
+  const [overheadCategory, setOverheadCategory] = useState<string | null>(null);
 
   // Pending Materials Modal State & Allocation Data
   const [pendingModalCategory, setPendingModalCategory] = useState<string | null>(null);
@@ -474,17 +476,29 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
           <p className="text-text-muted text-sm mt-1">Catat progres fisik dan unggah bukti per kategori WBS</p>
         </div>
         
-        {/* Total Progress Card */}
-        <div className="bg-background border border-border rounded-lg px-4 py-2 flex items-center gap-4">
-          <div className="text-sm text-text-muted font-medium">Total Progres</div>
-          <div className="flex items-center gap-2">
-            <div className="w-32 h-3 bg-surface border border-border rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-primary transition-all duration-500"
-                style={{ width: `${totalProgress}%` }}
-              ></div>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setOverheadCategory('ALL')}
+            className="px-3.5 py-2 bg-purple-500/10 border border-purple-500/30 text-purple-300 rounded-lg text-xs sm:text-sm font-medium hover:bg-purple-500/20 hover:border-purple-500/50 transition-all flex items-center gap-2 shadow-sm"
+            title="Buka panel pencatatan pembebanan overhead pabrik (FOH) untuk SPK ini"
+          >
+            <Clock className="w-4 h-4 text-purple-400" />
+            <span>Overhead (FOH)</span>
+          </button>
+
+          {/* Total Progress Card */}
+          <div className="bg-background border border-border rounded-lg px-4 py-2 flex items-center gap-4">
+            <div className="text-sm text-text-muted font-medium">Total Progres</div>
+            <div className="flex items-center gap-2">
+              <div className="w-32 h-3 bg-surface border border-border rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-primary transition-all duration-500"
+                  style={{ width: `${totalProgress}%` }}
+                ></div>
+              </div>
+              <div className="font-bold text-lg text-primary">{totalProgress}%</div>
             </div>
-            <div className="font-bold text-lg text-primary">{totalProgress}%</div>
           </div>
         </div>
       </div>
@@ -544,6 +558,15 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
                       )
                     )}
 
+                    <button
+                      type="button"
+                      onClick={() => setOverheadCategory(category)}
+                      className="px-3 py-1 bg-surface border border-purple-500/60 text-purple-400 rounded text-sm hover:bg-purple-500/10 hover:border-purple-400 transition-colors flex items-center gap-1.5"
+                      title="Catat pembebanan overhead pabrik (FOH) untuk tahapan ini"
+                    >
+                      <Clock className="w-3.5 h-3.5" />
+                      Overhead
+                    </button>
                     <button
                       type="button"
                       onClick={() => setBoronganCategory(category)}
@@ -663,6 +686,19 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
           onClose={() => {
             setBoronganCategory(null);
             fetchMaterialAllocations();
+          }}
+        />
+      )}
+
+      {/* Modal Pencatatan Overhead Pabrik (FOH) */}
+      {overheadCategory !== null && (
+        <SpkOverheadModal
+          isOpen={overheadCategory !== null}
+          onClose={() => setOverheadCategory(null)}
+          spkId={spkId}
+          defaultCategory={overheadCategory === 'ALL' ? null : overheadCategory}
+          onOverheadUpdated={() => {
+            onWbsUpdated?.();
           }}
         />
       )}
