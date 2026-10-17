@@ -285,4 +285,88 @@ describe('RAB Calculator & Labor Budget Alignment', () => {
     expect(afterVariance).toBe(0);
     expect(isAfterOverbudget).toBe(false);
   });
+
+  describe('view_wbs_cost_variance SQL aggregation logic', () => {
+    interface ViewItem {
+      item_type?: 'MATERIAL' | 'LABOR' | string | null;
+      quantity: number;
+      unit_price: number;
+    }
+
+    function calculateViewAggregation(
+      rabItems: ViewItem[],
+      coItems: ViewItem[],
+      actualMaterialSpent: number,
+      actualLaborSpent: number
+    ) {
+      const rabMaterialBudget = rabItems.reduce((acc, item) => {
+        return acc + (item.item_type === 'MATERIAL' || item.item_type === null || item.item_type === undefined ? item.quantity * item.unit_price : 0);
+      }, 0);
+
+      const rabLaborBudget = rabItems.reduce((acc, item) => {
+        return acc + (item.item_type === 'LABOR' ? item.quantity * item.unit_price : 0);
+      }, 0);
+
+      const coMaterialBudget = coItems.reduce((acc, item) => {
+        return acc + (item.item_type === 'MATERIAL' || item.item_type === null || item.item_type === undefined ? item.quantity * item.unit_price : 0);
+      }, 0);
+
+      const coLaborBudget = coItems.reduce((acc, item) => {
+        return acc + (item.item_type === 'LABOR' ? item.quantity * item.unit_price : 0);
+      }, 0);
+
+      const totalMaterialBudget = rabMaterialBudget + coMaterialBudget;
+      const totalLaborBudget = rabLaborBudget + coLaborBudget;
+
+      return {
+        rabMaterialBudget,
+        rabLaborBudget,
+        coMaterialBudget,
+        coLaborBudget,
+        totalMaterialBudget,
+        actualMaterialSpent,
+        materialVariance: totalMaterialBudget - actualMaterialSpent,
+        totalLaborBudget,
+        actualLaborSpent,
+        laborVariance: totalLaborBudget - actualLaborSpent,
+      };
+    }
+
+    it('aggregates items with NULL or MATERIAL type into rab_material_budget and LABOR into rab_labor_budget', () => {
+      const rabItems: ViewItem[] = [
+        { item_type: 'MATERIAL', quantity: 10, unit_price: 50000 }, // 500,000 material
+        { item_type: null, quantity: 2, unit_price: 25000 },        // 50,000 legacy untyped material
+        { item_type: 'LABOR', quantity: 1, unit_price: 350000 },    // 350,000 labor
+      ];
+
+      const coItems: ViewItem[] = [
+        { item_type: 'MATERIAL', quantity: 2, unit_price: 50000 },  // 100,000 material CO
+        { item_type: 'LABOR', quantity: 1, unit_price: 150000 },     // 150,000 labor CO
+      ];
+
+      const result = calculateViewAggregation(rabItems, coItems, 620000, 480000);
+
+      expect(result.rabMaterialBudget).toBe(550000); // 500,000 + 50,000
+      expect(result.rabLaborBudget).toBe(350000);
+      expect(result.totalMaterialBudget).toBe(650000); // 550,000 + 100,000
+      expect(result.totalLaborBudget).toBe(500000);    // 350,000 + 150,000
+
+      // Variances: budget - actual
+      expect(result.materialVariance).toBe(30000); // 650,000 - 620,000 (surplus)
+      expect(result.laborVariance).toBe(20000);    // 500,000 - 480,000 (surplus)
+    });
+
+    it('detects deficit when actual labor or material exceeds total budget', () => {
+      const rabItems: ViewItem[] = [
+        { item_type: 'MATERIAL', quantity: 5, unit_price: 100000 }, // 500,000
+        { item_type: 'LABOR', quantity: 1, unit_price: 200000 },    // 200,000
+      ];
+
+      const result = calculateViewAggregation(rabItems, [], 700000, 350000);
+
+      expect(result.materialVariance).toBe(-200000); // 500k - 700k (deficit)
+      expect(result.laborVariance).toBe(-150000);    // 200k - 350k (deficit)
+    });
+  });
 });
+

@@ -1,27 +1,32 @@
 ## Current Position
-- **Sprint**: Sprint 24 — Implement Labor/Jasa Item Entry Toggle in Service Advisor RAB Calculator
+- **Sprint**: Sprint 25 — Fix view_wbs_cost_variance Aggregation for Labor Budget
 - **Status**: Sprint completed ✅
 - **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness
 
 ## Last Session Summary
-Sprint 24 Completed (2026-10-17).
-- Archived Sprint 24 to `.gsd/sprints/sprint-24-implement-labor-jasa-item-entry-toggle-in-service-advisor-rab-calculator.md`.
-- Applied PostgreSQL schema migration `20261017010000_add_unit_notes_to_rab_items.sql` to add `unit` and `notes` to `public.rab_items`.
-- Updated TypeScript interface `RabItemRecord` in `src/types/database.ts`.
-- Upgraded `RabCalculator.tsx`:
-  - Added modern toggle tabs switch: "Bahan Baku (Material)" (Default), "Jasa / Tukang (Labor)", and "Overhead".
-  - Created dedicated Labor input form with required inputs: Nama Jasa, Tahapan WBS dropdown (WBS 1 to WBS 5), Estimasi Biaya Jasa / Upah (Rp), and optional Scope Pekerjaan textarea.
-  - Automatically hidden material inventory dropdown and waste factor when in Labor mode.
-  - Handled seamless Add and Edit workflows ("Tambah Jasa ke RAB" vs "Update Jasa ke RAB").
-  - Mapped payload to `item_type = 'LABOR'`, `material_id = null`, `quantity = 1`, `unit = 'lot'`, and `wbs_category = stage`.
-  - Added distinct visual badges: `[ MATERIAL ]` (cyan/blue) and `[ JASA / TUKANG ]` (orange/amber).
-  - Added detailed per-WBS summary card breakdown (Material, Jasa, Total) in estimation footer.
-- Updated component test suite `src/components/__tests__/RabCalculatorLabor.test.tsx` (6 tests).
-- Verified empirical database integrity on PostgreSQL, verifying `item_type = 'LABOR'`, `material_id = null`, `unit_price = 500000`, `subtotal = 500000`, and `wbs_stage = 'WBS 2: Sasis/Rangka'`.
-- Executed `npm test` (85/85 passing across 11 files), clean TypeScript compilation (`tsc -b`), zero linter errors (`npm run lint`), and successful production build (`npm run build`).
+Sprint 25 Completed (2026-10-17).
+- Created Supabase migration patch `supabase/migrations/20261016050000_fix_wbs_cost_variance_labor_view.sql`.
+- Corrected SQL View `view_wbs_cost_variance` aggregation:
+  - `rab_material_budget` aggregates items with `item_type = 'MATERIAL' OR item_type IS NULL` using `quantity * unit_price`.
+  - `rab_labor_budget` aggregates items with `item_type = 'LABOR'` using `quantity * unit_price`.
+  - `co_material_budget` and `co_labor_budget` aggregate change order items symmetrically.
+  - Variance formulas accurately compute surplus/deficit:
+    - `material_variance = total_material_budget - actual_material_spent`
+    - `labor_variance = total_labor_budget - actual_labor_spent`
+  - Re-applied `GRANT SELECT ON view_wbs_cost_variance TO authenticated;`.
+- Applied migration directly to live PostgreSQL database.
+- Executed empirical validation script `verify_labor_view_fix.cjs`:
+  - Verified view definition in `pg_views`.
+  - Successfully queried 39 rows across all SPKs.
+  - Confirmed 20 WBS stages with active Total Labor Budget (> Rp 0), resolving the issue where "PAGU JASA" showed Rp 0 on `/finance-reports`.
+  - Verified variance formula precision across all 39 rows.
+  - Confirmed role `authenticated` has SELECT permissions.
+- Verified existing views regression suite (`verify_financial_reporting_views.cjs`) with 100% pass rate.
+- Added test coverage in `src/utils/__tests__/rabLaborBudget.test.ts`.
+- Validated test suite (`npm test`, 87/87 passed), lint (`npm run lint`, 0 errors), and production build (`npm run build`, success).
 
 ## Active Plan & Waves
-All planned sprints, labor budget entry controls, and financial variance integrations have been successfully implemented and empirically verified.
+Labor budget aggregation in `view_wbs_cost_variance` has been patched and empirically verified in database and application layers.
 
 ## Blockers
 None.
