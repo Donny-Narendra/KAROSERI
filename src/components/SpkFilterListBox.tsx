@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Filter, Layers, CheckCircle2, Search, X } from 'lucide-react';
 
+import { formatSubTasks } from '../utils/spkUtils';
+
 export interface SpkFilterItem {
   spkId: string;
   spkNo: string;
@@ -9,35 +11,6 @@ export interface SpkFilterItem {
   subTasks?: string[] | string;
   count: number;
 }
-export const SpkFilterItem = {};
-
-export const formatSubTasks = (subTasks?: string[] | string): string => {
-  if (!subTasks) return '';
-  if (Array.isArray(subTasks)) {
-    return subTasks
-      .map((item) => (item !== null && item !== undefined ? String(item).trim() : ''))
-      .filter(Boolean)
-      .join(', ');
-  }
-  if (typeof subTasks === 'string') {
-    const trimmed = subTasks.trim();
-    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-      try {
-        const parsed = JSON.parse(trimmed);
-        if (Array.isArray(parsed)) {
-          return parsed
-            .map((item) => (item !== null && item !== undefined ? String(item).trim() : ''))
-            .filter(Boolean)
-            .join(', ');
-        }
-      } catch {
-        // Fallback to trimmed if not valid JSON
-      }
-    }
-    return trimmed;
-  }
-  return '';
-};
 
 interface SpkFilterListBoxProps {
   items: SpkFilterItem[];

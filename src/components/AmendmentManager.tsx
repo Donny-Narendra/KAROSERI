@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -68,7 +68,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
   const isSA = profile?.role === 'service_advisor';
 
   // Fetch change orders and master materials
-  const fetchChangeOrders = async () => {
+  const fetchChangeOrders = useCallback(async () => {
     setLoading(true);
     try {
       const data = await spkService.getChangeOrders(spkId);
@@ -83,11 +83,11 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
     } finally {
       setLoading(false);
     }
-  };
+  }, [spkId]);
 
   useEffect(() => {
     if (spkId) {
-      fetchChangeOrders();
+      void fetchChangeOrders();
 
       // Resolve SPK No if not provided
       if (!propSpkNo) {
@@ -108,7 +108,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
         console.error('Error fetching materials for Change Order:', err);
       });
     }
-  }, [spkId, propSpkNo]);
+  }, [spkId, propSpkNo, fetchChangeOrders]);
 
   // Handle adding an empty line item to the draft form
   const handleAddItem = (type: ChangeOrderItemType = 'MATERIAL') => {

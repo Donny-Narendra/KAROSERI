@@ -194,7 +194,7 @@ export const QcInspectionForm: React.FC<QcInspectionFormProps> = ({ spkId, onQcU
 
     setLoading(true);
     try {
-      const finalStatus: 'PASS' = 'PASS';
+      const finalStatus = 'PASS' as const;
       const checkedItems = CHECKLIST_ITEMS.filter(item => params[item.key]).map(item => item.label);
 
       // 1. Update spk.qc_status dan spk.final_qc_checklist

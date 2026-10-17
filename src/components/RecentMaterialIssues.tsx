@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ClipboardList, Search, Loader2, Trash2, Edit2, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { inventoryService } from '../services/inventoryService';
@@ -38,7 +38,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
   // Refetch when parent says so or internally requested
   const [internalRefresh, setInternalRefresh] = useState(0);
 
-  const fetchIssues = async () => {
+  const fetchIssues = useCallback(async () => {
     // If no SPK is selected or filter is 'ALL', do not fetch or render any data!
     if (!selectedSpkFilter || selectedSpkFilter === 'ALL') {
       setRecentIssues([]);
@@ -100,12 +100,12 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedSpkFilter]);
 
   useEffect(() => {
-    fetchIssues();
+    void fetchIssues();
     setSearchQuery('');
-  }, [selectedSpkFilter, refreshKey, internalRefresh]);
+  }, [fetchIssues, selectedSpkFilter, refreshKey, internalRefresh]);
 
   const displayedIssues = React.useMemo(() => {
     if (!selectedSpkFilter || selectedSpkFilter === 'ALL') {

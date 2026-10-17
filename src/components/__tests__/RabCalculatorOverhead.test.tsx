@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { RabCalculator, parseDecimalValue } from '../RabCalculator';
+import { RabCalculator } from '../RabCalculator';
+import { parseDecimalValue } from '../../utils/numberUtils';
 
 // Hoisted mocks
 const { mockRabItemsInsert } = vi.hoisted(() => ({

@@ -12,7 +12,6 @@ import { PackageAllocationModal } from './PackageAllocationModal';
 import type { RabItemPayload } from './PackageAllocationModal';
 import { exportRabToExcel, printRabQuotation } from '../utils/rabExport';
 import { parseDecimalValue } from '../utils/numberUtils';
-export { parseDecimalValue };
 import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
 
 interface RabSpkDetails {
@@ -322,15 +321,6 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     });
   }, [spkId]);
 
-  useEffect(() => {
-    if (isInitialLoad || isDocumentLocked) return;
-    
-    const timer = setTimeout(() => {
-      handleSaveEstimation(true); // true = silent save
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [items, isInitialLoad, isDocumentLocked]);
 
   const handleAddLaborItem = (e: React.FormEvent) => {
     e.preventDefault();
@@ -691,6 +681,21 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       }
     }
   };
+
+  const handleSaveEstimationRef = useRef(handleSaveEstimation);
+  useEffect(() => {
+    handleSaveEstimationRef.current = handleSaveEstimation;
+  });
+
+  useEffect(() => {
+    if (isInitialLoad || isDocumentLocked) return;
+    
+    const timer = setTimeout(() => {
+      handleSaveEstimationRef.current(true); // true = silent save
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [items, isInitialLoad, isDocumentLocked]);
 
   const handleApplyPackageAllocation = async (allocatedItems: RabItemPayload[], isComplete: boolean, templateToSave?: Record<string, Record<string, number>>) => {
     if (isDocumentLocked) {

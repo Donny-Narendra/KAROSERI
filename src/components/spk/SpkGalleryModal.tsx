@@ -6,7 +6,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 import { ConfirmationModal } from '../ConfirmationModal';
 
-export const STANDARD_ANGLES = ['depan', 'belakang', 'kanan', 'kiri', 'interior'] as const;
+const STANDARD_ANGLES = ['depan', 'belakang', 'kanan', 'kiri', 'interior'] as const;
 export type StandardAngle = typeof STANDARD_ANGLES[number];
 
 export interface Vehicle360Slots {

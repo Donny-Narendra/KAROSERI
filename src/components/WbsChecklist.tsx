@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabaseClient';
 import { MaterialRequisitionForm } from './MaterialRequisitionForm';
@@ -68,6 +68,152 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
     variant?: ConfirmationModalVariant;
   } | null>(null);
 
+  const fetchMaterialAllocations = useCallback(async () => {
+    if (!spkId) return;
+    try {
+      // 1. Fetch RAB estimation & items
+      const { data: rabEst } = await supabase
+        .from('rab_estimations')
+        .select('id')
+        .eq('spk_id', spkId)
+        .maybeSingle();
+
+      let rabItems: any[] = [];
+      if (rabEst?.id) {
+        const { data: items } = await supabase
+          .from('rab_items')
+          .select(`
+            id,
+            quantity,
+            wbs_category,
+            description,
+            item_total,
+            material_id,
+            materials (
+              id,
+              name,
+              unit,
+              unit_price
+            )
+          `)
+          .eq('rab_estimation_id', rabEst.id);
+        if (items) rabItems = items;
+      }
+
+      // 2. Fetch active requisitions (excluding CANCELLED and REJECTED)
+      const { data: requisitions } = await supabase
+        .from('material_requisitions')
+        .select(`
+          id,
+          wbs_category,
+          status,
+          material_requisition_items (
+            id,
+            material_id,
+            rab_item_id,
+            material_name,
+            quantity,
+            unit,
+            materials (
+              id,
+              name
+            )
+          )
+        `)
+        .eq('spk_id', spkId)
+        .neq('status', 'CANCELLED')
+        .neq('status', 'REJECTED');
+
+      // 3. Fetch active SPK borongan assignments (excluding CUT_OFF and CANCELLED)
+      const { data: borongans, error: boronganError } = await supabase
+        .from('spk_borongan')
+        .select(`
+          id,
+          wbs_category,
+          status,
+          task_description,
+          rab_item_id,
+          material_id
+        `)
+        .eq('spk_id', spkId)
+        .neq('status', 'CUT_OFF');
+
+      if (boronganError) {
+        console.error('Error fetching SPK Borongan assignments for WBS allocation:', boronganError);
+      }
+
+      // 4. Map allocations per WBS category
+      const allocationMap: Record<string, {
+        totalRabCount: number;
+        pendingList: PendingWbsMaterial[];
+        pendingCount: number;
+        totalEstimatedCost: number;
+      }> = {};
+
+      WBS_CATEGORIES.forEach((category) => {
+        const cleanCat = category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
+
+        const catRabItems = rabItems.filter((item) => {
+          if (!item.wbs_category) return false;
+          const itemCat = item.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
+          return itemCat === cleanCat || item.wbs_category.toLowerCase() === category.toLowerCase();
+        });
+
+        const relevantReqs = (requisitions || []).filter((req: any) => {
+          const rStatus = (req.status || '').toUpperCase();
+          if (rStatus === 'CANCELLED' || rStatus === 'REJECTED') return false;
+          if (!req.wbs_category) return true;
+          const reqCat = req.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
+          return reqCat === cleanCat || req.wbs_category.toLowerCase() === category.toLowerCase();
+        });
+
+        const relevantBorongans = (borongans || []).filter((b: any) => {
+          const bStatus = (b.status || '').toUpperCase();
+          if (bStatus === 'CUT_OFF' || bStatus === 'CANCELLED') return false;
+          if (!b.wbs_category) return true;
+          const bCat = b.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
+          return bCat === cleanCat || b.wbs_category.toLowerCase() === category.toLowerCase();
+        });
+
+        const pendingList: PendingWbsMaterial[] = [];
+        let totalEstimatedCost = 0;
+
+        catRabItems.forEach((rabItem) => {
+          const isAllocated = isRabItemAllocated(rabItem, relevantReqs, relevantBorongans);
+
+          if (!isAllocated) {
+            const matName = rabItem.materials?.name || rabItem.description || 'Material / Item WBS';
+            const unit = rabItem.materials?.unit || 'satuan';
+            const qty = Number(rabItem.quantity) || 1;
+            const estCost = Number(rabItem.item_total) || 
+              (qty * (Number(rabItem.materials?.unit_price) || 0));
+
+            totalEstimatedCost += estCost;
+            pendingList.push({
+              id: rabItem.id,
+              name: matName,
+              quantity: qty,
+              unit,
+              unitPrice: Number(rabItem.materials?.unit_price) || 0,
+              estimatedCost: estCost,
+            });
+          }
+        });
+
+        allocationMap[category] = {
+          totalRabCount: catRabItems.length,
+          pendingList,
+          pendingCount: pendingList.length,
+          totalEstimatedCost,
+        };
+      });
+
+      setWbsAllocations(allocationMap);
+    } catch (err) {
+      console.error('Error fetching WBS material allocations:', err);
+    }
+  }, [spkId]);
+
   useEffect(() => {
     if (!spkId) return;
     
@@ -132,7 +278,6 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
         if (assetData) {
           assetData.forEach((item) => {
             if (item.wbs_category && newAssets[item.wbs_category]) {
-              // Convert profile from array to object if necessary, or just type assertion
               const asset = item as unknown as WbsAsset;
               if (Array.isArray(asset.profiles)) {
                 asset.profiles = asset.profiles[0] as any;
@@ -154,153 +299,9 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
       }
     };
 
-    fetchData();
-    fetchMaterialAllocations();
-  }, [spkId]);
-
-  const fetchMaterialAllocations = async () => {
-    if (!spkId) return;
-    try {
-      // 1. Fetch RAB estimation & items
-      const { data: rabEst } = await supabase
-        .from('rab_estimations')
-        .select('id')
-        .eq('spk_id', spkId)
-        .maybeSingle();
-
-      let rabItems: any[] = [];
-      if (rabEst?.id) {
-        const { data: items } = await supabase
-          .from('rab_items')
-          .select(`
-            id,
-            quantity,
-            wbs_category,
-            description,
-            item_total,
-            material_id,
-            materials (
-              id,
-              name,
-              unit,
-              unit_price
-            )
-          `)
-          .eq('rab_estimation_id', rabEst.id);
-        if (items) rabItems = items;
-      }
-
-      // 2. Fetch active requisitions (excluding CANCELLED and REJECTED)
-      const { data: requisitions } = await supabase
-        .from('material_requisitions')
-        .select(`
-          id,
-          wbs_category,
-          status,
-          material_requisition_items (
-            id,
-            material_id,
-            rab_item_id,
-            material_name,
-            quantity,
-            unit,
-            materials (
-              id,
-              name
-            )
-          )
-        `)
-        .eq('spk_id', spkId)
-        .neq('status', 'CANCELLED')
-        .neq('status', 'REJECTED');
-
-      // 3. Fetch active SPK borongan assignments (excluding CUT_OFF and CANCELLED)
-      // Note: Query neq CUT_OFF at database level and defensively filter CANCELLED in JS to support all schema enum versions
-      const { data: borongans, error: boronganError } = await supabase
-        .from('spk_borongan')
-        .select(`
-          id,
-          wbs_category,
-          status,
-          task_description,
-          rab_item_id,
-          material_id
-        `)
-        .eq('spk_id', spkId)
-        .neq('status', 'CUT_OFF');
-
-      if (boronganError) {
-        console.error('Error fetching SPK Borongan assignments for WBS allocation:', boronganError);
-      }
-
-      // 4. Map allocations per WBS category
-      const allocationMap: Record<string, {
-        totalRabCount: number;
-        pendingList: PendingWbsMaterial[];
-        pendingCount: number;
-        totalEstimatedCost: number;
-      }> = {};
-
-      WBS_CATEGORIES.forEach((category) => {
-        const cleanCat = category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
-
-        const catRabItems = rabItems.filter((item) => {
-          if (!item.wbs_category) return false;
-          const itemCat = item.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
-          return itemCat === cleanCat || item.wbs_category.toLowerCase() === category.toLowerCase();
-        });
-
-        const relevantReqs = (requisitions || []).filter((req: any) => {
-          const rStatus = (req.status || '').toUpperCase();
-          if (rStatus === 'CANCELLED' || rStatus === 'REJECTED') return false;
-          if (!req.wbs_category) return true;
-          const reqCat = req.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
-          return reqCat === cleanCat || req.wbs_category.toLowerCase() === category.toLowerCase();
-        });
-
-        const relevantBorongans = (borongans || []).filter((b: any) => {
-          const bStatus = (b.status || '').toUpperCase();
-          if (bStatus === 'CUT_OFF' || bStatus === 'CANCELLED') return false;
-          if (!b.wbs_category) return true;
-          const bCat = b.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
-          return bCat === cleanCat || b.wbs_category.toLowerCase() === category.toLowerCase();
-        });
-
-        const pendingList: PendingWbsMaterial[] = [];
-        let totalEstimatedCost = 0;
-
-        catRabItems.forEach((item) => {
-          const isAllocated = isRabItemAllocated(item, relevantReqs, relevantBorongans);
-          if (!isAllocated) {
-            const qty = Number(item.quantity || 0);
-            const unitPrice = Number(item.materials?.unit_price || 0);
-            const cost = item.item_total ? Number(item.item_total) : (qty * unitPrice);
-            totalEstimatedCost += cost;
-
-            pendingList.push({
-              id: item.id,
-              name: item.materials?.name || item.description || 'Material Tanpa Nama',
-              quantity: qty,
-              unit: item.materials?.unit || 'pcs',
-              unitPrice,
-              estimatedCost: cost,
-            });
-          }
-        });
-
-        allocationMap[category] = {
-          totalRabCount: catRabItems.length,
-          pendingList,
-          pendingCount: pendingList.length,
-          totalEstimatedCost,
-        };
-      });
-
-      setWbsAllocations(allocationMap);
-    } catch (err) {
-      console.error('Error fetching WBS material allocations:', err);
-    }
-  };
+    void fetchData();
+    void fetchMaterialAllocations();
+  }, [spkId, fetchMaterialAllocations]);
 
   // Calculate total progress
   const totalProgress = Math.round(

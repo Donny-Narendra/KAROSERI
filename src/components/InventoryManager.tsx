@@ -146,7 +146,7 @@ export const InventoryManager: React.FC = () => {
         return;
       }
       setDeleteConfirmId(id);
-    } catch (err: any) {
+    } catch {
       showMessage('Gagal mengecek status material', true);
     }
   };

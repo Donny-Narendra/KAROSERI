@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Search, X, CheckCircle2, ClipboardList, Clock } from 'lucide-react';
 import type { Spk } from '../types/spk';
-import { formatSubTasks } from './SpkFilterListBox';
+import { formatSubTasks } from '../utils/spkUtils';
 
 export interface SpkSelectorProps {
   spks: Spk[];

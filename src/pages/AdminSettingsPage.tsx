@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 import { 
   Settings, Users, Plus, 
@@ -41,18 +41,13 @@ export const AdminSettingsPage: React.FC = () => {
     variant: ConfirmationModalVariant;
   } | null>(null);
 
-  useEffect(() => {
-    fetchUsers();
-    fetchSettings();
-  }, []);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
     if (data) setUsers(data);
     if (error) console.error('Error fetching users:', error);
-  };
+  }, []);
 
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
     const { data, error } = await supabase.from('workshop_settings').select('*').eq('id', 1).single();
     if (data) {
       setSettings(data);
@@ -61,7 +56,12 @@ export const AdminSettingsPage: React.FC = () => {
       }
     }
     if (error) console.error('Error fetching settings:', error);
-  };
+  }, [i18n]);
+
+  useEffect(() => {
+    void fetchUsers();
+    void fetchSettings();
+  }, [fetchUsers, fetchSettings]);
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();

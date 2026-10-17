@@ -72,7 +72,7 @@ export const SAInventoryPanel: React.FC = () => {
       }
       fetchLogs();
     }
-  }, [activeTab]);
+  }, [activeTab, materials.length]);
 
   const openModal = (mat: Material, mode: 'STOCK' | 'DETAIL') => {
     setSelectedMaterial(mat);

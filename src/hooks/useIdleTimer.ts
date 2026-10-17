@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
@@ -8,7 +8,7 @@ export const useIdleTimer = (timeoutMs: number = 15 * 60 * 1000) => {
   const navigate = useNavigate();
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       await supabase.auth.signOut();
       // Redirect with a notification state
@@ -19,9 +19,9 @@ export const useIdleTimer = (timeoutMs: number = 15 * 60 * 1000) => {
     } catch (error) {
       console.error('Error logging out on idle timeout:', error);
     }
-  };
+  }, [navigate]);
 
-  const resetTimer = () => {
+  const resetTimer = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
@@ -29,7 +29,7 @@ export const useIdleTimer = (timeoutMs: number = 15 * 60 * 1000) => {
     if (user) {
       timeoutRef.current = setTimeout(handleLogout, timeoutMs);
     }
-  };
+  }, [user, handleLogout, timeoutMs]);
 
   useEffect(() => {
     // Only attach listeners if user is logged in
@@ -61,5 +61,5 @@ export const useIdleTimer = (timeoutMs: number = 15 * 60 * 1000) => {
         window.removeEventListener(event, handleUserActivity);
       });
     };
-  }, [user, timeoutMs, navigate]);
+  }, [user, resetTimer]);
 };

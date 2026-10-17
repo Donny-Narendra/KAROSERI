@@ -39,7 +39,7 @@ export const BackupRestoreCard: React.FC = () => {
         try {
           const errData = await response.clone().json();
           if (errData?.error) errMessage += `: ${errData.error}`;
-        } catch(e) {}
+        } catch {}
         throw new Error(errMessage);
       }
 

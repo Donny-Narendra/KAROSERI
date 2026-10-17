@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X, Calendar, User, FileText, ArrowRight } from 'lucide-react';
 import { inventoryService, type Material, type InventoryAuditLog } from '../services/inventoryService';
 
@@ -13,13 +13,8 @@ export const MaterialAuditModal: React.FC<MaterialAuditModalProps> = ({ isOpen, 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isOpen && material) {
-      loadLogs();
-    }
-  }, [isOpen, material]);
-
-  const loadLogs = async () => {
+  const loadLogs = useCallback(async () => {
+    if (!material?.id) return;
     setLoading(true);
     setError(null);
     try {
@@ -30,7 +25,13 @@ export const MaterialAuditModal: React.FC<MaterialAuditModalProps> = ({ isOpen, 
     } finally {
       setLoading(false);
     }
-  };
+  }, [material]);
+
+  useEffect(() => {
+    if (isOpen && material) {
+      void loadLogs();
+    }
+  }, [isOpen, material, loadLogs]);
 
   if (!isOpen) return null;
 

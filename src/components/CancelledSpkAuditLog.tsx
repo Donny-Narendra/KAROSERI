@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Ban, Search, RotateCcw, FileSpreadsheet, Eye, X, Calendar, 
   User, Car, DollarSign, Clock, ShieldAlert, AlertTriangle, RefreshCw
@@ -19,7 +19,7 @@ export const CancelledSpkAuditLog: React.FC<CancelledSpkAuditLogProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRecord, setSelectedRecord] = useState<CancelledSpkAuditRecord | null>(null);
 
-  const loadAuditLogs = async () => {
+  const loadAuditLogs = useCallback(async () => {
     setLoading(true);
     try {
       const data = await spkService.fetchCancelledSpkAuditLogs();
@@ -30,15 +30,15 @@ export const CancelledSpkAuditLog: React.FC<CancelledSpkAuditLogProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [onRefreshParent]);
 
   useEffect(() => {
     if (!initialRecords) {
-      loadAuditLogs();
+      void loadAuditLogs();
     } else {
       setRecords(initialRecords);
     }
-  }, [initialRecords]);
+  }, [initialRecords, loadAuditLogs]);
 
   // Filter records based on search query
   const filteredRecords = useMemo(() => {

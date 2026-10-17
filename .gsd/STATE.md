@@ -1,25 +1,46 @@
 ## Current Position
-- **Sprint**: Sprint 40 — Mandor Floor Terminal Overhead Logging Module
-- **Status**: Completed ✅
+- **Sprint**: Sprint 41 — Codebase Health, React Hook Hygiene & Zero-Warning Lint Cleanup
+- **Status**: Completed ✅ (All 4 Technical Debt Sprints Fully Executed)
 - **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness
 
-## Last Session Summary
-- Completed Sprint 39 (Change Order 3-Element Costing — Overhead Support in Amendments).
-- Completed Sprint 40 (Mandor Floor Terminal Overhead Logging Module):
-  - Defined `CreateSpkOverheadLogPayload` contract in `src/types/financialReports.ts`.
-  - Implemented `createSpkOverheadLog`, `deleteSpkOverheadLog`, and typed `getSpkOverheadLogs` in `src/services/financialReportsService.ts`.
-  - Built `src/components/SpkOverheadModal.tsx` featuring:
-    - SPK metadata header (SPK number, plate, customer).
-    - Quick karoseri overhead presets (Oven spray booth, mesin las listrik, kompresor pneumatic, sewa crane/derek).
-    - Live subtotal calculation (`frequency_qty * rate_per_unit`).
-    - Direct submission to `spk_overhead_logs`.
-    - Overhead history table with individual deletion and accumulated FOH total.
-  - Integrated into `src/components/WbsChecklist.tsx` via global header button and per-stage WBS action buttons with `onWbsUpdated` synchronization.
-  - Created unit test suite `src/components/__tests__/SpkOverheadModal.test.tsx` (4 tests passing).
-  - Verified 18 Vitest test files (137 tests passing 100%), clean `tsc -b`, and production build passing in 532ms.
+## Technical Debt Roadmap Execution Summary
+All 4 sprints resolving identified technical debt from the Sprint 37 audit and `/map` codebase mapping have been completely executed, tested, and verified:
+
+1. **Sprint 38 — Enable `OVERHEAD` item type in `rab_items` & Fix RAB Budget Allocation**:
+   - Migration `20261018000000_enable_overhead_item_type_in_rab_items.sql` applied.
+   - Fixed `rab_items_item_type_check` check constraint to include `'OVERHEAD'`.
+   - Updated `RabItemRecord` contract in `src/types/database.ts`.
+   - Synchronized `view_wbs_cost_variance` with resilient overhead aggregation.
+   - Updated `RabCalculator.tsx` and unit tests in `RabCalculatorOverhead.test.tsx` (8/8 tests pass).
+   - Commit: `0c6f1d1`.
+
+2. **Sprint 39 — Change Order 3-Element Costing (Overhead Support in Amendments)**:
+   - Expanded `ChangeOrderItemType = 'MATERIAL' | 'LABOR' | 'OVERHEAD'` in contracts and `spkService.ts`.
+   - Added `+ Item Overhead (FOH)` button with purple styling and `Clock` icon in `AmendmentManager.tsx`.
+   - Updated draft summary to count `overheadCount`.
+   - Added unit test suite `AmendmentManager.test.tsx` (3/3 tests pass).
+   - Commit: `fdeb578`.
+
+3. **Sprint 40 — Mandor Floor Terminal Overhead Logging Module**:
+   - Defined `CreateSpkOverheadLogPayload` contract in `src/types/financialReports.ts`.
+   - Implemented `createSpkOverheadLog`, `deleteSpkOverheadLog`, and typed `getSpkOverheadLogs` in `src/services/financialReportsService.ts`.
+   - Built `SpkOverheadModal.tsx` with presets, live calculation, form submission, and history table with deletion.
+   - Integrated into `WbsChecklist.tsx` with stage and global header actions.
+   - Added unit test suite `SpkOverheadModal.test.tsx` (4/4 tests pass).
+   - Commit: `592f72d`.
+
+4. **Sprint 41 — Codebase Health, React Hook Hygiene & Zero-Warning Lint Cleanup**:
+   - Removed scratch files and cleaned unused catch variables.
+   - Resolved Fast Refresh component export warnings (`react/only-export-components`).
+   - Fixed Temporal Dead Zone (TDZ) function declarations and hook dependencies (`exhaustive-deps`).
+   - Implemented debounced auto-save ref pattern in `RabCalculator.tsx`.
+   - Tuned `.oxlintrc.json` for React 18 SPA.
+   - Result: **0 warnings and 0 errors across 122 files in Oxlint** (down from 79 to 0).
+   - Regression: **18/18 test suites passing (137 tests passing 100%)**, clean `tsc -b`, and production build succeeding in 527ms.
 
 ## Next Up
-- **Sprint 41**: Codebase Health, React Hook Hygiene & Zero-Warning Lint Cleanup (Resolve 78 Oxlint warnings across the codebase).
+- Technical Debt Roadmap is 100% complete.
+- Ready for feature enhancements, production deployment, or further instructions.
 
 ## Blockers
 None.

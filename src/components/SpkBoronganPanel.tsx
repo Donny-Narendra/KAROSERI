@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import type { SpkBoronganStatus } from '../types/database';
@@ -102,13 +102,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
   
   const [spkDetail, setSpkDetail] = useState<SpkDetail | null>(null);
 
-  useEffect(() => {
-    fetchSpkDetail();
-    fetchRecords();
-    fetchRabMaterials();
-  }, [spkId, wbsCategory]);
-
-  const fetchSpkDetail = async () => {
+  const fetchSpkDetail = useCallback(async () => {
     const { data, error } = await supabase
       .from('spk')
       .select('spk_no, customer_name, vehicle_plate')
@@ -116,9 +110,9 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
       .single();
     if (data) setSpkDetail(data as SpkDetail);
     if (error) console.error('Error fetching SPK:', error);
-  };
+  }, [spkId]);
 
-  const fetchRecords = async () => {
+  const fetchRecords = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('spk_borongan')
@@ -139,9 +133,9 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
     }
     if (error) console.error('Error fetching SPK-B:', error);
     setLoading(false);
-  };
+  }, [spkId, cleanWbsCategory, wbsCategory]);
 
-  const fetchRabMaterials = async () => {
+  const fetchRabMaterials = useCallback(async () => {
     // Langkah 1: Dapatkan rab_estimation_id milik SPK
     const { data: rabEst, error: rabError } = await supabase
       .from('rab_estimations')
@@ -257,7 +251,14 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
 
       setRabMaterials(nonAllocated as unknown as RabMaterial[]);
     }
-  };
+  }, [spkId, cleanWbsCategory, wbsCategory]);
+
+  useEffect(() => {
+    void fetchSpkDetail();
+    void fetchRecords();
+    void fetchRabMaterials();
+  }, [fetchSpkDetail, fetchRecords, fetchRabMaterials]);
+
 
   // Handler Transfer Material dari Panduan RAB ke Form Penugasan Baru
   const handleSelectMaterialForAssignment = (item: RabMaterial) => {

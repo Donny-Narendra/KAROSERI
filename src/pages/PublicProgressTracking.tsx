@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { Check, Loader2, Printer, AlertTriangle, AlertCircle, ClipboardList } from 'lucide-react';
@@ -33,31 +33,8 @@ export const PublicProgressTracking: React.FC = () => {
   
   const [rateLimitReached, setRateLimitReached] = useState(false);
 
-  useEffect(() => {
-    if (!spk_no) {
-      setError('Nomor SPK tidak valid.');
-      setLoading(false);
-      return;
-    }
-
-    // Rate Limiting Logic
-    const today = new Date().toISOString().split('T')[0];
-    const limitKey = `tracking_limit_${spk_no}_${today}`;
-    const currentHits = parseInt(localStorage.getItem(limitKey) || '0', 10);
-
-    if (currentHits >= 5) {
-      setRateLimitReached(true);
-      setLoading(false);
-      return;
-    }
-
-    // Increment Hit
-    localStorage.setItem(limitKey, (currentHits + 1).toString());
-
-    fetchProgressData();
-  }, [spk_no]);
-
-  const fetchProgressData = async () => {
+  const fetchProgressData = useCallback(async () => {
+    if (!spk_no) return;
     setLoading(true);
     try {
       // Fetch SPK
@@ -121,7 +98,31 @@ export const PublicProgressTracking: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [spk_no]);
+
+  useEffect(() => {
+    if (!spk_no) {
+      setError('Nomor SPK tidak valid.');
+      setLoading(false);
+      return;
+    }
+
+    // Rate Limiting Logic
+    const today = new Date().toISOString().split('T')[0];
+    const limitKey = `tracking_limit_${spk_no}_${today}`;
+    const currentHits = parseInt(localStorage.getItem(limitKey) || '0', 10);
+
+    if (currentHits >= 5) {
+      setRateLimitReached(true);
+      setLoading(false);
+      return;
+    }
+
+    // Increment Hit
+    localStorage.setItem(limitKey, (currentHits + 1).toString());
+
+    void fetchProgressData();
+  }, [spk_no, fetchProgressData]);
 
   const handlePrint = () => {
     window.print();
