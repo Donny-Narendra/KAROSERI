@@ -43,11 +43,13 @@ interface SpkDetail {
 interface RabMaterial {
   id: string;
   quantity: number;
+  unit?: string;
   wbs_category: string;
   description?: string;
   item_total?: number;
   unit_price?: number;
   material_id?: string;
+  item_type?: 'MATERIAL' | 'LABOR' | string;
   materials: {
     id: string;
     name: string;
@@ -210,16 +212,19 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
       console.error('Error fetching SPK-B for exclusion:', spkBErr);
     }
 
-    // Langkah 4: Ambil items dari rab_items join materials
+    // Langkah 4: Ambil items dari rab_items join materials (HANYA item_type = 'LABOR')
     const { data: itemsData, error: itemsError } = await supabase
       .from('rab_items')
       .select(`
         id,
         quantity,
+        unit,
         wbs_category,
         description,
         item_total,
+        unit_price,
         material_id,
+        item_type,
         materials (
           id,
           name,
@@ -227,14 +232,16 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
           unit_price
         )
       `)
-      .eq('rab_estimation_id', rabEst.id);
+      .eq('rab_estimation_id', rabEst.id)
+      .eq('item_type', 'LABOR');
 
     if (itemsError) {
       console.error('Error fetching RAB items:', itemsError);
       setRabMaterials([]);
     } else if (itemsData) {
-      // Filter kategori WBS yang cocok secara toleran
+      // Filter kategori WBS yang cocok secara toleran & syarat wajib item_type === 'LABOR'
       const matchingCategory = (itemsData as any[]).filter(item => {
+        if (item.item_type && item.item_type !== 'LABOR') return false;
         if (!item.wbs_category) return true;
         const itemCatClean = item.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
         return (
@@ -292,7 +299,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
       setAssignmentToCancel(null);
       setNotification({
         title: 'Penugasan Dibatalkan',
-        message: `Penugasan "${workerNameStr}" berhasil dibatalkan. Pekerjaan ini telah dikembalikan ke panduan material.`,
+        message: `Penugasan "${workerNameStr}" berhasil dibatalkan. Pekerjaan ini telah dikembalikan ke panduan pagu jasa/pekerjaan.`,
         variant: 'success'
       });
       await fetchRecords();
@@ -495,11 +502,15 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
     }, 250);
   };
 
-  // Filter daftar material:
+  // Filter daftar pekerjaan/jasa RAB yang tersedia:
   // 1. Sembunyikan jika sedang ditransfer ke form penugasan saat ini
   // 2. Sembunyikan jika sudah aktif ditugaskan di riwayat SPK-B (reaktif terhadap state lokal)
   // 3. Filter pencarian teks
+  // 4. Syarat ketat: HANYA item_type === 'LABOR'
   const filteredMaterials = rabMaterials.filter(m => {
+    if (m.item_type && m.item_type !== 'LABOR') {
+      return false;
+    }
     if (selectedRabItemForAssignment && (
       selectedRabItemForAssignment.id === m.id || 
       (selectedRabItemForAssignment.materials?.id && selectedRabItemForAssignment.materials.id === m.materials?.id)
@@ -695,7 +706,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
                         type="button"
                         onClick={handleResetTransferredItem}
                         className="px-2 py-1 bg-surface border border-border hover:bg-background text-text-muted hover:text-rose-400 rounded flex items-center gap-1 transition-colors text-xs shrink-0"
-                        title="Batal transfer & kembalikan item ke Panduan Material"
+                        title="Batal transfer & kembalikan item ke Panduan Pagu Jasa / Pekerjaan"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
                         <span>Reset</span>
@@ -768,26 +779,29 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
 
             </div>
 
-            {/* Bagian Kanan: Panduan Material (RAB) (Kotak Biru / 6 Kolom pada Desktop) */}
+            {/* Bagian Kanan: Panduan Pagu Jasa / Pekerjaan (RAB) (Kotak Biru / 6 Kolom pada Desktop) */}
             <div className="lg:col-span-6 bg-surface/90 p-4 sm:p-5 rounded-xl shadow-sm border border-blue-500/30 flex flex-col h-[480px] lg:h-[580px]">
               
               <div className="mb-3">
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-2">
                     <div className="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
-                    <h3 className="font-bold text-sm sm:text-base text-blue-400">Panduan Material (RAB)</h3>
+                    <h3 className="font-bold text-sm sm:text-base text-blue-400">Panduan Pagu Jasa / Pekerjaan (RAB)</h3>
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 hidden sm:inline">
+                      Khusus Jasa / Borongan
+                    </span>
                   </div>
                   <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-blue-500/20 text-blue-300">
                     {filteredMaterials.length} Tersedia
                   </span>
                 </div>
                 <p className="text-xs text-text-muted mb-2">
-                  Daftar material yang dialokasikan untuk {wbsCategory}. Item yang sudah diajukan via Requisition atau ditugaskan di SPK Borongan otomatis dikecualikan.
+                  Daftar pagu pekerjaan/jasa borongan yang dialokasikan untuk {wbsCategory}. Item yang sudah ditugaskan di SPK Borongan otomatis dikecualikan.
                 </p>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
-                    placeholder="Cari nama material..."
+                    placeholder="Cari nama pekerjaan/jasa..."
                     className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-xs sm:text-sm text-text focus:outline-none focus:border-blue-500"
                     value={searchMaterial}
                     onChange={(e) => setSearchMaterial(e.target.value)}
@@ -803,29 +817,29 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
                 {rabMaterials.length === 0 ? (
                   <div className="p-8 text-center text-xs sm:text-sm text-text-muted flex flex-col items-center justify-center h-full">
                     <CheckCircle2 className="w-8 h-8 text-blue-500/30 mb-2" />
-                    <p className="font-semibold text-text">Tidak ada material tersisa untuk WBS ini.</p>
+                    <p className="font-semibold text-text">Tidak ada pagu pekerjaan/jasa tersisa untuk WBS ini.</p>
                     <p className="text-xs text-text-muted mt-1 max-w-xs">
-                      Seluruh material mungkin telah diajukan ke gudang (Requisition), ditugaskan di SPK Borongan, atau belum dialokasikan di estimasi.
+                      Seluruh alokasi jasa borongan mungkin telah ditugaskan di SPK Borongan atau belum dialokasikan di estimasi RAB.
                     </p>
                   </div>
                 ) : filteredMaterials.length === 0 ? (
                   <div className="p-8 text-center text-xs sm:text-sm text-text-muted flex flex-col items-center justify-center h-full">
-                    <p>Tidak ada material yang cocok dengan filter atau pencarian.</p>
+                    <p>Tidak ada pekerjaan/jasa yang cocok dengan filter atau pencarian.</p>
                   </div>
                 ) : (
                   <table className="w-full text-left text-xs sm:text-sm">
                     <thead className="bg-surface border-b border-border sticky top-0 z-10 text-xs">
                       <tr>
-                        <th className="px-3.5 py-2.5 font-bold text-text">Nama Material / Item</th>
+                        <th className="px-3.5 py-2.5 font-bold text-text">Pekerjaan / Jasa Borongan</th>
                         <th className="px-2.5 py-2.5 font-bold text-text text-right w-16">Qty</th>
-                        <th className="px-3 py-2.5 font-bold text-text text-right w-28 whitespace-nowrap">Subtotal</th>
+                        <th className="px-3 py-2.5 font-bold text-text text-right w-28 whitespace-nowrap">Pagu Subtotal</th>
                         <th className="px-2 py-2.5 font-bold text-center w-12">Aksi</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/60">
                       {filteredMaterials.map((item) => {
-                        const itemName = item.materials?.name || item.description || 'Item Pekerjaan';
-                        const itemUnit = item.materials?.unit || 'item';
+                        const itemName = item.materials?.name || item.description || 'Pekerjaan Borongan';
+                        const itemUnit = item.materials?.unit || item.unit || 'lot';
                         const subtotal = (typeof item.item_total === 'number' && item.item_total > 0)
                           ? item.item_total
                           : ((item.quantity || 0) * (item.materials?.unit_price || item.unit_price || 0));
@@ -869,7 +883,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
 
               {/* Footer Panel Kanan */}
               <div className="pt-2.5 mt-2 flex justify-between items-center text-xs text-text-muted">
-                <span>Material RAB Tersedia:</span>
+                <span>Pagu Jasa/Pekerjaan Tersedia:</span>
                 <span className="font-bold text-text font-mono">
                   {filteredMaterials.length} Item
                 </span>
