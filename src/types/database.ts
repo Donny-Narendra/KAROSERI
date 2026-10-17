@@ -48,6 +48,9 @@ export interface RabItemRecord {
   overhead_rate?: number;
   item_total?: number;
   description?: string;
+  unit?: string;
+  notes?: string | null;
+  wbs_stage?: string;
   package_id?: string | null;
   created_at?: string;
 }

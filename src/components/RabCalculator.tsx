@@ -28,12 +28,15 @@ interface RabSpkDetails {
 interface DbRabItemRecord {
   id: string;
   wbs_category: string;
+  wbs_stage?: string | null;
   item_type?: 'MATERIAL' | 'LABOR' | string | null;
   description?: string | null;
   material_name?: string | null;
   material_id?: string | null;
   package_id?: string | null;
   quantity?: number | string | null;
+  unit?: string | null;
+  notes?: string | null;
   unit_price?: number | string | null;
   cost_price?: number | string | null;
   labor_hours?: number | string | null;
@@ -51,6 +54,8 @@ interface RabItem {
   type: 'material' | 'labor' | 'overhead';
   description: string;
   qty: number;
+  unit?: string;
+  notes?: string;
   unitPrice: number;
   costPrice?: number;
   subtotal?: number;
@@ -76,6 +81,17 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   const [spkDetails, setSpkDetails] = useState<RabSpkDetails | null>(null);
   const isDocumentLocked = Boolean(spkDetails?.is_pricing_locked || (spkDetails?.status && spkDetails.status !== 'DRAFT'));
 
+  // Toggle mode: 'material' (default) | 'labor' | 'overhead'
+  const [itemMode, setItemMode] = useState<'material' | 'labor' | 'overhead'>('material');
+
+  // Dedicated state for Labor / Tukang item entry
+  const [laborForm, setLaborForm] = useState({
+    name: '',
+    wbsCategory: 'Pembongkaran',
+    estimatedCost: 0,
+    notes: '',
+  });
+
   // Package BOM state
   const [packages, setPackages] = useState<ProductPackage[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -94,7 +110,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     { id: 'Pembongkaran', label: 'WBS 1: Pembongkaran' },
     { id: 'Sasis/Rangka', label: 'WBS 2: Sasis/Rangka' },
     { id: 'Dinding/Fabrikasi', label: 'WBS 3: Dinding/Fabrikasi' },
-    { id: 'Cat/Finishing', label: 'WBS 4: Cat/Finishing' },
+    { id: 'Cat/Finishing', label: 'WBS 4: Pengecatan' },
     { id: 'Kelistrikan/Hidrolik', label: 'WBS 5: Kelistrikan/Hidrolik' },
   ];
 
@@ -165,6 +181,8 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
               type,
               description: dbItem.material_name || dbItem.description || '',
               qty,
+              unit: dbItem.unit || (type === 'labor' ? 'lot' : 'pcs'),
+              notes: dbItem.notes || (type === 'labor' && dbItem.description && dbItem.description !== dbItem.material_name ? dbItem.description : undefined),
               unitPrice,
               costPrice,
               subtotal: Number(dbItem.subtotal) || (qty * unitPrice),
@@ -215,6 +233,67 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     return () => clearTimeout(timer);
   }, [items, isInitialLoad, isDocumentLocked]);
 
+  const handleAddLaborItem = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isDocumentLocked) {
+      setModalFeedback({
+        isOpen: true,
+        title: 'Dokumen Terkunci',
+        message: 'Tidak dapat menambah item karena RAB dan SPK telah berstatus terkunci (read-only).',
+        variant: 'danger',
+      });
+      return;
+    }
+    if (!laborForm.name.trim() || !laborForm.estimatedCost || laborForm.estimatedCost <= 0) return;
+
+    const newLaborItem: RabItem = {
+      id: editingId || (Date.now().toString() + Math.random().toString(36).substr(2, 9)),
+      wbsCategory: laborForm.wbsCategory,
+      type: 'labor',
+      description: laborForm.name.trim(),
+      qty: 1,
+      unit: 'lot',
+      unitPrice: laborForm.estimatedCost,
+      costPrice: laborForm.estimatedCost,
+      subtotal: laborForm.estimatedCost,
+      isLocked: false,
+      wasteFactor: 0,
+      notes: laborForm.notes.trim() || undefined,
+      materialId: undefined,
+    };
+
+    if (editingId) {
+      setItems(items.map(i => i.id === editingId ? newLaborItem : i));
+      setEditingId(null);
+    } else {
+      setItems([...items, newLaborItem]);
+    }
+
+    setLaborForm({
+      name: '',
+      wbsCategory: 'Pembongkaran',
+      estimatedCost: 0,
+      notes: '',
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setLaborForm({
+      name: '',
+      wbsCategory: 'Pembongkaran',
+      estimatedCost: 0,
+      notes: '',
+    });
+    setNewItem({
+      type: itemMode,
+      qty: 1,
+      unitPrice: itemMode === 'overhead' ? bayHourlyRate * 8 : 0,
+      wasteFactor: itemMode === 'material' ? 5 : 0,
+    });
+    setManualAllocations({});
+  };
+
   const handleAddItem = (e: React.FormEvent) => {
     e.preventDefault();
     if (isDocumentLocked) {
@@ -251,6 +330,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
              type: newItem.type as 'material' | 'labor' | 'overhead',
              description: newItem.description as string,
              qty: wbsQty,
+             unit: newItem.type === 'labor' ? 'lot' : 'pcs',
              unitPrice: newItem.unitPrice as number,
              costPrice,
              subtotal: wbsQty * (newItem.unitPrice as number),
@@ -302,16 +382,27 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       });
       return;
     }
-    setNewItem({
-      type: item.type,
-      description: item.description,
-      qty: item.qty,
-      unitPrice: item.unitPrice,
-      wasteFactor: item.wasteFactor,
-      materialId: item.materialId,
-    });
-    setManualAllocations({ [item.wbsCategory]: String(item.qty) });
     setEditingId(item.id);
+    if (item.type === 'labor') {
+      setItemMode('labor');
+      setLaborForm({
+        name: item.description,
+        wbsCategory: item.wbsCategory,
+        estimatedCost: item.unitPrice,
+        notes: item.notes || '',
+      });
+    } else {
+      setItemMode(item.type);
+      setNewItem({
+        type: item.type,
+        description: item.description,
+        qty: item.qty,
+        unitPrice: item.unitPrice,
+        wasteFactor: item.wasteFactor,
+        materialId: item.materialId,
+      });
+      setManualAllocations({ [item.wbsCategory]: String(item.qty) });
+    }
   };
 
   const handleRemoveItem = (id: string) => {
@@ -330,6 +421,9 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   const confirmRemoveItem = () => {
     if (isDocumentLocked) return;
     if (itemToDelete) {
+      if (editingId === itemToDelete) {
+        handleCancelEdit();
+      }
       setItems(items.filter(item => item.id !== itemToDelete));
       setItemToDelete(null);
     }
@@ -404,9 +498,11 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
             spk_id: spkId,
             wbs_category: item.wbsCategory,
             item_type: item.type === 'labor' ? 'LABOR' : 'MATERIAL',
-            description: item.description,
+            description: item.notes || item.description,
             material_name: item.description,
             quantity: item.qty,
+            unit: item.unit || (item.type === 'labor' ? 'lot' : 'pcs'),
+            notes: item.notes || null,
             unit_price: unitPrice,
             cost_price: costPrice,
             labor_hours: item.type === 'labor' ? item.qty : 0,
@@ -415,7 +511,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
             overhead_rate: item.type === 'overhead' ? item.unitPrice / 8 : 0,
             item_total: calculateItemTotal(item),
             package_id: item.packageId || null,
-            material_id: item.materialId || null,
+            material_id: item.type === 'labor' ? null : (item.materialId || null),
             is_locked: false
           };
         });
@@ -669,198 +765,312 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
             </div>
           )}
 
-          <form onSubmit={handleAddItem} className="bg-background border border-border rounded-lg p-4 space-y-4">
-            <h4 className="font-bold text-sm text-text border-b border-border pb-2">Add Estimation Item</h4>
-            
-            <div className="grid grid-cols-3 gap-2">
-              <label className={`flex items-center justify-center gap-1.5 p-2 rounded-lg border text-xs font-semibold cursor-pointer transition ${newItem.type === 'material' ? 'bg-primary/10 border-primary text-primary' : 'bg-surface border-border text-text-muted hover:border-text-muted'}`}>
-                <input 
-                  type="radio" 
-                  name="type" 
-                  value="material"
-                  checked={newItem.type === 'material'}
-                  onChange={() => setNewItem({...newItem, type: 'material', wasteFactor: 5})}
-                  className="sr-only"
-                />
-                <Package className="w-3.5 h-3.5" />
-                <span>Bahan Baku</span>
-              </label>
-              <label className={`flex items-center justify-center gap-1.5 p-2 rounded-lg border text-xs font-semibold cursor-pointer transition ${newItem.type === 'labor' ? 'bg-amber-500/10 border-amber-500 text-amber-400' : 'bg-surface border-border text-text-muted hover:border-text-muted'}`}>
-                <input 
-                  type="radio" 
-                  name="type" 
-                  value="labor"
-                  checked={newItem.type === 'labor'}
-                  onChange={() => setNewItem({...newItem, type: 'labor', wasteFactor: 0, materialId: undefined})}
-                  className="sr-only"
-                />
-                <Wrench className="w-3.5 h-3.5" />
-                <span>Jasa / Labor</span>
-              </label>
-              <label className={`flex items-center justify-center gap-1.5 p-2 rounded-lg border text-xs font-semibold cursor-pointer transition ${newItem.type === 'overhead' ? 'bg-purple-500/10 border-purple-500 text-purple-400' : 'bg-surface border-border text-text-muted hover:border-text-muted'}`}>
-                <input 
-                  type="radio" 
-                  name="type" 
-                  value="overhead"
-                  checked={newItem.type === 'overhead'}
-                  onChange={() => setNewItem({...newItem, type: 'overhead', wasteFactor: 0, unitPrice: bayHourlyRate * 8, materialId: undefined})}
-                  className="sr-only"
-                />
-                <Clock className="w-3.5 h-3.5" />
-                <span>Overhead</span>
-              </label>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
-                {newItem.type === 'material' ? 'Item Bahan Baku' : newItem.type === 'labor' ? 'Uraian Jasa / Pekerjaan Tukang' : 'Deskripsi Overhead'}
-              </label>
-              {newItem.type === 'material' ? (
-                <MaterialAutocomplete
-                  materials={materials}
-                  initialValue={newItem.description || ''}
-                  onSelect={(m) => setNewItem({...newItem, description: m.name, unitPrice: m.unit_price || 0, materialId: m.id})}
-                  placeholder="Cari material gudang..."
-                />
-              ) : newItem.type === 'labor' ? (
-                <input
-                  type="text"
-                  required
-                  value={newItem.description || ''}
-                  onChange={(e) => setNewItem({...newItem, description: e.target.value})}
-                  placeholder="e.g. Jasa Pengelasan Dudukan Sasis, Upah Borongan Tukang Cat..."
-                  className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
-                />
-              ) : (
-                <input
-                  type="text"
-                  required
-                  value={newItem.description || ''}
-                  onChange={(e) => setNewItem({...newItem, description: e.target.value})}
-                  placeholder="e.g. Workshop Bay Overhead"
-                  className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
-                />
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
-                  {newItem.type === 'material' ? 'Qty (Bahan)' : newItem.type === 'labor' ? 'Volume / Qty Jasa' : 'Days (Hari Kerja)'}
-                </label>
-                <input
-                  type="number"
-                  required
-                  min="0.1"
-                  step="0.1"
-                  value={newItem.qty || ''}
-                  onChange={(e) => setNewItem({...newItem, qty: parseFloat(e.target.value)})}
-                  className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
-                  {newItem.type === 'material' ? 'Harga Satuan Bahan' : newItem.type === 'labor' ? 'Tarif Upah / Jasa Borongan' : 'Bay Rate / Hari'}
-                </label>
-                <input
-                  type="number"
-                  required
-                  min="0"
-                  value={newItem.unitPrice === 0 ? '' : newItem.unitPrice}
-                  onChange={(e) => setNewItem({...newItem, unitPrice: parseFloat(e.target.value)})}
-                  className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
-                />
-              </div>
-            </div>
-
-            {newItem.type === 'material' && (
-              <div>
-                <label className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">Waste Factor (%)</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={newItem.wasteFactor || ''}
-                  onChange={(e) => setNewItem({...newItem, wasteFactor: parseFloat(e.target.value)})}
-                  className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
-                />
-              </div>
-            )}
-
-            {/* Multi-WBS Allocation Matrix */}
-            <div className="border border-border rounded-lg overflow-hidden mt-2">
-              <div className="bg-surface px-3 py-2 border-b border-border">
-                <span className="text-xs font-bold text-text uppercase font-mono">Alokasi WBS</span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm whitespace-nowrap">
-                  <thead className="bg-background text-text-muted text-[10px] uppercase border-b border-border">
-                    <tr>
-                      <th className="px-2 py-2 text-center border-r border-border bg-surface-hover/50">Total Qty</th>
-                      {wbsCategories.map((cat, i) => (
-                        <th key={cat.id} className="px-1 py-2 text-center" title={cat.label}>WBS {i+1}</th>
-                      ))}
-                      <th className="px-2 py-2 text-center border-l border-border bg-surface-hover/50">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-surface">
-                    <tr>
-                      <td className="px-2 py-3 font-mono font-bold text-center text-primary border-r border-border bg-surface-hover/50">
-                        {newItem.qty || 0}
-                      </td>
-                      {wbsCategories.map((cat) => (
-                        <td key={cat.id} className="px-1 py-3 text-center">
-                          <input
-                            type="number"
-                            min="0"
-                            step="any"
-                            value={manualAllocations[cat.id] || ''}
-                            onChange={(e) => setManualAllocations({...manualAllocations, [cat.id]: e.target.value})}
-                            className="w-14 mx-auto block bg-background border border-border rounded px-1 py-1 text-center font-mono focus:border-primary focus:outline-none text-xs"
-                            placeholder="0"
-                          />
-                        </td>
-                      ))}
-                      <td className="px-2 py-3 text-center border-l border-border bg-surface-hover/50">
-                        <span className={`inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                          isAllocationPassed ? 'bg-status-success/20 text-status-success' : 'bg-status-danger/20 text-status-danger'
-                        }`}>
-                          {isAllocationPassed ? 'PASSED' : (manualRemaining > 0 ? `Sisa: ${manualRemaining.toFixed(2)}` : `Over: ${Math.abs(manualRemaining).toFixed(2)}`)}
-                        </span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
+          {/* Toggle Mode Input Item: Bahan Baku (Material) vs Jasa / Tukang (Labor) vs Overhead */}
+          <div className="flex rounded-lg bg-surface p-1 border border-border mb-4">
+            <button
+              type="button"
+              id="toggle-mode-material"
+              onClick={() => {
+                setItemMode('material');
+                setNewItem(prev => ({ ...prev, type: 'material', wasteFactor: 5 }));
+                if (editingId) handleCancelEdit();
+              }}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-bold transition cursor-pointer ${
+                itemMode === 'material'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-text-muted hover:text-text hover:bg-surface-hover'
+              }`}
+            >
+              <Package className="w-3.5 h-3.5 shrink-0" />
+              <span>Bahan Baku (Material)</span>
+            </button>
 
             <button
-              type="submit"
-              disabled={!isAllocationPassed || !newItem.qty || newItem.qty <= 0}
-              className="w-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-bold py-2 px-4 rounded text-sm transition flex items-center justify-center gap-2 mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              type="button"
+              id="toggle-mode-labor"
+              onClick={() => {
+                setItemMode('labor');
+                setNewItem(prev => ({ ...prev, type: 'labor', wasteFactor: 0, materialId: undefined }));
+                if (editingId) handleCancelEdit();
+              }}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-bold transition cursor-pointer ${
+                itemMode === 'labor'
+                  ? 'bg-amber-500 text-white shadow-sm'
+                  : 'text-text-muted hover:text-text hover:bg-surface-hover'
+              }`}
             >
-              <Plus className="w-4 h-4" />
-              {editingId ? 'Update Item' : 'Add Item'}
+              <Wrench className="w-3.5 h-3.5 shrink-0" />
+              <span>Jasa / Tukang (Labor)</span>
             </button>
-            {editingId && (
+
+            <button
+              type="button"
+              id="toggle-mode-overhead"
+              onClick={() => {
+                setItemMode('overhead');
+                setNewItem(prev => ({ ...prev, type: 'overhead', wasteFactor: 0, unitPrice: bayHourlyRate * 8, materialId: undefined }));
+                if (editingId) handleCancelEdit();
+              }}
+              className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-md text-xs font-bold transition cursor-pointer ${
+                itemMode === 'overhead'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'text-text-muted hover:text-text hover:bg-surface-hover'
+              }`}
+              title="Workshop Bay Overhead"
+            >
+              <Clock className="w-3.5 h-3.5 shrink-0" />
+              <span>Overhead</span>
+            </button>
+          </div>
+
+          {itemMode === 'labor' ? (
+            <form onSubmit={handleAddLaborItem} className="bg-background border border-amber-500/30 rounded-lg p-4 space-y-4 shadow-sm">
+              <div className="flex items-center justify-between border-b border-border pb-2">
+                <h4 className="font-bold text-sm text-text flex items-center gap-2">
+                  <Wrench className="w-4 h-4 text-amber-400" />
+                  <span>{editingId ? 'Edit Jasa / Pekerjaan Tukang' : 'Input Jasa / Tukang (Labor)'}</span>
+                </h4>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold">
+                  PAGU JASA
+                </span>
+              </div>
+
+              <div>
+                <label htmlFor="labor-name-input" className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
+                  Nama Jasa / Pekerjaan Tukang <span className="text-status-danger">*</span>
+                </label>
+                <input
+                  id="labor-name-input"
+                  type="text"
+                  required
+                  value={laborForm.name}
+                  onChange={(e) => setLaborForm({ ...laborForm, name: e.target.value })}
+                  placeholder="misal: Jasa Tukang Las Sasis, Ongkos Borongan Dempul & Cat, Jasa Bongkar"
+                  className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="labor-wbs-select" className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
+                  Tahapan WBS <span className="text-status-danger">*</span>
+                </label>
+                <select
+                  id="labor-wbs-select"
+                  required
+                  value={laborForm.wbsCategory}
+                  onChange={(e) => setLaborForm({ ...laborForm, wbsCategory: e.target.value })}
+                  className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-amber-500"
+                >
+                  {wbsCategories.map(cat => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="labor-cost-input" className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
+                  Estimasi Biaya Jasa / Upah (Rp) <span className="text-status-danger">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 text-sm font-bold text-text-muted font-mono">Rp</span>
+                  <input
+                    id="labor-cost-input"
+                    type="number"
+                    required
+                    min="1"
+                    step="1"
+                    value={laborForm.estimatedCost || ''}
+                    onChange={(e) => setLaborForm({ ...laborForm, estimatedCost: parseFloat(e.target.value) || 0 })}
+                    placeholder="misal: 500000"
+                    className="w-full bg-surface border border-border rounded pl-10 pr-3 py-2 text-sm text-text font-mono focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+                {laborForm.estimatedCost > 0 && (
+                  <p className="text-[11px] font-mono text-amber-400 mt-1">
+                    Terbilang: Rp {laborForm.estimatedCost.toLocaleString('id-ID')} (1 paket / lot pekerjaan)
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="labor-notes-input" className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
+                  Catatan / Scope Pekerjaan <span className="text-text-muted lowercase text-[10px] font-sans">(opsional)</span>
+                </label>
+                <textarea
+                  id="labor-notes-input"
+                  rows={3}
+                  value={laborForm.notes}
+                  onChange={(e) => setLaborForm({ ...laborForm, notes: e.target.value })}
+                  placeholder="Keterangan ruang lingkup pekerjaan tukang..."
+                  className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-amber-500 resize-none"
+                />
+              </div>
+
+              <div className="space-y-2 pt-1">
+                <button
+                  type="submit"
+                  disabled={!laborForm.name.trim() || !laborForm.estimatedCost || laborForm.estimatedCost <= 0}
+                  className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded text-sm transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>{editingId ? 'Update Jasa ke RAB' : 'Tambah Jasa ke RAB'}</span>
+                </button>
+
+                {editingId && (
+                  <button
+                    type="button"
+                    onClick={handleCancelEdit}
+                    className="w-full bg-surface hover:bg-surface-hover text-text-muted border border-border font-bold py-2 px-4 rounded text-sm transition flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    Batal Edit
+                  </button>
+                )}
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleAddItem} className="bg-background border border-border rounded-lg p-4 space-y-4">
+              <h4 className="font-bold text-sm text-text border-b border-border pb-2">
+                {editingId 
+                  ? (itemMode === 'overhead' ? 'Edit Item Overhead' : 'Edit Item Bahan Baku') 
+                  : (itemMode === 'overhead' ? 'Tambah Item Overhead' : 'Tambah Item Bahan Baku')}
+              </h4>
+
+              <div>
+                <label className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
+                  {itemMode === 'material' ? 'Item Bahan Baku' : 'Deskripsi Overhead'}
+                </label>
+                {itemMode === 'material' ? (
+                  <MaterialAutocomplete
+                    materials={materials}
+                    initialValue={newItem.description || ''}
+                    onSelect={(m) => setNewItem({ ...newItem, description: m.name, unitPrice: m.unit_price || 0, materialId: m.id })}
+                    placeholder="Cari material gudang..."
+                  />
+                ) : (
+                  <input
+                    type="text"
+                    required
+                    value={newItem.description || ''}
+                    onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                    placeholder="e.g. Workshop Bay Overhead"
+                    className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
+                  />
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
+                    {itemMode === 'material' ? 'Qty (Bahan)' : 'Days (Hari Kerja)'}
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="0.1"
+                    step="0.1"
+                    value={newItem.qty || ''}
+                    onChange={(e) => setNewItem({ ...newItem, qty: parseFloat(e.target.value) })}
+                    className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
+                    {itemMode === 'material' ? 'Harga Satuan Bahan' : 'Bay Rate / Hari'}
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    value={newItem.unitPrice === 0 ? '' : newItem.unitPrice}
+                    onChange={(e) => setNewItem({ ...newItem, unitPrice: parseFloat(e.target.value) })}
+                    className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              {itemMode === 'material' && (
+                <div>
+                  <label className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">Waste Factor (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={newItem.wasteFactor || ''}
+                    onChange={(e) => setNewItem({ ...newItem, wasteFactor: parseFloat(e.target.value) })}
+                    className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
+                  />
+                </div>
+              )}
+
+              {/* Multi-WBS Allocation Matrix */}
+              <div className="border border-border rounded-lg overflow-hidden mt-2">
+                <div className="bg-surface px-3 py-2 border-b border-border">
+                  <span className="text-xs font-bold text-text uppercase font-mono">Alokasi WBS</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm whitespace-nowrap">
+                    <thead className="bg-background text-text-muted text-[10px] uppercase border-b border-border">
+                      <tr>
+                        <th className="px-2 py-2 text-center border-r border-border bg-surface-hover/50">Total Qty</th>
+                        {wbsCategories.map((cat, i) => (
+                          <th key={cat.id} className="px-1 py-2 text-center" title={cat.label}>WBS {i+1}</th>
+                        ))}
+                        <th className="px-2 py-2 text-center border-l border-border bg-surface-hover/50">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-surface">
+                      <tr>
+                        <td className="px-2 py-3 font-mono font-bold text-center text-primary border-r border-border bg-surface-hover/50">
+                          {newItem.qty || 0}
+                        </td>
+                        {wbsCategories.map((cat) => (
+                          <td key={cat.id} className="px-1 py-3 text-center">
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              value={manualAllocations[cat.id] || ''}
+                              onChange={(e) => setManualAllocations({ ...manualAllocations, [cat.id]: e.target.value })}
+                              className="w-14 mx-auto block bg-background border border-border rounded px-1 py-1 text-center font-mono focus:border-primary focus:outline-none text-xs"
+                              placeholder="0"
+                            />
+                          </td>
+                        ))}
+                        <td className="px-2 py-3 text-center border-l border-border bg-surface-hover/50">
+                          <span className={`inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                            isAllocationPassed ? 'bg-status-success/20 text-status-success' : 'bg-status-danger/20 text-status-danger'
+                          }`}>
+                            {isAllocationPassed ? 'PASSED' : (manualRemaining > 0 ? `Sisa: ${manualRemaining.toFixed(2)}` : `Over: ${Math.abs(manualRemaining).toFixed(2)}`)}
+                          </span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
               <button
-                type="button"
-                onClick={() => {
-                  setEditingId(null);
-                  setManualAllocations({});
-                  setNewItem({
-                    type: 'material',
-                    qty: 1,
-                    unitPrice: 0,
-                    wasteFactor: 5,
-                  });
-                }}
-                className="w-full bg-surface hover:bg-surface-hover text-text-muted border border-border font-bold py-2 px-4 rounded text-sm transition flex items-center justify-center gap-2 mt-2"
+                type="submit"
+                disabled={!isAllocationPassed || !newItem.qty || newItem.qty <= 0}
+                className="w-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 font-bold py-2 px-4 rounded text-sm transition flex items-center justify-center gap-2 mt-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
-                Cancel Edit
+                <Plus className="w-4 h-4" />
+                {editingId ? 'Update Item' : 'Tambah Bahan ke RAB'}
               </button>
-            )}
-          </form>
+
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="w-full bg-surface hover:bg-surface-hover text-text-muted border border-border font-bold py-2 px-4 rounded text-sm transition flex items-center justify-center gap-2 mt-2 cursor-pointer"
+                >
+                  Batal Edit
+                </button>
+              )}
+            </form>
+          )}
         </>
       )}
     </div>
@@ -893,28 +1103,39 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                     {items.map((item) => (
                       <tr key={item.id} className="hover:bg-surface-hover/30 transition">
                         <td className="px-3 py-3 font-medium">
-                          <div className="flex items-center gap-1.5">
-                            {isDocumentLocked && <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
-                            <span>{item.description}</span>
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-1.5">
+                              {isDocumentLocked && <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
+                              <span>{item.description}</span>
+                            </div>
+                            {item.notes && item.type === 'labor' && (
+                              <span className="text-[11px] text-text-muted italic leading-tight">
+                                Scope: {item.notes}
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="px-3 py-3">
                           {item.type === 'labor' ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                              <Wrench className="w-3 h-3" /> JASA
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-mono font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                              <Wrench className="w-3 h-3" /> [ JASA / TUKANG ]
                             </span>
                           ) : item.type === 'overhead' ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                              <Clock className="w-3 h-3" /> OVERHEAD
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-mono font-bold bg-purple-500/15 text-purple-400 border border-purple-500/30">
+                              <Clock className="w-3 h-3" /> [ OVERHEAD ]
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono font-semibold bg-status-info/10 text-status-info border border-status-info/20">
-                              <Package className="w-3 h-3" /> BAHAN
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-mono font-bold bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
+                              <Package className="w-3 h-3" /> [ MATERIAL ]
                             </span>
                           )}
                         </td>
-                        <td className="px-3 py-3 text-xs text-text-muted truncate max-w-[100px]">{item.wbsCategory}</td>
-                        <td className="px-3 py-3 text-right font-mono">{item.qty}</td>
+                        <td className="px-3 py-3 text-xs text-text-muted truncate max-w-[130px]" title={wbsCategories.find(c => c.id === item.wbsCategory)?.label || item.wbsCategory}>
+                          {wbsCategories.find(c => c.id === item.wbsCategory)?.label || item.wbsCategory}
+                        </td>
+                        <td className="px-3 py-3 text-right font-mono">
+                          {item.qty} {item.type === 'labor' ? (item.unit || 'lot') : ''}
+                        </td>
                         <td className="px-3 py-3 text-right font-mono text-text">
                           Rp {item.unitPrice.toLocaleString('id-ID')}
                         </td>
@@ -963,7 +1184,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                <div className="grid grid-cols-3 gap-2 pb-2 border-b border-border text-xs">
                  <div className="bg-background/60 p-2 rounded border border-border">
                    <span className="text-text-muted block text-[10px] font-mono uppercase">Pagu Material</span>
-                   <span className="font-mono font-bold text-status-info text-sm">Rp {totalMaterialCost.toLocaleString('id-ID')}</span>
+                   <span className="font-mono font-bold text-cyan-400 text-sm">Rp {totalMaterialCost.toLocaleString('id-ID')}</span>
                  </div>
                  <div className="bg-background/60 p-2 rounded border border-border">
                    <span className="text-text-muted block text-[10px] font-mono uppercase">Pagu Jasa (Labor)</span>
@@ -972,6 +1193,35 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                  <div className="bg-background/60 p-2 rounded border border-border">
                    <span className="text-text-muted block text-[10px] font-mono uppercase">Overhead</span>
                    <span className="font-mono font-bold text-purple-400 text-sm">Rp {totalOverheadCost.toLocaleString('id-ID')}</span>
+                 </div>
+               </div>
+
+               {/* Ringkasan per WBS */}
+               <div className="pt-2 border-b border-border pb-3">
+                 <span className="text-[11px] font-mono font-bold text-text-muted uppercase tracking-wider block mb-2">
+                   Ringkasan Pagu Biaya per Tahapan WBS:
+                 </span>
+                 <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs">
+                   {wbsCategories.map(cat => {
+                     const catItems = items.filter(i => i.wbsCategory === cat.id);
+                     const catMat = catItems.filter(i => i.type === 'material').reduce((sum, i) => sum + calculateItemTotal(i), 0);
+                     const catLabor = catItems.filter(i => i.type === 'labor').reduce((sum, i) => sum + calculateItemTotal(i), 0);
+                     const catTotal = catMat + catLabor;
+                     return (
+                       <div key={cat.id} className="bg-background/80 p-2 rounded border border-border">
+                         <span className="text-text font-bold block truncate text-[11px]" title={cat.label}>
+                           {cat.label}
+                         </span>
+                         <div className="mt-1 flex flex-col text-[10px] font-mono">
+                           <span className="text-cyan-400">Material: Rp {catMat.toLocaleString('id-ID')}</span>
+                           <span className="text-amber-400">Jasa: Rp {catLabor.toLocaleString('id-ID')}</span>
+                           <span className="text-text font-bold pt-1 border-t border-border/50">
+                             Total: Rp {catTotal.toLocaleString('id-ID')}
+                           </span>
+                         </div>
+                       </div>
+                     );
+                   })}
                  </div>
                </div>
 
