@@ -1,65 +1,67 @@
-# Sprint 26 — Hide Waste Factor Input and Default to 0 in RAB Calculator
+# Sprint 27 — Replace WBS Dropdown with Multi-Stage Allocation Grid in Labor RAB Calculator
 
 > **Duration**: 2026-10-17 to 2026-10-17
 > **Status**: Completed ✅
 
 ## Goal
-Hide the Waste Factor (%) input field in the Service Advisor RAB Calculator (`RabCalculator.tsx`) and change its default value from 5% to 0% so material cost estimations remain pure (Qty × Unit Price) without unintended scrap markup while maintaining backward-compatible calculation logic.
+Replace the single-select dropdown `TAHAPAN WBS` in the Labor/Jasa sub-form of `RabCalculator.tsx` with an interactive, multi-stage **ALOKASI WBS** grid (WBS 1 to WBS 5) matching the UX of the Material form, supporting both single and multi-WBS labor budget allocations with automatic total quantity calculation and robust validation.
 
 ## Scope
 
 ### Included
-- **State Initialization & Reset**:
-  - Update `wasteFactor` default state in `RabCalculator.tsx` from `5` to `0`.
-  - Ensure resets on form submit, edit cancel, and tab toggle reset `wasteFactor` to `0`.
-- **UI Element Hidden**:
-  - Hide the `Waste Factor (%)` input element in `RabCalculator.tsx` without disrupting the symmetrical 2-column grid layout for `Qty (Bahan)` and `Harga Satuan Bahan`.
-- **Calculation Verification**:
-  - Confirm calculation formula `quantity * unitPrice * (1 + wasteFactor / 100)` produces clean `quantity * unitPrice` when `wasteFactor = 0`.
-- **Testing & Quality**:
-  - Add automated test verifying waste factor field is hidden and Qty 1 × Rp 1,600,000 results in exactly Rp 1,600,000.
-  - Run `npm test`, `npm run lint`, and `npm run build`.
+- **UI Refactoring in `RabCalculator.tsx`**:
+  - Removed `<select id="labor-wbs-select">`.
+  - Added interactive **ALOKASI WBS** grid with columns: `TOTAL QTY`, `WBS 1`, `WBS 2`, `WBS 3`, `WBS 4`, `WBS 5`.
+  - Display computed `laborTotalQty` in high-visibility amber accent.
+  - Symmetrical number inputs for each WBS stage with real-time total updates.
+- **State Synchronization & Logic**:
+  - `laborAllocations` state initialized to default (WBS 1: '1', others: '0').
+  - Validation: at least 1 WBS must have quantity > 0 (`laborTotalQty > 0`); shows warning message and disables submit button when total is 0.
+  - Iterative item creation: for each allocated WBS, creates a distinct `RabItem` with `item_type: 'LABOR'`, `wbsCategory: cat.id`, `qty: allocationQty`, and `subtotal: allocationQty * estimatedCost`.
+  - Edit support: loading an existing labor item populates its corresponding WBS allocation.
+- **Automated Testing & Quality**:
+  - Updated tests in `RabCalculatorLabor.test.tsx` to verify grid display, single allocation, and multi-stage allocation (91/91 tests pass).
+  - Clean TypeScript compilation, zero lint errors, and production build verified.
 
 ### Explicitly Excluded
-- Removing `wasteFactor` column or property from `RabItem` interface or database schema (preserving data compatibility).
-- Altering Goods Issue warehouse waste factor logic.
+- Changing existing database schema or views (already compatible with multiple labor rows per SPK).
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| 1. Update wasteFactor state initialization and resets to default 0 in `RabCalculator.tsx` | Antigravity | ✅ Done | 0.2h |
-| 2. Hide Waste Factor (%) input in JSX with clean 2-column grid alignment | Antigravity | ✅ Done | 0.2h |
-| 3. Add test cases in `RabCalculatorLabor.test.tsx` and `rabLaborBudget.test.ts` | Antigravity | ✅ Done | 0.2h |
+| 1. Refactor state and handlers in `RabCalculator.tsx` for `laborAllocations` | Antigravity | ✅ Done | 0.2h |
+| 2. Replace dropdown with ALOKASI WBS grid in Labor form JSX | Antigravity | ✅ Done | 0.2h |
+| 3. Update tests in `RabCalculatorLabor.test.tsx` for multi-stage allocation | Antigravity | ✅ Done | 0.2h |
 | 4. Validate with `npm test`, `npm run lint`, and `npm run build` | Antigravity | ✅ Done | 0.2h |
 
 ## Daily Log
 
 ### 2026-10-17
-- Initialized Sprint 26: Hide Waste Factor Input and Default to 0 in RAB Calculator.
+- Initialized Sprint 27: Replace WBS Dropdown with Multi-Stage Allocation Grid in Labor RAB Calculator.
 - Refactored `RabCalculator.tsx`:
-  - Changed initial `newItem.wasteFactor` from 5 to 0.
-  - Reset `wasteFactor` to 0 in `handleAddItem` and `handleCancelEdit`.
-  - Reset `wasteFactor` to 0 on clicking toggle tab "Bahan Baku (Material)".
-  - Replaced visible Waste Factor (%) input block with hidden input `<input type="hidden" id="waste-factor-input" value={newItem.wasteFactor ?? 0} />`, preserving symmetrical 2-column grid for `Qty (Bahan)` and `Harga Satuan Bahan`.
-- Updated test suites:
-  - Added test in `RabCalculatorLabor.test.tsx` verifying Waste Factor label is not rendered and hidden input has value 0.
-  - Added test in `rabLaborBudget.test.ts` verifying Qty 1 × Rp 1.600.000 results in exact Rp 1.600.000 (no +5% or +Rp 80.000 markup).
-- Ran verification checks:
-  - `npm test`: 90/90 tests passed across 11 test suites.
-  - `npm run lint`: 0 errors.
-  - `npm run build`: successful production build.
+  - Added `laborAllocations` state (`Record<string, string>`) and computed `laborTotalQty`.
+  - Replaced `<select id="labor-wbs-select">` with interactive 6-column **ALOKASI WBS** table grid.
+  - Updated `handleAddLaborItem` to iterate over all WBS stages with quantity > 0 and create distinct `RabItem` entries with proper subtotals.
+  - Updated `handleEditItem`, `handleCancelEdit`, and mode toggles to sync `laborAllocations`.
+  - Added validation warning and disabled state when `laborTotalQty <= 0`.
+- Updated test suites in `RabCalculatorLabor.test.tsx`:
+  - Verified dropdown removal and presence of ALOKASI WBS grid.
+  - Verified single-WBS and multi-WBS labor allocation.
+- Ran quality checks:
+  - Vitest: 91/91 tests passing (11 test files).
+  - Linter: 0 errors.
+  - Build: Successful production bundle.
 
 ## Retrospective (2026-10-17)
 
 ### What Went Well
-- Pure material estimation calculation achieved without unintended 5% scrap distortion.
-- Symmetrical 2-column layout for Qty and Harga Satuan looks clean and balanced without leftover empty spaces.
-- Backward compatibility preserved for existing database records or historical calculations.
-- 100% test pass rate (90/90 tests passing) and 0 linter errors.
+- Unified UX between Material and Labor input forms: both now utilize the interactive multi-WBS allocation matrix.
+- Service Advisors can now allocate labor jobs across multiple WBS stages simultaneously in a single submission without re-entering the form multiple times.
+- 100% test pass rate with 0 linter errors and verified build.
 
 ### What Could Improve
-- None noted; straightforward refactoring with full test coverage.
+- None noted; implementation directly aligns with business requirements.
 
 ### Action Items
-- [x] Create atomic git commit `refactor(rab): hide waste factor input and default value to 0`.
+- [x] Create atomic commit: `refactor(rab): replace labor wbs dropdown with interactive allocation grid`.

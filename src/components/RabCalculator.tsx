@@ -84,13 +84,33 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   // Toggle mode: 'material' (default) | 'labor' | 'overhead'
   const [itemMode, setItemMode] = useState<'material' | 'labor' | 'overhead'>('material');
 
+  const wbsCategories = [
+    { id: 'Pembongkaran', label: 'WBS 1: Pembongkaran' },
+    { id: 'Sasis/Rangka', label: 'WBS 2: Sasis/Rangka' },
+    { id: 'Dinding/Fabrikasi', label: 'WBS 3: Dinding/Fabrikasi' },
+    { id: 'Cat/Finishing', label: 'WBS 4: Pengecatan' },
+    { id: 'Kelistrikan/Hidrolik', label: 'WBS 5: Kelistrikan/Hidrolik' },
+  ];
+
   // Dedicated state for Labor / Tukang item entry
   const [laborForm, setLaborForm] = useState({
     name: '',
-    wbsCategory: 'Pembongkaran',
     estimatedCost: 0,
     notes: '',
   });
+
+  const [laborAllocations, setLaborAllocations] = useState<Record<string, string>>({
+    'Pembongkaran': '1',
+    'Sasis/Rangka': '0',
+    'Dinding/Fabrikasi': '0',
+    'Cat/Finishing': '0',
+    'Kelistrikan/Hidrolik': '0',
+  });
+
+  const laborTotalQty = wbsCategories.reduce(
+    (sum, cat) => sum + (parseFloat(laborAllocations[cat.id]) || 0),
+    0
+  );
 
   // Package BOM state
   const [packages, setPackages] = useState<ProductPackage[]>([]);
@@ -105,14 +125,6 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     unitPrice: 0,
     wasteFactor: 0,
   });
-
-  const wbsCategories = [
-    { id: 'Pembongkaran', label: 'WBS 1: Pembongkaran' },
-    { id: 'Sasis/Rangka', label: 'WBS 2: Sasis/Rangka' },
-    { id: 'Dinding/Fabrikasi', label: 'WBS 3: Dinding/Fabrikasi' },
-    { id: 'Cat/Finishing', label: 'WBS 4: Pengecatan' },
-    { id: 'Kelistrikan/Hidrolik', label: 'WBS 5: Kelistrikan/Hidrolik' },
-  ];
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -246,34 +258,53 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     }
     if (!laborForm.name.trim() || !laborForm.estimatedCost || laborForm.estimatedCost <= 0) return;
 
-    const newLaborItem: RabItem = {
-      id: editingId || (Date.now().toString() + Math.random().toString(36).substr(2, 9)),
-      wbsCategory: laborForm.wbsCategory,
-      type: 'labor',
-      description: laborForm.name.trim(),
-      qty: 1,
-      unit: 'lot',
-      unitPrice: laborForm.estimatedCost,
-      costPrice: laborForm.estimatedCost,
-      subtotal: laborForm.estimatedCost,
-      isLocked: false,
-      wasteFactor: 0,
-      notes: laborForm.notes.trim() || undefined,
-      materialId: undefined,
-    };
-
-    if (editingId) {
-      setItems(items.map(i => i.id === editingId ? newLaborItem : i));
-      setEditingId(null);
-    } else {
-      setItems([...items, newLaborItem]);
+    if (laborTotalQty <= 0) {
+      setModalFeedback({
+        isOpen: true,
+        title: 'Alokasi WBS Kosong',
+        message: 'Harap tentukan alokasi tahapan WBS minimal 1.',
+        variant: 'danger',
+      });
+      return;
     }
+
+    const newLaborItemsToPush: RabItem[] = [];
+    wbsCategories.forEach(cat => {
+      const wbsQty = parseFloat(laborAllocations[cat.id]) || 0;
+      if (wbsQty > 0) {
+        newLaborItemsToPush.push({
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          wbsCategory: cat.id,
+          type: 'labor',
+          description: laborForm.name.trim(),
+          qty: wbsQty,
+          unit: 'lot',
+          unitPrice: laborForm.estimatedCost,
+          costPrice: laborForm.estimatedCost,
+          subtotal: wbsQty * laborForm.estimatedCost,
+          isLocked: false,
+          wasteFactor: 0,
+          notes: laborForm.notes.trim() || undefined,
+          materialId: undefined,
+        });
+      }
+    });
+
+    const baseItems = editingId ? items.filter(i => i.id !== editingId) : items;
+    setItems([...baseItems, ...newLaborItemsToPush]);
+    setEditingId(null);
 
     setLaborForm({
       name: '',
-      wbsCategory: 'Pembongkaran',
       estimatedCost: 0,
       notes: '',
+    });
+    setLaborAllocations({
+      'Pembongkaran': '1',
+      'Sasis/Rangka': '0',
+      'Dinding/Fabrikasi': '0',
+      'Cat/Finishing': '0',
+      'Kelistrikan/Hidrolik': '0',
     });
   };
 
@@ -281,9 +312,15 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     setEditingId(null);
     setLaborForm({
       name: '',
-      wbsCategory: 'Pembongkaran',
       estimatedCost: 0,
       notes: '',
+    });
+    setLaborAllocations({
+      'Pembongkaran': '1',
+      'Sasis/Rangka': '0',
+      'Dinding/Fabrikasi': '0',
+      'Cat/Finishing': '0',
+      'Kelistrikan/Hidrolik': '0',
     });
     setNewItem({
       type: itemMode,
@@ -387,9 +424,15 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       setItemMode('labor');
       setLaborForm({
         name: item.description,
-        wbsCategory: item.wbsCategory,
         estimatedCost: item.unitPrice,
         notes: item.notes || '',
+      });
+      setLaborAllocations({
+        'Pembongkaran': item.wbsCategory === 'Pembongkaran' ? String(item.qty) : '0',
+        'Sasis/Rangka': item.wbsCategory === 'Sasis/Rangka' ? String(item.qty) : '0',
+        'Dinding/Fabrikasi': item.wbsCategory === 'Dinding/Fabrikasi' ? String(item.qty) : '0',
+        'Cat/Finishing': item.wbsCategory === 'Cat/Finishing' ? String(item.qty) : '0',
+        'Kelistrikan/Hidrolik': item.wbsCategory === 'Kelistrikan/Hidrolik' ? String(item.qty) : '0',
       });
     } else {
       setItemMode(item.type);
@@ -790,6 +833,13 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
               id="toggle-mode-labor"
               onClick={() => {
                 setItemMode('labor');
+                setLaborAllocations({
+                  'Pembongkaran': '1',
+                  'Sasis/Rangka': '0',
+                  'Dinding/Fabrikasi': '0',
+                  'Cat/Finishing': '0',
+                  'Kelistrikan/Hidrolik': '0',
+                });
                 setNewItem(prev => ({ ...prev, type: 'labor', wasteFactor: 0, materialId: undefined }));
                 if (editingId) handleCancelEdit();
               }}
@@ -850,23 +900,45 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                 />
               </div>
 
-              <div>
-                <label htmlFor="labor-wbs-select" className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
-                  Tahapan WBS <span className="text-status-danger">*</span>
+              {/* Multi-stage Labor WBS Allocation Grid */}
+              <div className="space-y-1.5 mt-3">
+                <label className="block text-xs font-semibold text-text-muted uppercase font-mono tracking-wider">
+                  ALOKASI WBS <span className="text-status-danger">*</span>
                 </label>
-                <select
-                  id="labor-wbs-select"
-                  required
-                  value={laborForm.wbsCategory}
-                  onChange={(e) => setLaborForm({ ...laborForm, wbsCategory: e.target.value })}
-                  className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-amber-500"
-                >
-                  {wbsCategories.map(cat => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="border border-border rounded-md overflow-hidden bg-surface">
+                  <div className="grid grid-cols-6 text-center text-xs font-semibold border-b border-border bg-surface-hover/90 py-1.5 text-text-muted font-mono">
+                    <div className="border-r border-border">TOTAL QTY</div>
+                    <div title="WBS 1: Pembongkaran">WBS 1</div>
+                    <div title="WBS 2: Sasis/Rangka">WBS 2</div>
+                    <div title="WBS 3: Dinding/Fabrikasi">WBS 3</div>
+                    <div title="WBS 4: Pengecatan">WBS 4</div>
+                    <div title="WBS 5: Kelistrikan/Hidrolik">WBS 5</div>
+                  </div>
+                  <div className="grid grid-cols-6 text-center items-center py-2 px-1 gap-1">
+                    <div className="text-sm font-bold text-amber-500 font-mono border-r border-border">
+                      {laborTotalQty}
+                    </div>
+                    {wbsCategories.map((cat) => (
+                      <div key={cat.id} className="flex justify-center">
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          aria-label={`Alokasi ${cat.label}`}
+                          value={laborAllocations[cat.id] ?? ''}
+                          onChange={(e) => setLaborAllocations({ ...laborAllocations, [cat.id]: e.target.value })}
+                          className="w-12 mx-auto block bg-background border border-border rounded px-1 py-1 text-center font-mono focus:border-amber-500 focus:outline-none text-xs text-text"
+                          placeholder="0"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {laborTotalQty <= 0 && (
+                  <p className="text-[11px] font-mono text-status-danger">
+                    Harap tentukan alokasi tahapan WBS minimal 1.
+                  </p>
+                )}
               </div>
 
               <div>
@@ -889,7 +961,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                 </div>
                 {laborForm.estimatedCost > 0 && (
                   <p className="text-[11px] font-mono text-amber-400 mt-1">
-                    Terbilang: Rp {laborForm.estimatedCost.toLocaleString('id-ID')} (1 paket / lot pekerjaan)
+                    Terbilang: Rp {laborForm.estimatedCost.toLocaleString('id-ID')} (per 1 unit / lot pekerjaan)
                   </p>
                 )}
               </div>
@@ -911,7 +983,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
               <div className="space-y-2 pt-1">
                 <button
                   type="submit"
-                  disabled={!laborForm.name.trim() || !laborForm.estimatedCost || laborForm.estimatedCost <= 0}
+                  disabled={!laborForm.name.trim() || !laborForm.estimatedCost || laborForm.estimatedCost <= 0 || laborTotalQty <= 0}
                   className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded text-sm transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-sm"
                 >
                   <Plus className="w-4 h-4" />

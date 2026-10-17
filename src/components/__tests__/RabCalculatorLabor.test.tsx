@@ -156,7 +156,17 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
 
     // Verify input labels changed to dedicated Labor context
     expect(screen.getByText(/Nama Jasa \/ Pekerjaan Tukang/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Tahapan WBS/i)).toBeInTheDocument();
+    // Verify old dropdown is removed
+    expect(screen.queryByLabelText(/Tahapan WBS \*/i)).not.toBeInTheDocument();
+    // Verify ALOKASI WBS grid is present
+    expect(screen.getByText('ALOKASI WBS')).toBeInTheDocument();
+    expect(screen.getByText('TOTAL QTY')).toBeInTheDocument();
+    expect(screen.getByText('WBS 1')).toBeInTheDocument();
+    expect(screen.getByText('WBS 2')).toBeInTheDocument();
+    expect(screen.getByText('WBS 3')).toBeInTheDocument();
+    expect(screen.getByText('WBS 4')).toBeInTheDocument();
+    expect(screen.getByText('WBS 5')).toBeInTheDocument();
+
     expect(screen.getByText(/Estimasi Biaya Jasa \/ Upah/i)).toBeInTheDocument();
     expect(screen.getByText(/Catatan \/ Scope Pekerjaan/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Tambah Jasa ke RAB/i })).toBeInTheDocument();
@@ -168,7 +178,7 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
     expect(screen.queryByText('Waste Factor (%)')).not.toBeInTheDocument();
   });
 
-  it('successfully adds a labor item to the RAB table with correct badge and subtotal', async () => {
+  it('successfully adds a labor item to the RAB table with correct badge and subtotal via allocation grid', async () => {
     render(<RabCalculator spkId="spk-test-1" />);
 
     await waitFor(() => {
@@ -182,8 +192,11 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
     const nameInput = screen.getByPlaceholderText('misal: Jasa Tukang Las Sasis, Ongkos Borongan Dempul & Cat, Jasa Bongkar');
     fireEvent.change(nameInput, { target: { value: 'Jasa Borongan Las Sasis' } });
 
-    const wbsSelect = screen.getByLabelText(/Tahapan WBS/i);
-    fireEvent.change(wbsSelect, { target: { value: 'Sasis/Rangka' } });
+    // Set WBS 1 = 0, WBS 2 = 1 via allocation grid
+    const wbs1Input = screen.getByLabelText('Alokasi WBS 1: Pembongkaran');
+    const wbs2Input = screen.getByLabelText('Alokasi WBS 2: Sasis/Rangka');
+    fireEvent.change(wbs1Input, { target: { value: '0' } });
+    fireEvent.change(wbs2Input, { target: { value: '1' } });
 
     const costInput = screen.getByPlaceholderText('misal: 500000');
     fireEvent.change(costInput, { target: { value: '500000' } });
@@ -201,6 +214,40 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
     });
     expect(screen.getByText('Scope: Pengelasan crossmember utama')).toBeInTheDocument();
     expect(screen.getAllByText('[ JASA / TUKANG ]').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('supports multi-stage labor allocation (e.g. WBS 2 = 1 and WBS 3 = 1) creating distinct items for each stage', async () => {
+    render(<RabCalculator spkId="spk-test-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Jasa / Tukang (Labor)')).toBeInTheDocument();
+    });
+
+    // Switch to labor mode
+    fireEvent.click(screen.getByText('Jasa / Tukang (Labor)'));
+
+    const nameInput = screen.getByPlaceholderText('misal: Jasa Tukang Las Sasis, Ongkos Borongan Dempul & Cat, Jasa Bongkar');
+    fireEvent.change(nameInput, { target: { value: 'Jasa Perakitan Rangka & Dinding' } });
+
+    // Multi-WBS allocation: WBS 1 = 0, WBS 2 = 1, WBS 3 = 1
+    const wbs1Input = screen.getByLabelText('Alokasi WBS 1: Pembongkaran');
+    const wbs2Input = screen.getByLabelText('Alokasi WBS 2: Sasis/Rangka');
+    const wbs3Input = screen.getByLabelText('Alokasi WBS 3: Dinding/Fabrikasi');
+    fireEvent.change(wbs1Input, { target: { value: '0' } });
+    fireEvent.change(wbs2Input, { target: { value: '1' } });
+    fireEvent.change(wbs3Input, { target: { value: '1' } });
+
+    const costInput = screen.getByPlaceholderText('misal: 500000');
+    fireEvent.change(costInput, { target: { value: '350000' } });
+
+    // Submit form
+    const submitBtn = screen.getByRole('button', { name: /Tambah Jasa ke RAB/i });
+    fireEvent.click(submitBtn);
+
+    // Verify both items appeared in the table
+    await waitFor(() => {
+      expect(screen.getAllByText('Jasa Perakitan Rangka & Dinding').length).toBe(2);
+    });
   });
 
   it('shows 3-way cost breakdown (Pagu Material, Pagu Jasa, Overhead) and WBS summary in footer', async () => {
