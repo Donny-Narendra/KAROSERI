@@ -16,7 +16,7 @@ export interface SpkOverheadLog {
   created_by?: string | null;
 }
 
-export interface SpkJobProfitability {
+export interface SpkJobProfitabilityItem {
   spk_id: string;
   spk_number: string;
   customer_name: string;
@@ -34,8 +34,9 @@ export interface SpkJobProfitability {
   gross_margin_percentage: number;
   payment_status: 'UNBILLED' | 'DRAFT' | 'PARTIAL' | 'PAID' | string;
 }
+export type SpkJobProfitability = SpkJobProfitabilityItem;
 
-export interface WbsCostVariance {
+export interface WbsCostVarianceItem {
   spk_id: string;
   spk_number: string;
   customer_name: string;
@@ -51,10 +52,7 @@ export interface WbsCostVariance {
   actual_overhead_spent: number;
   overhead_variance: number;
 }
-
-// Type aliases for flexible contract naming
-export type WbsCostVarianceItem = WbsCostVariance;
-export type SpkJobProfitabilityItem = SpkJobProfitability;
+export type WbsCostVariance = WbsCostVarianceItem;
 
 export interface InventoryValuation {
   material_id: string;
