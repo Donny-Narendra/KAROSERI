@@ -1,17 +1,15 @@
 ## Current Position
 - **Sprint**: Sprint 37 — Audit and Verification of Overhead Tracking and 3-Element Costing Implementation
-- **Status**: Audit completed ✅
+- **Status**: Codebase mapped & Audit completed ✅
 - **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness
 
 ## Last Session Summary
-- Archived Sprint 36 to `.gsd/sprints/sprint-36-integrate-3-element-job-order-costing-into-financial-reports-ui-and-kpi-cards.md`.
-- Completed Sprint 37 (Audit and Verification of Overhead Tracking and 3-Element Costing Implementation):
-  - Performed deep empirical codebase audit covering database schema, PostgreSQL views/RPCs, field operational interfaces, and `/finance-reports` dashboard.
-  - Identified critical schema gap: `rab_items` check constraint and `RabCalculator.tsx` mapping save overhead as `'MATERIAL'` instead of `'OVERHEAD'`, zeroing out `rab_overhead_budget` in `view_wbs_cost_variance`.
-  - Identified operational UI gap: `spk_overhead_logs` exists in database and service layer, but Mandor terminal (`WbsChecklist.tsx`, `QcInspectionForm.tsx`) has no manual or automated entry point.
-  - Identified Change Order gap: `AmendmentManager.tsx` only supports `MATERIAL` and `LABOR`, lacking `OVERHEAD` allocation.
-  - Verified database views, RPC `get_financial_executive_summary`, and UI reporting tabs (`ExecutiveKpiCards.tsx`, `WbsCostVarianceTab.tsx`, `JobProfitabilityTab.tsx`) have complete 3-element costing support.
-  - Formulated prioritized roadmap for subsequent implementation sprints.
+Codebase mapping complete (/map):
+- 57 components & pages identified (48 operational & financial components, 9 role dashboards & portals).
+- 33 dependencies analyzed (16 production, 17 dev).
+- 16 test suites with 129 automated tests verified passing (100% pass rate).
+- 4 open technical debt items documented (RAB overhead item_type check constraint, change order overhead support, Mandor operational overhead logging UI, Oxlint hook warnings).
+- Updated [ARCHITECTURE.md](file:///c:/KAROSERI/.gsd/ARCHITECTURE.md) and [STACK.md](file:///c:/KAROSERI/.gsd/STACK.md).
 
 ## Blockers
 None.

@@ -80,7 +80,7 @@
 | `@vitejs/plugin-react` | 6.1.1 | 6.1.2 | 6.1.2 | Low |
 | `dotenv` | 18.0.6 | 18.0.8 | 18.0.8 | Low |
 | `i18next` | 26.4.2 | 26.4.7 | 26.4.7 | Low |
-| `lucide-react` | 1.49.0 | 1.58.0 | 1.58.0 | Low |
+| `lucide-react` | 1.49.0 | 1.59.0 | 1.59.0 | Low |
 | `oxlint` | 1.86.0 | 1.88.0 | 1.88.0 | Low |
 | `postcss` | 8.5.28 | 8.5.30 | 8.5.30 | Low |
 | `react` | 19.3.0 | 19.3.1 | 19.3.1 | Low |
@@ -90,6 +90,8 @@
 | `vite` | 8.3.2 | 8.3.4 | 8.3.4 | Low |
 | `zod` | 4.6.5 | 4.6.7 | 4.6.7 | Low |
 
-- Vitest unit & component testing suite (`npm test`) passes 71/71 tests across 9 test files.
-- Oxlint passes with 0 errors (`npm run lint`).
-- TypeScript compiler passes clean (`tsc -b`).
+## Quality & Verification Status
+
+- **Vitest Unit & Component Testing:** Passes 129/129 tests across 16 test files (`npm test -- --run`).
+- **Linter (Oxlint):** 0 errors, 78 warnings (`npm run lint`).
+- **TypeScript Static Analysis:** Passes clean with 0 errors (`npx tsc -b`).
