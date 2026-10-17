@@ -52,10 +52,31 @@ describe('Component: ExecutiveKpiCards', () => {
     expect(screen.getByText(/5\. Laba Operasional & Margin %/i)).toBeInTheDocument();
     expect(screen.getByText('30.0%')).toBeInTheDocument();
     expect(screen.getByText(/Sehat \(≥25%\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/HPP:\s*Rp\s*75\.000\.000/i)).toBeInTheDocument();
 
     // Card 6: Receivables & Pending Units
     expect(screen.getByText(/6\. Piutang & Unit Tertahan/i)).toBeInTheDocument();
     expect(screen.getByText(/3 Unit Belum Lunas/i)).toBeInTheDocument();
+  });
+
+  it('guarantees Card 5 HPP is precise sum: Material + Labor + Overhead', () => {
+    const mockSummary: FinancialExecutiveSummary = {
+      total_projects: 2,
+      total_revenue: 150_000_000,
+      total_actual_material_cost: 60_000_000,
+      total_actual_labor_cost: 30_000_000,
+      total_actual_overhead_cost: 15_000_000,
+      total_cogs: 0, // Even if total_cogs is 0, component sum is 105_000_000
+      total_gross_profit: 45_000_000,
+      average_gross_margin: 30.0,
+      total_inventory_valuation: 0,
+      total_inventory_market_value: 0,
+      total_outstanding_receivables: 0,
+      units_pending_handover: 0,
+    };
+
+    render(<ExecutiveKpiCards summary={mockSummary} isLoading={false} />);
+    expect(screen.getByText(/HPP:\s*Rp\s*105\.000\.000/i)).toBeInTheDocument();
   });
 
   it('displays "Semua Unit Bebas Piutang" when units_pending_handover is 0', () => {

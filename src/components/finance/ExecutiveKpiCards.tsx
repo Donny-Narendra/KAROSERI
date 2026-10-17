@@ -68,6 +68,10 @@ export const ExecutiveKpiCards: React.FC<ExecutiveKpiCardsProps> = ({ summary, i
   const grossProfit = Number(s.total_gross_profit) || 0;
   const margin = Number(s.average_gross_margin) || 0;
 
+  // Precise 3-element COGS calculation: HPP = Bahan Baku + Borongan Mandor + Overhead Pabrikasi
+  const componentHpp = materialCost + laborCost + overheadCost;
+  const totalHpp = componentHpp > 0 ? componentHpp : (Number(s.total_cogs) || 0);
+
   // Percentage shares relative to Revenue
   const materialPercent = totalRevenue > 0 ? (materialCost / totalRevenue) * 100 : 0;
   const laborPercent = totalRevenue > 0 ? (laborCost / totalRevenue) * 100 : 0;
@@ -190,7 +194,9 @@ export const ExecutiveKpiCards: React.FC<ExecutiveKpiCardsProps> = ({ summary, i
             </span>
           </div>
           <div className="flex items-center justify-between mt-2 text-xs">
-            <span className="text-text-muted font-mono">HPP: {formatCurrency(s.total_cogs)}</span>
+            <span className="text-text-muted font-mono" title="HPP = Bahan Baku + Borongan Mandor + Overhead Pabrikasi">
+              HPP: {formatCurrency(totalHpp)}
+            </span>
             <span className="text-[11px] text-text-muted">{marginLabel}</span>
           </div>
         </div>

@@ -308,20 +308,25 @@ export const FinancialPrintReport: React.FC<FinancialPrintReportProps> = ({
                   <table className="w-full text-[10px] border border-black border-collapse">
                     <thead>
                       <tr className="bg-slate-100 text-slate-900 font-bold border-b border-black text-left">
-                        <th className="border border-black p-1.5 text-center w-8">No</th>
-                        <th className="border border-black p-1.5">No. SPK</th>
-                        <th className="border border-black p-1.5">Pelanggan</th>
-                        <th className="border border-black p-1.5">Tahapan WBS</th>
-                        <th className="border border-black p-1.5 text-right">Pagu Material</th>
-                        <th className="border border-black p-1.5 text-right">Aktual Material</th>
-                        <th className="border border-black p-1.5 text-right">Varian Material</th>
-                        <th className="border border-black p-1.5 text-right">Pagu Jasa</th>
-                        <th className="border border-black p-1.5 text-right">Aktual Jasa</th>
-                        <th className="border border-black p-1.5 text-right">Varian Jasa</th>
-                        <th className="border border-black p-1.5 text-right">Pagu FOH</th>
-                        <th className="border border-black p-1.5 text-right">Aktual FOH</th>
-                        <th className="border border-black p-1.5 text-right">Varian FOH</th>
-                        <th className="border border-black p-1.5 text-center">Status</th>
+                        <th rowSpan={2} className="border border-black p-1 text-center w-8 align-middle">No</th>
+                        <th rowSpan={2} className="border border-black p-1 align-middle">No. SPK</th>
+                        <th rowSpan={2} className="border border-black p-1 align-middle">Pelanggan</th>
+                        <th rowSpan={2} className="border border-black p-1 align-middle">Tahapan WBS</th>
+                        <th colSpan={3} className="border border-black p-1 text-center bg-slate-200">Pilar Material</th>
+                        <th colSpan={3} className="border border-black p-1 text-center bg-slate-200">Pilar Jasa</th>
+                        <th colSpan={3} className="border border-black p-1 text-center bg-slate-200">Pilar Overhead</th>
+                        <th rowSpan={2} className="border border-black p-1 text-center align-middle">Status Varian Total</th>
+                      </tr>
+                      <tr className="bg-slate-100 text-slate-900 font-bold border-b border-black text-right">
+                        <th className="border border-black p-1">Pagu Material</th>
+                        <th className="border border-black p-1">Realisasi Material</th>
+                        <th className="border border-black p-1">Varian Material</th>
+                        <th className="border border-black p-1">Pagu Jasa</th>
+                        <th className="border border-black p-1">Realisasi Jasa</th>
+                        <th className="border border-black p-1">Varian Jasa</th>
+                        <th className="border border-black p-1">Pagu FOH</th>
+                        <th className="border border-black p-1">Realisasi FOH</th>
+                        <th className="border border-black p-1">Varian FOH</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-black font-mono">
@@ -363,6 +368,45 @@ export const FinancialPrintReport: React.FC<FinancialPrintReportProps> = ({
                         })
                       )}
                     </tbody>
+                    {varianceData.length > 0 && (
+                      <tfoot className="bg-slate-100 font-bold border-t-2 border-black font-mono">
+                        <tr>
+                          <td colSpan={4} className="border border-black p-1 text-center font-sans">TOTAL AKUMULASI</td>
+                          <td className="border border-black p-1 text-right">
+                            {formatCurrency(varianceData.reduce((a, b) => a + (b.total_material_budget || 0), 0))}
+                          </td>
+                          <td className="border border-black p-1 text-right">
+                            {formatCurrency(varianceData.reduce((a, b) => a + (b.actual_material_spent || 0), 0))}
+                          </td>
+                          <td className="border border-black p-1 text-right">
+                            {formatCurrency(varianceData.reduce((a, b) => a + (b.material_variance || 0), 0))}
+                          </td>
+                          <td className="border border-black p-1 text-right">
+                            {formatCurrency(varianceData.reduce((a, b) => a + (b.total_labor_budget || 0), 0))}
+                          </td>
+                          <td className="border border-black p-1 text-right">
+                            {formatCurrency(varianceData.reduce((a, b) => a + (b.actual_labor_spent || 0), 0))}
+                          </td>
+                          <td className="border border-black p-1 text-right">
+                            {formatCurrency(varianceData.reduce((a, b) => a + (b.labor_variance || 0), 0))}
+                          </td>
+                          <td className="border border-black p-1 text-right">
+                            {formatCurrency(varianceData.reduce((a, b) => a + (b.total_overhead_budget || 0), 0))}
+                          </td>
+                          <td className="border border-black p-1 text-right">
+                            {formatCurrency(varianceData.reduce((a, b) => a + (b.actual_overhead_spent || 0), 0))}
+                          </td>
+                          <td className="border border-black p-1 text-right">
+                            {formatCurrency(varianceData.reduce((a, b) => a + (b.overhead_variance || 0), 0))}
+                          </td>
+                          <td className="border border-black p-1 text-center text-[9px] font-sans">
+                            {varianceData.reduce((a, b) => a + (b.material_variance || 0) + (b.labor_variance || 0) + (b.overhead_variance || 0), 0) < 0
+                              ? 'DEFISIT TOTAL'
+                              : 'SURPLUS TOTAL'}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    )}
                   </table>
                 </div>
               </div>

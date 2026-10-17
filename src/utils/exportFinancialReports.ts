@@ -67,6 +67,8 @@ export function mapProfitabilityToExcelRows(items: SpkJobProfitability[]) {
 
 /**
  * Transform data Varian Anggaran WBS ke format baris Excel bahasa Indonesia
+ * Menyajikan 3 pilar job order costing: Material, Jasa/Labor, dan Overhead Pabrikasi (FOH)
+ * Sinkronisasi kolom Overhead (total_overhead_budget, actual_overhead_spent, overhead_variance)
  */
 export function mapVarianceToExcelRows(items: WbsCostVariance[]) {
   return items.map((item, idx) => {

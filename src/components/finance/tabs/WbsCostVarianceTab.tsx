@@ -205,20 +205,40 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
       <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs sm:text-sm">
-            <thead className="bg-surface-hover/80 text-text-muted font-mono uppercase text-[11px] border-b border-border">
-              <tr>
-                <th className="py-3 px-4">SPK & Pelanggan</th>
-                <th className="py-3 px-4">Tahapan WBS</th>
-                <th className="py-3 px-4 text-right">Pagu Material</th>
-                <th className="py-3 px-4 text-right">Realisasi Material</th>
-                <th className="py-3 px-4 text-right">Varian Material (+/-)</th>
-                <th className="py-3 px-4 text-right">Pagu Jasa</th>
-                <th className="py-3 px-4 text-right">Realisasi Jasa</th>
-                <th className="py-3 px-4 text-right">Varian Jasa (+/-)</th>
-                <th className="py-3 px-4 text-right">Pagu FOH</th>
-                <th className="py-3 px-4 text-right">Realisasi FOH</th>
-                <th className="py-3 px-4 text-right">Varian FOH (+/-)</th>
-                <th className="py-3 px-4 text-center">Status Varian</th>
+            <thead className="bg-surface-hover/90 text-text-muted font-mono uppercase text-[11px] border-b border-border">
+              <tr className="border-b border-border/80">
+                <th rowSpan={2} className="py-3 px-4 text-left border-r border-border/50 align-middle whitespace-nowrap">
+                  SPK & Pelanggan
+                </th>
+                <th rowSpan={2} className="py-3 px-4 text-left border-r border-border/50 align-middle whitespace-nowrap">
+                  Tahapan WBS
+                </th>
+                <th colSpan={3} className="py-2.5 px-3 text-center border-r border-border/50 bg-amber-500/10 text-amber-400 font-bold tracking-wider">
+                  Pilar Material
+                </th>
+                <th colSpan={3} className="py-2.5 px-3 text-center border-r border-border/50 bg-violet-500/10 text-violet-400 font-bold tracking-wider">
+                  Pilar Jasa
+                </th>
+                <th colSpan={3} className="py-2.5 px-3 text-center border-r border-border/50 bg-purple-500/10 text-purple-400 font-bold tracking-wider">
+                  Pilar Overhead
+                </th>
+                <th rowSpan={2} className="py-3 px-4 text-center align-middle whitespace-nowrap">
+                  Status Varian Total
+                </th>
+              </tr>
+              <tr className="bg-surface-hover/60 text-[10px]">
+                {/* Pilar Material Sub-headers */}
+                <th className="py-2 px-3 text-right">Pagu Material</th>
+                <th className="py-2 px-3 text-right">Realisasi Material</th>
+                <th className="py-2 px-3 text-right border-r border-border/50">Varian Material</th>
+                {/* Pilar Jasa Sub-headers */}
+                <th className="py-2 px-3 text-right">Pagu Jasa</th>
+                <th className="py-2 px-3 text-right">Realisasi Jasa</th>
+                <th className="py-2 px-3 text-right border-r border-border/50">Varian Jasa</th>
+                {/* Pilar Overhead Sub-headers */}
+                <th className="py-2 px-3 text-right">Pagu FOH</th>
+                <th className="py-2 px-3 text-right">Realisasi FOH</th>
+                <th className="py-2 px-3 text-right border-r border-border/50">Varian FOH</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
@@ -252,7 +272,7 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
                         isTotalOver ? 'bg-rose-950/15' : ''
                       }`}
                     >
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4 border-r border-border/30">
                         <div className="font-mono font-semibold text-text">
                           {row.spk_number}
                         </div>
@@ -260,7 +280,7 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
                           {row.customer_name} {row.vehicle_plate && `(${row.vehicle_plate})`}
                         </div>
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4 border-r border-border/30">
                         <span className="font-mono text-xs px-2 py-0.5 rounded bg-surface-hover border border-border text-primary font-medium">
                           {row.wbs_stage}
                         </span>
@@ -271,7 +291,7 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
                       <td className="py-3 px-4 text-right font-mono text-text-muted">
                         {formatCurrency(row.actual_material_spent)}
                       </td>
-                      <td className={`py-3 px-4 text-right font-mono font-bold ${
+                      <td className={`py-3 px-4 text-right font-mono font-bold border-r border-border/30 ${
                         isMatOver ? 'text-status-danger' : 'text-emerald-400'
                       }`}>
                         {formatCurrency(row.material_variance)}
@@ -282,7 +302,7 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
                       <td className="py-3 px-4 text-right font-mono text-text-muted">
                         {formatCurrency(row.actual_labor_spent)}
                       </td>
-                      <td className={`py-3 px-4 text-right font-mono font-bold ${
+                      <td className={`py-3 px-4 text-right font-mono font-bold border-r border-border/30 ${
                         isLaborOver ? 'text-status-danger' : 'text-emerald-400'
                       }`}>
                         {formatCurrency(row.labor_variance)}
@@ -293,7 +313,7 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
                       <td className="py-3 px-4 text-right font-mono text-text-muted">
                         {formatCurrency(row.actual_overhead_spent || 0)}
                       </td>
-                      <td className={`py-3 px-4 text-right font-mono font-bold ${
+                      <td className={`py-3 px-4 text-right font-mono font-bold border-r border-border/30 ${
                         isOverheadOver ? 'text-status-danger' : 'text-emerald-400'
                       }`}>
                         {formatCurrency(row.overhead_variance || 0)}
@@ -327,7 +347,7 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
             {data.length > 0 && (
               <tfoot className="bg-surface-hover/90 font-mono font-bold text-xs border-t-2 border-border">
                 <tr>
-                  <td colSpan={2} className="py-3 px-4 text-text uppercase">
+                  <td colSpan={2} className="py-3 px-4 text-text uppercase border-r border-border/30">
                     Total Akumulasi:
                   </td>
                   <td className="py-3 px-4 text-right text-text">
@@ -336,7 +356,7 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
                   <td className="py-3 px-4 text-right text-text-muted">
                     {formatCurrency(totalMatSpent)}
                   </td>
-                  <td className={`py-3 px-4 text-right ${totalMatVariance < 0 ? 'text-status-danger' : 'text-emerald-400'}`}>
+                  <td className={`py-3 px-4 text-right border-r border-border/30 ${totalMatVariance < 0 ? 'text-status-danger' : 'text-emerald-400'}`}>
                     {formatCurrency(totalMatVariance)}
                   </td>
                   <td className="py-3 px-4 text-right text-text">
@@ -345,7 +365,7 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
                   <td className="py-3 px-4 text-right text-text-muted">
                     {formatCurrency(totalLaborSpent)}
                   </td>
-                  <td className={`py-3 px-4 text-right ${totalLaborVariance < 0 ? 'text-status-danger' : 'text-emerald-400'}`}>
+                  <td className={`py-3 px-4 text-right border-r border-border/30 ${totalLaborVariance < 0 ? 'text-status-danger' : 'text-emerald-400'}`}>
                     {formatCurrency(totalLaborVariance)}
                   </td>
                   <td className="py-3 px-4 text-right text-text">
@@ -354,7 +374,7 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
                   <td className="py-3 px-4 text-right text-text-muted">
                     {formatCurrency(totalOverheadSpent)}
                   </td>
-                  <td className={`py-3 px-4 text-right ${totalOverheadVariance < 0 ? 'text-status-danger' : 'text-emerald-400'}`}>
+                  <td className={`py-3 px-4 text-right border-r border-border/30 ${totalOverheadVariance < 0 ? 'text-status-danger' : 'text-emerald-400'}`}>
                     {formatCurrency(totalOverheadVariance)}
                   </td>
                   <td className="py-3 px-4 text-center">

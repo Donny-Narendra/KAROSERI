@@ -128,6 +128,34 @@ describe('Financial Report Export Engine & Mapping (exportFinancialReports)', ()
       expect(row['Varian Material (Rp)']).toBe(-2_000_000);
       expect(row['Status Anggaran']).toBe('OVER BUDGET (DEFISIT)');
     });
+
+    it('should flag OVER BUDGET (DEFISIT) when overhead spending exceeds budget', () => {
+      const mockVariance: WbsCostVariance[] = [
+        {
+          spk_id: 'spk-3',
+          spk_number: 'SPK-1003',
+          customer_name: 'PT Logistik Prima',
+          vehicle_plate: 'B 1111 AA',
+          wbs_stage: 'WBS 4: Pengecatan',
+          total_material_budget: 10_000_000,
+          actual_material_spent: 10_000_000,
+          material_variance: 0,
+          total_labor_budget: 5_000_000,
+          actual_labor_spent: 5_000_000,
+          labor_variance: 0,
+          total_overhead_budget: 1_000_000,
+          actual_overhead_spent: 1_800_000,
+          overhead_variance: -800_000,
+        },
+      ];
+
+      const rows = mapVarianceToExcelRows(mockVariance);
+      const row = rows[0];
+      expect(row['Pagu Overhead/FOH (Rp)']).toBe(1_000_000);
+      expect(row['Aktual Overhead/FOH (Rp)']).toBe(1_800_000);
+      expect(row['Varian Overhead (Rp)']).toBe(-800_000);
+      expect(row['Status Anggaran']).toBe('OVER BUDGET (DEFISIT)');
+    });
   });
 
   describe('4. Inventory Valuation Mapping to Excel Rows', () => {
