@@ -1,46 +1,43 @@
-# Sprint 32 — Fix decimal allocation sum and status calculation for Overhead in RAB Calculator
+# Sprint 33 — Filter SPK Borongan RAB Reference to Exclusively Show LABOR Items
 
 > **Duration**: 2026-10-17 to 2026-10-17
-> **Status**: Completed ✅
+> **Status**: In Progress 🟡
 
 ## Goal
-Fix decimal allocation parsing and reactive status calculation in the Overhead sub-section of RabCalculator (`/service-advisor`), ensuring inputs with comma (`0,5`) or period (`0.5`) in WBS 1 to WBS 5 correctly update `overheadAllocatedSum`, compute `remaining`, and reactively display the accurate STATUS badge without getting stuck at `Sisa: 1.00`.
+Filter the RAB reference panel ("Panduan Pagu Jasa / Pekerjaan (RAB)") in the Mandor SPK Borongan modal (`SpkBoronganPanel.tsx`) to strictly and exclusively display items where `item_type = 'LABOR'`, preventing physical materials and overhead entries from appearing in the borongan assignment reference list, while updating header terminology and ensuring accurate count badges and auto-fill transfer actions (`<<`).
 
 ## Scope
 
 ### Included
-- **Decimal Normalization Helper**:
-  - Implement and export `parseDecimalValue` in `src/utils/numberUtils.ts` and `src/components/RabCalculator.tsx`.
-  - Safely normalize comma `,` to period `.` and handle numbers, strings, null, and undefined values.
-- **Overhead WBS Allocation & Status Calculation**:
-  - Compute `overheadAllocatedSum`, `overheadRemaining`, and `isOverheadAllocationPassed` in `RabCalculator.tsx`.
-  - Normalize WBS input changes from comma `,` to period `.` so browser numeric/decimal inputs never drop decimal values or produce `NaN`.
-  - Ensure the STATUS column badge reactively displays `Sesuai / Pas (0.00)`, `Sisa: X.XX`, or `Lebih: X.XX`.
-  - Ensure "+ Tambah Overhead ke RAB" submit button enables reactively when `isAllocationPassed` is satisfied.
-- **Unit Testing & Verification**:
-  - Add unit tests verifying decimal WBS allocation (`0,5` and `0.5`) in Overhead mode, verifying reactive badge transitions and sum calculations.
-  - Run full test suite (`npm test`), linter (`npm run lint`), and production build (`npm run build`).
+- **Supabase Query & Client Filter in `SpkBoronganPanel.tsx`**:
+  - Add `.eq('item_type', 'LABOR')` to Supabase `rab_items` query.
+  - Select `item_type` and `unit` from `rab_items` alongside existing fields.
+  - Add strict `item.item_type === 'LABOR'` checks in client-side WBS filtering and available materials filter.
+- **Header Label & Terminology Refinement**:
+  - Update header title from "Panduan Material (RAB)" to "Panduan Pagu Jasa / Pekerjaan (RAB)" with badge `[ Khusus Jasa / Borongan ]`.
+  - Update helper guidance text, search input placeholder, column headers, and empty state messaging to clearly indicate labor/jasa borongan items.
+- **Copy / Assignment Button Verification (`<<`)**:
+  - Verify clicking `<<` auto-populates "Tugas / Uraian Pekerjaan" and "Nilai Kontrak Borongan (Rp)" from labor name and allocated subtotal.
+  - Verify badge counter reflects strictly available LABOR items.
+- **Unit Testing & Empirical Verification**:
+  - Create dedicated unit tests in `src/components/__tests__/SpkBoronganPanel.test.tsx` testing LABOR filtering, exclusion of MATERIAL and OVERHEAD, available counter, and `<<` copy interaction.
+  - Run full test suite (`npm test`), linter (`npx oxlint`), and production build (`npm run build`).
 
 ### Explicitly Excluded
-- Database schema changes.
-- Altering core financial reporting views or service functions.
+- Database schema or migration modifications.
+- Modifications to warehouse MaterialRequisitionForm flow.
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| 1. Implement `parseDecimalValue` helper in `numberUtils.ts` and export in `RabCalculator.tsx` | Antigravity | ✅ Done | 0.2h |
-| 2. Refactor decimal normalization and reactive allocation calculation for Overhead in `RabCalculator.tsx` | Antigravity | ✅ Done | 0.3h |
-| 3. Add automated unit tests for Overhead decimal WBS allocation in `RabCalculatorOverhead.test.tsx` | Antigravity | ✅ Done | 0.2h |
-| 4. Validation (Vitest, Oxlint, Vite build) | Antigravity | ✅ Done | 0.2h |
+| 1. Update Supabase query and client-side filter in `SpkBoronganPanel.tsx` to require `item_type === 'LABOR'` | Antigravity | ⬜ Todo | 0.2h |
+| 2. Refine header label, badge, helper text, and column headers in `SpkBoronganPanel.tsx` | Antigravity | ⬜ Todo | 0.2h |
+| 3. Create comprehensive unit tests in `src/components/__tests__/SpkBoronganPanel.test.tsx` | Antigravity | ⬜ Todo | 0.3h |
+| 4. Validation (Vitest, Oxlint, Vite build) | Antigravity | ⬜ Todo | 0.2h |
 
 ## Daily Log
 
 ### 2026-10-17
-- Archived Sprint 31 to `.gsd/sprints/sprint-31-update-overhead-label-terminology-in-rab-calculator.md`.
-- Initialized Sprint 32: Fix decimal allocation sum and status calculation for Overhead in RAB Calculator.
-- Implemented `parseDecimalValue` in `src/utils/numberUtils.ts` supporting commas, periods, numbers, null/undefined, and exported in `src/components/RabCalculator.tsx`.
-- Updated reactive allocation state calculations in `RabCalculator.tsx` using `parseDecimalValue` and normalized inputs (`replace(',', '.')`).
-- Updated STATUS badge to display `Sesuai / Pas (0.00)`, `Sisa: X.XX`, and `Lebih: X.XX`.
-- Added unit tests in `src/components/__tests__/RabCalculatorOverhead.test.tsx` testing helper and reactive badge status changes with comma input.
-- Verified test suite (13/13 test files passed, 110/110 tests passed), linter (0 errors), and build (`tsc -b && vite build` succeeded).
+- Initialized Sprint 33: Filter SPK Borongan RAB Reference to Exclusively Show LABOR Items.
+- Archived Sprint 32 to `.gsd/sprints/sprint-32-fix-decimal-allocation-sum-and-status-calculation-for-overhead-in-rab-calculator.md`.
