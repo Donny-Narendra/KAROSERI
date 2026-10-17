@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { RabCalculator } from '../RabCalculator';
+import { RabCalculator, parseDecimalValue } from '../RabCalculator';
 
 // Mock supabase client
 vi.mock('../../lib/supabaseClient', () => {
@@ -102,7 +102,34 @@ vi.mock('../../services/packageService', () => ({
   },
 }));
 
-describe('Component: RabCalculator (Overhead Label Terminology)', () => {
+describe('Unit Tests: parseDecimalValue helper', () => {
+  it('correctly parses numbers, dot decimals, comma decimals, and edge cases', () => {
+    // Numbers
+    expect(parseDecimalValue(1.5)).toBe(1.5);
+    expect(parseDecimalValue(0.5)).toBe(0.5);
+    expect(parseDecimalValue(0)).toBe(0);
+    expect(parseDecimalValue(NaN)).toBe(0);
+
+    // Strings with dot
+    expect(parseDecimalValue('1.5')).toBe(1.5);
+    expect(parseDecimalValue('0.5')).toBe(0.5);
+    expect(parseDecimalValue('0.75')).toBe(0.75);
+
+    // Strings with comma (Indonesian locale)
+    expect(parseDecimalValue('1,5')).toBe(1.5);
+    expect(parseDecimalValue('0,5')).toBe(0.5);
+    expect(parseDecimalValue('0,75')).toBe(0.75);
+    expect(parseDecimalValue(' 2,5 ')).toBe(2.5);
+
+    // Null, undefined, empty, invalid
+    expect(parseDecimalValue('')).toBe(0);
+    expect(parseDecimalValue(null)).toBe(0);
+    expect(parseDecimalValue(undefined)).toBe(0);
+    expect(parseDecimalValue('invalid')).toBe(0);
+  });
+});
+
+describe('Component: RabCalculator (Overhead Label Terminology & Decimal Allocations)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -156,6 +183,57 @@ describe('Component: RabCalculator (Overhead Label Terminology)', () => {
     const rateSelectSpy = vi.spyOn(rateInput, 'select');
     fireEvent.focus(rateInput);
     expect(rateSelectSpy).toHaveBeenCalled();
+  });
+
+  it('reactively updates STATUS badge from "Sisa: 1.00" to "Sisa: 0.50" and then "Sesuai / Pas (0.00)" with comma inputs', async () => {
+    render(<RabCalculator spkId="spk-test-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Item Inisial Material')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Overhead/i }));
+
+    // Target frequency defaults to 1. Initial status is "Sisa: 1.00"
+    expect(screen.getByText('Sisa: 1.00')).toBeInTheDocument();
+    const submitBtn = screen.getByRole('button', { name: /Tambah Overhead ke RAB/i });
+    expect(submitBtn).toBeDisabled();
+
+    // Input "0,5" into WBS 1 (Pembongkaran)
+    const wbs1Input = screen.getByLabelText(/Alokasi Bahan WBS 1: Pembongkaran/i);
+    fireEvent.change(wbs1Input, { target: { value: '0,5' } });
+
+    // STATUS must reactively update to "Sisa: 0.50" (proves it is not stuck at "Sisa: 1.00")
+    expect(screen.getByText('Sisa: 0.50')).toBeInTheDocument();
+    expect(screen.queryByText('Sisa: 1.00')).not.toBeInTheDocument();
+    expect(submitBtn).toBeDisabled();
+
+    // Input "0,5" into WBS 2 (Sasis/Rangka)
+    const wbs2Input = screen.getByLabelText(/Alokasi Bahan WBS 2: Sasis\/Rangka/i);
+    fireEvent.change(wbs2Input, { target: { value: '0,5' } });
+
+    // STATUS must update to "Sesuai / Pas (0.00)" and enable submit button
+    expect(screen.getByText('Sesuai / Pas (0.00)')).toBeInTheDocument();
+    expect(submitBtn).toBeEnabled();
+  });
+
+  it('updates STATUS badge to "Lebih: 0.25" when allocated sum exceeds target frequency with comma input', async () => {
+    render(<RabCalculator spkId="spk-test-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Overhead/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Overhead/i }));
+
+    // Target frequency defaults to 1
+    const wbs1Input = screen.getByLabelText(/Alokasi Bahan WBS 1: Pembongkaran/i);
+    fireEvent.change(wbs1Input, { target: { value: '1,25' } });
+
+    // STATUS must show "Lebih: 0.25" and submit button must remain disabled
+    expect(screen.getByText('Lebih: 0.25')).toBeInTheDocument();
+    const submitBtn = screen.getByRole('button', { name: /Tambah Overhead ke RAB/i });
+    expect(submitBtn).toBeDisabled();
   });
 
   it('accurately calculates overhead estimation with decimal frequency (e.g. 0.5) and rate (1600000)', async () => {
@@ -238,3 +316,4 @@ describe('Component: RabCalculator (Overhead Label Terminology)', () => {
     expect(screen.getAllByText('Rp 3.200.000').length).toBeGreaterThanOrEqual(1);
   });
 });
+

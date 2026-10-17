@@ -5,11 +5,13 @@
  * @param val Number, string, null, or undefined
  * @returns Parsed number, or 0 if invalid/empty
  */
-export const parseDecimal = (val: string | number | undefined | null): number => {
+export const parseDecimalValue = (val: string | number | undefined | null): number => {
+  if (val === undefined || val === null || val === '') return 0;
   if (typeof val === 'number') return isNaN(val) ? 0 : val;
-  if (!val) return 0;
-  // Ganti koma ',' menjadi titik '.' untuk standarisasi format desimal lokal
-  const normalized = typeof val === 'string' ? val.replace(',', '.') : String(val);
+  // Ganti karakter koma ',' menjadi titik '.'
+  const normalized = String(val).replace(',', '.').trim();
   const parsed = parseFloat(normalized);
   return isNaN(parsed) ? 0 : parsed;
 };
+
+export const parseDecimal = parseDecimalValue;

@@ -11,7 +11,8 @@ import type { ProductPackage } from '../types/package';
 import { PackageAllocationModal } from './PackageAllocationModal';
 import type { RabItemPayload } from './PackageAllocationModal';
 import { exportRabToExcel, printRabQuotation } from '../utils/rabExport';
-import { parseDecimal } from '../utils/numberUtils';
+import { parseDecimalValue } from '../utils/numberUtils';
+export { parseDecimalValue };
 import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
 
 interface RabSpkDetails {
@@ -112,10 +113,10 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
 
   const [laborTargetQty, setLaborTargetQty] = useState<number | string>(1);
 
-  const laborTarget = parseDecimal(laborTargetQty);
+  const laborTarget = parseDecimalValue(laborTargetQty);
   const laborAllocatedSum = Math.round(
     wbsCategories.reduce(
-      (sum, cat) => sum + parseDecimal(laborAllocations[cat.id] ?? 0),
+      (sum, cat) => sum + parseDecimalValue(laborAllocations[cat.id] ?? 0),
       0
     ) * 100
   ) / 100;
@@ -355,7 +356,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
 
     const newLaborItemsToPush: RabItem[] = [];
     wbsCategories.forEach(cat => {
-      const wbsQty = parseDecimal(laborAllocations[cat.id] ?? 0);
+      const wbsQty = parseDecimalValue(laborAllocations[cat.id] ?? 0);
       if (wbsQty > 0) {
         newLaborItemsToPush.push({
           id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
@@ -431,11 +432,11 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       });
       return;
     }
-    const currentQty = parseDecimal(newItem.qty);
+    const currentQty = parseDecimalValue(newItem.qty);
     if (!newItem.description || currentQty <= 0 || newItem.unitPrice === undefined) return;
     
     const totalAllocated = Math.round(
-      wbsCategories.reduce((sum, cat) => sum + parseDecimal(manualAllocations[cat.id] ?? 0), 0) * 100
+      wbsCategories.reduce((sum, cat) => sum + parseDecimalValue(manualAllocations[cat.id] ?? 0), 0) * 100
     ) / 100;
     const remaining = Math.round((currentQty - totalAllocated) * 100) / 100;
     const isAllocationPassed = Math.abs(remaining) < 0.001 && currentQty > 0;
@@ -451,7 +452,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
 
     const newItemsToPush: RabItem[] = [];
     wbsCategories.forEach(cat => {
-       const wbsQty = parseDecimal(manualAllocations[cat.id] ?? 0);
+       const wbsQty = parseDecimalValue(manualAllocations[cat.id] ?? 0);
        if (wbsQty > 0) {
           newItemsToPush.push({
              id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
@@ -743,11 +744,15 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
 
   const appliedPackagesData = packages.filter(p => items.some(i => i.packageId === p.id));
 
-  const totalQty = parseDecimal(newItem.qty);
-  const totalManualAllocated = Math.round(
-    wbsCategories.reduce((sum, cat) => sum + parseDecimal(manualAllocations[cat.id] ?? 0), 0) * 100
+  const totalQty = parseDecimalValue(newItem.qty);
+  const overheadAllocatedSum = Math.round(
+    wbsCategories.reduce(
+      (sum, cat) => sum + parseDecimalValue(manualAllocations[cat.id] ?? 0),
+      0
+    ) * 100
   ) / 100;
-  const manualRemaining = Math.round((totalQty - totalManualAllocated) * 100) / 100;
+  const overheadRemaining = Math.round((totalQty - overheadAllocatedSum) * 100) / 100;
+  const manualRemaining = overheadRemaining;
   const isAllocationPassed = Math.abs(manualRemaining) < 0.001 && totalQty > 0;
 
   return (
@@ -911,7 +916,8 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
               id="toggle-mode-material"
               onClick={() => {
                 setItemMode('material');
-                setNewItem(prev => ({ ...prev, type: 'material', wasteFactor: 0 }));
+                setNewItem(prev => ({ ...prev, type: 'material', wasteFactor: 0, materialId: undefined, unitPrice: 0 }));
+                setManualAllocations({});
                 if (editingId) handleCancelEdit();
               }}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-bold transition cursor-pointer ${
@@ -957,6 +963,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
               onClick={() => {
                 setItemMode('overhead');
                 setNewItem(prev => ({ ...prev, type: 'overhead', wasteFactor: 0, unitPrice: bayHourlyRate * 8, materialId: undefined }));
+                setManualAllocations({});
                 if (editingId) handleCancelEdit();
               }}
               className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-md text-xs font-bold transition cursor-pointer ${
@@ -1085,14 +1092,18 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                     {wbsCategories.map((cat) => (
                       <div key={cat.id} className="flex justify-center">
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="decimal"
                           min="0"
                           step="any"
                           aria-label={`Alokasi ${cat.label}`}
                           value={laborAllocations[cat.id] ?? ''}
                           onChange={(e) => {
-                            const val = e.target.value;
-                            setLaborAllocations(prev => ({ ...prev, [cat.id]: val }));
+                            const rawVal = e.target.value;
+                            const normalized = rawVal.replace(',', '.');
+                            if (normalized === '' || /^[0-9]*\.?[0-9]*$/.test(normalized)) {
+                              setLaborAllocations(prev => ({ ...prev, [cat.id]: normalized }));
+                            }
                           }}
                           onFocus={(e) => e.target.select()}
                           onMouseUp={(e) => e.preventDefault()}
@@ -1252,14 +1263,18 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                   </label>
                   <input
                     id="material-qty-input"
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     required
                     min="0"
                     step="any"
                     value={newItem.qty ?? ''}
                     onChange={(e) => {
-                      const val = e.target.value;
-                      setNewItem(prev => ({ ...prev, qty: val }));
+                      const rawVal = e.target.value;
+                      const normalized = rawVal.replace(',', '.');
+                      if (normalized === '' || /^[0-9]*\.?[0-9]*$/.test(normalized)) {
+                        setNewItem(prev => ({ ...prev, qty: normalized }));
+                      }
                     }}
                     onFocus={(e) => e.target.select()}
                     onMouseUp={(e) => e.preventDefault()}
@@ -1272,14 +1287,19 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                   </label>
                   <input
                     id="overhead-bay-rate-input"
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     required
                     min="0"
                     step="any"
                     value={newItem.unitPrice === 0 ? '' : newItem.unitPrice}
                     onChange={(e) => {
-                      const val = parseFloat(e.target.value) || 0;
-                      setNewItem(prev => ({ ...prev, unitPrice: val }));
+                      const rawVal = e.target.value;
+                      const normalized = rawVal.replace(',', '.');
+                      if (normalized === '' || /^[0-9]*\.?[0-9]*$/.test(normalized)) {
+                        const val = parseDecimalValue(normalized);
+                        setNewItem(prev => ({ ...prev, unitPrice: val }));
+                      }
                     }}
                     onFocus={(e) => e.target.select()}
                     onMouseUp={(e) => e.preventDefault()}
@@ -1319,14 +1339,18 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                         {wbsCategories.map((cat) => (
                           <td key={cat.id} className="px-1 py-3 text-center">
                             <input
-                              type="number"
+                              type="text"
+                              inputMode="decimal"
                               min="0"
                               step="any"
                               aria-label={`Alokasi Bahan ${cat.label}`}
                               value={manualAllocations[cat.id] ?? ''}
                               onChange={(e) => {
-                                const val = e.target.value;
-                                setManualAllocations(prev => ({ ...prev, [cat.id]: val }));
+                                const rawVal = e.target.value;
+                                const normalized = rawVal.replace(',', '.');
+                                if (normalized === '' || /^[0-9]*\.?[0-9]*$/.test(normalized)) {
+                                  setManualAllocations(prev => ({ ...prev, [cat.id]: normalized }));
+                                }
                               }}
                               onFocus={(e) => e.target.select()}
                               onMouseUp={(e) => e.preventDefault()}
@@ -1337,9 +1361,13 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                         ))}
                         <td className="px-2 py-3 text-center border-l border-border bg-surface-hover/50">
                           <span className={`inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                            isAllocationPassed ? 'bg-status-success/20 text-status-success' : 'bg-status-danger/20 text-status-danger'
+                            isAllocationPassed 
+                              ? 'bg-status-success/20 text-status-success' 
+                              : manualRemaining > 0 
+                                ? 'bg-status-danger/20 text-status-danger' 
+                                : 'bg-amber-500/20 text-amber-400'
                           }`}>
-                            {isAllocationPassed ? 'Sesuai / Pas (0.00)' : (manualRemaining > 0 ? `Sisa: ${manualRemaining.toFixed(2)}` : `Over: ${Math.abs(manualRemaining).toFixed(2)}`)}
+                            {isAllocationPassed ? 'Sesuai / Pas (0.00)' : (manualRemaining > 0 ? `Sisa: ${manualRemaining.toFixed(2)}` : `Lebih: ${Math.abs(manualRemaining).toFixed(2)}`)}
                           </span>
                         </td>
                       </tr>
