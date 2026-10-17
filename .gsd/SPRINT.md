@@ -1,82 +1,65 @@
-# Sprint 25 — Fix view_wbs_cost_variance Aggregation for Labor Budget
+# Sprint 26 — Hide Waste Factor Input and Default to 0 in RAB Calculator
 
 > **Duration**: 2026-10-17 to 2026-10-17
 > **Status**: Completed ✅
 
 ## Goal
-Perbaiki agregasi SQL View `view_wbs_cost_variance` agar mengagregasi item `MATERIAL` dan `NULL` ke `rab_material_budget`, serta mengagregasi item `LABOR` ke `rab_labor_budget`, sehingga kolom "PAGU JASA" di `/finance-reports` tab "Varian Anggaran WBS" tidak lagi bernilai Rp 0 dan varian surplus/defisit terhitung secara presisi terhadap realisasi aktual gudang dan SPK Borongan.
+Hide the Waste Factor (%) input field in the Service Advisor RAB Calculator (`RabCalculator.tsx`) and change its default value from 5% to 0% so material cost estimations remain pure (Qty × Unit Price) without unintended scrap markup while maintaining backward-compatible calculation logic.
 
 ## Scope
 
 ### Included
-- **Database Migration**:
-  - File migrasi `supabase/migrations/20261016050000_fix_wbs_cost_variance_labor_view.sql`.
-  - Agregasi `rab_budget`:
-    - `rab_material_budget`: `COALESCE(SUM(CASE WHEN item_type = 'MATERIAL' OR item_type IS NULL THEN quantity * unit_price ELSE 0 END), 0)`.
-    - `rab_labor_budget`: `COALESCE(SUM(CASE WHEN item_type = 'LABOR' THEN quantity * unit_price ELSE 0 END), 0)`.
-  - Agregasi `co_budget`:
-    - `co_material_budget`: `COALESCE(SUM(CASE WHEN item_type = 'MATERIAL' OR item_type IS NULL THEN quantity * unit_price ELSE 0 END), 0)`.
-    - `co_labor_budget`: `COALESCE(SUM(CASE WHEN item_type = 'LABOR' THEN quantity * unit_price ELSE 0 END), 0)`.
-  - Realisasi aktual:
-    - `actual_material_spent` dari `material_issues`.
-    - `actual_labor_spent` dari `spk_borongan`.
-  - Formula varian:
-    - `material_variance = total_material_budget - actual_material_spent`.
-    - `labor_variance = total_labor_budget - actual_labor_spent`.
-  - Grant permissions: `GRANT SELECT ON view_wbs_cost_variance TO authenticated;`.
-- **Database Execution & Empirical Verification**:
-  - Terapkan migrasi ke database PostgreSQL.
-  - Skrip pengujian otomatis `verify_labor_view_fix.cjs` memverifikasi definisi view, schema columns, data query live (39 baris, 20 tahapan WBS dengan pagu jasa aktif), dan hak akses `authenticated`.
-  - Regression test suite `verify_financial_reporting_views.cjs` lolos 100%.
-- **Frontend & Service Compatibility**:
-  - `src/services/financialReportsService.ts` dan `src/components/finance/tabs/WbsCostVarianceTab.tsx` membaca `total_labor_budget`, `actual_labor_spent`, dan `labor_variance` tanpa perubahan antarmuka.
-- **Automated Testing & Build**:
-  - Menambahkan unit tests di `src/utils/__tests__/rabLaborBudget.test.ts` (87/87 tests passed).
-  - TypeScript build (`tsc -b && vite build`) sukses tanpa error.
-  - Linting (`npm run lint`) 0 error.
+- **State Initialization & Reset**:
+  - Update `wasteFactor` default state in `RabCalculator.tsx` from `5` to `0`.
+  - Ensure resets on form submit, edit cancel, and tab toggle reset `wasteFactor` to `0`.
+- **UI Element Hidden**:
+  - Hide the `Waste Factor (%)` input element in `RabCalculator.tsx` without disrupting the symmetrical 2-column grid layout for `Qty (Bahan)` and `Harga Satuan Bahan`.
+- **Calculation Verification**:
+  - Confirm calculation formula `quantity * unitPrice * (1 + wasteFactor / 100)` produces clean `quantity * unitPrice` when `wasteFactor = 0`.
+- **Testing & Quality**:
+  - Add automated test verifying waste factor field is hidden and Qty 1 × Rp 1,600,000 results in exactly Rp 1,600,000.
+  - Run `npm test`, `npm run lint`, and `npm run build`.
 
 ### Explicitly Excluded
-- Mengubah skema invoice billing atau payment collection.
-- Mengubah alur persetujuan SPK Borongan atau mutasi stok fisik gudang.
+- Removing `wasteFactor` column or property from `RabItem` interface or database schema (preserving data compatibility).
+- Altering Goods Issue warehouse waste factor logic.
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| 1. Buat file migrasi SQL `supabase/migrations/20261016050000_fix_wbs_cost_variance_labor_view.sql` | Antigravity | ✅ Done | 0.2h |
-| 2. Eksekusi migrasi ke PostgreSQL aktif dan verifikasi definisi view | Antigravity | ✅ Done | 0.2h |
-| 3. Verifikasi empiris live data, varian surplus/defisit, dan izin SELECT `authenticated` | Antigravity | ✅ Done | 0.2h |
-| 4. Update unit test `rabLaborBudget.test.ts` untuk memverifikasi logika agregasi SQL view | Antigravity | ✅ Done | 0.2h |
-| 5. Jalankan `npm test`, `npm run lint`, dan `npm run build` | Antigravity | ✅ Done | 0.2h |
+| 1. Update wasteFactor state initialization and resets to default 0 in `RabCalculator.tsx` | Antigravity | ✅ Done | 0.2h |
+| 2. Hide Waste Factor (%) input in JSX with clean 2-column grid alignment | Antigravity | ✅ Done | 0.2h |
+| 3. Add test cases in `RabCalculatorLabor.test.tsx` and `rabLaborBudget.test.ts` | Antigravity | ✅ Done | 0.2h |
+| 4. Validate with `npm test`, `npm run lint`, and `npm run build` | Antigravity | ✅ Done | 0.2h |
 
 ## Daily Log
 
 ### 2026-10-17
-- Membuka Sprint 25: Fix view_wbs_cost_variance Aggregation for Labor Budget.
-- Menulis file migrasi Supabase `supabase/migrations/20261016050000_fix_wbs_cost_variance_labor_view.sql`.
-- Menerapkan migrasi langsung ke PostgreSQL cloud instance (`process.env.DATABASE_URL`).
-- Menguji query live dari `view_wbs_cost_variance`:
-  - 39 baris data terkueri dengan tepat.
-  - 20 tahapan WBS memiliki `total_labor_budget` aktif (> Rp 0), misalnya SPK-5902 dan SPK-6633.
-  - Perhitungan selisih varian `total_budget - actual_spent` terbukti akurat 100% pada semua baris.
-  - Izin akses `GRANT SELECT TO authenticated` diverifikasi aktif.
-- Menambahkan test case untuk logika agregasi SQL view di `src/utils/__tests__/rabLaborBudget.test.ts`.
-- Menjalankan pengujian:
-  - Vitest: 87/87 test lulus (11 test files).
-  - Linter: 0 error.
-  - Build: Sukses (`tsc -b && vite build`).
+- Initialized Sprint 26: Hide Waste Factor Input and Default to 0 in RAB Calculator.
+- Refactored `RabCalculator.tsx`:
+  - Changed initial `newItem.wasteFactor` from 5 to 0.
+  - Reset `wasteFactor` to 0 in `handleAddItem` and `handleCancelEdit`.
+  - Reset `wasteFactor` to 0 on clicking toggle tab "Bahan Baku (Material)".
+  - Replaced visible Waste Factor (%) input block with hidden input `<input type="hidden" id="waste-factor-input" value={newItem.wasteFactor ?? 0} />`, preserving symmetrical 2-column grid for `Qty (Bahan)` and `Harga Satuan Bahan`.
+- Updated test suites:
+  - Added test in `RabCalculatorLabor.test.tsx` verifying Waste Factor label is not rendered and hidden input has value 0.
+  - Added test in `rabLaborBudget.test.ts` verifying Qty 1 × Rp 1.600.000 results in exact Rp 1.600.000 (no +5% or +Rp 80.000 markup).
+- Ran verification checks:
+  - `npm test`: 90/90 tests passed across 11 test suites.
+  - `npm run lint`: 0 errors.
+  - `npm run build`: successful production build.
 
 ## Retrospective (2026-10-17)
 
 ### What Went Well
-- View `view_wbs_cost_variance` kini secara akurat memisahkan item `MATERIAL` (termasuk legacy row dengan `item_type IS NULL`) dan `LABOR`.
-- Kolom "PAGU JASA" di halaman laporan keuangan (`/finance-reports` tab "Varian Anggaran WBS") kini menampilkan nilai anggaran jasa riil dari RAB item `LABOR`.
-- Varian biaya jasa (`labor_variance`) secara presisi menghitung selisih surplus/defisit terhadap akumulasi SPK Borongan (`actual_labor_spent`).
-- Seluruh 87 tests lulus dan zero lint errors.
+- Pure material estimation calculation achieved without unintended 5% scrap distortion.
+- Symmetrical 2-column layout for Qty and Harga Satuan looks clean and balanced without leftover empty spaces.
+- Backward compatibility preserved for existing database records or historical calculations.
+- 100% test pass rate (90/90 tests passing) and 0 linter errors.
 
 ### What Could Improve
-- Terus pantau bilamana ada change order masa depan bertipe baru di luar `MATERIAL` dan `LABOR`.
+- None noted; straightforward refactoring with full test coverage.
 
 ### Action Items
-- [x] Pastikan migrasi tersimpan di repositori git.
-- [x] Perbarui `.gsd/STATE.md`.
+- [x] Create atomic git commit `refactor(rab): hide waste factor input and default value to 0`.

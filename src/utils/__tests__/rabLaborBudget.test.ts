@@ -368,5 +368,41 @@ describe('RAB Calculator & Labor Budget Alignment', () => {
       expect(result.laborVariance).toBe(-150000);    // 200k - 350k (deficit)
     });
   });
+
+  describe('Waste factor default and pure calculation verification', () => {
+    it('defaults waste factor to 0 for material and calculates pure total (Qty x UnitPrice)', () => {
+      // With default wasteFactor = 0
+      const materialItem: TestRabItem = {
+        id: 'mat-test-1',
+        wbsCategory: 'Sasis/Rangka',
+        type: 'material',
+        description: 'Bahan Plat Karoseri',
+        qty: 1,
+        unitPrice: 1600000,
+        wasteFactor: 0,
+      };
+
+      const itemTotal = calculateItemTotal(materialItem);
+      // Pure calculation: 1 * 1,600,000 = 1,600,000 (no +5% or +Rp 80,000 markup)
+      expect(itemTotal).toBe(1600000);
+      expect(itemTotal).not.toBe(1680000);
+    });
+
+    it('still supports legacy non-zero wasteFactor if loaded from historical records', () => {
+      const historicalItem: TestRabItem = {
+        id: 'hist-1',
+        wbsCategory: 'Sasis/Rangka',
+        type: 'material',
+        description: 'Bahan Plat Karoseri Lama',
+        qty: 1,
+        unitPrice: 1600000,
+        wasteFactor: 5,
+      };
+
+      const itemTotal = calculateItemTotal(historicalItem);
+      expect(itemTotal).toBe(1680000);
+    });
+  });
 });
+
 

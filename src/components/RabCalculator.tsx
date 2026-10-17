@@ -103,7 +103,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     type: 'material',
     qty: 1,
     unitPrice: 0,
-    wasteFactor: 5,
+    wasteFactor: 0,
   });
 
   const wbsCategories = [
@@ -289,7 +289,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       type: itemMode,
       qty: 1,
       unitPrice: itemMode === 'overhead' ? bayHourlyRate * 8 : 0,
-      wasteFactor: itemMode === 'material' ? 5 : 0,
+      wasteFactor: 0,
     });
     setManualAllocations({});
   };
@@ -350,7 +350,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       type: newItem.type,
       qty: 1,
       unitPrice: newItem.type === 'overhead' ? bayHourlyRate * 8 : 0,
-      wasteFactor: newItem.type === 'material' ? 5 : 0,
+      wasteFactor: 0,
     });
   };
 
@@ -772,7 +772,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
               id="toggle-mode-material"
               onClick={() => {
                 setItemMode('material');
-                setNewItem(prev => ({ ...prev, type: 'material', wasteFactor: 5 }));
+                setNewItem(prev => ({ ...prev, type: 'material', wasteFactor: 0 }));
                 if (editingId) handleCancelEdit();
               }}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-bold transition cursor-pointer ${
@@ -990,19 +990,12 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                 </div>
               </div>
 
-              {itemMode === 'material' && (
-                <div>
-                  <label className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">Waste Factor (%)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={newItem.wasteFactor || ''}
-                    onChange={(e) => setNewItem({ ...newItem, wasteFactor: parseFloat(e.target.value) })}
-                    className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-primary"
-                  />
-                </div>
-              )}
+              {/* Waste factor is hidden and defaults to 0% to keep material calculation pure */}
+              <input
+                type="hidden"
+                id="waste-factor-input"
+                value={newItem.wasteFactor ?? 0}
+              />
 
               {/* Multi-WBS Allocation Matrix */}
               <div className="border border-border rounded-lg overflow-hidden mt-2">

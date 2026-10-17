@@ -252,4 +252,21 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
       expect(screen.getAllByText('Rp 450.000').length).toBeGreaterThanOrEqual(1);
     });
   });
+
+  it('hides Waste Factor (%) input in Material mode and defaults value to 0', async () => {
+    render(<RabCalculator spkId="spk-test-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Bahan Baku (Material)')).toBeInTheDocument();
+    });
+
+    // Verify Waste Factor (%) label is not rendered in Material mode
+    expect(screen.queryByText('Waste Factor (%)')).not.toBeInTheDocument();
+
+    // Verify hidden waste-factor-input exists with value 0
+    const hiddenWasteInput = document.getElementById('waste-factor-input') as HTMLInputElement;
+    expect(hiddenWasteInput).toBeInTheDocument();
+    expect(hiddenWasteInput.value).toBe('0');
+  });
 });
+
