@@ -3,7 +3,7 @@ import {
   TrendingUp, 
   Package, 
   Users, 
-  Factory,
+  Activity,
   DollarSign, 
   AlertCircle,
   Car
@@ -26,7 +26,7 @@ const formatCurrency = (amount: number): string => {
 export const ExecutiveKpiCards: React.FC<ExecutiveKpiCardsProps> = ({ summary, isLoading }) => {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {[1, 2, 3, 4, 5, 6].map((idx) => (
           <div
             key={idx}
@@ -85,12 +85,12 @@ export const ExecutiveKpiCards: React.FC<ExecutiveKpiCardsProps> = ({ summary, i
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
       {/* 1. Total Omzet SPK (Revenue) */}
       <div className="bg-surface/90 border border-border rounded-xl p-5 hover:border-secondary/50 transition-all duration-200 hover:shadow-lg hover:shadow-secondary/5 flex flex-col justify-between">
         <div className="flex items-center justify-between">
           <span className="text-xs font-mono font-medium text-text-muted uppercase tracking-wider">
-            1. Total Omzet (Revenue)
+            1. Total Omzet SPK
           </span>
           <div className="w-9 h-9 rounded-lg bg-secondary/15 text-secondary flex items-center justify-center">
             <TrendingUp className="w-5 h-5" />
@@ -107,11 +107,11 @@ export const ExecutiveKpiCards: React.FC<ExecutiveKpiCardsProps> = ({ summary, i
         </div>
       </div>
 
-      {/* 2. Total Biaya Aktual Bahan Baku (Goods Issued) */}
+      {/* 2. Total Biaya Bahan Baku Riil (Goods Issued) */}
       <div className="bg-surface/90 border border-border rounded-xl p-5 hover:border-amber-500/50 transition-all duration-200 hover:shadow-lg hover:shadow-amber-500/5 flex flex-col justify-between">
         <div className="flex items-center justify-between">
           <span className="text-xs font-mono font-medium text-text-muted uppercase tracking-wider">
-            2. Biaya Bahan Baku (GI)
+            2. Biaya Bahan Baku Riil
           </span>
           <div className="w-9 h-9 rounded-lg bg-amber-500/15 text-amber-400 flex items-center justify-center">
             <Package className="w-5 h-5" />
@@ -149,23 +149,23 @@ export const ExecutiveKpiCards: React.FC<ExecutiveKpiCardsProps> = ({ summary, i
         </div>
       </div>
 
-      {/* 4. Total Biaya Overhead Pabrikasi (FOH) */}
-      <div className="bg-surface/90 border border-border rounded-xl p-5 hover:border-sky-500/50 transition-all duration-200 hover:shadow-lg hover:shadow-sky-500/5 flex flex-col justify-between">
+      {/* 4. Biaya Overhead Pabrikasi (FOH) */}
+      <div className="bg-surface/90 border border-border rounded-xl p-5 hover:border-purple-500/50 transition-all duration-200 hover:shadow-lg hover:shadow-purple-500/5 flex flex-col justify-between">
         <div className="flex items-center justify-between">
           <span className="text-xs font-mono font-medium text-text-muted uppercase tracking-wider">
-            4. Overhead Pabrikasi (FOH)
+            4. Biaya Overhead Pabrikasi
           </span>
-          <div className="w-9 h-9 rounded-lg bg-sky-500/15 text-sky-400 flex items-center justify-center">
-            <Factory className="w-5 h-5" />
+          <div className="w-9 h-9 rounded-lg bg-purple-500/15 text-purple-400 flex items-center justify-center">
+            <Activity className="w-5 h-5" />
           </div>
         </div>
         <div className="mt-4">
-          <div className="text-2xl font-bold font-mono text-sky-400 tracking-tight">
+          <div className="text-2xl font-bold font-mono text-purple-400 tracking-tight">
             {formatCurrency(overheadCost)}
           </div>
           <div className="flex items-center justify-between mt-2 text-xs">
             <span className="text-text-muted font-mono">{overheadPercent.toFixed(1)}% dari Omzet</span>
-            <span className="text-[11px] font-mono text-text-muted/80">Bay & Mesin Riil</span>
+            <span className="text-[11px] font-mono text-text-muted/80">Pemakaian Bay & Utilitas Pabrik</span>
           </div>
         </div>
       </div>
@@ -174,7 +174,7 @@ export const ExecutiveKpiCards: React.FC<ExecutiveKpiCardsProps> = ({ summary, i
       <div className="bg-surface/90 border border-border rounded-xl p-5 hover:border-emerald-500/50 transition-all duration-200 hover:shadow-lg hover:shadow-emerald-500/5 flex flex-col justify-between">
         <div className="flex items-center justify-between">
           <span className="text-xs font-mono font-medium text-text-muted uppercase tracking-wider">
-            5. Laba Operasional & Margin
+            5. Laba Operasional & Margin %
           </span>
           <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${grossProfit >= 0 ? 'bg-emerald-500/15 text-emerald-400' : 'bg-status-danger/15 text-status-danger'}`}>
             <DollarSign className="w-5 h-5" />

@@ -30,11 +30,11 @@ describe('Component: ExecutiveKpiCards', () => {
     render(<ExecutiveKpiCards summary={mockSummary} isLoading={false} />);
 
     // Card 1: Revenue
-    expect(screen.getByText(/1\. Total Omzet \(Revenue\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/1\. Total Omzet SPK/i)).toBeInTheDocument();
     expect(screen.getByText('8 Proyek')).toBeInTheDocument();
 
     // Card 2: Material Cost
-    expect(screen.getByText(/2\. Biaya Bahan Baku \(GI\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/2\. Biaya Bahan Baku Riil/i)).toBeInTheDocument();
     expect(screen.getByText(/\b45\.0% dari Omzet/i)).toBeInTheDocument();
     expect(screen.getByText(/Barang Keluar/i)).toBeInTheDocument();
 
@@ -43,13 +43,13 @@ describe('Component: ExecutiveKpiCards', () => {
     expect(screen.getByText(/\b25\.0% dari Omzet/i)).toBeInTheDocument();
     expect(screen.getByText(/Upah Terbayar/i)).toBeInTheDocument();
 
-    // Card 4: Overhead Pabrikasi (FOH)
-    expect(screen.getByText(/4\. Overhead Pabrikasi \(FOH\)/i)).toBeInTheDocument();
+    // Card 4: Biaya Overhead Pabrikasi
+    expect(screen.getByText(/4\. Biaya Overhead Pabrikasi/i)).toBeInTheDocument();
     expect(screen.getByText(/\b5\.0% dari Omzet/i)).toBeInTheDocument();
-    expect(screen.getByText(/Bay & Mesin Riil/i)).toBeInTheDocument();
+    expect(screen.getByText(/Pemakaian Bay & Utilitas Pabrik/i)).toBeInTheDocument();
 
     // Card 5: Operating Gross Profit & Margin
-    expect(screen.getByText(/5\. Laba Operasional & Margin/i)).toBeInTheDocument();
+    expect(screen.getByText(/5\. Laba Operasional & Margin %/i)).toBeInTheDocument();
     expect(screen.getByText('30.0%')).toBeInTheDocument();
     expect(screen.getByText(/Sehat \(≥25%\)/i)).toBeInTheDocument();
 
