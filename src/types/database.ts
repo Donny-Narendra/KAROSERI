@@ -34,7 +34,7 @@ export interface RabItemRecord {
   rab_estimation_id: string;
   spk_id?: string;
   wbs_category: WbsCategory;
-  item_type?: 'MATERIAL' | 'LABOR';
+  item_type?: 'MATERIAL' | 'LABOR' | 'OVERHEAD';
   material_id?: string | null;
   material_name?: string;
   quantity: number;

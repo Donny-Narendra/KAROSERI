@@ -2,6 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { RabCalculator, parseDecimalValue } from '../RabCalculator';
 
+// Hoisted mocks
+const { mockRabItemsInsert } = vi.hoisted(() => ({
+  mockRabItemsInsert: vi.fn().mockResolvedValue({ error: null }),
+}));
+
 // Mock supabase client
 vi.mock('../../lib/supabaseClient', () => {
   return {
@@ -76,7 +81,7 @@ vi.mock('../../lib/supabaseClient', () => {
             delete: vi.fn().mockReturnValue({
               eq: vi.fn().mockResolvedValue({ error: null }),
             }),
-            insert: vi.fn().mockResolvedValue({ error: null }),
+            insert: mockRabItemsInsert,
           };
         }
         return {
@@ -315,5 +320,52 @@ describe('Component: RabCalculator (Overhead Label Terminology & Decimal Allocat
     // 2 * 1,600,000 = 3,200,000 (appears in table row subtotal and footer KPI)
     expect(screen.getAllByText('Rp 3.200.000').length).toBeGreaterThanOrEqual(1);
   });
+
+  it('persists overhead items with item_type="OVERHEAD", non-zero unit_price, and null material_id', async () => {
+    mockRabItemsInsert.mockClear();
+    render(<RabCalculator spkId="spk-test-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Item Inisial Material')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Overhead/i }));
+
+    const descInput = screen.getByPlaceholderText(/e\.g\. Workshop Bay Overhead/i);
+    fireEvent.change(descInput, { target: { value: 'Sewa Alat Khusus FOH' } });
+
+    const freqInput = screen.getByLabelText(/FREKWENSI DALAM PROYEK INI/i);
+    fireEvent.change(freqInput, { target: { value: '0.5' } });
+
+    const rateInput = screen.getByLabelText(/BAY RATE \/ FREKWENSI/i);
+    fireEvent.change(rateInput, { target: { value: '1600000' } });
+
+    const wbs1Input = screen.getByLabelText(/Alokasi Bahan WBS 1: Pembongkaran/i);
+    fireEvent.change(wbs1Input, { target: { value: '0.5' } });
+
+    const submitBtn = screen.getByRole('button', { name: /Tambah Overhead ke RAB/i });
+    fireEvent.submit(submitBtn.closest('form')!);
+
+    await waitFor(() => {
+      expect(screen.getByText('Sewa Alat Khusus FOH')).toBeInTheDocument();
+    });
+
+    // Wait for auto-save debounce (500ms) to trigger mockRabItemsInsert
+    await waitFor(() => {
+      expect(mockRabItemsInsert).toHaveBeenCalled();
+    }, { timeout: 2500 });
+
+    const insertedRows = mockRabItemsInsert.mock.calls[0][0];
+    const overheadRow = insertedRows.find((r: any) => r.material_name === 'Sewa Alat Khusus FOH');
+    expect(overheadRow).toBeDefined();
+    expect(overheadRow.item_type).toBe('OVERHEAD');
+    expect(overheadRow.unit_price).toBe(1600000);
+    expect(overheadRow.quantity).toBe(0.5);
+    expect(overheadRow.item_total).toBe(800000);
+    expect(overheadRow.material_id).toBeNull();
+    expect(overheadRow.overhead_hours).toBe(4);
+    expect(overheadRow.overhead_rate).toBe(200000);
+  });
 });
+
 

@@ -31,7 +31,7 @@ interface DbRabItemRecord {
   id: string;
   wbs_category: string;
   wbs_stage?: string | null;
-  item_type?: 'MATERIAL' | 'LABOR' | string | null;
+  item_type?: 'MATERIAL' | 'LABOR' | 'OVERHEAD' | string | null;
   description?: string | null;
   material_name?: string | null;
   material_id?: string | null;
@@ -258,10 +258,13 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
               if (unitPrice === 0 && Number(dbItem.item_total || 0) > 0) {
                 unitPrice = Number(dbItem.item_total) / qty;
               }
-            } else if (overheadHours > 0) {
+            } else if (dbItem.item_type === 'OVERHEAD' || overheadHours > 0) {
               type = 'overhead';
-              qty = overheadHours / 8;
-              unitPrice = Number(dbItem.overhead_rate) * 8 || unitPrice;
+              qty = Number(dbItem.quantity) || (overheadHours > 0 ? overheadHours / 8 : 1);
+              unitPrice = Number(dbItem.unit_price) || (Number(dbItem.overhead_rate) * 8) || 0;
+              if (unitPrice === 0 && Number(dbItem.item_total || 0) > 0) {
+                unitPrice = Number(dbItem.item_total) / qty;
+              }
             } else {
               type = 'material';
               qty = Number(dbItem.quantity || 0);
@@ -623,22 +626,26 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       if (items.length > 0) {
         const itemsToInsert = items.map(item => {
           const matchedMat = materials.find(m => m.id === item.materialId);
-          const unitPrice = (item.type === 'material' || item.type === 'labor') ? item.unitPrice : 0;
+          const unitPrice = (item.type === 'material' || item.type === 'labor' || item.type === 'overhead') ? item.unitPrice : 0;
           const costPrice = item.costPrice !== undefined 
             ? item.costPrice 
             : (item.type === 'labor' 
                 ? item.unitPrice 
-                : (matchedMat?.cost_price !== undefined ? matchedMat.cost_price : Math.round(unitPrice * 0.8)));
+                : (item.type === 'overhead'
+                    ? item.unitPrice
+                    : (matchedMat?.cost_price !== undefined ? matchedMat.cost_price : Math.round(unitPrice * 0.8))));
+
+          const itemType = item.type === 'labor' ? 'LABOR' : (item.type === 'overhead' ? 'OVERHEAD' : 'MATERIAL');
 
           return {
             rab_estimation_id: estData.id,
             spk_id: spkId,
             wbs_category: item.wbsCategory,
-            item_type: item.type === 'labor' ? 'LABOR' : 'MATERIAL',
+            item_type: itemType,
             description: item.notes || item.description,
             material_name: item.description,
             quantity: item.qty,
-            unit: item.unit || (item.type === 'labor' ? 'lot' : 'pcs'),
+            unit: item.unit || (item.type === 'labor' ? 'lot' : (item.type === 'overhead' ? 'hari' : 'pcs')),
             notes: item.notes || null,
             unit_price: unitPrice,
             cost_price: costPrice,
@@ -648,7 +655,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
             overhead_rate: item.type === 'overhead' ? item.unitPrice / 8 : 0,
             item_total: calculateItemTotal(item),
             package_id: item.packageId || null,
-            material_id: item.type === 'labor' ? null : (item.materialId || null),
+            material_id: (item.type === 'labor' || item.type === 'overhead') ? null : (item.materialId || null),
             is_locked: false
           };
         });
