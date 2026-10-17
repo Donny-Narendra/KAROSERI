@@ -194,7 +194,7 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
     fireEvent.click(screen.getByText('Jasa / Tukang (Labor)'));
 
     // Fill in dedicated labor form
-    const nameInput = screen.getByPlaceholderText('misal: Jasa Tukang Las Sasis, Ongkos Borongan Dempul & Cat, Jasa Bongkar');
+    const nameInput = screen.getByPlaceholderText('misal: Jasa Tukang Las Sasis');
     fireEvent.change(nameInput, { target: { value: 'Jasa Borongan Las Sasis' } });
 
     // Set WBS 1 = 0, WBS 2 = 1 via allocation grid
@@ -231,7 +231,7 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
     // Switch to labor mode
     fireEvent.click(screen.getByText('Jasa / Tukang (Labor)'));
 
-    const nameInput = screen.getByPlaceholderText('misal: Jasa Tukang Las Sasis, Ongkos Borongan Dempul & Cat, Jasa Bongkar');
+    const nameInput = screen.getByPlaceholderText('misal: Jasa Tukang Las Sasis');
     fireEvent.change(nameInput, { target: { value: 'Jasa Perakitan Rangka & Dinding' } });
 
     // Multi-WBS allocation: WBS 1 = 0, WBS 2 = 1, WBS 3 = 1
@@ -285,7 +285,7 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
     fireEvent.click(editButtons[0]);
 
     // Verify form switched to labor mode with existing values
-    const nameInput = screen.getByPlaceholderText('misal: Jasa Tukang Las Sasis, Ongkos Borongan Dempul & Cat, Jasa Bongkar') as HTMLInputElement;
+    const nameInput = screen.getByPlaceholderText('misal: Jasa Tukang Las Sasis') as HTMLInputElement;
     expect(nameInput.value).toBe('Jasa Bongkar Bodi Lama');
 
     // Verify update button is displayed
@@ -337,7 +337,7 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
     });
 
     // Type "las" into labor search input
-    const laborInput = screen.getByPlaceholderText('misal: Jasa Tukang Las Sasis, Ongkos Borongan Dempul & Cat, Jasa Bongkar');
+    const laborInput = screen.getByPlaceholderText('misal: Jasa Tukang Las Sasis');
     fireEvent.focus(laborInput);
     fireEvent.change(laborInput, { target: { value: 'las' } });
 
@@ -360,7 +360,7 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
 
     fireEvent.click(screen.getByText('Jasa / Tukang (Labor)'));
 
-    const laborInput = screen.getByPlaceholderText('misal: Jasa Tukang Las Sasis, Ongkos Borongan Dempul & Cat, Jasa Bongkar') as HTMLInputElement;
+    const laborInput = screen.getByPlaceholderText('misal: Jasa Tukang Las Sasis') as HTMLInputElement;
     fireEvent.focus(laborInput);
     fireEvent.change(laborInput, { target: { value: 'cat' } });
 
@@ -387,7 +387,7 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
 
     fireEvent.click(screen.getByText('Jasa / Tukang (Labor)'));
 
-    const laborInput = screen.getByPlaceholderText('misal: Jasa Tukang Las Sasis, Ongkos Borongan Dempul & Cat, Jasa Bongkar');
+    const laborInput = screen.getByPlaceholderText('misal: Jasa Tukang Las Sasis');
     fireEvent.focus(laborInput);
     fireEvent.change(laborInput, { target: { value: 'Jasa Tidak Dikenal 12345' } });
 

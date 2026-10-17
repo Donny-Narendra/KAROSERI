@@ -977,8 +977,8 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                     onFocus={() => setIsLaborSuggestOpen(true)}
                     onBlur={handleLaborBlur}
                     onKeyDown={handleLaborInputKeyDown}
-                    placeholder="misal: Jasa Tukang Las Sasis, Ongkos Borongan Dempul & Cat, Jasa Bongkar"
-                    className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-amber-500"
+                    placeholder="misal: Jasa Tukang Las Sasis"
+                    className="w-full bg-surface border border-border rounded pl-3 pr-24 py-2 text-sm text-text focus:outline-none focus:border-amber-500"
                     autoComplete="off"
                   />
                   {availableLaborItems.length > 0 && (
