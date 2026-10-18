@@ -48,7 +48,7 @@ interface KasirSpkJoinRow {
   spk_amendments?: Array<{ status: string; cost_adjustment: number }>;
 }
 
-interface MockSPK {
+interface KasirSpkViewModel {
   id: string;
   dbId: string;
   customerName: string;
@@ -74,13 +74,13 @@ interface MockSPK {
 
 export const KasirDashboard: React.FC = () => {
   const { profile, signOut } = useAuth();
-  const [spks, setSpks] = useState<MockSPK[]>([]);
+  const [spks, setSpks] = useState<KasirSpkViewModel[]>([]);
   const [selectedSpkId, setSelectedSpkId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'DP' | 'FINAL'>('DP');
   const [dpSubTab, setDpSubTab] = useState<'PENDING' | 'HISTORY'>('PENDING');
   const [isDpModalOpen, setIsDpModalOpen] = useState(false);
   const [isBastModalOpen, setIsBastModalOpen] = useState(false);
-  const [selectedBastSpk, setSelectedBastSpk] = useState<MockSPK | null>(null);
+  const [selectedBastSpk, setSelectedBastSpk] = useState<KasirSpkViewModel | null>(null);
   const [dpHistory, setDpHistory] = useState<DPHistoryRecord[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [manualAdjustments, setManualAdjustments] = useState<Record<string, number>>({});
@@ -145,7 +145,7 @@ export const KasirDashboard: React.FC = () => {
     `).neq('status', 'CANCELLED').order('created_at', { ascending: false });
 
     if (data) {
-      const formatted: MockSPK[] = (data as unknown as KasirSpkJoinRow[]).map((d: KasirSpkJoinRow) => {
+      const formatted: KasirSpkViewModel[] = (data as unknown as KasirSpkJoinRow[]).map((d: KasirSpkJoinRow) => {
         // Manual merge of rab_estimations and rab_items
         const myEstimations = fetchedEstimations.filter(est => est.spk_id === d.id);
         
