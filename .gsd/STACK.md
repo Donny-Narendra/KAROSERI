@@ -92,7 +92,7 @@
 
 ## Quality & Verification Status
 
-- **Vitest Unit & Component Testing:** Passes 18/18 test suites, 137/137 tests passing (100%) (`npm test`).
-- **Linter (Oxlint):** 0 errors, 0 warnings across 122 files with 113 rules (`npm run lint`).
+- **Vitest Unit & Component Testing:** Passes 20/20 test suites, 147/147 tests passing (100%) (`npm test`).
+- **Linter (Oxlint):** 0 errors, 0 warnings across 136 files with 113 rules (`npm run lint`).
 - **TypeScript Static Analysis:** Passes clean with 0 errors (`npx tsc -b`).
-- **Production Bundle:** Built cleanly in ~530ms via `tsc -b && vite build`.
+- **Production Bundle:** Built cleanly in ~550ms via `tsc -b && vite build`.

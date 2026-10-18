@@ -48,8 +48,6 @@ export const spkService = {
         cancelled_at,
         cancelled_by,
         created_at,
-        updated_at,
-        notes,
         cancelled_by_profile:profiles!cancelled_by ( id, full_name, role, email ),
         rab_estimations ( total_estimated_cost )
       `)
