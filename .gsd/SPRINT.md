@@ -1,68 +1,59 @@
-# Sprint 41 — Codebase Health, React Hook Hygiene & Zero-Warning Lint Cleanup
+# Sprint 42 — Implement Periodic OPEX Accounting, Empirical PnL Charts, and Smart Target Solver Engine
 
-> **Duration**: 2026-10-18 to 2026-10-18
-> **Status**: Completed ✅
+> **Duration**: 2026-10-18 to 2026-10-19
+> **Status**: In Progress 🚀
 
 ## Goal
-Resolve technical debt across codebase health, React hook dependencies, Temporal Dead Zone (TDZ) declarations, Fast Refresh component exports, and achieve a clean, zero-warning `oxlint` status:
-1. Fix unused variables and TypeScript syntax issues:
-   - Removed scratch `testQuery.cjs`.
-   - `src/components/BackupRestoreCard.tsx`: cleaned unused catch parameter.
-   - `src/components/InventoryManager.tsx`: cleaned unused catch parameter.
-   - `src/components/QcInspectionForm.tsx`: replaced literal type with `as const`.
-2. Fix Fast Refresh component export violations (`react/only-export-components`):
-   - Created `src/utils/spkUtils.ts` for `formatSubTasks` helper.
-   - `src/components/SpkFilterListBox.tsx`: imported `formatSubTasks` from `spkUtils` and removed dummy `SpkFilterItem` object export.
-   - `src/components/SpkSelector.tsx`: updated import to `spkUtils`.
-   - `src/components/spk/SpkGalleryModal.tsx`: converted `STANDARD_ANGLES` to local constant.
-   - `src/components/RabCalculator.tsx`: removed re-export of `parseDecimalValue` and updated tests.
-3. Fix React Hook Temporal Dead Zone (TDZ) and missing dependencies (`react-hooks/exhaustive-deps` & `react/immutability`):
-   - `src/hooks/useIdleTimer.ts`: wrapped `handleLogout` & `resetTimer` in `useCallback` and added to effect dependencies.
-   - `src/components/MaterialAuditModal.tsx`: wrapped `loadLogs` in `useCallback` with `[material]` dependency.
-   - `src/pages/PublicProgressTracking.tsx`: wrapped `fetchProgressData` in `useCallback` before effect.
-   - `src/components/CancelledSpkAuditLog.tsx`: wrapped `loadAuditLogs` in `useCallback`.
-   - `src/pages/AdminSettingsPage.tsx`: wrapped `fetchUsers` and `fetchSettings` in `useCallback`.
-   - `src/components/SpkBoronganPanel.tsx`: wrapped `fetchSpkDetail`, `fetchRecords`, and `fetchRabMaterials` in `useCallback`.
-   - `src/components/SAInventoryPanel.tsx`: added `materials.length` to effect dependency array.
-   - `src/components/WbsChecklist.tsx`: wrapped `fetchMaterialAllocations` in `useCallback` before effect.
-   - `src/components/RecentMaterialIssues.tsx`: wrapped `fetchIssues` in `useCallback`.
-   - `src/components/AmendmentManager.tsx`: wrapped `fetchChangeOrders` in `useCallback`.
-   - `src/components/RabCalculator.tsx`: implemented `useRef` debounced callback pattern for auto-save effect.
-4. Configure `.oxlintrc.json` appropriately for Vite React 18 SPA (disabling experimental React 19 Compiler rules `set-state-in-effect`, `purity`, and `immutability` which conflict with standard React 18 async fetching).
-5. Verify 0 warnings / 0 errors via `npx oxlint` (down from 79 to 0), 100% test suite pass rate (18 test files, 137 tests passing), `tsc -b`, and production build (527ms).
+Implement a complete Periodic Operating Expense (OPEX) Accounting system, Empirical Corporate P&L Analytics with visual charts, and a Smart Sales Target Solver (CVP Optimization Engine) for workshop management and executive financial reporting:
+1. **Laporan Laba Rugi Komprehensif Perusahaan (Corporate P&L)**:
+   - Database migration with `operating_expense_categories`, `operating_expenses`, and `view_corporate_monthly_pnl`.
+   - Full TypeScript data contracts and Supabase client service layer for OPEX transactions & monthly corporate profitability aggregation.
+   - Comprehensive UI tab with monthly EBIT summary, expense ledger, and OPEX entry modal.
+2. **Grafik Empiris Analisis Laba Rugi**:
+   - Visual multi-series trend comparison of Revenue vs COGS vs OPEX vs Net Operating Profit.
+   - Empirical Cost Breakdown Doughnut/Ring Chart (Material vs Labor vs Overhead vs OPEX).
+3. **Smart Sales Target Solver (CVP Optimization Engine)**:
+   - Interactive Cost-Volume-Profit (CVP) solver calculating Break-Even Point (BEP Units & Rupiah), Contribution Margin (CM), and Target Omzet to hit desired owner profit.
+   - Sensitivity scenario matrix and Margin of Safety (MoS) indicators.
+4. **Export, Print & Full Regression Verification**:
+   - Multi-sheet Excel workbook export & print report integration for Corporate P&L.
+   - 100% test suite pass rate, 0 Oxlint warnings, clean `tsc -b` compilation.
 
 ## Scope
 
 ### Included
-- Linter config: `.oxlintrc.json`.
-- Hook hygiene, TDZ ordering, and exports across components and pages.
-- Cleanup of temporary scratch files.
-- Full regression verification.
+- Migration: `supabase/migrations/20261018010000_periodic_opex_and_pnl.sql`.
+- Migration executor execution and database verification.
+- Types: `src/types/financialReports.ts`.
+- Service: `src/services/financialReportsService.ts`.
+- Calculations utility: `src/utils/cvpCalculations.ts` with unit test suite.
+- Components:
+  - `src/components/finance/tabs/CorporatePnlTab.tsx`
+  - `src/components/finance/OpexExpenseModal.tsx`
+  - `src/components/finance/charts/PnlTrendChart.tsx`
+  - `src/components/finance/charts/CostBreakdownDoughnut.tsx`
+  - `src/components/finance/SmartTargetSolver.tsx`
+- Integration into `src/pages/FinancialReportsPage.tsx`, `src/utils/exportFinancialReports.ts`, and `src/components/finance/FinancialPrintReport.tsx`.
+- Unit tests in `src/utils/__tests__/cvpCalculations.test.ts` and `src/components/finance/__tests__/CorporatePnlTab.test.tsx`.
+
+### Explicitly Excluded
+- External third-party heavy charting packages (using zero-dependency, ultra-crisp responsive SVG charts with dark/light theme tokens and micro-interactions).
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| 1. Clean unused vars, prefer-as-const, and scratch files | Antigravity | ✅ Done | 0.2h |
-| 2. Fix Fast Refresh component exports in `RabCalculator`, `SpkFilterListBox`, `SpkGalleryModal` | Antigravity | ✅ Done | 0.2h |
-| 3. Fix TDZ function declarations and `exhaustive-deps` across 14 components/pages | Antigravity | ✅ Done | 0.5h |
-| 4. Tune `.oxlintrc.json` for React 18 Vite architecture | Antigravity | ✅ Done | 0.1h |
-| 5. Run `npx oxlint`, `npm test`, `tsc -b`, and `npm run build` | Antigravity | ✅ Done | 0.2h |
+| 1. Database migration `20261018010000_periodic_opex_and_pnl.sql` & apply via `apply_migration.cjs` | Antigravity | ⬜ Todo | 0.4h |
+| 2. TypeScript contracts & Service Layer (`financialReports.ts` & `financialReportsService.ts`) | Antigravity | ⬜ Todo | 0.4h |
+| 3. CVP Optimization Engine & Math Utils (`cvpCalculations.ts` + tests) | Antigravity | ⬜ Todo | 0.5h |
+| 4. Empirical Visual Charts (`PnlTrendChart.tsx` & `CostBreakdownDoughnut.tsx`) | Antigravity | ⬜ Todo | 0.6h |
+| 5. OPEX Entry Modal & Expense Ledger (`OpexExpenseModal.tsx`) | Antigravity | ⬜ Todo | 0.5h |
+| 6. Smart Target Solver Component (`SmartTargetSolver.tsx`) | Antigravity | ⬜ Todo | 0.5h |
+| 7. Corporate P&L Tab & FinancialReportsPage Integration | Antigravity | ⬜ Todo | 0.6h |
+| 8. Export to Excel/CSV & Print Report Integration | Antigravity | ⬜ Todo | 0.4h |
+| 9. Regression testing, Oxlint validation, and build verification | Antigravity | ⬜ Todo | 0.3h |
 
 ## Daily Log
 
 ### 2026-10-18
-- Initialized Sprint 41 for Codebase Health & Zero-Warning Lint Cleanup.
-- Diagnosed 79 initial Oxlint warnings across 7 categories.
-- Removed obsolete scratch file `testQuery.cjs`.
-- Fixed unused catch variables in `BackupRestoreCard.tsx` and `InventoryManager.tsx`.
-- Converted `finalStatus` type annotation in `QcInspectionForm.tsx` to `as const`.
-- Extracted `formatSubTasks` to `src/utils/spkUtils.ts`, resolving `only-export-components` in `SpkFilterListBox.tsx`.
-- Removed dummy export `STANDARD_ANGLES` in `SpkGalleryModal.tsx`.
-- Removed utility re-export in `RabCalculator.tsx`.
-- Refactored `useIdleTimer.ts`, `MaterialAuditModal.tsx`, `PublicProgressTracking.tsx`, `CancelledSpkAuditLog.tsx`, `AdminSettingsPage.tsx`, `SpkBoronganPanel.tsx`, `SAInventoryPanel.tsx`, `WbsChecklist.tsx`, `RecentMaterialIssues.tsx`, and `AmendmentManager.tsx` to use memoized callbacks and explicit hook dependencies.
-- Implemented `useRef` mutable callback pattern in `RabCalculator.tsx` auto-save effect.
-- Configured `.oxlintrc.json` to properly target Vite React 18 SPA.
-- Executed `npx oxlint`: **0 warnings and 0 errors across 122 files**.
-- Executed `npm test`: **18/18 test files passed (137 tests passing 100%)**.
-- Executed `npx tsc -b` and `npm run build`: cleanly bundled in 527ms.
+- Initialized Sprint 42 for Periodic OPEX Accounting, Empirical PnL Charts, and Smart Target Solver Engine.
