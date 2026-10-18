@@ -201,12 +201,12 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 - [x] **Executive KPI COGS Breakdown:** 6-card decoupled KPI matrix for Revenue, Materials, Labor, Overhead, Profit, and Receivables.
 - [x] **Periodic OPEX & Corporate P&L (Sprint 42):** Integrated master OPEX categories, periodic expense ledger, monthly P&L view, SVG trend chart, doughnut chart, and CVP target solver engine.
 - [x] **Cancelled SPK Query Bug (42703 `undefined_column`):** Removed non-existent columns `updated_at` and `notes` from `spkService.fetchCancelledSpkAuditLogs()`, resolving runtime Postgres error.
-- [x] **Localization Alignment:** Symmetric Indonesian/English translations across all modules.
+- [x] **Bundle Code Splitting:** Replaced monolithic 2.66 MB bundle with route-level `React.lazy` code splitting and granular `manualChunks` in `vite.config.ts`. The initial entry shell is reduced to 28.7 kB, separate vendor chunks (`vendor-react`, `vendor-supabase`, `vendor-i18n`, `vendor-xlsx`, `vendor-pdf`), and 0 build warnings.
+- [x] **Vitest Act Wrapper Warning:** Wrapped initial async fetches and provided standard props in `SpkOverheadModal.test.tsx`. Vitest suite runs completely clean with 0 warnings or stderr logs.
+- [x] **Dependency Minor Upgrades:** Reconciled 12 minor and patch dependency updates (`@supabase/supabase-js` ^2.118.0, `react` ^19.3.1, `lucide-react` ^1.59.0, `vite` ^8.3.4, `oxlint` ^1.88.0, `zod` ^4.6.7, etc.) with 100% test pass and zero regressions.
 
 ### Active Backlog & Future Optimization Opportunities
-- [ ] **Bundle Code Splitting:** `vite build` produces a 2.66 MB monolithic JavaScript bundle (`dist/assets/index-rNFCTwNj.js`). Dynamic `import()` on heavy modules (SheetJS, jsPDF, admin views) could optimize initial load time.
-- [ ] **Vitest Act Wrapper Warning:** `SpkOverheadModal.test.tsx` emits a minor console warning regarding un-wrapped state updates in test simulation (all 4 tests pass).
-- [ ] **Dependency Minor Upgrades:** Several low-risk patch updates available (`@supabase/supabase-js`, `lucide-react`, `i18next`, `zod`).
+- None. (Zero outstanding technical debt).
 
 ## Conventions
 

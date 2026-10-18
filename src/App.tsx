@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -6,14 +6,22 @@ import { GuestRoute } from './components/GuestRoute';
 import { LoginPage } from './pages/LoginPage';
 import { useIdleTimer } from './hooks/useIdleTimer';
 
-import { AdminDashboardPage } from './pages/AdminDashboardPage';
-import { AdminSettingsPage } from './pages/AdminSettingsPage';
-import { ServiceAdvisorDashboard } from './pages/ServiceAdvisorDashboard';
-import { WarehouseDashboard } from './pages/WarehouseDashboard';
-import { MandorDashboard } from './pages/MandorDashboard';
-import { KasirDashboard } from './pages/KasirDashboard';
-import { PublicProgressTracking } from './pages/PublicProgressTracking';
-import { FinancialReportsPage } from './pages/FinancialReportsPage';
+// Lazy-loaded route pages for optimized code splitting
+const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage').then(m => ({ default: m.AdminDashboardPage })));
+const AdminSettingsPage = lazy(() => import('./pages/AdminSettingsPage').then(m => ({ default: m.AdminSettingsPage })));
+const ServiceAdvisorDashboard = lazy(() => import('./pages/ServiceAdvisorDashboard').then(m => ({ default: m.ServiceAdvisorDashboard })));
+const WarehouseDashboard = lazy(() => import('./pages/WarehouseDashboard').then(m => ({ default: m.WarehouseDashboard })));
+const MandorDashboard = lazy(() => import('./pages/MandorDashboard').then(m => ({ default: m.MandorDashboard })));
+const KasirDashboard = lazy(() => import('./pages/KasirDashboard').then(m => ({ default: m.KasirDashboard })));
+const PublicProgressTracking = lazy(() => import('./pages/PublicProgressTracking').then(m => ({ default: m.PublicProgressTracking })));
+const FinancialReportsPage = lazy(() => import('./pages/FinancialReportsPage').then(m => ({ default: m.FinancialReportsPage })));
+
+const PageLoadingFallback: React.FC = () => (
+  <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
+    <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-4" />
+    <p className="text-xs font-mono text-text-muted uppercase tracking-wider">Memuat Terminal...</p>
+  </div>
+);
 
 const RootRedirect: React.FC = () => {
   const { user, profile, loading } = useAuth();
@@ -67,48 +75,50 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <IdleTimeoutManager />
-        <Routes>
-          <Route path="/" element={<RootRedirect />} />
-          <Route element={<GuestRoute />}>
-            <Route path="/login" element={<LoginPage />} />
-          </Route>
-          <Route path="/tracking/:spk_no" element={<PublicProgressTracking />} />
-          <Route path="/unauthorized" element={<UnauthorizedPage />} />
-          
-          {/* Protected Routes for Owner */}
-          <Route element={<ProtectedRoute allowedRoles={['owner']} />}>
-            <Route path="/dashboard" element={<AdminDashboardPage />} />
-            <Route path="/admin/settings" element={<AdminSettingsPage />} />
-          </Route>
-          
-          {/* Protected Routes for Service Advisor & Owner */}
-          <Route element={<ProtectedRoute allowedRoles={['service_advisor', 'owner']} />}>
-            <Route path="/service-advisor" element={<ServiceAdvisorDashboard />} />
-          </Route>
-          
-          {/* Protected Routes for Warehouse (Petugas Gudang) & Owner */}
-          <Route element={<ProtectedRoute allowedRoles={['petugas_gudang', 'owner']} />}>
-            <Route path="/warehouse" element={<WarehouseDashboard />} />
-          </Route>
-          
-          {/* Protected Routes for Mandor & Owner */}
-          <Route element={<ProtectedRoute allowedRoles={['mandor', 'owner']} />}>
-            <Route path="/mandor" element={<MandorDashboard />} />
-          </Route>
-          
-          {/* Protected Routes for Kasir, Service Advisor & Owner */}
-          <Route element={<ProtectedRoute allowedRoles={['kasir', 'owner', 'service_advisor']} />}>
-            <Route path="/kasir" element={<KasirDashboard />} />
-          </Route>
-          
-          {/* Protected Routes for Financial Reports (Owner & Kasir) */}
-          <Route element={<ProtectedRoute allowedRoles={['owner', 'kasir']} />}>
-            <Route path="/finance-reports" element={<FinancialReportsPage />} />
-          </Route>
-          
-          {/* Catch all */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <Suspense fallback={<PageLoadingFallback />}>
+          <Routes>
+            <Route path="/" element={<RootRedirect />} />
+            <Route element={<GuestRoute />}>
+              <Route path="/login" element={<LoginPage />} />
+            </Route>
+            <Route path="/tracking/:spk_no" element={<PublicProgressTracking />} />
+            <Route path="/unauthorized" element={<UnauthorizedPage />} />
+            
+            {/* Protected Routes for Owner */}
+            <Route element={<ProtectedRoute allowedRoles={['owner']} />}>
+              <Route path="/dashboard" element={<AdminDashboardPage />} />
+              <Route path="/admin/settings" element={<AdminSettingsPage />} />
+            </Route>
+            
+            {/* Protected Routes for Service Advisor & Owner */}
+            <Route element={<ProtectedRoute allowedRoles={['service_advisor', 'owner']} />}>
+              <Route path="/service-advisor" element={<ServiceAdvisorDashboard />} />
+            </Route>
+            
+            {/* Protected Routes for Warehouse (Petugas Gudang) & Owner */}
+            <Route element={<ProtectedRoute allowedRoles={['petugas_gudang', 'owner']} />}>
+              <Route path="/warehouse" element={<WarehouseDashboard />} />
+            </Route>
+            
+            {/* Protected Routes for Mandor & Owner */}
+            <Route element={<ProtectedRoute allowedRoles={['mandor', 'owner']} />}>
+              <Route path="/mandor" element={<MandorDashboard />} />
+            </Route>
+            
+            {/* Protected Routes for Kasir, Service Advisor & Owner */}
+            <Route element={<ProtectedRoute allowedRoles={['kasir', 'owner', 'service_advisor']} />}>
+              <Route path="/kasir" element={<KasirDashboard />} />
+            </Route>
+            
+            {/* Protected Routes for Financial Reports (Owner & Kasir) */}
+            <Route element={<ProtectedRoute allowedRoles={['owner', 'kasir']} />}>
+              <Route path="/finance-reports" element={<FinancialReportsPage />} />
+            </Route>
+            
+            {/* Catch all */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </AuthProvider>
   );

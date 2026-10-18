@@ -6,8 +6,8 @@
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
-| Node.js | v20+ / v22+ (Types ^24.13.3 / Installed 24.19.0) | JavaScript runtime & tooling execution |
-| Vite | ^8.3.0 (Installed 8.3.2) | Next-generation frontend bundler & dev server |
+| Node.js | v20+ / v22+ (Types ^24.19.2 / Installed 24.19.2) | JavaScript runtime & tooling execution |
+| Vite | ^8.3.4 (Installed 8.3.4) | Next-generation frontend bundler & dev server |
 
 ## Dependencies
 
@@ -15,22 +15,22 @@
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| `@supabase/supabase-js` | ^2.117.2 | Supabase PostgreSQL client & Auth SDK |
-| `react` | ^19.2.8 (Installed 19.3.0) | Core UI component framework |
-| `react-dom` | ^19.2.8 (Installed 19.3.0) | React DOM rendering engine |
+| `@supabase/supabase-js` | ^2.118.0 | Supabase PostgreSQL client & Auth SDK |
+| `react` | ^19.3.1 (Installed 19.3.1) | Core UI component framework |
+| `react-dom` | ^19.3.1 (Installed 19.3.1) | React DOM rendering engine |
 | `react-router-dom` | ^7.18.4 | Declarative client-side routing & layouts |
-| `lucide-react` | ^1.49.0 | Iconography system |
+| `lucide-react` | ^1.59.0 | Iconography system |
 | `clsx` | ^2.1.1 | Conditional classnames composer |
 | `tailwind-merge` | ^3.7.0 | Tailwind CSS class collision resolution |
-| `zod` | ^4.6.5 | Schema declaration & data validation |
+| `zod` | ^4.6.7 | Schema declaration & data validation |
 | `xlsx` | ^0.18.5 | Excel workbook parser and generator |
 | `jspdf` | ^4.2.1 | PDF document generator |
 | `html2canvas` | ^1.4.1 | HTML screenshot renderer for PDF conversion |
 | `html2pdf.js` | ^0.14.0 | HTML to PDF client utility |
-| `i18next` | ^26.4.2 | Internationalization core framework |
-| `react-i18next` | ^17.0.15 | React integration for i18next |
+| `i18next` | ^26.5.2 | Internationalization core framework |
+| `react-i18next` | ^17.1.0 | React integration for i18next |
 | `i18next-browser-languagedetector` | ^8.2.1 | Client browser language detector |
-| `dotenv` | ^18.0.6 | Environment variable loader |
+| `dotenv` | ^18.0.8 | Environment variable loader |
 
 ### Development (17 packages)
 
@@ -41,18 +41,18 @@
 | `@testing-library/jest-dom` | ^7.0.1 | DOM matcher extensions for Vitest |
 | `jsdom` | ^30.1.3 | Headless browser DOM environment for testing |
 | `typescript` | ~6.0.2 (Installed 6.0.3) | Static type checker |
-| `@vitejs/plugin-react` | ^6.1.1 | Vite plugin for React Fast Refresh |
+| `@vitejs/plugin-react` | ^6.1.2 | Vite plugin for React Fast Refresh |
 | `tailwindcss` | ^4.3.3 | Modern CSS utility framework |
 | `@tailwindcss/vite` | ^4.3.3 | Tailwind CSS v4 Vite integration |
-| `postcss` | ^8.5.28 | CSS post-processing pipeline |
+| `postcss` | ^8.5.30 | CSS post-processing pipeline |
 | `autoprefixer` | ^10.6.1 | Vendor prefix parser |
-| `oxlint` | ^1.81.0 (Installed 1.86.0) | Fast JavaScript/TypeScript linter |
+| `oxlint` | ^1.88.0 (Installed 1.88.0) | Fast JavaScript/TypeScript linter |
 | `tsx` | ^4.23.15 | TypeScript execute runner for scripts |
 | `@types/react` | ^19.2.18 | Type definitions for React |
 | `@types/react-dom` | ^19.2.7 | Type definitions for React DOM |
-| `@types/node` | ^24.13.3 (Installed 24.19.0) | Type definitions for Node.js |
+| `@types/node` | ^24.19.2 (Installed 24.19.2) | Type definitions for Node.js |
 | `@types/html2pdf.js` | ^0.10.0 | Type definitions for html2pdf.js |
-| `vite` | ^8.3.0 (Installed 8.3.2) | Development server & production builder |
+| `vite` | ^8.3.4 (Installed 8.3.4) | Development server & production builder |
 
 ## Infrastructure & Third-Party APIs
 
@@ -75,24 +75,14 @@
 
 | Package | Current | Wanted | Latest | Risk |
 |---------|---------|--------|--------|------|
-| `@supabase/supabase-js` | 2.117.2 | 2.118.0 | 2.118.0 | Low (minor patch) |
-| `@types/node` | 24.19.0 | 24.19.2 | 26.6.5 | Low |
-| `@vitejs/plugin-react` | 6.1.1 | 6.1.2 | 6.1.2 | Low |
-| dotenv | 18.0.6 | 18.0.8 | 18.0.8 | Low |
-| i18next | 26.4.2 | 26.5.2 | 26.5.2 | Low |
-| lucide-react | 1.49.0 | 1.59.0 | 1.59.0 | Low |
-| oxlint | 1.86.0 | 1.88.0 | 1.88.0 | Low |
-| postcss | 8.5.28 | 8.5.30 | 8.5.30 | Low |
-| react | 19.3.0 | 19.3.1 | 19.3.1 | Low |
-| react-dom | 19.3.0 | 19.3.1 | 19.3.1 | Low |
-| react-i18next | 17.0.15 | 17.1.0 | 17.1.0 | Low |
-| typescript | 6.0.3 | 6.0.3 | 7.0.2 | Medium (TypeScript major release) |
-| vite | 8.3.2 | 8.3.4 | 8.3.4 | Low |
-| zod | 4.6.5 | 4.6.7 | 4.6.7 | Low |
+| `@types/node` | 24.19.2 | 24.19.2 | 26.6.5 | Low (major release deferred) |
+| `typescript` | 6.0.3 | 6.0.3 | 7.0.2 | Medium (major release deferred) |
+
+*All 12 minor and patch dependency updates successfully reconciled with zero regressions.*
 
 ## Quality & Verification Status
 
-- **Vitest Unit & Component Testing:** Passes 20/20 test suites, 147/147 tests passing (100%) (`npm test`).
+- **Vitest Unit & Component Testing:** Passes 20/20 test suites, 147/147 tests passing (100%) (`npm test`). Zero `act(...)` or React state warnings.
 - **Linter (Oxlint):** 0 errors, 0 warnings across 136 files with 113 rules (`npm run lint`).
 - **TypeScript Static Analysis:** Passes clean with 0 errors (`npx tsc -b`).
-- **Production Bundle:** Built cleanly in ~550ms via `tsc -b && vite build`.
+- **Production Bundle:** Built cleanly in ~490ms via `tsc -b && vite build`. Code splitting active with dynamic route `React.lazy` chunks and dedicated vendor separation (`vendor-react`, `vendor-supabase`, `vendor-i18n`, `vendor-xlsx`, `vendor-pdf`). Initial client entry shell reduced to 28.7 kB. Zero build warnings.

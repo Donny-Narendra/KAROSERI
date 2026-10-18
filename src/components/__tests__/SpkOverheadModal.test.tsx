@@ -119,8 +119,14 @@ describe('Component: SpkOverheadModal (Mandor Floor Terminal Overhead Logging)',
         isOpen={true}
         onClose={vi.fn()}
         spkId="spk-test-1"
+        spkNumber="SPK-2026-009"
+        vehiclePlate="B 9988 XYZ"
       />
     );
+
+    await waitFor(() => {
+      expect(financialReportsService.getSpkOverheadLogs).toHaveBeenCalledWith('spk-test-1');
+    });
 
     const presetBtn = screen.getByText('Oven Spray Booth & Gas');
     fireEvent.click(presetBtn);
@@ -155,9 +161,15 @@ describe('Component: SpkOverheadModal (Mandor Floor Terminal Overhead Logging)',
         isOpen={true}
         onClose={vi.fn()}
         spkId="spk-test-1"
+        spkNumber="SPK-2026-009"
+        vehiclePlate="B 9988 XYZ"
         onOverheadUpdated={onUpdateMock}
       />
     );
+
+    await waitFor(() => {
+      expect(financialReportsService.getSpkOverheadLogs).toHaveBeenCalledWith('spk-test-1');
+    });
 
     // Fill form
     const nameInput = screen.getByPlaceholderText(/Contoh: Oven Spray Booth Jam Lembur/i);
