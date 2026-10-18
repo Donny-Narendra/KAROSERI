@@ -492,7 +492,7 @@ export const FinancialReportsPage: React.FC = () => {
               }`}
             >
               <Building2 className="w-4 h-4" />
-              <span>5. Laba Rugi Perusahaan & Target Solver (Corporate P&L)</span>
+              <span>5. Laba Rugi Perusahaan & OPEX</span>
             </button>
           </nav>
         </div>
