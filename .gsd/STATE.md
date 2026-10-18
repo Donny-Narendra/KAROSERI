@@ -1,19 +1,31 @@
 ## Current Position
 - **Sprint**: Sprint 42 — Implement Periodic OPEX Accounting, Empirical PnL Charts, and Smart Target Solver Engine
-- **Status**: Sprint in progress 🚀
+- **Status**: Completed ✅
 - **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness
 
 ## Last Session Summary
-Codebase mapping complete.
-- **52 total components & pages identified**: 43 modular components (including newly added `SpkOverheadModal.tsx`), 9 role-based pages, and 5 data services.
-- **33 dependencies analyzed**: 16 production packages and 17 development packages.
-- **Technical debt audit**: All 4 critical debt items from Sprint 37 audit verified completely resolved (RAB items constraint, Change order overheads, Floor terminal overhead logging, and Zero Oxlint warnings).
-- **Quality metrics validated**:
-  - 18/18 Vitest test suites passing (137/137 tests passing 100%).
-  - 0 errors and 0 warnings across 122 files in Oxlint.
-  - 0 TypeScript compilation errors (`tsc -b`).
-  - Production bundle generated cleanly in ~530ms.
-- **3 future backlog opportunities surfaced**: Route-based bundle code splitting for heavy libraries, minor dependency patch upgrades, and Vitest test act wrapper cleanup.
+Sprint 42 completed successfully.
+- **Pillar 1: Periodic OPEX Accounting & Corporate Monthly P&L**:
+  - Migration `20261018010000_periodic_opex_and_pnl.sql` applied to PostgreSQL database.
+  - Master categories (`operating_expense_categories`) seeded with 6 default operational categories.
+  - Periodic expenses table (`operating_expenses`) with monthly effective date aggregation and RLS.
+  - Comprehensive view `view_corporate_monthly_pnl` consolidating SPK revenues, 3-element COGS (materials, borongan labor, station overhead), and period OPEX to compute Net Operating Profit (EBIT) and net margin %.
+  - Full TypeScript data contracts and Supabase client service layer implemented.
+- **Pillar 2: Empirical Visual Charts**:
+  - `PnlTrendChart.tsx`: Multi-series responsive SVG trend chart displaying Revenue vs COGS vs OPEX vs Net EBIT with margin badges and hover tooltip card.
+  - `CostBreakdownDoughnut.tsx`: Interactive 4-element cost structure ring chart (Direct Material, Direct Labor, Factory Overhead, OPEX) with center totals and hover slice inspect.
+- **Pillar 3: Smart Sales Target Solver (CVP Optimization Engine)**:
+  - `src/utils/cvpCalculations.ts`: Mathematical engine for Break-Even Point (BEP in units & Rupiah), Contribution Margin (CM), Target Profit Omzet/Volume, Margin of Safety (MoS), and 6-scenario sensitivity analysis matrix.
+  - `SmartTargetSolver.tsx`: Interactive Excel Solver-style calculator with owner target presets and dynamic simulation table.
+- **Integration & Reporting**:
+  - Added Tab 5 "5. Laba Rugi Perusahaan & Target Solver (Corporate P&L)" in `FinancialReportsPage.tsx`.
+  - Built `CorporatePnlTab.tsx` with expandable COGS/OPEX breakdown drawers and OPEX entry/management modal (`OpexExpenseModal.tsx`).
+  - Integrated Corporate PnL into Excel workbook, CSV export, and printable A4 PDF modal in `FinancialPrintReport.tsx`.
+- **Quality Metrics**:
+  - **20/20 Vitest test suites passing (147/147 tests 100%)**.
+  - **0 warnings and 0 errors across 131 files in Oxlint**.
+  - **Clean TypeScript compilation (`tsc -b`)**.
+  - **Production bundle generated cleanly in 532ms**.
 
 ## Technical Debt Roadmap Execution Summary
 All 4 sprints resolving identified technical debt from the Sprint 37 audit and `/map` codebase mapping have been completely executed, tested, and verified:

@@ -5,15 +5,17 @@ import type {
   InventoryValuation,
   ProjectReceivable,
   FinancialExecutiveSummary,
+  CorporateMonthlyPnl,
 } from '../types/financialReports';
 
-export type FinancialReportType = 'profitability' | 'variance' | 'inventory' | 'receivables';
+export type FinancialReportType = 'profitability' | 'variance' | 'inventory' | 'receivables' | 'corporate_pnl';
 
 export interface FullReportsData {
   profitability: SpkJobProfitability[];
   variance: WbsCostVariance[];
   inventory: InventoryValuation[];
   receivables: ProjectReceivable[];
+  corporatePnl?: CorporateMonthlyPnl[];
   summary?: FinancialExecutiveSummary | null;
 }
 
@@ -149,6 +151,31 @@ export function mapReceivablesToExcelRows(items: ProjectReceivable[]) {
 }
 
 /**
+ * Transform data Laba Rugi Komprehensif Perusahaan (Corporate P&L) ke format Excel
+ */
+export function mapCorporatePnlToExcelRows(items: CorporateMonthlyPnl[]) {
+  return items.map((item, idx) => ({
+    'No.': idx + 1,
+    'Bulan Buku': item.report_month || '-',
+    'Jumlah SPK': Number(item.total_spk_count) || 0,
+    'Total Pendapatan (Rp)': Number(item.total_revenue) || 0,
+    'HPP Bahan Baku (Rp)': Number(item.total_material_cogs) || 0,
+    'HPP Jasa Borongan (Rp)': Number(item.total_labor_cogs) || 0,
+    'HPP Overhead FOH (Rp)': Number(item.total_foh_cogs) || 0,
+    'Total HPP/COGS (Rp)': Number(item.total_cogs) || 0,
+    'Laba Kotor (Rp)': Number(item.gross_profit) || 0,
+    'Total Beban OPEX (Rp)': Number(item.total_opex) || 0,
+    'OPEX Gaji (Rp)': Number(item.opex_salary) || 0,
+    'OPEX Listrik & Utilitas (Rp)': Number(item.opex_utility) || 0,
+    'OPEX Sewa Tempat (Rp)': Number(item.opex_rent) || 0,
+    'OPEX Amenities (Rp)': Number(item.opex_amenities) || 0,
+    'OPEX Lainnya (Rp)': Number(item.opex_others) || 0,
+    'Laba Bersih Usaha/EBIT (Rp)': Number(item.net_operating_profit) || 0,
+    'Net Margin (%)': Number(item.net_margin_percentage) || 0,
+  }));
+}
+
+/**
  * Helper untuk mengatur auto-fit lebar kolom pada worksheet
  */
 function autoFitColumns(rows: Record<string, any>[]): { wch: number }[] {
@@ -200,6 +227,11 @@ export function exportToExcel(
       mappedRows = mapReceivablesToExcelRows(data as ProjectReceivable[]);
       defaultSheetName = 'Piutang & Aging';
       defaultFilename = `RobelKaroseri_Piutang_dan_Aging_${dateStr}.xlsx`;
+      break;
+    case 'corporate_pnl':
+      mappedRows = mapCorporatePnlToExcelRows(data as CorporateMonthlyPnl[]);
+      defaultSheetName = 'Laba Rugi Perusahaan';
+      defaultFilename = `RobelKaroseri_Laba_Rugi_Perusahaan_${dateStr}.xlsx`;
       break;
   }
 
@@ -270,6 +302,14 @@ export function exportFullFinancialWorkbook(
   wsRec['!cols'] = autoFitColumns(rowsRec);
   XLSX.utils.book_append_sheet(wb, wsRec, 'Piutang & Aging');
 
+  // Sheet 5: Laba Rugi Komprehensif Perusahaan (jika tersedia)
+  if (allReportsData.corporatePnl && allReportsData.corporatePnl.length > 0) {
+    const rowsCorp = mapCorporatePnlToExcelRows(allReportsData.corporatePnl);
+    const wsCorp = XLSX.utils.json_to_sheet(rowsCorp);
+    wsCorp['!cols'] = autoFitColumns(rowsCorp);
+    XLSX.utils.book_append_sheet(wb, wsCorp, 'Laba Rugi Perusahaan');
+  }
+
   const filename = options?.customFilename || `RobelKaroseri_Full_Financial_Workbook_${dateStr}.xlsx`;
   XLSX.writeFile(wb, filename);
 }
@@ -302,6 +342,10 @@ export function exportToCsv(
     case 'receivables':
       mappedRows = mapReceivablesToExcelRows(data as ProjectReceivable[]);
       defaultFilename = `RobelKaroseri_Piutang_Aging_${dateStr}.csv`;
+      break;
+    case 'corporate_pnl':
+      mappedRows = mapCorporatePnlToExcelRows(data as CorporateMonthlyPnl[]);
+      defaultFilename = `RobelKaroseri_Laba_Rugi_Perusahaan_${dateStr}.csv`;
       break;
   }
 

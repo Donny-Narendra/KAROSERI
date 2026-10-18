@@ -208,4 +208,73 @@ export type NegativeMarginAnomaly = FinancialSanityAuditResult['negative_margin_
 export type UnbilledCompletedAnomaly = FinancialSanityAuditResult['unbilled_completed_items'][number];
 export type CriticalReceivableAnomaly = FinancialSanityAuditResult['critical_receivables_items'][number];
 
+// ==============================================================================
+// PERIODIC OPEX & CORPORATE P&L CONTRACTS (SPRINT 42)
+// ==============================================================================
+
+export interface OperatingExpenseCategory {
+  id: string;
+  name: string;
+  code: string;
+  default_period: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY' | string;
+}
+
+export interface OperatingExpense {
+  id: string;
+  expense_date: string;
+  effective_month: string;
+  category_id?: string | null;
+  category_name: string;
+  description: string;
+  amount: number;
+  payment_method: 'CASH' | 'TRANSFER' | string;
+  receipt_ref?: string | null;
+  created_at?: string;
+  created_by?: string | null;
+}
+
+export interface CreateOperatingExpensePayload {
+  expense_date: string;
+  effective_month: string;
+  category_id?: string | null;
+  category_name: string;
+  description: string;
+  amount: number;
+  payment_method?: 'CASH' | 'TRANSFER' | string;
+  receipt_ref?: string | null;
+  created_by?: string | null;
+}
+
+export interface OperatingExpenseFilter {
+  effectiveMonth?: string;
+  categoryName?: string;
+  startDate?: string;
+  endDate?: string;
+  searchQuery?: string;
+}
+
+export interface CorporateMonthlyPnl {
+  report_month: string;
+  total_spk_count: number;
+  total_revenue: number;
+  total_material_cogs: number;
+  total_labor_cogs: number;
+  total_foh_cogs: number;
+  total_cogs: number;
+  gross_profit: number;
+  total_opex: number;
+  net_operating_profit: number;
+  net_margin_percentage: number;
+  opex_salary: number;
+  opex_utility: number;
+  opex_rent: number;
+  opex_amenities: number;
+  opex_others: number;
+}
+
+export interface CorporateMonthlyPnlFilter {
+  startMonth?: string;
+  endMonth?: string;
+}
+
 

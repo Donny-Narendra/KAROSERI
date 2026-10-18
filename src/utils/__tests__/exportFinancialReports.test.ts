@@ -6,12 +6,14 @@ import {
   mapVarianceToExcelRows,
   mapInventoryToExcelRows,
   mapReceivablesToExcelRows,
+  mapCorporatePnlToExcelRows,
 } from '../exportFinancialReports';
 import type {
   SpkJobProfitability,
   WbsCostVariance,
   InventoryValuation,
   ProjectReceivable,
+  CorporateMonthlyPnl,
 } from '../../types/financialReports';
 
 describe('Financial Report Export Engine & Mapping (exportFinancialReports)', () => {
@@ -220,6 +222,45 @@ describe('Financial Report Export Engine & Mapping (exportFinancialReports)', ()
       expect(row['Sisa Piutang (Rp)']).toBe(450_000);
       expect(row['Usia Piutang (Hari)']).toBe(3);
       expect(row['Status Serah Terima']).toBe('UNIT SELESAI (TERTAHAN PELUNASAN)');
+    });
+  });
+
+  describe('6. Corporate Monthly PnL Mapping to Excel Rows', () => {
+    it('should correctly map corporate monthly PnL columns with COGS and OPEX breakdowns', () => {
+      const mockPnl: CorporateMonthlyPnl[] = [
+        {
+          report_month: '2026-10-01',
+          total_spk_count: 5,
+          total_revenue: 250_000_000,
+          total_material_cogs: 100_000_000,
+          total_labor_cogs: 60_000_000,
+          total_foh_cogs: 15_000_000,
+          total_cogs: 175_000_000,
+          gross_profit: 75_000_000,
+          total_opex: 35_000_000,
+          net_operating_profit: 40_000_000,
+          net_margin_percentage: 16.0,
+          opex_salary: 20_000_000,
+          opex_utility: 5_000_000,
+          opex_rent: 7_000_000,
+          opex_amenities: 2_000_000,
+          opex_others: 1_000_000,
+        },
+      ];
+
+      const rows = mapCorporatePnlToExcelRows(mockPnl);
+      expect(rows).toHaveLength(1);
+
+      const row = rows[0];
+      expect(row['Bulan Buku']).toBe('2026-10-01');
+      expect(row['Jumlah SPK']).toBe(5);
+      expect(row['Total Pendapatan (Rp)']).toBe(250_000_000);
+      expect(row['Total HPP/COGS (Rp)']).toBe(175_000_000);
+      expect(row['Laba Kotor (Rp)']).toBe(75_000_000);
+      expect(row['Total Beban OPEX (Rp)']).toBe(35_000_000);
+      expect(row['OPEX Gaji (Rp)']).toBe(20_000_000);
+      expect(row['Laba Bersih Usaha/EBIT (Rp)']).toBe(40_000_000);
+      expect(row['Net Margin (%)']).toBe(16.0);
     });
   });
 });

@@ -12,6 +12,12 @@ import type {
   FinancialSanityAuditResult,
   SpkOverheadLog,
   CreateSpkOverheadLogPayload,
+  OperatingExpenseCategory,
+  OperatingExpense,
+  CreateOperatingExpensePayload,
+  OperatingExpenseFilter,
+  CorporateMonthlyPnl,
+  CorporateMonthlyPnlFilter,
 } from '../types/financialReports';
 
 export const financialReportsService = {
@@ -369,6 +375,156 @@ export const financialReportsService = {
    */
   async auditFinancialSanityCheck(): Promise<FinancialSanityAuditResult> {
     return this.getSanityAudit();
+  },
+
+  /**
+   * 6. Mengambil Master Kategori Beban Operasional (OPEX)
+   */
+  async getOperatingExpenseCategories(): Promise<OperatingExpenseCategory[]> {
+    const { data, error } = await supabase
+      .from('operating_expense_categories')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching operating expense categories:', error);
+      throw new Error(`Gagal mengambil kategori beban operasional: ${error.message}`);
+    }
+
+    return (data || []) as OperatingExpenseCategory[];
+  },
+
+  /**
+   * 7. Mengambil Daftar Transaksi Beban Operasional Berkala (OPEX)
+   */
+  async getOperatingExpenses(filter?: OperatingExpenseFilter): Promise<OperatingExpense[]> {
+    let query = supabase
+      .from('operating_expenses')
+      .select('*')
+      .order('expense_date', { ascending: false });
+
+    if (filter?.effectiveMonth) {
+      const monthPrefix = filter.effectiveMonth.length === 7 ? `${filter.effectiveMonth}-01` : filter.effectiveMonth;
+      query = query.eq('effective_month', monthPrefix);
+    }
+    if (filter?.categoryName && filter.categoryName !== 'ALL') {
+      query = query.eq('category_name', filter.categoryName);
+    }
+    if (filter?.startDate) {
+      query = query.gte('expense_date', filter.startDate);
+    }
+    if (filter?.endDate) {
+      query = query.lte('expense_date', filter.endDate);
+    }
+    if (filter?.searchQuery && filter.searchQuery.trim()) {
+      const q = `%${filter.searchQuery.trim()}%`;
+      query = query.or(`description.ilike.${q},category_name.ilike.${q},receipt_ref.ilike.${q}`);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('Error fetching operating expenses:', error);
+      throw new Error(`Gagal mengambil data beban operasional: ${error.message}`);
+    }
+
+    return ((data || []) as any[]).map(row => ({
+      ...row,
+      amount: Number(row.amount || 0),
+    })) as OperatingExpense[];
+  },
+
+  /**
+   * 8. Mencatat Beban Operasional Baru
+   */
+  async createOperatingExpense(payload: CreateOperatingExpensePayload): Promise<OperatingExpense> {
+    const effectiveMonth = payload.effective_month.length === 7 
+      ? `${payload.effective_month}-01` 
+      : payload.effective_month.slice(0, 10);
+
+    const { data, error } = await supabase
+      .from('operating_expenses')
+      .insert({
+        expense_date: payload.expense_date,
+        effective_month: effectiveMonth,
+        category_id: payload.category_id || null,
+        category_name: payload.category_name,
+        description: payload.description,
+        amount: payload.amount,
+        payment_method: payload.payment_method || 'TRANSFER',
+        receipt_ref: payload.receipt_ref || null,
+        created_by: payload.created_by || null,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating operating expense:', error);
+      throw new Error(`Gagal mencatat beban operasional: ${error.message}`);
+    }
+
+    return {
+      ...(data as any),
+      amount: Number(data.amount || 0),
+    } as OperatingExpense;
+  },
+
+  /**
+   * 9. Menghapus Catatan Beban Operasional
+   */
+  async deleteOperatingExpense(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('operating_expenses')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting operating expense:', error);
+      throw new Error(`Gagal menghapus beban operasional: ${error.message}`);
+    }
+  },
+
+  /**
+   * 10. Mengambil Laporan Laba Rugi Komprehensif Perusahaan (Corporate Monthly P&L)
+   */
+  async getCorporateMonthlyPnl(filter?: CorporateMonthlyPnlFilter): Promise<CorporateMonthlyPnl[]> {
+    let query = supabase
+      .from('view_corporate_monthly_pnl')
+      .select('*')
+      .order('report_month', { ascending: false });
+
+    if (filter?.startMonth) {
+      const start = filter.startMonth.length === 7 ? `${filter.startMonth}-01` : filter.startMonth;
+      query = query.gte('report_month', start);
+    }
+    if (filter?.endMonth) {
+      const end = filter.endMonth.length === 7 ? `${filter.endMonth}-01` : filter.endMonth;
+      query = query.lte('report_month', end);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('Error fetching corporate monthly pnl:', error);
+      throw new Error(`Gagal mengambil laporan laba rugi perusahaan: ${error.message}`);
+    }
+
+    return ((data || []) as any[]).map(row => ({
+      report_month: typeof row.report_month === 'string' ? row.report_month.slice(0, 10) : new Date(row.report_month).toISOString().slice(0, 10),
+      total_spk_count: Number(row.total_spk_count || 0),
+      total_revenue: Number(row.total_revenue || 0),
+      total_material_cogs: Number(row.total_material_cogs || 0),
+      total_labor_cogs: Number(row.total_labor_cogs || 0),
+      total_foh_cogs: Number(row.total_foh_cogs || 0),
+      total_cogs: Number(row.total_cogs || 0),
+      gross_profit: Number(row.gross_profit || 0),
+      total_opex: Number(row.total_opex || 0),
+      net_operating_profit: Number(row.net_operating_profit || 0),
+      net_margin_percentage: Number(row.net_margin_percentage || 0),
+      opex_salary: Number(row.opex_salary || 0),
+      opex_utility: Number(row.opex_utility || 0),
+      opex_rent: Number(row.opex_rent || 0),
+      opex_amenities: Number(row.opex_amenities || 0),
+      opex_others: Number(row.opex_others || 0),
+    })) as CorporateMonthlyPnl[];
   },
 };
 

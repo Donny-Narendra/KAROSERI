@@ -6,19 +6,21 @@ import type {
   InventoryValuation,
   ProjectReceivable,
   FinancialExecutiveSummary,
+  CorporateMonthlyPnl,
 } from '../../types/financialReports';
 import { exportFullFinancialWorkbook, exportToExcel } from '../../utils/exportFinancialReports';
 
 interface FinancialPrintReportProps {
   isOpen: boolean;
   onClose: () => void;
-  activeTab: 'profitability' | 'variance' | 'inventory' | 'receivables' | 'all';
-  setActiveTab?: (tab: 'profitability' | 'variance' | 'inventory' | 'receivables' | 'all') => void;
+  activeTab: 'profitability' | 'variance' | 'inventory' | 'receivables' | 'corporate_pnl' | 'all';
+  setActiveTab?: (tab: 'profitability' | 'variance' | 'inventory' | 'receivables' | 'corporate_pnl' | 'all') => void;
   summary: FinancialExecutiveSummary | null;
   profitabilityData: SpkJobProfitability[];
   varianceData: WbsCostVariance[];
   inventoryData: InventoryValuation[];
   receivablesData: ProjectReceivable[];
+  corporatePnlData?: CorporateMonthlyPnl[];
   startDate?: string;
   endDate?: string;
   currentUser?: {
@@ -45,6 +47,7 @@ export const FinancialPrintReport: React.FC<FinancialPrintReportProps> = ({
   varianceData = [],
   inventoryData = [],
   receivablesData = [],
+  corporatePnlData = [],
   startDate,
   endDate,
   currentUser,
@@ -75,6 +78,7 @@ export const FinancialPrintReport: React.FC<FinancialPrintReportProps> = ({
         variance: varianceData,
         inventory: inventoryData,
         receivables: receivablesData,
+        corporatePnl: corporatePnlData,
         summary,
       });
     } else {
@@ -83,6 +87,7 @@ export const FinancialPrintReport: React.FC<FinancialPrintReportProps> = ({
       if (activeTab === 'variance') data = varianceData;
       if (activeTab === 'inventory') data = inventoryData;
       if (activeTab === 'receivables') data = receivablesData;
+      if (activeTab === 'corporate_pnl') data = corporatePnlData;
       exportToExcel(activeTab, data);
     }
   };
@@ -120,6 +125,7 @@ export const FinancialPrintReport: React.FC<FinancialPrintReportProps> = ({
                 <option value="variance">2. Varian Anggaran WBS</option>
                 <option value="inventory">3. Valuasi Persediaan Gudang</option>
                 <option value="receivables">4. Piutang & Kontrol Serah Terima</option>
+                <option value="corporate_pnl">5. Laba Rugi Perusahaan (Corporate P&L)</option>
               </select>
             )}
 
@@ -515,6 +521,58 @@ export const FinancialPrintReport: React.FC<FinancialPrintReportProps> = ({
                 </div>
               </div>
             )}
+
+            {/* Table 5: Laba Rugi Komprehensif Perusahaan (Corporate P&L) */}
+            {(activeTab === 'all' || activeTab === 'corporate_pnl') && (
+              <div className="space-y-2 break-inside-avoid">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-slate-700" />
+                  {activeTab === 'all' ? 'VI. Laporan Laba Rugi Komprehensif Perusahaan (Corporate P&L)' : 'I. Laporan Laba Rugi Komprehensif Perusahaan'}
+                </h2>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[10px] border border-black border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100 text-slate-900 font-bold border-b border-black text-left">
+                        <th className="border border-black p-1.5 text-center w-8">No</th>
+                        <th className="border border-black p-1.5">Bulan Buku</th>
+                        <th className="border border-black p-1.5 text-center">SPK</th>
+                        <th className="border border-black p-1.5 text-right">Revenue</th>
+                        <th className="border border-black p-1.5 text-right">HPP (COGS)</th>
+                        <th className="border border-black p-1.5 text-right">Laba Kotor</th>
+                        <th className="border border-black p-1.5 text-right">Total OPEX</th>
+                        <th className="border border-black p-1.5 text-right">Laba Bersih (EBIT)</th>
+                        <th className="border border-black p-1.5 text-center">Net Margin</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-black font-mono">
+                      {corporatePnlData.length === 0 ? (
+                        <tr>
+                          <td colSpan={9} className="border border-black p-3 text-center text-slate-500 italic">
+                            Tidak ada data laba rugi bulanan tercatat.
+                          </td>
+                        </tr>
+                      ) : (
+                        corporatePnlData.map((row, idx) => (
+                          <tr key={idx} className="border-b border-black">
+                            <td className="border border-black p-1 text-center font-sans">{idx + 1}</td>
+                            <td className="border border-black p-1 font-bold font-sans">{row.report_month}</td>
+                            <td className="border border-black p-1 text-center font-sans">{row.total_spk_count}</td>
+                            <td className="border border-black p-1 text-right">{formatCurrency(row.total_revenue)}</td>
+                            <td className="border border-black p-1 text-right">{formatCurrency(row.total_cogs)}</td>
+                            <td className="border border-black p-1 text-right">{formatCurrency(row.gross_profit)}</td>
+                            <td className="border border-black p-1 text-right">{formatCurrency(row.total_opex)}</td>
+                            <td className={`border border-black p-1 text-right font-bold ${row.net_operating_profit >= 0 ? 'text-slate-900' : 'text-rose-700'}`}>
+                              {formatCurrency(row.net_operating_profit)}
+                            </td>
+                            <td className="border border-black p-1 text-center">{row.net_margin_percentage}%</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 4. Official Signatures Block */}
@@ -562,6 +620,7 @@ function getDocSuffix(tab: string): string {
     case 'variance': return 'VAR';
     case 'inventory': return 'INV';
     case 'receivables': return 'REC';
+    case 'corporate_pnl': return 'CORP_PNL';
     default: return 'FULL';
   }
 }
@@ -572,6 +631,7 @@ function getDocumentTitle(tab: string): string {
     case 'variance': return 'LAPORAN ANALISIS VARIAN ANGGARAN WBS (PAGU VS REALISASI)';
     case 'inventory': return 'LAPORAN VALUASI PERSEDIAAN & MUTASI GUDANG';
     case 'receivables': return 'LAPORAN PIUTANG PROYEK & KONTROL SERAH TERIMA';
+    case 'corporate_pnl': return 'LAPORAN LABA RUGI KOMPREHENSIF PERUSAHAAN (CORPORATE P&L)';
     default: return 'LAPORAN KONSOLIDASI EVALUASI FINANSIAL & OPERASIONAL BENGKEL';
   }
 }

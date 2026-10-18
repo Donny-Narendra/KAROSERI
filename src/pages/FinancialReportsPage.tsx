@@ -14,7 +14,8 @@ import {
   Download,
   Printer,
   FileSpreadsheet,
-  ChevronDown
+  ChevronDown,
+  Building2
 } from 'lucide-react';
 import { ExecutiveKpiCards } from '../components/finance/ExecutiveKpiCards';
 import { FinancialAuditPanel } from '../components/finance/FinancialAuditPanel';
@@ -23,6 +24,7 @@ import { JobProfitabilityTab } from '../components/finance/tabs/JobProfitability
 import { WbsCostVarianceTab } from '../components/finance/tabs/WbsCostVarianceTab';
 import { InventoryValuationTab } from '../components/finance/tabs/InventoryValuationTab';
 import { ReceivablesAgingTab } from '../components/finance/tabs/ReceivablesAgingTab';
+import { CorporatePnlTab } from '../components/finance/tabs/CorporatePnlTab';
 import { financialReportsService } from '../services/financialReportsService';
 import { exportToExcel, exportFullFinancialWorkbook, exportToCsv } from '../utils/exportFinancialReports';
 import type { 
@@ -30,10 +32,11 @@ import type {
   SpkJobProfitability,
   WbsCostVariance,
   InventoryValuation,
-  ProjectReceivable
+  ProjectReceivable,
+  CorporateMonthlyPnl
 } from '../types/financialReports';
 
-type ReportTab = 'profitability' | 'variance' | 'inventory' | 'receivables';
+type ReportTab = 'profitability' | 'variance' | 'inventory' | 'receivables' | 'corporate_pnl';
 
 export const FinancialReportsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -57,7 +60,7 @@ export const FinancialReportsPage: React.FC = () => {
 
   // Print & Export Engine States (Step 5)
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
-  const [printTab, setPrintTab] = useState<'all' | 'profitability' | 'variance' | 'inventory' | 'receivables'>('all');
+  const [printTab, setPrintTab] = useState<'all' | 'profitability' | 'variance' | 'inventory' | 'receivables' | 'corporate_pnl'>('all');
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
 
@@ -66,6 +69,7 @@ export const FinancialReportsPage: React.FC = () => {
   const [allVariance, setAllVariance] = useState<WbsCostVariance[]>([]);
   const [allInventory, setAllInventory] = useState<InventoryValuation[]>([]);
   const [allReceivables, setAllReceivables] = useState<ProjectReceivable[]>([]);
+  const [allCorporatePnl, setAllCorporatePnl] = useState<CorporateMonthlyPnl[]>([]);
 
   const fetchSummary = useCallback(async () => {
     setLoadingSummary(true);
@@ -112,7 +116,7 @@ export const FinancialReportsPage: React.FC = () => {
 
   const fetchAllReports = useCallback(async () => {
     try {
-      const [prof, vari, inv, rec] = await Promise.all([
+      const [prof, vari, inv, rec, corp] = await Promise.all([
         financialReportsService.getJobProfitability({
           startDate: startDate || undefined,
           endDate: endDate || undefined,
@@ -121,12 +125,14 @@ export const FinancialReportsPage: React.FC = () => {
         financialReportsService.getWbsCostVariance(undefined, undefined),
         financialReportsService.getInventoryValuation(),
         financialReportsService.getProjectReceivables(false),
+        financialReportsService.getCorporateMonthlyPnl(),
       ]);
       setAllProfitability(prof);
       setAllVariance(vari);
       setAllInventory(inv);
       setAllReceivables(rec);
-      return { prof, vari, inv, rec };
+      setAllCorporatePnl(corp);
+      return { prof, vari, inv, rec, corp };
     } catch (err) {
       console.error('Error prefetching all reports for export:', err);
       return null;
@@ -159,6 +165,9 @@ export const FinancialReportsPage: React.FC = () => {
       } else if (activeTab === 'receivables') {
         const data = await financialReportsService.getProjectReceivables(false);
         exportToExcel('receivables', data);
+      } else if (activeTab === 'corporate_pnl') {
+        const data = await financialReportsService.getCorporateMonthlyPnl();
+        exportToExcel('corporate_pnl', data);
       }
     } catch (err: any) {
       alert(`Gagal mengekspor data: ${err.message}`);
@@ -178,6 +187,7 @@ export const FinancialReportsPage: React.FC = () => {
           variance: res.vari,
           inventory: res.inv,
           receivables: res.rec,
+          corporatePnl: res.corp,
           summary,
         });
       }
@@ -208,6 +218,9 @@ export const FinancialReportsPage: React.FC = () => {
       } else if (activeTab === 'receivables') {
         const data = await financialReportsService.getProjectReceivables(false);
         exportToCsv('receivables', data);
+      } else if (activeTab === 'corporate_pnl') {
+        const data = await financialReportsService.getCorporateMonthlyPnl();
+        exportToCsv('corporate_pnl', data);
       }
     } catch (err: any) {
       alert(`Gagal mengekspor CSV: ${err.message}`);
@@ -469,6 +482,18 @@ export const FinancialReportsPage: React.FC = () => {
                 <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
               )}
             </button>
+
+            <button
+              onClick={() => setActiveTab('corporate_pnl')}
+              className={`flex items-center gap-2 py-3 px-4 font-display font-medium text-sm border-b-2 whitespace-nowrap transition-all duration-150 ${
+                activeTab === 'corporate_pnl'
+                  ? 'border-purple-500 text-purple-400 font-bold'
+                  : 'border-transparent text-text-muted hover:text-text hover:border-border'
+              }`}
+            >
+              <Building2 className="w-4 h-4" />
+              <span>5. Laba Rugi Perusahaan & Target Solver (Corporate P&L)</span>
+            </button>
           </nav>
         </div>
 
@@ -503,6 +528,12 @@ export const FinancialReportsPage: React.FC = () => {
               refreshTrigger={refreshTrigger}
             />
           )}
+
+          {activeTab === 'corporate_pnl' && (
+            <CorporatePnlTab
+              refreshTrigger={refreshTrigger}
+            />
+          )}
         </div>
       </main>
 
@@ -517,6 +548,7 @@ export const FinancialReportsPage: React.FC = () => {
         varianceData={allVariance}
         inventoryData={allInventory}
         receivablesData={allReceivables}
+        corporatePnlData={allCorporatePnl}
         startDate={startDate}
         endDate={endDate}
         currentUser={{
