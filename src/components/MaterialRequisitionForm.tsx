@@ -181,16 +181,17 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
             )
           `)
           .eq('rab_estimation_id', rabEst.id)
-          .or('item_type.eq.MATERIAL,item_type.is.null');
+          .eq('item_type', 'MATERIAL');
 
         if (itemsError) throw itemsError;
 
         if (itemsData) {
-          // Filter tolerantly for WBS category & strictly require item_type = 'MATERIAL' (or null legacy) and NOT 'LABOR' or 'OVERHEAD'
+          // Filter tolerantly for WBS category & strictly require item_type = 'MATERIAL' (strictly exclude 'LABOR', 'OVERHEAD', null, or unclassified items)
           const filtered = itemsData.filter((item: any) => {
-            const isMaterialType = item.item_type === 'MATERIAL' || !item.item_type;
-            const isNotLabor = item.item_type !== 'LABOR';
-            const isNotOverhead = item.item_type !== 'OVERHEAD';
+            const itemType = (item.item_type || '').toUpperCase();
+            const isMaterialType = itemType === 'MATERIAL';
+            const isNotLabor = itemType !== 'LABOR';
+            const isNotOverhead = itemType !== 'OVERHEAD';
             if (!isMaterialType || !isNotLabor || !isNotOverhead) return false;
 
             if (!item.wbs_category) return true;
@@ -240,7 +241,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
               rabQuantity: qty,
               subtotal: calculatedSubtotal,
               currentStock: matchedMat ? Number(matchedMat.current_stock || 0) : 0,
-              item_type: item.item_type || 'MATERIAL'
+              item_type: 'MATERIAL'
             };
           });
         }
@@ -268,6 +269,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
 
         if (coItemsData && coItemsData.length > 0) {
           const coFiltered = coItemsData.filter((item: any) => {
+            if ((item.item_type || '').toUpperCase() !== 'MATERIAL') return false;
             if (!item.wbs_stage) return true;
             const itemStageClean = item.wbs_stage.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
             return (

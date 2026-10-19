@@ -1,44 +1,47 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { MaterialRequisitionForm } from '../MaterialRequisitionForm';
 import { supabase } from '../../lib/supabaseClient';
 
+vi.mock('../../lib/supabaseClient', () => ({
+  supabase: {
+    from: vi.fn(),
+  },
+}));
+
 vi.mock('../../context/AuthContext', () => ({
   useAuth: () => ({
-    user: { id: 'test-user-id', email: 'mandor@test.com' },
-    profile: { id: 'test-user-id', full_name: 'Mandor Test', role: 'mandor' },
-    signOut: vi.fn(),
+    user: { id: 'test-user-id-123', email: 'mandor@karoseri.com' },
   }),
 }));
 
-vi.mock('../../lib/supabaseClient', () => {
-  return {
-    supabase: {
-      from: vi.fn(),
-    },
-  };
-});
-
 describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
   const mockSpkId = 'spk-uuid-123';
-  const mockWbsCategory = 'WBS 1: Pembongkaran';
+  const mockWbsCategory = 'Pembongkaran';
   const mockOnClose = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  const setupSupabaseMock = (rabItemsData: any[], masterMaterials: any[] = [], existingRequisitions: any[] = []) => {
+  const setupSupabaseMock = (
+    rabItemsData: any[] = [],
+    masterMaterials: any[] = [],
+    existingRequisitions: any[] = []
+  ) => {
     const mockInsert = vi.fn().mockReturnValue({
       select: vi.fn().mockReturnValue({
         single: vi.fn().mockResolvedValue({
-          data: { id: 'new-req-uuid-1' },
+          data: { id: 'new-req-uuid', spk_id: mockSpkId, status: 'PENDING' },
           error: null,
         }),
       }),
     });
 
-    const mockItemsInsert = vi.fn().mockResolvedValue({ data: [], error: null });
+    const mockItemsInsert = vi.fn().mockResolvedValue({
+      data: [{ id: 'item-uuid-1' }],
+      error: null,
+    });
 
     vi.mocked(supabase.from).mockImplementation((table: string) => {
       if (table === 'spk') {
@@ -74,18 +77,17 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
       }
 
       if (table === 'rab_items') {
+        let currentFiltered = [...rabItemsData];
         const queryObj: any = {
           select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          or: vi.fn().mockImplementation((_condition: string) => {
-            // Simulate PostgREST filtering for item_type.eq.MATERIAL,item_type.is.null
-            const filtered = rabItemsData.filter(
-              (item) => item.item_type === 'MATERIAL' || item.item_type === null || item.item_type === undefined
-            );
-            return Promise.resolve({ data: filtered, error: null });
+          eq: vi.fn().mockImplementation((col: string, val: any) => {
+            if (col === 'item_type') {
+              currentFiltered = currentFiltered.filter((item) => item.item_type === val);
+            }
+            return queryObj;
           }),
           then: vi.fn().mockImplementation((fn: any) =>
-            Promise.resolve({ data: rabItemsData, error: null }).then(fn)
+            Promise.resolve({ data: currentFiltered, error: null }).then(fn)
           ),
         };
         return queryObj as any;
@@ -144,7 +146,7 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
 
   const sampleMasterMaterials = [
     { id: 'mat-1', name: 'AMPLAS 100', unit: 'lembar', unit_price: 5000, current_stock: 50 },
-    { id: 'mat-2', name: 'Kawat Las RB-26', unit: 'kg', unit_price: 45000, current_stock: 20 },
+    { id: 'mat-2', name: 'material tes 2', unit: 'pcs', unit_price: 25000, current_stock: 30 },
   ];
 
   const sampleMixedRabItems = [
@@ -161,25 +163,36 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
       materials: { id: 'mat-1', name: 'AMPLAS 100', unit: 'lembar', unit_price: 5000, current_stock: 50 },
     },
     {
-      id: 'rab-item-mat-legacy',
-      description: 'Kawat Las RB-26',
-      item_type: null, // Legacy unclassified item (treated as MATERIAL)
-      quantity: 2,
-      unit: 'kg',
-      item_total: 90000,
-      unit_price: 45000,
+      id: 'rab-item-mat-2',
+      description: 'material tes 2',
+      item_type: 'MATERIAL',
+      quantity: 5,
+      unit: 'pcs',
+      item_total: 125000,
+      unit_price: 25000,
       wbs_category: 'Pembongkaran',
       material_id: 'mat-2',
-      materials: { id: 'mat-2', name: 'Kawat Las RB-26', unit: 'kg', unit_price: 45000, current_stock: 20 },
+      materials: { id: 'mat-2', name: 'material tes 2', unit: 'pcs', unit_price: 25000, current_stock: 30 },
     },
     {
-      id: 'rab-item-labor-1',
-      description: 'materias tes tukang 1',
+      id: 'rab-item-labor-tukang',
+      description: 'TUKANG RANGKA BAK',
       item_type: 'LABOR',
+      quantity: 0.3,
+      unit: 'pcs',
+      item_total: 300000,
+      unit_price: 1000000,
+      wbs_category: 'Pembongkaran',
+      materials: null,
+    },
+    {
+      id: 'rab-item-unclassified-null',
+      description: 'Tukang Borongan Tanpa Tipe',
+      item_type: null, // Legacy unclassified item (MUST be excluded)
       quantity: 1,
-      unit: 'hari',
-      item_total: 150000,
-      unit_price: 150000,
+      unit: 'ls',
+      item_total: 250000,
+      unit_price: 250000,
       wbs_category: 'Pembongkaran',
       materials: null,
     },
@@ -196,7 +209,7 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
     },
   ];
 
-  it('exclusively shows MATERIAL items (and legacy null items) in Alokasi RAB, excluding LABOR and OVERHEAD', async () => {
+  it('exclusively shows pure MATERIAL items in Alokasi RAB, strictly excluding LABOR (TUKANG RANGKA BAK), OVERHEAD, and null legacy items', async () => {
     setupSupabaseMock(sampleMixedRabItems, sampleMasterMaterials);
 
     render(
@@ -212,14 +225,15 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
       expect(screen.getByText('Alokasi RAB (WBS Terkait)')).toBeInTheDocument();
     });
 
-    // Check that MATERIAL item (AMPLAS 100) appears
+    // Check that pure MATERIAL items appear
     expect(screen.getByText('AMPLAS 100')).toBeInTheDocument();
+    expect(screen.getByText('material tes 2')).toBeInTheDocument();
 
-    // Check that legacy null item (Kawat Las RB-26) appears
-    expect(screen.getByText('Kawat Las RB-26')).toBeInTheDocument();
+    // Check that LABOR item (TUKANG RANGKA BAK) DOES NOT appear
+    expect(screen.queryByText('TUKANG RANGKA BAK')).not.toBeInTheDocument();
 
-    // Check that LABOR item (materias tes tukang 1) DOES NOT appear
-    expect(screen.queryByText('materias tes tukang 1')).not.toBeInTheDocument();
+    // Check that unclassified null item DOES NOT appear
+    expect(screen.queryByText('Tukang Borongan Tanpa Tipe')).not.toBeInTheDocument();
 
     // Check that OVERHEAD item (Listrik) DOES NOT appear
     expect(screen.queryByText('Listrik')).not.toBeInTheDocument();
@@ -254,7 +268,7 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
     expect(amplasRow).toBeInTheDocument();
     fireEvent.doubleClick(amplasRow!);
 
-    // Now on the right panel, only "Kawat Las RB-26" remains, badge should be 1
+    // Now on the right panel, only "material tes 2" remains, badge should be 1
     await waitFor(() => {
       const headerElement = screen.getByText('Alokasi RAB (WBS Terkait)').closest('div');
       expect(within(headerElement!).getByText('1')).toBeInTheDocument();
@@ -279,22 +293,22 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Kawat Las RB-26')).toBeInTheDocument();
+      expect(screen.getByText('material tes 2')).toBeInTheDocument();
     });
 
-    // Click on "Kawat Las RB-26" to highlight it
-    const kawatRow = screen.getByText('Kawat Las RB-26').closest('div[class*="cursor-pointer"]');
-    fireEvent.click(kawatRow!);
+    // Click on "material tes 2" to highlight it
+    const mat2Row = screen.getByText('material tes 2').closest('div[class*="cursor-pointer"]');
+    fireEvent.click(mat2Row!);
 
     // Click << button
     const moveButton = screen.getByTitle('Pindahkan item yang disorot ke Daftar Permintaan (<<)');
     expect(moveButton).not.toBeDisabled();
     fireEvent.click(moveButton);
 
-    // Kawat Las is now in left panel
+    // material tes 2 is now in left panel
     await waitFor(() => {
       const leftPanel = screen.getByText('Daftar Permintaan Material').closest('.md\\:col-span-5') as HTMLElement;
-      expect(within(leftPanel).getByText('Kawat Las RB-26')).toBeInTheDocument();
+      expect(within(leftPanel).getByText('material tes 2')).toBeInTheDocument();
     });
 
     // Counter badge on right decreases to 1
@@ -306,7 +320,7 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
     expect(returnButton).not.toBeDisabled();
     fireEvent.click(returnButton);
 
-    // Kawat Las should be back on right, badge returns to 2
+    // material tes 2 should be back on right, badge returns to 2
     await waitFor(() => {
       expect(within(headerElement!).getByText('2')).toBeInTheDocument();
     });
@@ -363,8 +377,16 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
     });
   });
 
-  it('client-side filter strictly catches and strips LABOR and OVERHEAD if returned by query', async () => {
-    // Custom mock where .or does NOT filter, returning all records to simulate raw client-side defense
+  it('client-side filter strictly catches and strips LABOR (TUKANG RANGKA BAK), OVERHEAD, and null legacy items even if returned unfiltered by DB query', async () => {
+    // Custom mock where rab_items query returns all mixed items (simulating unfiltered raw API response)
+    const mockRabQuery: any = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      then: vi.fn().mockImplementation((fn: any) =>
+        Promise.resolve({ data: sampleMixedRabItems, error: null }).then(fn)
+      ),
+    };
+
     vi.mocked(supabase.from).mockImplementation((table: string) => {
       if (table === 'spk') {
         return {
@@ -387,11 +409,7 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
         } as any;
       }
       if (table === 'rab_items') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          or: vi.fn().mockResolvedValue({ data: sampleMixedRabItems, error: null }), // returns unfiltered
-        } as any;
+        return mockRabQuery as any;
       }
       if (table === 'change_order_items') {
         return {
@@ -428,14 +446,15 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
 
     await waitFor(() => {
       expect(screen.getByText('AMPLAS 100')).toBeInTheDocument();
+      expect(screen.getByText('material tes 2')).toBeInTheDocument();
     });
 
-    // Despite rab_items query returning all mixed items, client-side filter excludes LABOR & OVERHEAD
-    expect(screen.queryByText('materias tes tukang 1')).not.toBeInTheDocument();
+    // Despite rab_items query returning all mixed items, client-side filter strictly excludes LABOR, OVERHEAD, and null
+    expect(screen.queryByText('TUKANG RANGKA BAK')).not.toBeInTheDocument();
+    expect(screen.queryByText('Tukang Borongan Tanpa Tipe')).not.toBeInTheDocument();
     expect(screen.queryByText('Listrik')).not.toBeInTheDocument();
 
     const headerElement = screen.getByText('Alokasi RAB (WBS Terkait)').closest('div');
     expect(within(headerElement!).getByText('2')).toBeInTheDocument();
   });
 });
-

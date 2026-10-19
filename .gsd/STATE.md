@@ -1,32 +1,28 @@
 ## Current Position
 - **Sprint**: Sprint 45 — Enforce Strict item_type = 'MATERIAL' Filter on Requisition RAB Allocation Panel
-- **Status**: Sprint in progress ⏳
+- **Status**: Completed ✅
 - **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness
 
 ## Last Session Summary
-Sprint 44 completed with zero hardcoded static mock data violations:
-1. **Source Code Regex & Keyword Auditing**:
-   - Comprehensive regex scan across `src/` for `mock`, `dummy`, `MOCK_DATA`, `placeholderData`, `sampleData`.
-   - 0 mock data arrays found in production code.
-   - Refactored legacy `interface MockSPK` in `src/pages/KasirDashboard.tsx` to `interface KasirSpkViewModel` for strict code hygiene.
-2. **Financial Component Data Flow Validation**:
-   - `ExecutiveKpiCards.tsx`: 100% sourced from `get_financial_executive_summary` RPC.
-   - `JobProfitabilityTab.tsx`: 100% sourced from `view_spk_job_profitability`.
-   - `WbsCostVarianceTab.tsx`: 100% sourced from `view_wbs_cost_variance`.
-   - `InventoryValuationTab.tsx`: 100% sourced from `view_inventory_valuation`.
-   - `ReceivablesAgingTab.tsx`: 100% sourced from `view_project_receivables`.
-   - `CorporatePnlTab.tsx`, `CorporatePnLCharts.tsx`, `SmartTargetSolver.tsx`: 100% sourced from `view_corporate_monthly_pnl`.
-   - Currency scanning confirmed no static nominal numbers are displayed as data.
-3. **Service Layer Integrity Check**:
-   - All 14 methods in `financialReportsService.ts`, all methods in `operatingExpenseService.ts`, and all methods in `spkService.ts` call live Supabase queries (`supabase.from()` or `supabase.rpc()`) and throw on failure. Zero fake fallback arrays.
-4. **Operational Dashboards Alignment**:
-   - `/service-advisor` (`ServiceAdvisorDashboard.tsx`), `/mandor` (`MandorDashboard.tsx`), `/warehouse` (`WarehouseDashboard.tsx`), and `/kasir` (`KasirDashboard.tsx`) confirmed 100% driven by live database queries.
+Sprint 45 completed with strict physical material isolation enforced on Mandor Material Requisition:
+1. **Query & Filter Logic Hardening**:
+   - In `src/components/MaterialRequisitionForm.tsx`, replaced `.or('item_type.eq.MATERIAL,item_type.is.null')` with strict `.eq('item_type', 'MATERIAL')`.
+   - Updated client-side filter logic to strictly require `(item.item_type || '').toUpperCase() === 'MATERIAL'` and unconditionally reject `LABOR` (e.g. `TUKANG RANGKA BAK`), `OVERHEAD` (e.g. `Listrik`), and untyped/null legacy items.
+   - Enforced `(item.item_type || '').toUpperCase() === 'MATERIAL'` on approved Change Order items.
+   - In `src/components/WbsChecklist.tsx`, excluded `OVERHEAD` items from pending WBS material/borongan calculations.
+2. **Availability Counter Badge & UI Synchronization**:
+   - The header badge beside "Alokasi RAB (WBS Terkait)" (`availableItems.length`) strictly reflects pure physical materials.
+   - Double-click and `<<` / `>>` button transfer mechanics decrement and restore the count badge accurately.
+3. **Unit & Component Testing Verification**:
+   - Updated `src/components/__tests__/MaterialRequisitionForm.test.tsx` with dedicated test fixtures for `TUKANG RANGKA BAK` (0.3 pcs, Rp 300.000, `item_type: 'LABOR'`), unclassified `null` items, and `OVERHEAD`.
+   - Verified that client-side defense catches and strips non-materials even if the database query were to return unfiltered records.
+   - 5/5 unit tests passing in `MaterialRequisitionForm.test.tsx`.
 
 ## Quality & Verification Status
 - **Vitest Unit & Component Testing:** 20/20 test suites passing, 147/147 tests passing (100%).
 - **Linter (Oxlint):** 0 errors, 0 warnings across 136 files with 113 rules.
 - **TypeScript Static Analysis:** Clean compilation with 0 errors (`npx tsc -b`).
-- **Production Build:** Clean build in ~499ms, 0 warnings, optimized code splitting.
+- **Production Build:** Clean build in 2.09s (`npm run build`).
 
 ## Technical Debt Backlog
 None. (Zero outstanding technical debt).

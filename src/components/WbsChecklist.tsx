@@ -154,6 +154,7 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
         const cleanCat = category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
 
         const catRabItems = rabItems.filter((item) => {
+          if (item.item_type === 'OVERHEAD') return false;
           if (!item.wbs_category) return false;
           const itemCat = item.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
           return itemCat === cleanCat || item.wbs_category.toLowerCase() === category.toLowerCase();
