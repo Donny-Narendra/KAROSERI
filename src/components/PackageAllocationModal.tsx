@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, CheckCircle2, AlertTriangle } from 'lucide-react';
 import type { ProductPackage } from '../types/package';
 import { parseDecimal } from '../utils/numberUtils';
+import { isLaborKeyword, isOverheadKeyword } from '../utils/itemClassification';
 
 export interface RabItemPayload {
   wbsCategory: string;
@@ -11,6 +12,7 @@ export interface RabItemPayload {
   unitPrice: number;
   wasteFactor?: number;
   materialId?: string;
+  unit?: string;
 }
 
 interface PackageAllocationModalProps {
@@ -120,13 +122,15 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
       const combined = `${itemName} ${itemCategory}`.toLowerCase();
       
       let finalType: 'material' | 'labor' | 'overhead' = 'material';
-      if (rawType === 'LABOR' || /tukang|jasa|ongkos|borongan|upah|labor/.test(combined)) {
+      if (rawType === 'LABOR' || isLaborKeyword(combined)) {
         finalType = 'labor';
-      } else if (rawType === 'OVERHEAD' || /overhead|listrik|sewa bay|bay rate/.test(combined)) {
+      } else if (rawType === 'OVERHEAD' || isOverheadKeyword(combined)) {
         finalType = 'overhead';
       }
 
       const description = itemName || (finalType === 'labor' ? 'Labor Item' : finalType === 'overhead' ? 'Overhead Item' : 'Material Item');
+      const unit = item.material?.unit || (finalType === 'labor' ? 'lot' : finalType === 'overhead' ? 'hari' : 'pcs');
+      const wasteFactor = finalType === 'material' ? (item.material?.waste_factor_percentage || 0) : 0;
 
       WBS_CATEGORIES.forEach((cat) => {
         const qty = parseFloat(allocations[idx]?.[cat]) || 0;
@@ -140,8 +144,9 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
             description,
             qty,
             unitPrice: item.cost_per_unit,
-            wasteFactor: 0,
+            wasteFactor,
             materialId: finalType === 'material' ? (item.material_id || item.material?.id) : undefined,
+            unit,
           });
         }
       });

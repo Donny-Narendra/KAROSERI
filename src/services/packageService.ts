@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient';
 import type { ProductPackage, PackageItem } from '../types/package';
+import { resolveItemType } from '../utils/itemClassification';
 
 class PackageService {
   async getPackages(): Promise<ProductPackage[]> {
@@ -106,6 +107,100 @@ class PackageService {
 
     if (error) throw error;
   }
+
+  async importAssemblyToRab(
+    spkId: string, 
+    packageId: string, 
+    defaultWbsStage: string = 'Pembongkaran'
+  ): Promise<any[]> {
+    const { data: pkg, error: pkgError } = await supabase
+      .from('product_packages')
+      .select(`
+        *,
+        items:package_items (
+          *,
+          material:materials (*)
+        )
+      `)
+      .eq('id', packageId)
+      .single();
+
+    if (pkgError) throw pkgError;
+    if (!pkg || !pkg.items || pkg.items.length === 0) return [];
+
+    let { data: estData } = await supabase
+      .from('rab_estimations')
+      .select('id')
+      .eq('spk_id', spkId)
+      .maybeSingle();
+
+    if (!estData) {
+      const { data: newEst, error: estError } = await supabase
+        .from('rab_estimations')
+        .insert({
+          spk_id: spkId,
+          total_material_cost: 0,
+          total_labor_cost: 0,
+          total_overhead_cost: 0,
+          total_estimated_cost: 0,
+        })
+        .select('id')
+        .single();
+      if (estError) throw estError;
+      estData = newEst;
+    }
+
+    const rabItemsToInsert = pkg.items.map((pkgItem: any) => {
+      const itemName = pkgItem.labor_name || pkgItem.name || pkgItem.material?.name || '';
+      const itemType: 'MATERIAL' | 'LABOR' | 'OVERHEAD' = 
+        resolveItemType(pkgItem.item_type, pkgItem.material?.item_type, itemName);
+
+      const wbsStage = pkgItem.wbs_stage || defaultWbsStage;
+      const unitPrice = Number(pkgItem.cost_per_unit || pkgItem.unit_price || 0);
+      const costPrice = Number(
+        pkgItem.cost_price !== undefined
+          ? pkgItem.cost_price
+          : (pkgItem.material?.cost_price !== undefined 
+              ? pkgItem.material.cost_price 
+              : (itemType === 'LABOR' ? unitPrice : Math.round(unitPrice * 0.8)))
+      );
+      const qty = Number(pkgItem.quantity || 0);
+
+      return {
+        rab_estimation_id: estData!.id,
+        spk_id: spkId,
+        item_type: itemType,
+        wbs_category: wbsStage,
+        wbs_stage: wbsStage,
+        material_id: itemType === 'MATERIAL' ? (pkgItem.material_id || pkgItem.material?.id || null) : null,
+        material_name: itemName,
+        description: itemName,
+        quantity: qty,
+        unit: pkgItem.unit || pkgItem.material?.unit || (itemType === 'LABOR' ? 'lot' : itemType === 'OVERHEAD' ? 'hari' : 'pcs'),
+        unit_price: unitPrice,
+        cost_price: costPrice,
+        labor_hours: itemType === 'LABOR' ? qty : 0,
+        labor_rate: itemType === 'LABOR' ? unitPrice : 0,
+        overhead_hours: itemType === 'OVERHEAD' ? qty * 8 : 0,
+        overhead_rate: itemType === 'OVERHEAD' ? unitPrice / 8 : 0,
+        subtotal: qty * unitPrice,
+        item_total: qty * unitPrice,
+        waste_factor: itemType === 'MATERIAL' ? (pkgItem.waste_factor || pkgItem.material?.waste_factor_percentage || 0) : 0,
+        package_id: packageId,
+        is_locked: false,
+      };
+    });
+
+    const { data: inserted, error: insertError } = await supabase
+      .from('rab_items')
+      .insert(rabItemsToInsert)
+      .select();
+
+    if (insertError) throw insertError;
+    return inserted || [];
+  }
 }
 
+export { isLaborKeyword, isOverheadKeyword, resolveItemType } from '../utils/itemClassification';
 export const packageService = new PackageService();
+

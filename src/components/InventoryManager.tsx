@@ -27,7 +27,17 @@ export const InventoryManager: React.FC = () => {
   const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
   const [auditMaterial, setAuditMaterial] = useState<Material | null>(null);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    unit: string;
+    current_stock: number;
+    minimum_stock: number;
+    unit_price: number;
+    cost_price: number;
+    selling_price: number;
+    waste_factor_percentage: number;
+    item_type: 'MATERIAL' | 'LABOR' | 'OVERHEAD';
+  }>({
     name: '',
     unit: 'pcs',
     current_stock: 0,
@@ -35,7 +45,8 @@ export const InventoryManager: React.FC = () => {
     unit_price: 0,
     cost_price: 0,
     selling_price: 0,
-    waste_factor_percentage: 0
+    waste_factor_percentage: 0,
+    item_type: 'MATERIAL'
   });
 
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +102,8 @@ export const InventoryManager: React.FC = () => {
         unit_price: material.unit_price,
         cost_price: material.cost_price !== undefined ? material.cost_price : Math.round(material.unit_price * 0.8),
         selling_price: material.selling_price !== undefined ? material.selling_price : material.unit_price,
-        waste_factor_percentage: material.waste_factor_percentage
+        waste_factor_percentage: material.waste_factor_percentage,
+        item_type: material.item_type || 'MATERIAL'
       });
     } else {
       setEditingMaterial(null);
@@ -103,7 +115,8 @@ export const InventoryManager: React.FC = () => {
         unit_price: 0,
         cost_price: 0,
         selling_price: 0,
-        waste_factor_percentage: 0
+        waste_factor_percentage: 0,
+        item_type: 'MATERIAL'
       });
     }
     setIsModalOpen(true);
@@ -118,7 +131,8 @@ export const InventoryManager: React.FC = () => {
       ...formData,
       unit_price: formData.selling_price || formData.unit_price || 0,
       cost_price: formData.cost_price || 0,
-      selling_price: formData.selling_price || formData.unit_price || 0
+      selling_price: formData.selling_price || formData.unit_price || 0,
+      item_type: formData.item_type || 'MATERIAL'
     };
 
     try {
@@ -321,7 +335,26 @@ export const InventoryManager: React.FC = () => {
                       onChange={(e) => handleSelectMaterial(m.id, e.target.checked)}
                     />
                   </td>
-                  <td className="px-4 py-3 font-medium">{m.name}</td>
+                  <td className="px-4 py-3 font-medium">
+                    <div className="flex items-center gap-2">
+                      <span>{m.name}</span>
+                      {m.item_type === 'LABOR' && (
+                        <span className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/30 px-1.5 py-0.5 rounded font-mono font-bold">
+                          Jasa (Labor)
+                        </span>
+                      )}
+                      {m.item_type === 'OVERHEAD' && (
+                        <span className="text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/30 px-1.5 py-0.5 rounded font-mono font-bold">
+                          Overhead
+                        </span>
+                      )}
+                      {(!m.item_type || m.item_type === 'MATERIAL') && (
+                        <span className="text-[10px] bg-surface-hover text-text-muted border border-border px-1.5 py-0.5 rounded font-mono">
+                          Material
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-text-muted">{m.unit}</td>
                   <td className={`px-4 py-3 text-right font-mono ${m.current_stock <= m.minimum_stock ? 'text-status-danger font-bold' : ''}`}>
                     {m.current_stock}
@@ -410,15 +443,32 @@ export const InventoryManager: React.FC = () => {
             
             <form onSubmit={handleSubmit} className="p-6 overflow-y-auto">
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-text-muted mb-1">Nama Barang</label>
-                  <input 
-                    type="text" 
-                    required
-                    value={formData.name}
-                    onChange={e => setFormData({...formData, name: e.target.value})}
-                    className="w-full bg-background border border-border rounded px-3 py-2 text-text focus:outline-none focus:border-primary"
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="material-name-input" className="block text-sm font-medium text-text-muted mb-1">Nama Barang / Jasa</label>
+                    <input 
+                      id="material-name-input"
+                      type="text" 
+                      required
+                      value={formData.name}
+                      onChange={e => setFormData({...formData, name: e.target.value})}
+                      className="w-full bg-background border border-border rounded px-3 py-2 text-text focus:outline-none focus:border-primary"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="item-type-select" className="block text-sm font-medium text-text-muted mb-1">Tipe Item</label>
+                    <select 
+                      id="item-type-select"
+                      aria-label="Tipe Item"
+                      value={formData.item_type}
+                      onChange={e => setFormData({...formData, item_type: e.target.value as 'MATERIAL' | 'LABOR' | 'OVERHEAD'})}
+                      className="w-full bg-background border border-border rounded px-3 py-2 text-text focus:outline-none focus:border-primary"
+                    >
+                      <option value="MATERIAL">Material (Fisik)</option>
+                      <option value="LABOR">Jasa (Labor)</option>
+                      <option value="OVERHEAD">Overhead (Utilitas/Bay)</option>
+                    </select>
+                  </div>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">
@@ -599,3 +649,6 @@ export const InventoryManager: React.FC = () => {
     </div>
   );
 };
+
+export const InventoryPage = InventoryManager;
+

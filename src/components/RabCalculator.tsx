@@ -7,6 +7,7 @@ import type { Material } from '../services/inventoryService';
 import { MaterialAutocomplete } from './MaterialAutocomplete';
 
 import { packageService } from '../services/packageService';
+import { isLaborKeyword, isOverheadKeyword } from '../utils/itemClassification';
 import type { ProductPackage } from '../types/package';
 import { PackageAllocationModal } from './PackageAllocationModal';
 import type { RabItemPayload } from './PackageAllocationModal';
@@ -615,7 +616,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
 
       if (items.length > 0) {
         const itemsToInsert = items.map(item => {
-          const matchedMat = materials.find(m => m.id === item.materialId);
+          const matchedMat = materials.find(m => (item.materialId && m.id === item.materialId) || m.name.toLowerCase() === item.description.toLowerCase());
           const unitPrice = (item.type === 'material' || item.type === 'labor' || item.type === 'overhead') ? item.unitPrice : 0;
           const costPrice = item.costPrice !== undefined 
             ? item.costPrice 
@@ -625,27 +626,33 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                     ? item.unitPrice
                     : (matchedMat?.cost_price !== undefined ? matchedMat.cost_price : Math.round(unitPrice * 0.8))));
 
-          const itemType = item.type === 'labor' ? 'LABOR' : (item.type === 'overhead' ? 'OVERHEAD' : 'MATERIAL');
+          const itemType: 'MATERIAL' | 'LABOR' | 'OVERHEAD' = 
+            (item.type === 'labor' ? 'LABOR' : item.type === 'overhead' ? 'OVERHEAD' : null) ||
+            matchedMat?.item_type ||
+            (isLaborKeyword(item.description) ? 'LABOR' : isOverheadKeyword(item.description) ? 'OVERHEAD' : 'MATERIAL');
 
           return {
             rab_estimation_id: estData.id,
             spk_id: spkId,
             wbs_category: item.wbsCategory,
+            wbs_stage: item.wbsCategory,
             item_type: itemType,
             description: item.notes || item.description,
             material_name: item.description,
             quantity: item.qty,
-            unit: item.unit || (item.type === 'labor' ? 'lot' : (item.type === 'overhead' ? 'hari' : 'pcs')),
+            unit: item.unit || matchedMat?.unit || (itemType === 'LABOR' ? 'lot' : (itemType === 'OVERHEAD' ? 'hari' : 'pcs')),
             notes: item.notes || null,
             unit_price: unitPrice,
             cost_price: costPrice,
-            labor_hours: item.type === 'labor' ? item.qty : 0,
-            labor_rate: item.type === 'labor' ? item.unitPrice : 0,
-            overhead_hours: item.type === 'overhead' ? item.qty * 8 : 0,
-            overhead_rate: item.type === 'overhead' ? item.unitPrice / 8 : 0,
+            labor_hours: itemType === 'LABOR' ? item.qty : 0,
+            labor_rate: itemType === 'LABOR' ? unitPrice : 0,
+            overhead_hours: itemType === 'OVERHEAD' ? item.qty * 8 : 0,
+            overhead_rate: itemType === 'OVERHEAD' ? unitPrice / 8 : 0,
             item_total: calculateItemTotal(item),
+            subtotal: calculateItemTotal(item),
+            waste_factor: itemType === 'MATERIAL' ? (item.wasteFactor || matchedMat?.waste_factor_percentage || 0) : 0,
             package_id: item.packageId || null,
-            material_id: (item.type === 'labor' || item.type === 'overhead') ? null : (item.materialId || null),
+            material_id: itemType === 'MATERIAL' ? (item.materialId || matchedMat?.id || null) : null,
             is_locked: false
           };
         });
@@ -726,22 +733,30 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     const newItems = allocatedItems.map((payload) => {
       const payloadMatId = payload.materialId;
       const matchedMat = materials.find(m => (payloadMatId && m.id === payloadMatId) || m.name.toLowerCase() === payload.description.toLowerCase());
+      
+      const itemType: 'MATERIAL' | 'LABOR' | 'OVERHEAD' = 
+        (payload.type ? (payload.type.toUpperCase() as 'MATERIAL' | 'LABOR' | 'OVERHEAD') : undefined) ||
+        matchedMat?.item_type || 
+        (isLaborKeyword(payload.description) ? 'LABOR' : isOverheadKeyword(payload.description) ? 'OVERHEAD' : 'MATERIAL');
+
       const costPrice = matchedMat?.cost_price !== undefined 
         ? matchedMat.cost_price 
-        : (payload.type === 'labor' ? payload.unitPrice : Math.round(payload.unitPrice * 0.8));
+        : (itemType === 'LABOR' ? payload.unitPrice : Math.round(payload.unitPrice * 0.8));
+
       return {
         id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
         wbsCategory: payload.wbsCategory,
-        type: payload.type,
+        type: itemType.toLowerCase() as 'material' | 'labor' | 'overhead',
         description: payload.description,
         qty: payload.qty,
+        unit: payload.unit || matchedMat?.unit || (itemType === 'LABOR' ? 'lot' : itemType === 'OVERHEAD' ? 'hari' : 'pcs'),
         unitPrice: payload.unitPrice,
         costPrice,
         subtotal: payload.qty * payload.unitPrice,
         isLocked: false,
-        wasteFactor: payload.wasteFactor || 0,
+        wasteFactor: itemType === 'MATERIAL' ? (payload.wasteFactor ?? matchedMat?.waste_factor_percentage ?? 0) : 0,
         packageId: pkgId,
-        materialId: payload.type === 'material' ? (payloadMatId || matchedMat?.id) : undefined,
+        materialId: itemType === 'MATERIAL' ? (payloadMatId || matchedMat?.id) : undefined,
       };
     });
     

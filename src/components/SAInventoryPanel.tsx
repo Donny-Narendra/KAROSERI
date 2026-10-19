@@ -85,6 +85,7 @@ export const SAInventoryPanel: React.FC = () => {
       name: mat.name,
       unit: mat.unit,
       minimum_stock: mat.minimum_stock,
+      item_type: mat.item_type || 'MATERIAL',
     });
     setNotes('');
     setError('');
@@ -257,14 +258,26 @@ export const SAInventoryPanel: React.FC = () => {
                   <tbody className="divide-y divide-border">
                     {materials.map(mat => (
                       <tr key={mat.id} className="hover:bg-surface-hover/50">
-                        <td className="px-4 py-3 font-medium text-text flex items-center gap-2">
-                          {mat.name}
-                          {mat.current_stock <= mat.minimum_stock && (
-                            <span className="flex h-2 w-2 relative">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-status-danger opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-status-danger"></span>
-                            </span>
-                          )}
+                        <td className="px-4 py-3 font-medium text-text">
+                          <div className="flex items-center gap-2">
+                            <span>{mat.name}</span>
+                            {mat.item_type === 'LABOR' && (
+                              <span className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/30 px-1.5 py-0.5 rounded font-mono font-bold">
+                                JASA
+                              </span>
+                            )}
+                            {mat.item_type === 'OVERHEAD' && (
+                              <span className="text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/30 px-1.5 py-0.5 rounded font-mono font-bold">
+                                OVERHEAD
+                              </span>
+                            )}
+                            {mat.current_stock <= mat.minimum_stock && (
+                              <span className="flex h-2 w-2 relative">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-status-danger opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-status-danger"></span>
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           <span className={`font-mono ${mat.current_stock <= mat.minimum_stock ? 'text-status-danger font-bold' : ''}`}>
@@ -556,17 +569,34 @@ export const SAInventoryPanel: React.FC = () => {
                 </div>
               ) : (
                 <>
-                  <div>
-                    <label className="block text-sm font-medium text-text-muted mb-1">
-                      Nama Material
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.name || ''}
-                      onChange={e => setFormData({...formData, name: e.target.value})}
-                      className="w-full bg-background border border-border rounded px-3 py-2 text-text focus:border-primary focus:outline-none transition"
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-text-muted mb-1">
+                        Nama Material / Jasa
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.name || ''}
+                        onChange={e => setFormData({...formData, name: e.target.value})}
+                        className="w-full bg-background border border-border rounded px-3 py-2 text-text focus:border-primary focus:outline-none transition"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-text-muted mb-1">
+                        Tipe Item
+                      </label>
+                      <select
+                        aria-label="Tipe Item"
+                        value={formData.item_type || 'MATERIAL'}
+                        onChange={e => setFormData({...formData, item_type: e.target.value as 'MATERIAL' | 'LABOR' | 'OVERHEAD'})}
+                        className="w-full bg-background border border-border rounded px-3 py-2 text-text focus:border-primary focus:outline-none transition"
+                      >
+                        <option value="MATERIAL">Material (Fisik)</option>
+                        <option value="LABOR">Jasa (Labor)</option>
+                        <option value="OVERHEAD">Overhead (Utilitas/Bay)</option>
+                      </select>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
