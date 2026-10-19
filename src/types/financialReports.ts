@@ -14,6 +14,7 @@ export interface SpkOverheadLog {
   notes?: string | null;
   recorded_at: string;
   created_by?: string | null;
+  rab_item_id?: string | null;
 }
 
 export interface CreateSpkOverheadLogPayload {
@@ -25,6 +26,7 @@ export interface CreateSpkOverheadLogPayload {
   notes?: string | null;
   recorded_at?: string;
   created_by?: string | null;
+  rab_item_id?: string | null;
 }
 
 export interface SpkJobProfitabilityItem {

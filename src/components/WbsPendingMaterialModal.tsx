@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { AlertTriangle, X, PackageOpen, Users, Package } from 'lucide-react';
+import { AlertTriangle, X, PackageOpen, Users, Package, Clock } from 'lucide-react';
 
 export interface PendingWbsMaterial {
   id: string;
@@ -18,6 +18,7 @@ interface WbsPendingMaterialModalProps {
   pendingMaterials: PendingWbsMaterial[];
   onOpenRequisition: () => void;
   onOpenBorongan?: () => void;
+  onOpenOverhead?: () => void;
 }
 
 export const WbsPendingMaterialModal: React.FC<WbsPendingMaterialModalProps> = ({
@@ -28,6 +29,7 @@ export const WbsPendingMaterialModal: React.FC<WbsPendingMaterialModalProps> = (
   pendingMaterials,
   onOpenRequisition,
   onOpenBorongan,
+  onOpenOverhead,
 }) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -163,6 +165,19 @@ export const WbsPendingMaterialModal: React.FC<WbsPendingMaterialModalProps> = (
             >
               Tutup
             </button>
+            {onOpenOverhead && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenOverhead();
+                }}
+                className="px-3.5 py-2 bg-surface hover:bg-purple-500/10 border border-purple-500/60 text-purple-400 rounded-lg text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <Clock className="w-4 h-4" />
+                <span>Overhead FOH</span>
+              </button>
+            )}
             {onOpenBorongan && (
               <button
                 type="button"

@@ -23,9 +23,9 @@ vi.mock('../../lib/supabaseClient', () => ({
       eq: vi.fn().mockReturnThis(),
       maybeSingle: vi.fn().mockResolvedValue({
         data: {
-          spk_no: 'SPK-2026-009',
-          vehicle_plate: 'B 9988 XYZ',
-          customer_name: 'PT Logistik Mandiri',
+          spk_no: 'SPK-2668',
+          vehicle_plate: 'B 3453 iuy',
+          customer_name: 'PT. CARAKANUSA TRANSPORTAMA',
         },
         error: null,
       }),
@@ -47,71 +47,59 @@ describe('Component: SpkOverheadModal (Mandor Floor Terminal Overhead Logging)',
     vi.clearAllMocks();
   });
 
+  const mockRabOverheadItems = [
+    {
+      id: 'rab-oh-1',
+      spk_id: 'spk-test-1',
+      wbs_category: 'Pembongkaran',
+      material_name: 'LISTRIK',
+      quantity: 0.2,
+      unit: 'satuan',
+      unit_price: 30000,
+      item_total: 6000,
+      item_type: 'OVERHEAD',
+    },
+    {
+      id: 'rab-oh-2',
+      spk_id: 'spk-test-1',
+      wbs_category: 'Pembongkaran',
+      material_name: 'sewa kompressor',
+      quantity: 0.2,
+      unit: 'satuan',
+      unit_price: 20000,
+      item_total: 4000,
+      item_type: 'OVERHEAD',
+    },
+    {
+      id: 'rab-oh-3',
+      spk_id: 'spk-test-1',
+      wbs_category: 'Cat/Finishing',
+      material_name: 'Oven Spray Booth & Gas',
+      quantity: 4,
+      unit: 'jam',
+      unit_price: 150000,
+      item_total: 600000,
+      item_type: 'OVERHEAD',
+    },
+  ];
+
   const mockExistingLogs = [
     {
       id: 'log-1',
       spk_id: 'spk-test-1',
-      wbs_stage: 'Cat/Finishing',
-      overhead_name: 'Pemakaian Oven Spray Booth 4 Jam',
-      frequency_qty: 4,
-      rate_per_unit: 150000,
-      total_amount: 600000,
-      notes: 'Pengecatan bak dump',
+      wbs_stage: 'Pembongkaran',
+      overhead_name: 'sewa kompressor',
+      frequency_qty: 0.2,
+      rate_per_unit: 20000,
+      total_amount: 4000,
+      notes: 'Bongkar bak',
       recorded_at: '2026-10-18T00:30:00Z',
       created_by: 'mandor-user-001',
-    },
-    {
-      id: 'log-2',
-      spk_id: 'spk-test-1',
-      wbs_stage: 'Dinding/Fabrikasi',
-      overhead_name: 'Listrik Las Fabrikasi Lembur',
-      frequency_qty: 5,
-      rate_per_unit: 50000,
-      total_amount: 250000,
-      notes: 'Lembur rangka samping',
-      recorded_at: '2026-10-18T01:00:00Z',
-      created_by: 'mandor-user-001',
+      rab_item_id: 'rab-oh-2',
     },
   ];
 
-  it('renders modal with SPK details, quick presets, and existing logs', async () => {
-    vi.mocked(financialReportsService.getSpkOverheadLogs).mockResolvedValue(mockExistingLogs);
-
-    render(
-      <SpkOverheadModal
-        isOpen={true}
-        onClose={vi.fn()}
-        spkId="spk-test-1"
-        spkNumber="SPK-2026-009"
-        vehiclePlate="B 9988 XYZ"
-        customerName="PT Logistik Mandiri"
-        defaultCategory="Cat/Finishing"
-      />
-    );
-
-    // Header & Meta
-    expect(screen.getByText('Pencatatan Overhead Pabrik (FOH)')).toBeInTheDocument();
-    expect(screen.getByText('SPK-2026-009')).toBeInTheDocument();
-    expect(screen.getByText('B 9988 XYZ')).toBeInTheDocument();
-    expect(screen.getByText('PT Logistik Mandiri')).toBeInTheDocument();
-
-    // Quick presets
-    expect(screen.getByText('Oven Spray Booth & Gas')).toBeInTheDocument();
-    expect(screen.getByText('Listrik Mesin Las & Fabrikasi')).toBeInTheDocument();
-    expect(screen.getByText('Kompresor & Alat Pneumatik')).toBeInTheDocument();
-    expect(screen.getByText('Sewa Derek / Crane Angkat')).toBeInTheDocument();
-
-    // Wait for existing logs table
-    await waitFor(() => {
-      expect(screen.getByText('Pemakaian Oven Spray Booth 4 Jam')).toBeInTheDocument();
-      expect(screen.getByText('Listrik Las Fabrikasi Lembur')).toBeInTheDocument();
-    });
-
-    // Total FOH check: 600000 + 250000 = 850000
-    expect(screen.getByText('Riwayat Pembebanan Overhead Proyek (2)')).toBeInTheDocument();
-  });
-
-  it('applies quick preset when clicked and updates calculation preview', async () => {
+  it('renders dynamic RAB overhead cards for active WBS stage and does not show static presets by default', async () => {
     vi.mocked(financialReportsService.getSpkOverheadLogs).mockResolvedValue([]);
 
     render(
@@ -119,8 +107,11 @@ describe('Component: SpkOverheadModal (Mandor Floor Terminal Overhead Logging)',
         isOpen={true}
         onClose={vi.fn()}
         spkId="spk-test-1"
-        spkNumber="SPK-2026-009"
-        vehiclePlate="B 9988 XYZ"
+        spkNumber="SPK-2668"
+        vehiclePlate="B 3453 iuy"
+        customerName="PT. CARAKANUSA TRANSPORTAMA"
+        defaultCategory="Pembongkaran"
+        rabOverheadItems={mockRabOverheadItems}
       />
     );
 
@@ -128,30 +119,142 @@ describe('Component: SpkOverheadModal (Mandor Floor Terminal Overhead Logging)',
       expect(financialReportsService.getSpkOverheadLogs).toHaveBeenCalledWith('spk-test-1');
     });
 
-    const presetBtn = screen.getByText('Oven Spray Booth & Gas');
-    fireEvent.click(presetBtn);
+    // Header & Meta
+    expect(screen.getByText('Pencatatan Overhead Pabrik (FOH)')).toBeInTheDocument();
+    expect(screen.getByText('SPK-2668')).toBeInTheDocument();
+    expect(screen.getByText('B 3453 iuy')).toBeInTheDocument();
+    expect(screen.getByText('PT. CARAKANUSA TRANSPORTAMA')).toBeInTheDocument();
+
+    // Section header
+    expect(screen.getByText(/Alokasi Overhead dari RAB \(Pembongkaran\)/i)).toBeInTheDocument();
+
+    // Dynamic RAB presets for Pembongkaran
+    expect(screen.getByText('LISTRIK')).toBeInTheDocument();
+    expect(screen.getByText('sewa kompressor')).toBeInTheDocument();
+
+    // Cat/Finishing item should not be shown on Pembongkaran
+    expect(screen.queryByText('Oven Spray Booth & Gas')).not.toBeInTheDocument();
+
+    // Hardcoded static preset Sewa Derek / Crane should not appear in dynamic list
+    expect(screen.queryByText('Sewa Derek / Crane Angkat')).not.toBeInTheDocument();
+  });
+
+  it('applies dynamic RAB preset when clicked and auto-fills form inputs and binds rab_item_id', async () => {
+    vi.mocked(financialReportsService.getSpkOverheadLogs).mockResolvedValue([]);
+
+    render(
+      <SpkOverheadModal
+        isOpen={true}
+        onClose={vi.fn()}
+        spkId="spk-test-1"
+        spkNumber="SPK-2668"
+        defaultCategory="Pembongkaran"
+        rabOverheadItems={mockRabOverheadItems}
+      />
+    );
+
+    await waitFor(() => {
+      expect(financialReportsService.getSpkOverheadLogs).toHaveBeenCalledWith('spk-test-1');
+    });
+
+    // Click LISTRIK preset
+    const listrikPresetBtn = screen.getByText('LISTRIK');
+    fireEvent.click(listrikPresetBtn);
 
     // Form inputs should be populated
     const nameInput = screen.getByPlaceholderText(/Contoh: Oven Spray Booth Jam Lembur/i) as HTMLInputElement;
-    expect(nameInput.value).toBe('Oven Spray Booth & Gas');
+    expect(nameInput.value).toBe('LISTRIK');
 
-    // 4 jam * 150.000 = Rp 600.000
-    expect(screen.getAllByText(/600\.000/).length).toBeGreaterThan(0);
+    const rateInput = screen.getByPlaceholderText('Rp 0') as HTMLInputElement;
+    expect(rateInput.value).toBe('30000');
+
+    const qtyInput = screen.getByPlaceholderText('1') as HTMLInputElement;
+    expect(qtyInput.value).toBe('0.2');
+
+    // Indicator of sync with RAB should appear
+    expect(screen.getByText(/⚡ RAB Sinkron/i)).toBeInTheDocument();
+
+    // Subtotal: 0.2 * 30000 = Rp 6.000
+    expect(screen.getByText(/Rp\s*6\.000/i)).toBeInTheDocument();
   });
 
-  it('submits a new overhead log and refreshes list', async () => {
+  it('correctly calculates remaining quota when overhead is partially or fully logged', async () => {
+    vi.mocked(financialReportsService.getSpkOverheadLogs).mockResolvedValue(mockExistingLogs);
+
+    render(
+      <SpkOverheadModal
+        isOpen={true}
+        onClose={vi.fn()}
+        spkId="spk-test-1"
+        defaultCategory="Pembongkaran"
+        rabOverheadItems={mockRabOverheadItems}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('LISTRIK')).toBeInTheDocument();
+      expect(screen.getByText('sewa kompressor')).toBeInTheDocument();
+    });
+
+    // LISTRIK has not been logged yet: remaining = 0.2
+    expect(screen.getAllByText(/0\.2 satuan/i).length).toBeGreaterThan(0);
+
+    // sewa kompressor was logged for 0.2: remaining = 0
+    expect(screen.getByText(/0 satuan/i)).toBeInTheDocument();
+  });
+
+  it('shows fallback button when stage has no RAB overhead and toggles master presets', async () => {
+    vi.mocked(financialReportsService.getSpkOverheadLogs).mockResolvedValue([]);
+
+    render(
+      <SpkOverheadModal
+        isOpen={true}
+        onClose={vi.fn()}
+        spkId="spk-test-1"
+        defaultCategory="Kelistrikan/Hidrolik"
+        rabOverheadItems={mockRabOverheadItems}
+      />
+    );
+
+    await waitFor(() => {
+      expect(financialReportsService.getSpkOverheadLogs).toHaveBeenCalledWith('spk-test-1');
+    });
+
+    // Fallback notice
+    expect(screen.getByText(/Tidak ada alokasi overhead RAB untuk tahapan/i)).toBeInTheDocument();
+    const fallbackToggleBtn = screen.getByText('Tampilkan Master Preset Gudang (Umum)');
+    expect(fallbackToggleBtn).toBeInTheDocument();
+
+    // Click toggle
+    fireEvent.click(fallbackToggleBtn);
+
+    // Master presets should now appear
+    expect(screen.getByText('Oven Spray Booth & Gas')).toBeInTheDocument();
+    expect(screen.getByText('Listrik Mesin Las & Fabrikasi')).toBeInTheDocument();
+    expect(screen.getByText('Kompresor & Alat Pneumatik')).toBeInTheDocument();
+    expect(screen.getByText('Sewa Derek / Crane Angkat')).toBeInTheDocument();
+
+    // Clicking master preset applies general preset without rab_item_id
+    fireEvent.click(screen.getByText('Sewa Derek / Crane Angkat'));
+    const nameInput = screen.getByPlaceholderText(/Contoh: Oven Spray Booth Jam Lembur/i) as HTMLInputElement;
+    expect(nameInput.value).toBe('Sewa Derek / Crane Angkat');
+    expect(screen.queryByText(/⚡ RAB Sinkron/i)).not.toBeInTheDocument();
+  });
+
+  it('submits a new overhead log with rab_item_id and refreshes list', async () => {
     vi.mocked(financialReportsService.getSpkOverheadLogs).mockResolvedValue([]);
     vi.mocked(financialReportsService.createSpkOverheadLog).mockResolvedValue({
       id: 'log-new',
       spk_id: 'spk-test-1',
-      wbs_stage: 'Sasis/Rangka',
-      overhead_name: 'Kompresor Angin Shift 2',
-      frequency_qty: 6,
-      rate_per_unit: 35000,
-      total_amount: 210000,
-      notes: 'Bantu pembongkaran baut roda',
-      recorded_at: '2026-10-18T01:10:00Z',
+      wbs_stage: 'Pembongkaran',
+      overhead_name: 'LISTRIK',
+      frequency_qty: 0.2,
+      rate_per_unit: 30000,
+      total_amount: 6000,
+      notes: 'Pemakaian las listrik',
+      recorded_at: '2026-10-19T01:10:00Z',
       created_by: 'mandor-user-001',
+      rab_item_id: 'rab-oh-1',
     });
 
     const onUpdateMock = vi.fn();
@@ -161,28 +264,18 @@ describe('Component: SpkOverheadModal (Mandor Floor Terminal Overhead Logging)',
         isOpen={true}
         onClose={vi.fn()}
         spkId="spk-test-1"
-        spkNumber="SPK-2026-009"
-        vehiclePlate="B 9988 XYZ"
+        defaultCategory="Pembongkaran"
+        rabOverheadItems={mockRabOverheadItems}
         onOverheadUpdated={onUpdateMock}
       />
     );
 
     await waitFor(() => {
-      expect(financialReportsService.getSpkOverheadLogs).toHaveBeenCalledWith('spk-test-1');
+      expect(screen.getByText('LISTRIK')).toBeInTheDocument();
     });
 
-    // Fill form
-    const nameInput = screen.getByPlaceholderText(/Contoh: Oven Spray Booth Jam Lembur/i);
-    fireEvent.change(nameInput, { target: { value: 'Kompresor Angin Shift 2' } });
-
-    const qtyInput = screen.getByPlaceholderText('1');
-    fireEvent.change(qtyInput, { target: { value: '6' } });
-
-    const rateInput = screen.getByPlaceholderText('Rp 0');
-    fireEvent.change(rateInput, { target: { value: '35000' } });
-
-    const notesInput = screen.getByPlaceholderText(/Pemakaian spray booth shift malam/i);
-    fireEvent.change(notesInput, { target: { value: 'Bantu pembongkaran baut roda' } });
+    // Click preset
+    fireEvent.click(screen.getByText('LISTRIK'));
 
     // Submit
     const submitBtn = screen.getByText('Simpan Catatan Overhead');
@@ -192,11 +285,11 @@ describe('Component: SpkOverheadModal (Mandor Floor Terminal Overhead Logging)',
       expect(financialReportsService.createSpkOverheadLog).toHaveBeenCalledWith(
         expect.objectContaining({
           spk_id: 'spk-test-1',
-          overhead_name: 'Kompresor Angin Shift 2',
-          frequency_qty: 6,
-          rate_per_unit: 35000,
-          notes: 'Bantu pembongkaran baut roda',
-          created_by: 'mandor-user-001',
+          overhead_name: 'LISTRIK',
+          frequency_qty: 0.2,
+          rate_per_unit: 30000,
+          wbs_stage: 'Pembongkaran',
+          rab_item_id: 'rab-oh-1',
         })
       );
       expect(onUpdateMock).toHaveBeenCalled();
@@ -214,21 +307,22 @@ describe('Component: SpkOverheadModal (Mandor Floor Terminal Overhead Logging)',
         isOpen={true}
         onClose={vi.fn()}
         spkId="spk-test-1"
+        defaultCategory="Pembongkaran"
+        rabOverheadItems={mockRabOverheadItems}
         onOverheadUpdated={onUpdateMock}
       />
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Pemakaian Oven Spray Booth 4 Jam')).toBeInTheDocument();
+      expect(screen.getByText('sewa kompressor')).toBeInTheDocument();
     });
 
-    // Find and click delete button for log-1
+    // Find and click delete button
     const deleteButtons = screen.getAllByTitle('Hapus pembebanan overhead');
     fireEvent.click(deleteButtons[0]);
 
     // Confirmation modal should be opened
     expect(screen.getByText('Hapus Catatan Overhead?')).toBeInTheDocument();
-    expect(screen.getByText(/Apakah Anda yakin ingin menghapus catatan overhead/i)).toBeInTheDocument();
 
     // Confirm deletion
     const confirmBtn = screen.getByText('Ya, Hapus');

@@ -18,6 +18,31 @@ import { financialReportsService } from '../services/financialReportsService';
 import type { SpkOverheadLog, CreateSpkOverheadLogPayload } from '../types/financialReports';
 import { ConfirmationModal } from './ConfirmationModal';
 
+export interface RabOverheadItem {
+  id: string;
+  spk_id?: string;
+  wbs_stage?: string;
+  wbs_category: string;
+  material_name?: string;
+  description?: string;
+  quantity: number;
+  unit?: string;
+  unit_price: number;
+  item_total?: number;
+  item_type?: string;
+  materials?: {
+    id: string;
+    name: string;
+    unit?: string;
+    unit_price?: number;
+  } | Array<{
+    id: string;
+    name: string;
+    unit?: string;
+    unit_price?: number;
+  }> | null;
+}
+
 export interface SpkOverheadModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -26,6 +51,7 @@ export interface SpkOverheadModalProps {
   vehiclePlate?: string;
   customerName?: string;
   defaultCategory?: string | null;
+  rabOverheadItems?: RabOverheadItem[];
   onOverheadUpdated?: () => void;
 }
 
@@ -61,6 +87,11 @@ const formatCurrency = (val: number | null | undefined): string => {
   }).format(val);
 };
 
+const normalizeStage = (str?: string | null): string => {
+  if (!str) return '';
+  return str.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
+};
+
 export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
   isOpen,
   onClose,
@@ -69,6 +100,7 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
   vehiclePlate: propVehiclePlate,
   customerName: propCustomerName,
   defaultCategory,
+  rabOverheadItems: propRabOverheadItems,
   onOverheadUpdated,
 }) => {
   const { user } = useAuth();
@@ -87,6 +119,12 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
   // Overhead Logs List
   const [logs, setLogs] = useState<SpkOverheadLog[]>([]);
   const [fetchingLogs, setFetchingLogs] = useState(false);
+
+  // RAB Overhead items state
+  const [rabOverheadItems, setRabOverheadItems] = useState<RabOverheadItem[]>(propRabOverheadItems || []);
+  const [fetchingRab, setFetchingRab] = useState(false);
+  const [showMasterPresets, setShowMasterPresets] = useState(false);
+  const [selectedRabItemId, setSelectedRabItemId] = useState<string | null>(null);
 
   // Form State
   const cleanDefaultStage = useMemo(() => {
@@ -163,18 +201,166 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
     }
   }, [spkId]);
 
+  // Load RAB Overhead Items for the current SPK
+  const loadRabOverheadItems = useCallback(async () => {
+    if (!spkId) return;
+    if (propRabOverheadItems && propRabOverheadItems.length > 0) {
+      setRabOverheadItems(propRabOverheadItems);
+      return;
+    }
+
+    setFetchingRab(true);
+    try {
+      const { data: rabEst, error: rabEstErr } = await supabase
+        .from('rab_estimations')
+        .select('id')
+        .eq('spk_id', spkId)
+        .maybeSingle();
+
+      if (rabEstErr) {
+        console.error('Error fetching RAB estimation for overhead modal:', rabEstErr);
+        setRabOverheadItems([]);
+        return;
+      }
+
+      if (!rabEst?.id) {
+        setRabOverheadItems([]);
+        return;
+      }
+
+      const { data: items, error: itemsErr } = await supabase
+        .from('rab_items')
+        .select(`
+          id,
+          quantity,
+          unit,
+          wbs_category,
+          wbs_stage,
+          description,
+          material_name,
+          unit_price,
+          item_total,
+          item_type,
+          material_id,
+          materials (
+            id,
+            name,
+            unit,
+            unit_price
+          )
+        `)
+        .eq('rab_estimation_id', rabEst.id);
+
+      if (itemsErr) {
+        console.error('Error fetching RAB items for overhead modal:', itemsErr);
+        setRabOverheadItems([]);
+        return;
+      }
+
+      const overheadOnly: RabOverheadItem[] = (items || []).filter((item: any) => {
+        if (item.item_type?.toUpperCase() === 'OVERHEAD') return true;
+        const mat = Array.isArray(item.materials) ? item.materials[0] : item.materials;
+        const name = (mat?.name || item.material_name || item.description || '').toLowerCase();
+        if (name.includes('listrik') || name.includes('kompressor') || name.includes('kompresor') || name.includes('sewa bay') || name.includes('crane') || name.includes('overhead')) {
+          return true;
+        }
+        return false;
+      }) as RabOverheadItem[];
+
+      setRabOverheadItems(overheadOnly);
+    } catch (err) {
+      console.error('Error in loadRabOverheadItems:', err);
+      setRabOverheadItems([]);
+    } finally {
+      setFetchingRab(false);
+    }
+  }, [spkId, propRabOverheadItems]);
+
+  useEffect(() => {
+    if (propRabOverheadItems) {
+      setRabOverheadItems(propRabOverheadItems);
+    }
+  }, [propRabOverheadItems]);
+
   useEffect(() => {
     if (isOpen && spkId) {
       void loadSpkDetails();
       void loadOverheadLogs();
+      void loadRabOverheadItems();
       setWbsStage(cleanDefaultStage);
+      setSelectedRabItemId(null);
       setErrorMsg(null);
       setSuccessMsg(null);
     }
-  }, [isOpen, spkId, cleanDefaultStage, loadSpkDetails, loadOverheadLogs]);
+  }, [isOpen, spkId, cleanDefaultStage, loadSpkDetails, loadOverheadLogs, loadRabOverheadItems]);
 
-  // Preset Selection
+  // Active Stage Normalization & Filtering
+  const cleanActiveStage = useMemo(() => {
+    return normalizeStage(wbsStage);
+  }, [wbsStage]);
+
+  const wbsRabOverheadItems = useMemo(() => {
+    return rabOverheadItems.filter((item) => {
+      const itemCat = normalizeStage(item.wbs_stage || item.wbs_category);
+      return itemCat === cleanActiveStage;
+    });
+  }, [rabOverheadItems, cleanActiveStage]);
+
+  // Calculate Realized Quantity vs Pagu for each RAB Overhead Item
+  const rabOverheadCalculations = useMemo(() => {
+    return wbsRabOverheadItems.map((item) => {
+      const mat = Array.isArray(item.materials) ? item.materials[0] : item.materials;
+      const itemName = item.material_name || mat?.name || item.description || 'Overhead';
+      const paguQty = Number(item.quantity) || 1;
+      const unit = item.unit || mat?.unit || 'satuan';
+      const unitPrice = Number(item.unit_price) || 
+        (Number(item.quantity) && Number(item.item_total) ? Number(item.item_total) / Number(item.quantity) : 0);
+
+      const loggedQty = logs.reduce((sum, log) => {
+        const matchesId = log.rab_item_id && log.rab_item_id === item.id;
+        const matchesName = !log.rab_item_id && 
+          normalizeStage(log.wbs_stage) === cleanActiveStage &&
+          log.overhead_name.trim().toLowerCase() === itemName.trim().toLowerCase();
+        if (matchesId || matchesName) {
+          return sum + (Number(log.frequency_qty) || 0);
+        }
+        return sum;
+      }, 0);
+
+      const remainingQty = Math.max(0, Number((paguQty - loggedQty).toFixed(2)));
+      const isExhausted = remainingQty <= 0 && paguQty > 0;
+
+      return {
+        ...item,
+        itemName,
+        paguQty,
+        unit,
+        unitPrice,
+        loggedQty,
+        remainingQty,
+        isExhausted,
+      };
+    });
+  }, [wbsRabOverheadItems, logs, cleanActiveStage]);
+
+  // Preset Selection: Dynamic RAB
+  const applyRabPreset = (item: {
+    id: string;
+    itemName: string;
+    unitPrice: number;
+    remainingQty: number;
+    paguQty: number;
+  }) => {
+    setSelectedRabItemId(item.id);
+    setOverheadName(item.itemName);
+    setRatePerUnit(item.unitPrice);
+    setFrequencyQty(item.remainingQty > 0 ? item.remainingQty : item.paguQty);
+    setErrorMsg(null);
+  };
+
+  // Preset Selection: Master General
   const applyPreset = (preset: OverheadPreset) => {
+    setSelectedRabItemId(null);
     setOverheadName(preset.name);
     setWbsStage(preset.stage);
     setFrequencyQty(preset.qty);
@@ -215,6 +401,7 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
         rate_per_unit: rate,
         notes: notes.trim() || null,
         created_by: user?.id || null,
+        rab_item_id: selectedRabItemId || null,
       };
 
       await financialReportsService.createSpkOverheadLog(payload);
@@ -224,6 +411,7 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
       setFrequencyQty(1);
       setRatePerUnit('');
       setNotes('');
+      setSelectedRabItemId(null);
       setSuccessMsg(`Berhasil mencatat overhead: ${payload.overhead_name}`);
 
       // Refresh list & notify parent
@@ -319,55 +507,159 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
             </div>
           )}
 
-          {/* Quick Presets */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-                Quick Presets Overhead Lapangan
-              </span>
-              <span className="text-[11px] text-text-muted">Klik untuk mengisi form otomatis</span>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-              {OVERHEAD_PRESETS.map((p) => {
-                const getIcon = () => {
-                  switch (p.icon) {
-                    case 'flame': return <Flame className="w-3.5 h-3.5 text-amber-400" />;
-                    case 'zap': return <Zap className="w-3.5 h-3.5 text-yellow-400" />;
-                    case 'wind': return <Wind className="w-3.5 h-3.5 text-cyan-400" />;
-                    case 'truck': return <Truck className="w-3.5 h-3.5 text-indigo-400" />;
-                  }
-                };
-
-                return (
+          {/* Quick Presets Section */}
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-border/60 pb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  Alokasi Overhead dari RAB ({wbsStage})
+                </span>
+                {fetchingRab && (
+                  <span className="text-[10px] text-text-muted animate-pulse">Memuat RAB...</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-text-muted hidden md:inline">Klik kartu untuk isi form otomatis</span>
+                {rabOverheadCalculations.length > 0 && (
                   <button
-                    key={p.name}
                     type="button"
-                    onClick={() => applyPreset(p)}
-                    className="p-2.5 rounded-lg bg-background/60 border border-border hover:border-purple-500/50 hover:bg-purple-500/5 text-left transition-all group flex flex-col justify-between"
+                    onClick={() => setShowMasterPresets(prev => !prev)}
+                    className="text-[11px] font-medium text-purple-400 hover:text-purple-300 transition-colors underline-offset-2 hover:underline"
                   >
-                    <div className="flex items-center gap-1.5 mb-1">
-                      {getIcon()}
-                      <span className="text-xs font-medium text-slate-200 group-hover:text-purple-300 truncate">
-                        {p.name}
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-text-muted flex justify-between items-center w-full mt-1">
-                      <span>{p.stage}</span>
-                      <span className="font-mono text-purple-400">{formatCurrency(p.rate)}</span>
-                    </div>
+                    {showMasterPresets ? 'Tutup Preset Gudang' : 'Tampilkan Master Preset Gudang (Umum)'}
                   </button>
-                );
-              })}
+                )}
+              </div>
             </div>
+
+            {/* RAB-Driven Dynamic Presets */}
+            {rabOverheadCalculations.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
+                {rabOverheadCalculations.map((item) => {
+                  const isSelected = selectedRabItemId === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => applyRabPreset(item)}
+                      className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between group relative overflow-hidden ${
+                        isSelected
+                          ? 'border-amber-500 bg-amber-500/10 shadow-lg shadow-amber-500/10 ring-1 ring-amber-500/50'
+                          : 'border-border bg-background/60 hover:border-amber-500/50 hover:bg-slate-800/80'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-1.5 w-full">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-100 truncate">
+                          <span className="text-amber-400 shrink-0">⚡</span>
+                          <span className="truncate group-hover:text-amber-300 transition-colors" title={item.itemName}>
+                            {item.itemName}
+                          </span>
+                        </div>
+                        {isSelected && (
+                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 font-bold uppercase tracking-wider shrink-0">
+                            Aktif
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="mt-2.5 space-y-1">
+                        <div className="flex justify-between items-baseline text-[11px]">
+                          <span className="text-text-muted">Pagu: {item.paguQty} {item.unit}</span>
+                          <span className="font-mono text-emerald-400 font-bold">
+                            Rp {item.unitPrice.toLocaleString('id-ID')}
+                          </span>
+                        </div>
+
+                        <div className="pt-1 border-t border-border/50 flex justify-between items-center text-[10px]">
+                          <span className="text-text-muted">Sisa Kuota:</span>
+                          <span className={`font-mono font-semibold ${item.isExhausted ? 'text-slate-500' : 'text-amber-300'}`}>
+                            {item.remainingQty} {item.unit}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-3.5 rounded-xl border border-dashed border-border bg-background/40 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs">
+                <div className="flex items-center gap-2 text-text-muted text-center sm:text-left">
+                  <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>Tidak ada alokasi overhead RAB untuk tahapan <strong>{wbsStage}</strong>.</span>
+                </div>
+                {!showMasterPresets && (
+                  <button
+                    type="button"
+                    onClick={() => setShowMasterPresets(true)}
+                    className="px-3 py-1 rounded-lg bg-purple-500/10 text-purple-300 border border-purple-500/30 hover:bg-purple-500/20 transition-all font-medium text-[11px] shrink-0"
+                  >
+                    Tampilkan Master Preset Gudang (Umum)
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Fallback / Master General Presets */}
+            {showMasterPresets && (
+              <div className="p-3.5 rounded-xl border border-purple-500/30 bg-purple-950/10 space-y-2 animate-in fade-in duration-200">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-semibold text-purple-300 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5" />
+                    Master Preset Gudang Karoseri (Umum / Luar RAB)
+                  </span>
+                  <span className="text-[10px] text-purple-400/80">Pilih jika terjadi overhead darurat/tak terduga</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {OVERHEAD_PRESETS.map((p) => {
+                    const getIcon = () => {
+                      switch (p.icon) {
+                        case 'flame': return <Flame className="w-3.5 h-3.5 text-amber-400" />;
+                        case 'zap': return <Zap className="w-3.5 h-3.5 text-yellow-400" />;
+                        case 'wind': return <Wind className="w-3.5 h-3.5 text-cyan-400" />;
+                        case 'truck': return <Truck className="w-3.5 h-3.5 text-indigo-400" />;
+                      }
+                    };
+
+                    return (
+                      <button
+                        key={p.name}
+                        type="button"
+                        onClick={() => applyPreset(p)}
+                        className="p-2.5 rounded-lg bg-surface/80 border border-border hover:border-purple-500/50 hover:bg-purple-500/10 text-left transition-all group flex flex-col justify-between"
+                      >
+                        <div className="flex items-center gap-1.5 mb-1">
+                          {getIcon()}
+                          <span className="text-xs font-medium text-slate-200 group-hover:text-purple-300 truncate">
+                            {p.name}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-text-muted flex justify-between items-center w-full mt-1">
+                          <span>{p.stage}</span>
+                          <span className="font-mono text-purple-400 font-semibold">{formatCurrency(p.rate)}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Form Input */}
           <form onSubmit={handleSubmit} className="p-4 rounded-xl bg-background/50 border border-border space-y-4">
             <div className="flex items-center justify-between border-b border-border/50 pb-2">
-              <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-                <Plus className="w-4 h-4 text-purple-400" />
-                Catat Pengeluaran / Alokasi FOH Baru
-              </h4>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                  <Plus className="w-4 h-4 text-purple-400" />
+                  Catat Pengeluaran / Alokasi FOH Baru
+                </h4>
+                {selectedRabItemId && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                    ⚡ RAB Sinkron
+                  </span>
+                )}
+              </div>
               <span className="text-xs text-text-muted">Input aktual lantai kerja</span>
             </div>
 
@@ -379,7 +671,10 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
                 </label>
                 <select
                   value={wbsStage}
-                  onChange={(e) => setWbsStage(e.target.value)}
+                  onChange={(e) => {
+                    setWbsStage(e.target.value);
+                    setSelectedRabItemId(null);
+                  }}
                   className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-xs sm:text-sm text-text focus:outline-none focus:ring-1 focus:ring-purple-400"
                   required
                 >
@@ -400,7 +695,10 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
                   type="text"
                   placeholder="Contoh: Oven Spray Booth Jam Lembur / Sewa Derek Mesin"
                   value={overheadName}
-                  onChange={(e) => setOverheadName(e.target.value)}
+                  onChange={(e) => {
+                    setOverheadName(e.target.value);
+                    if (selectedRabItemId) setSelectedRabItemId(null);
+                  }}
                   className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-xs sm:text-sm text-text focus:outline-none focus:ring-1 focus:ring-purple-400"
                   required
                 />
@@ -413,7 +711,7 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
                 </label>
                 <input
                   type="number"
-                  min="0.1"
+                  min="0.01"
                   step="any"
                   placeholder="1"
                   value={frequencyQty}
@@ -431,7 +729,7 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
                 <input
                   type="number"
                   min="0"
-                  step="1000"
+                  step="any"
                   placeholder="Rp 0"
                   value={ratePerUnit}
                   onChange={(e) => setRatePerUnit(e.target.value === '' ? '' : Number(e.target.value))}
@@ -541,7 +839,18 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
                           </span>
                         </td>
                         <td className="py-2.5 px-3 font-medium text-slate-200">
-                          {item.overhead_name}
+                          <div className="flex items-center gap-1.5">
+                            <span>{item.overhead_name}</span>
+                            {item.rab_item_id ? (
+                              <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-emerald-500/10 text-emerald-300 border border-emerald-500/20" title="Terhubung ke RAB">
+                                RAB
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-slate-700/40 text-slate-400 border border-slate-700" title="Non-RAB (Umum)">
+                                Umum
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="py-2.5 px-3 text-right font-mono text-slate-300">
                           {item.frequency_qty}

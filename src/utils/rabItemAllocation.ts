@@ -60,6 +60,15 @@ export interface AssignmentLike {
   [key: string]: any;
 }
 
+export interface OverheadLogLike {
+  id?: string;
+  rab_item_id?: string | null;
+  overhead_name?: string | null;
+  wbs_stage?: string | null;
+  frequency_qty?: number;
+  [key: string]: any;
+}
+
 /**
  * Normalizes text for lenient, case-insensitive comparison
  * Strips out punctuation, collapses whitespaces, and converts to lowercase.
@@ -78,6 +87,7 @@ export function normalizeText(str?: string | null): string {
  * Checks if a RAB item is already allocated or used in either:
  * 1. Material Requisitions (saved in database or temporarily selected locally)
  * 2. SPK Borongan Assignments (active / non-cutoff / non-cancelled worker assignments)
+ * 3. SPK Overhead Logs (factory overhead incurred and logged)
  *
  * Supports ID matching (material_id, rab_item_id) as well as text/substring matching
  * on task descriptions and item names to account for mandor notes.
@@ -86,7 +96,8 @@ export function isRabItemAllocated(
   rabItem: RabItemLike,
   requisitions?: Array<RequisitionItemLike> | Set<string> | null,
   assignments?: Array<AssignmentLike> | null,
-  localRequisitions?: Array<RequisitionItemLike> | null
+  localRequisitions?: Array<RequisitionItemLike> | null,
+  overheadLogs?: Array<OverheadLogLike> | null
 ): boolean {
   if (!rabItem) return false;
 
@@ -209,6 +220,28 @@ export function isRabItemAllocated(
     });
 
     if (matchInBorong) return true;
+  }
+
+  // 4. Check in SPK Overhead Logs
+  if (overheadLogs && Array.isArray(overheadLogs)) {
+    const matchInOverhead = overheadLogs.some((oh) => {
+      if (!oh) return false;
+      // Direct RAB Item ID match
+      if (rabItemId && oh.rab_item_id && oh.rab_item_id === rabItemId) return true;
+
+      // Exact or substring match on overhead name
+      const ohName = (oh.overhead_name || '').trim();
+      const normOhName = normalizeText(ohName);
+      if (normOhName && normalizedItemName) {
+        if (normOhName === normalizedItemName) return true;
+        if (normalizedItemName.length >= 4 && normOhName.includes(normalizedItemName)) return true;
+        if (normOhName.length >= 4 && normalizedItemName.includes(normOhName)) return true;
+      }
+
+      return false;
+    });
+
+    if (matchInOverhead) return true;
   }
 
   return false;

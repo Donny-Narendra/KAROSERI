@@ -85,10 +85,14 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
           .select(`
             id,
             quantity,
+            unit,
             wbs_category,
             description,
+            material_name,
             item_total,
+            unit_price,
             material_id,
+            item_type,
             materials (
               id,
               name,
@@ -142,7 +146,24 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
         console.error('Error fetching SPK Borongan assignments for WBS allocation:', boronganError);
       }
 
-      // 4. Map allocations per WBS category
+      // 4. Fetch SPK overhead logs for overhead allocations
+      const { data: overheadLogs, error: overheadError } = await supabase
+        .from('spk_overhead_logs')
+        .select(`
+          id,
+          wbs_stage,
+          overhead_name,
+          frequency_qty,
+          rate_per_unit,
+          rab_item_id
+        `)
+        .eq('spk_id', spkId);
+
+      if (overheadError) {
+        console.error('Error fetching SPK Overhead logs for WBS allocation:', overheadError);
+      }
+
+      // 5. Map allocations per WBS category
       const allocationMap: Record<string, {
         totalRabCount: number;
         pendingList: PendingWbsMaterial[];
@@ -154,7 +175,6 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
         const cleanCat = category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
 
         const catRabItems = rabItems.filter((item) => {
-          if (item.item_type === 'OVERHEAD') return false;
           if (!item.wbs_category) return false;
           const itemCat = item.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
           return itemCat === cleanCat || item.wbs_category.toLowerCase() === category.toLowerCase();
@@ -176,18 +196,24 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
           return bCat === cleanCat || b.wbs_category.toLowerCase() === category.toLowerCase();
         });
 
+        const relevantOverheads = (overheadLogs || []).filter((oh: any) => {
+          if (!oh.wbs_stage) return true;
+          const ohStage = oh.wbs_stage.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
+          return ohStage === cleanCat || oh.wbs_stage.toLowerCase() === category.toLowerCase();
+        });
+
         const pendingList: PendingWbsMaterial[] = [];
         let totalEstimatedCost = 0;
 
         catRabItems.forEach((rabItem) => {
-          const isAllocated = isRabItemAllocated(rabItem, relevantReqs, relevantBorongans);
+          const isAllocated = isRabItemAllocated(rabItem, relevantReqs, relevantBorongans, null, relevantOverheads);
 
           if (!isAllocated) {
-            const matName = rabItem.materials?.name || rabItem.description || 'Material / Item WBS';
-            const unit = rabItem.materials?.unit || 'satuan';
+            const matName = rabItem.materials?.name || rabItem.material_name || rabItem.description || 'Material / Item WBS';
+            const unit = rabItem.unit || rabItem.materials?.unit || 'satuan';
             const qty = Number(rabItem.quantity) || 1;
-            const estCost = Number(rabItem.item_total) || 
-              (qty * (Number(rabItem.materials?.unit_price) || 0));
+            const unitPrice = Number(rabItem.unit_price) || Number(rabItem.materials?.unit_price) || 0;
+            const estCost = Number(rabItem.item_total) || (qty * unitPrice);
 
             totalEstimatedCost += estCost;
             pendingList.push({
@@ -195,7 +221,7 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
               name: matName,
               quantity: qty,
               unit,
-              unitPrice: Number(rabItem.materials?.unit_price) || 0,
+              unitPrice,
               estimatedCost: estCost,
             });
           }
@@ -700,6 +726,7 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
           spkId={spkId}
           defaultCategory={overheadCategory === 'ALL' ? null : overheadCategory}
           onOverheadUpdated={() => {
+            fetchMaterialAllocations();
             onWbsUpdated?.();
           }}
         />
@@ -724,6 +751,13 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
             const cat = pendingModalCategory;
             setPendingModalCategory(null);
             setBoronganCategory(cat);
+          }
+        }}
+        onOpenOverhead={() => {
+          if (pendingModalCategory) {
+            const cat = pendingModalCategory;
+            setPendingModalCategory(null);
+            setOverheadCategory(cat);
           }
         }}
       />

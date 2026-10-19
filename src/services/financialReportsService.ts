@@ -207,6 +207,7 @@ export const financialReportsService = {
       notes: payload.notes || null,
       recorded_at: payload.recorded_at || new Date().toISOString(),
       created_by: payload.created_by || null,
+      rab_item_id: payload.rab_item_id || null,
     };
 
     const { data, error } = await supabase
