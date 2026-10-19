@@ -1,6 +1,6 @@
 ## Current Position
-- **Sprint**: Sprint 44 — Scan Codebase for Hardcoded Static Mock Data in Financial and Production Modules
-- **Status**: Completed ✅
+- **Sprint**: Sprint 45 — Enforce Strict item_type = 'MATERIAL' Filter on Requisition RAB Allocation Panel
+- **Status**: Sprint in progress ⏳
 - **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness
 
 ## Last Session Summary
