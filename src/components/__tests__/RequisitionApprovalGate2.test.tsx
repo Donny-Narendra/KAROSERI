@@ -221,17 +221,17 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
     expect(screen.getAllByText('Pembongkaran').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('material tes 2')).toBeInTheDocument();
 
-    // Verify Gate 2 Safe Banner is displayed for WBS 1
-    const safeBanner = await screen.findByText(/Pagu Gate 2/i);
-    expect(safeBanner).toBeInTheDocument();
-    expect(safeBanner.textContent).toContain('Aman');
+    // Verify Gate 2 Safe Info Badge is displayed for WBS 1
+    const safeBadge = await screen.findByText(/Alokasi Sesuai Pagu Material/i);
+    expect(safeBadge).toBeInTheDocument();
+    expect(safeBadge.textContent).toContain('Pembongkaran: Rp 55.000 / Rp 55.000');
 
     // Check that NO false-positive over-budget alert is shown
     expect(screen.queryByText(/PERINGATAN PAGU GATE 2 \(OVER BUDGET\):/i)).not.toBeInTheDocument();
 
-    // Verify Approve button is green (bg-status-success) and NOT amber (bg-amber-600)
+    // Verify Approve button is standard orange (bg-primary) and NOT amber (bg-amber-600)
     const approveButton = screen.getByRole('button', { name: /approve/i });
-    expect(approveButton).toHaveClass('bg-status-success');
+    expect(approveButton).toHaveClass('bg-primary');
     expect(approveButton).not.toHaveClass('bg-amber-600');
     expect(approveButton).toHaveAttribute('title', 'Setujui Permintaan Material (Sesuai Alokasi RAB WBS)');
   });

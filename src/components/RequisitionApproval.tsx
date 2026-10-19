@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
-import { Check, X, ClipboardList, Loader2, AlertTriangle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ShieldCheck } from 'lucide-react';
+import { Check, X, ClipboardList, Loader2, AlertTriangle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { ConfirmationModal } from './ConfirmationModal';
 import type { StockAuditItem } from './RecentApprovedMaterials';
 import { normalizeText } from '../utils/rabItemAllocation';
@@ -401,8 +401,8 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
 
   const getRequisitionGate2Evaluation = useCallback((requisition: any): Gate2EvaluationResult => {
     const sId = requisition.spk_id || requisition.spk?.id;
-    const wbsStage = requisition.wbs_category || requisition.material_requisition_items?.[0]?.wbs_stage || null;
-    const currentTicketCost = Number(requisition.totalRequisitionCost || 0);
+    const wbsStage = requisition.wbs_stage || requisition.wbs_category || requisition.material_requisition_items?.[0]?.wbs_stage || null;
+    const currentTicketCost = Number(requisition.totalRequisitionCost || requisition.total_estimated_cost || 0);
 
     return evaluateGate2Budget({
       spkId: sId,
@@ -831,30 +831,30 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                     {/* Ringkasan Gate 2 Berjenjang (Dynamic Tiered Gate 2 Budget Warning) */}
                     {(() => {
                       const gate2 = getRequisitionGate2Evaluation(req);
-                      const stageDisplayName = req.wbs_category || gate2.wbsStageName;
+                      const stageDisplayName = req.wbs_stage || req.wbs_category || gate2.wbsStageName;
+                      const wbsMaterialBudget = gate2.wbsBudgetLimit;
+                      const wbsMaterialIssued = gate2.approvedReqCost + gate2.directIssueCost;
+                      const currentReqAmount = Number(req.total_estimated_cost || req.totalRequisitionCost || 0);
+                      const projectedTotal = wbsMaterialIssued + currentReqAmount;
+                      const isOverBudget = gate2.isOverBudget;
+                      const overAmount = gate2.overAmount;
 
-                      if (gate2.isOverBudget) {
+                      if (isOverBudget) {
                         return (
                           <div className="mt-3 flex items-start gap-2.5 text-xs bg-rose-950/70 border border-rose-600 text-rose-200 p-3 rounded-md shadow-sm">
                             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
                             <div className="space-y-1.5 w-full">
                               <p className="leading-relaxed">
-                                <span className="font-bold text-rose-300">PERINGATAN PAGU GATE 2 (OVER BUDGET):</span> Menyetujui requisition ini (Rp {gate2.currentTicketCost.toLocaleString('id-ID')}) akan menyebabkan total pengeluaran material <strong className="text-white underline">{stageDisplayName}</strong> (Rp {gate2.projectedTotal.toLocaleString('id-ID')}) MELEBIHI pagu material RAB WBS (Rp {gate2.wbsBudgetLimit.toLocaleString('id-ID')}) sebesar Rp {gate2.overAmount.toLocaleString('id-ID')}. Pastikan sudah ada persetujuan Change Order / SPK Tambahan dari Service Advisor sebelum menyetujui.
+                                <span className="font-bold text-rose-300">PERINGATAN PAGU GATE 2 (OVER BUDGET):</span> Menyetujui requisition ini (Rp {currentReqAmount.toLocaleString('id-ID')}) akan menyebabkan total pengeluaran material <strong className="text-white underline">{stageDisplayName}</strong> (Rp {projectedTotal.toLocaleString('id-ID')}) MELEBIHI pagu material RAB WBS (Rp {wbsMaterialBudget.toLocaleString('id-ID')}) sebesar Rp {overAmount.toLocaleString('id-ID')}. Pastikan sudah ada persetujuan Change Order / SPK Tambahan dari Service Advisor sebelum menyetujui.
                               </p>
                               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-rose-300/80 pt-1.5 border-t border-rose-800/60 font-mono">
-                                <span>Pagu Material WBS: <strong className="text-rose-100">Rp {gate2.wbsBudgetLimit.toLocaleString('id-ID')}</strong></span>
+                                <span>Pagu Material WBS: <strong className="text-rose-100">Rp {wbsMaterialBudget.toLocaleString('id-ID')}</strong></span>
                                 <span>•</span>
-                                <span>Requisition Disetujui: <strong className="text-rose-100">Rp {gate2.approvedReqCost.toLocaleString('id-ID')}</strong></span>
-                                {gate2.directIssueCost > 0 && (
-                                  <>
-                                    <span>•</span>
-                                    <span>Direct Issue: <strong className="text-rose-100">Rp {gate2.directIssueCost.toLocaleString('id-ID')}</strong></span>
-                                  </>
-                                )}
+                                <span>Requisition Disetujui: <strong className="text-rose-100">Rp {wbsMaterialIssued.toLocaleString('id-ID')}</strong></span>
                                 <span>•</span>
-                                <span>Tiket Ini: <strong className="text-rose-100">Rp {gate2.currentTicketCost.toLocaleString('id-ID')}</strong></span>
+                                <span>Tiket Ini: <strong className="text-rose-100">Rp {currentReqAmount.toLocaleString('id-ID')}</strong></span>
                                 <span>•</span>
-                                <span>Kelebihan: <strong className="text-rose-200">Rp {gate2.overAmount.toLocaleString('id-ID')}</strong></span>
+                                <span>Kelebihan: <strong className="text-rose-200">Rp {overAmount.toLocaleString('id-ID')}</strong></span>
                               </div>
                             </div>
                           </div>
@@ -862,29 +862,14 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                       }
 
                       return (
-                        <div className="mt-3 flex items-start gap-2.5 text-xs bg-emerald-950/40 border border-emerald-800 text-emerald-200 p-3 rounded-md shadow-sm">
-                          <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5 text-emerald-400" />
-                          <div className="space-y-1.5 w-full">
-                            <p className="leading-relaxed">
-                              <span className="font-semibold text-emerald-300">Pagu Gate 2 (Aman — Sesuai Alokasi RAB {stageDisplayName}):</span> Total permintaan saat ini (Rp {gate2.currentTicketCost.toLocaleString('id-ID')}) masih berada dalam kuota pagu material WBS. Akumulasi komitmen: Rp {gate2.projectedTotal.toLocaleString('id-ID')} dari pagu WBS Rp {gate2.wbsBudgetLimit.toLocaleString('id-ID')} (Sisa Pagu WBS: Rp {gate2.remainingQuota.toLocaleString('id-ID')}).
-                            </p>
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-emerald-300/80 pt-1.5 border-t border-emerald-800/50 font-mono">
-                              <span>Pagu Material WBS: <strong className="text-emerald-100">Rp {gate2.wbsBudgetLimit.toLocaleString('id-ID')}</strong></span>
-                              <span>•</span>
-                              <span>Requisition Disetujui: <strong className="text-emerald-100">Rp {gate2.approvedReqCost.toLocaleString('id-ID')}</strong></span>
-                              {gate2.directIssueCost > 0 && (
-                                <>
-                                  <span>•</span>
-                                  <span>Direct Issue: <strong className="text-emerald-100">Rp {gate2.directIssueCost.toLocaleString('id-ID')}</strong></span>
-                                </>
-                              )}
-                              <span>•</span>
-                              <span>Tiket Ini: <strong className="text-emerald-100">Rp {gate2.currentTicketCost.toLocaleString('id-ID')}</strong></span>
-                              <span>•</span>
-                              <span>Sisa Pagu WBS: <strong className="text-emerald-300">Rp {gate2.remainingQuota.toLocaleString('id-ID')}</strong></span>
-                              <span className="ml-auto text-[10px] text-emerald-400 font-sans italic">Stok gudang akan terpotong setelah persetujuan</span>
-                            </div>
+                        <div className="text-[11px] text-emerald-400 bg-emerald-950/40 border border-emerald-800/60 rounded px-2.5 py-1 mb-2 mt-3 flex items-center justify-between gap-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <span>✓</span>
+                            <span>Alokasi Sesuai Pagu Material {stageDisplayName}: Rp {currentReqAmount.toLocaleString('id-ID')} / Rp {wbsMaterialBudget.toLocaleString('id-ID')}</span>
                           </div>
+                          <span className="text-[10px] text-emerald-300/90 font-mono">
+                            Sisa Pagu WBS: Rp {gate2.remainingQuota.toLocaleString('id-ID')}
+                          </span>
                         </div>
                       );
                     })()}
@@ -903,7 +888,7 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                           className={`flex-1 lg:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded transition disabled:opacity-50 text-white font-medium ${
                             isOverBudget
                               ? 'bg-amber-600 hover:bg-amber-700 border border-amber-500 shadow-sm'
-                              : 'bg-status-success hover:bg-status-success/90'
+                              : 'bg-primary hover:bg-primary/90'
                           }`}
                           title={isOverBudget ? 'Peringatan: Over Budget (Memerlukan persetujuan Change Order)' : 'Setujui Permintaan Material (Sesuai Alokasi RAB WBS)'}
                         >
