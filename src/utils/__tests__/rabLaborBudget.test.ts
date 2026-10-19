@@ -267,6 +267,85 @@ describe('RAB Calculator & Labor Budget Alignment', () => {
     expect(allocatedPayloads[1].unitPrice).toBe(800000);
   });
 
+  it('inherits labor item_type from inventory master catalog when material is linked in package items', () => {
+    const packageItemsFromDb = [
+      {
+        id: 'pi-1',
+        item_type: 'LABOR',
+        material_id: 'mat-tukang-cat',
+        labor_name: null,
+        cost_per_unit: 900000,
+        material: {
+          id: 'mat-tukang-cat',
+          name: 'TUKANG CAT BAK',
+          category: 'General',
+          item_type: 'LABOR',
+        },
+      },
+      {
+        id: 'pi-2',
+        item_type: 'OVERHEAD',
+        material_id: 'mat-listrik',
+        labor_name: null,
+        cost_per_unit: 150000,
+        material: {
+          id: 'mat-listrik',
+          name: 'LISTRIK',
+          category: 'Overhead',
+          item_type: 'OVERHEAD',
+        },
+      },
+    ];
+
+    const mapped = packageItemsFromDb.map(item => {
+      const isLabor = item.item_type === 'LABOR' || item.material?.item_type === 'LABOR';
+      const isOverhead = item.item_type === 'OVERHEAD' || item.material?.item_type === 'OVERHEAD';
+      const type = isLabor ? ('labor' as const) : (isOverhead ? ('overhead' as const) : ('material' as const));
+      const description = item.labor_name || item.material?.name || '';
+      return {
+        type,
+        description,
+        unitPrice: item.cost_per_unit,
+        materialId: type === 'material' ? item.material_id : undefined,
+      };
+    });
+
+    expect(mapped[0].type).toBe('labor');
+    expect(mapped[0].description).toBe('TUKANG CAT BAK');
+    expect(mapped[0].materialId).toBeUndefined();
+
+    expect(mapped[1].type).toBe('overhead');
+    expect(mapped[1].description).toBe('LISTRIK');
+    expect(mapped[1].materialId).toBeUndefined();
+  });
+
+  it('serializes allocated labor and overhead package items to database payload with item_type and null material_id', () => {
+    const allocatedItem = {
+      type: 'labor' as const,
+      description: 'TUKANG RANGKA BAK',
+      qty: 0.3,
+      unitPrice: 1000000,
+      materialId: undefined,
+    };
+
+    const dbPayload = {
+      item_type: allocatedItem.type === 'labor' ? 'LABOR' : 'MATERIAL',
+      material_name: allocatedItem.description,
+      quantity: allocatedItem.qty,
+      unit_price: allocatedItem.unitPrice,
+      labor_hours: allocatedItem.type === 'labor' ? allocatedItem.qty : 0,
+      labor_rate: allocatedItem.type === 'labor' ? allocatedItem.unitPrice : 0,
+      material_id: allocatedItem.type === 'labor' ? null : (allocatedItem.materialId || null),
+      item_total: allocatedItem.qty * allocatedItem.unitPrice,
+    };
+
+    expect(dbPayload.item_type).toBe('LABOR');
+    expect(dbPayload.material_id).toBeNull();
+    expect(dbPayload.labor_hours).toBe(0.3);
+    expect(dbPayload.labor_rate).toBe(1000000);
+    expect(dbPayload.item_total).toBe(300000);
+  });
+
   it('resolves false OVERBUDGET status in WBS variance when labor budget is recognized', () => {
     // Before fix: Pagu Jasa was Rp 0, Actual Jasa was Rp 400.000 -> Variance -Rp 400.000 (OVERBUDGET)
     const beforeLaborBudget = 0;

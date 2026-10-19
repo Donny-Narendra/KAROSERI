@@ -12,6 +12,7 @@ export interface Material {
   current_stock: number;
   minimum_stock: number;
   is_customer_supplied?: boolean;
+  item_type?: 'MATERIAL' | 'LABOR' | 'OVERHEAD';
 }
 
 export interface InventoryAuditLog {

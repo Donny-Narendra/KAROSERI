@@ -82,9 +82,17 @@ export const PackageManager: React.FC = () => {
   };
 
   const handleAddNewMaterialRow = (material: Material) => {
+    const itemType: 'MATERIAL' | 'LABOR' | 'OVERHEAD' = material.item_type || (
+      /tukang|jasa|ongkos|borongan|upah|labor/i.test(`${material.name} ${material.category || ''}`)
+        ? 'LABOR'
+        : /overhead|listrik|sewa/i.test(`${material.name} ${material.category || ''}`)
+          ? 'OVERHEAD'
+          : 'MATERIAL'
+    );
+
     setItems((prevItems) => {
       const existingIndex = prevItems.findIndex(
-        (item) => item.item_type === 'MATERIAL' && item.material_id === material.id
+        (item) => item.item_type === itemType && item.material_id === material.id
       );
 
       if (existingIndex > -1) {
@@ -102,9 +110,9 @@ export const PackageManager: React.FC = () => {
       return [
         ...prevItems,
         {
-          item_type: 'MATERIAL',
+          item_type: itemType,
           material_id: material.id,
-          labor_name: null,
+          labor_name: itemType === 'LABOR' ? material.name : null,
           quantity: 1,
           cost_per_unit: material.unit_price || 0,
         }
@@ -146,11 +154,12 @@ export const PackageManager: React.FC = () => {
     // Validate items
     const invalidItem = items.find(i => 
       (i.item_type === 'MATERIAL' && !i.material_id) ||
-      (i.item_type === 'LABOR' && !i.labor_name?.trim())
+      (i.item_type === 'LABOR' && !i.material_id && !i.labor_name?.trim()) ||
+      (i.item_type === 'OVERHEAD' && !i.material_id && !i.labor_name?.trim())
     );
 
     if (invalidItem) {
-      showMessage('Pastikan semua rincian komponen (Material/Jasa) terisi dengan benar', true);
+      showMessage('Pastikan semua rincian komponen (Material/Jasa/Overhead) terisi dengan benar', true);
       return;
     }
 
@@ -158,9 +167,9 @@ export const PackageManager: React.FC = () => {
     setError(null);
 
     const formattedItems = items.map(i => ({
-      item_type: i.item_type as 'MATERIAL'|'LABOR',
+      item_type: i.item_type as 'MATERIAL' | 'LABOR' | 'OVERHEAD',
       material_id: i.material_id,
-      labor_name: i.labor_name,
+      labor_name: i.labor_name || (i.item_type === 'LABOR' ? (materials.find(m => m.id === i.material_id)?.name || null) : null),
       quantity: i.quantity || 1,
       cost_per_unit: i.cost_per_unit || 0
     }));
@@ -398,15 +407,19 @@ export const PackageManager: React.FC = () => {
                       <tr key={index}>
                         <td className="px-3 py-2">
                           <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider ${
-                            item.item_type === 'MATERIAL' ? 'bg-blue-500/10 text-blue-500' : 'bg-orange-500/10 text-orange-500'
+                            item.item_type === 'MATERIAL' 
+                              ? 'bg-blue-500/10 text-blue-500' 
+                              : item.item_type === 'LABOR' 
+                                ? 'bg-orange-500/10 text-orange-500' 
+                                : 'bg-purple-500/10 text-purple-500'
                           }`}>
-                            {item.item_type === 'MATERIAL' ? 'BAHAN' : 'JASA'}
+                            {item.item_type === 'MATERIAL' ? 'BAHAN' : item.item_type === 'LABOR' ? 'JASA' : 'OVERHEAD'}
                           </span>
                         </td>
                         <td className="px-3 py-2">
-                          {item.item_type === 'MATERIAL' ? (
+                          {item.material_id ? (
                             <span className="text-sm font-medium">
-                              {materials.find(m => m.id === item.material_id)?.name || 'Material tidak ditemukan'}
+                              {materials.find(m => m.id === item.material_id)?.name || item.labor_name || 'Material tidak ditemukan'}
                             </span>
                           ) : (
                             <input

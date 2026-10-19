@@ -11,7 +11,7 @@ export interface ProductPackage {
 export interface PackageItem {
   id?: string;
   package_id?: string;
-  item_type: 'MATERIAL' | 'LABOR';
+  item_type: 'MATERIAL' | 'LABOR' | 'OVERHEAD';
   material_id?: string | null;
   labor_name?: string | null;
   quantity: number;

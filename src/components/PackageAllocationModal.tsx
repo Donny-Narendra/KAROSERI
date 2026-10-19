@@ -56,7 +56,7 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
       const initial: AllocationState = {};
       packageData.items.forEach((item, idx) => {
         initial[idx] = {};
-        const desc = item.item_type === 'MATERIAL' ? (item.material?.name || 'Unknown Material') : (item.labor_name || 'Unknown Labor');
+        const desc = item.labor_name || item.material?.name || (item.item_type === 'LABOR' ? 'Unknown Labor' : 'Unknown Material');
         WBS_CATEGORIES.forEach((cat) => {
           const match = existingItems?.find(e => e.wbsCategory === cat && e.description === desc);
           if (match && match.qty > 0) {
@@ -114,6 +114,20 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
       if (item.id && saveAsTemplate) {
         templateToSave[item.id] = {};
       }
+      const rawType = item.item_type || item.material?.item_type;
+      const itemName = item.labor_name || item.material?.name || '';
+      const itemCategory = item.material?.category || '';
+      const combined = `${itemName} ${itemCategory}`.toLowerCase();
+      
+      let finalType: 'material' | 'labor' | 'overhead' = 'material';
+      if (rawType === 'LABOR' || /tukang|jasa|ongkos|borongan|upah|labor/.test(combined)) {
+        finalType = 'labor';
+      } else if (rawType === 'OVERHEAD' || /overhead|listrik|sewa bay|bay rate/.test(combined)) {
+        finalType = 'overhead';
+      }
+
+      const description = itemName || (finalType === 'labor' ? 'Labor Item' : finalType === 'overhead' ? 'Overhead Item' : 'Material Item');
+
       WBS_CATEGORIES.forEach((cat) => {
         const qty = parseFloat(allocations[idx]?.[cat]) || 0;
         if (item.id && saveAsTemplate) {
@@ -122,12 +136,12 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
         if (qty > 0) {
           payload.push({
             wbsCategory: cat,
-            type: item.item_type === 'LABOR' ? 'labor' : 'material',
-            description: item.item_type === 'MATERIAL' ? (item.material?.name || 'Unknown Material') : (item.labor_name || 'Unknown Labor'),
+            type: finalType,
+            description,
             qty,
             unitPrice: item.cost_per_unit,
             wasteFactor: 0,
-            materialId: (item.item_type === 'MATERIAL' ? (item.material_id || item.material?.id) : undefined) || undefined,
+            materialId: finalType === 'material' ? (item.material_id || item.material?.id) : undefined,
           });
         }
       });
@@ -174,10 +188,10 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
                     <tr key={idx} className="hover:bg-surface-hover/30">
                       <td className="px-4 py-3 sticky left-0 bg-background z-10">
                         <div className="font-medium text-text">
-                          {item.item_type === 'MATERIAL' ? item.material?.name : item.labor_name}
+                          {item.labor_name || item.material?.name || 'Komponen'}
                         </div>
                         <div className="text-[10px] text-text-muted uppercase">
-                          {item.item_type}
+                          {item.item_type || item.material?.item_type || 'MATERIAL'}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center font-mono font-bold text-text">

@@ -741,7 +741,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
         isLocked: false,
         wasteFactor: payload.wasteFactor || 0,
         packageId: pkgId,
-        materialId: payloadMatId || matchedMat?.id,
+        materialId: payload.type === 'material' ? (payloadMatId || matchedMat?.id) : undefined,
       };
     });
     
