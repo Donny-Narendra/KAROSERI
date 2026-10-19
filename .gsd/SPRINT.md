@@ -1,70 +1,76 @@
-# Sprint 47 — Dynamic RAB-Driven Presets for Floor Overhead Terminal in Mandor Portal
+# Sprint 48 — Refactor Gate 2 Warehouse Approval Budget Guard to Material-Only and WBS-Specific Scope
 
-> **Duration**: 2026-10-19 to 2026-10-19
+> **Duration**: 2026-10-19 to 2026-10-20
 > **Status**: Completed ✅
 
 ## Goal
-Dynamically populate Mandor portal's Floor Overhead Terminal presets directly from RAB items (`item_type = 'OVERHEAD'`) allocated to the active WBS stage, enable single-click form auto-fill with remaining budget quantity, bind `rab_item_id` to `spk_overhead_logs`, provide fallback to general warehouse presets when unbudgeted, and decrement WBS pending allocation counter upon logging.
+Refactor Gate 2 Warehouse Approval budget limit validation in Petugas Gudang portal (`RequisitionApproval.tsx`) so that budget and expenditure calculations are strictly restricted to physical materials (`item_type = 'MATERIAL'`), completely eliminating labor (`spk_borongan`) and overhead contaminations, and evaluating budget quotas on a WBS-specific scope so valid requisitions (such as SPK-2668 WBS 1: Pembongkaran) display green valid status ("Sesuai Alokasi RAB WBS") without false-positive over-budget warnings.
 
 ## Scope
 
 ### Included
-- **Database Schema Migration**:
-  - Created and applied `supabase/migrations/20261019020000_add_rab_item_id_to_spk_overhead_logs.sql`.
-  - Added `rab_item_id UUID REFERENCES public.rab_items(id) ON DELETE SET NULL` to `public.spk_overhead_logs`.
-  - Added index `idx_spk_overhead_logs_rab_item_id` for efficient query joins.
-- **TypeScript Data Contracts & Service Layer**:
-  - Updated `SpkOverheadLog` and `CreateSpkOverheadLogPayload` in `src/types/financialReports.ts` to include `rab_item_id?: string | null`.
-  - Updated `createSpkOverheadLog` in `src/services/financialReportsService.ts` to persist `rab_item_id`.
-- **Mandor Overhead Terminal Modal (`SpkOverheadModal.tsx`)**:
-  - Fetched RAB overhead items (`item_type = 'OVERHEAD'`) for the active `spkId` and stage.
-  - Calculated accumulated usage per RAB overhead item vs pagu quantity (`remainingQty = quantity - loggedQty`).
-  - Rendered dynamic preset cards with specific RAB name, pagu quantity & unit price, remaining unrecorded balance.
-  - Auto-filled form inputs (`overheadName`, `ratePerUnit`, `frequencyQty` with remaining budget, `rab_item_id`).
-  - Provided fallback button "Tampilkan Master Preset Gudang (Umum)" for unbudgeted overhead.
-  - Highlighted selected preset and supported switching stages dynamically.
-- **WBS Allocation Synchronization (`WbsChecklist.tsx`, `rabItemAllocation.ts`, `WbsPendingMaterialModal.tsx`)**:
-  - Included `item_type` in `rab_items` query within `fetchMaterialAllocations`.
-  - Fetched `spk_overhead_logs` in `fetchMaterialAllocations` and fed into allocation checks so logged overhead decrements the pending badge.
-  - Called `fetchMaterialAllocations` in `onOverheadUpdated`.
-  - Added "Overhead FOH" button to `WbsPendingMaterialModal` for direct navigation.
-- **Testing & Verification**:
-  - Updated `SpkOverheadModal.test.tsx` (6/6 tests passing).
-  - Created `src/utils/__tests__/rabItemAllocation.test.ts` (6/6 tests passing).
-  - Empirically verified on SPK-2668: initial 4 pending items decrements to 3 upon logging LISTRIK, leaving only unlogged sewa kompressor.
-  - Full test suite: 24/24 test suites passing, 167/167 tests passing (100%).
-  - Linter: 0 warnings, 0 errors across 142 files (Oxlint).
+- **Gate 2 Calculation Engine (`src/utils/gate2BudgetValidation.ts`)**:
+  - Pure, testable functions for:
+    - `normalizeWbsStage(stage?: string | null): string`: Standardize WBS stage names across formats (e.g. `'WBS 1: Pembongkaran'` vs `'Pembongkaran'`).
+    - `getWbsMaterialBudget(...)`: Sum pure material items (`item_type === 'MATERIAL' || !item_type`) for a given SPK and WBS stage from `rab_items` and approved `change_order_items`.
+    - `getWbsMaterialCommitted(...)`: Sum approved material requisitions and direct material issues for a given SPK and WBS stage.
+    - `evaluateGate2Budget(...)`: Return comprehensive evaluation results including WBS-specific breakdown, remaining quota, over-budget flag, and formatted alerts.
+- **Warehouse Requisition Approval UI Refactoring (`src/components/RequisitionApproval.tsx`)**:
+  - Updated data fetching queries to select `item_type`, `wbs_stage`, `unit_price`, `cost_price` from `rab_items` and `change_order_items`.
+  - Removed labor (`spk_borongan`) and overhead from material commitment calculations.
+  - Computed WBS-specific budget allocations for each requisition card based on its WBS category / stage.
+  - Rendered WBS-specific Gate 2 status cards:
+    - Valid state (Emerald green): "Pagu Gate 2 (Aman — Sesuai Alokasi RAB WBS)".
+    - Over-budget state (Rose/Amber): "PERINGATAN PAGU GATE 2 (OVER BUDGET)".
+  - Dynamic Approve button:
+    - Green (`bg-status-success`) with `<Check />` when within WBS budget.
+    - Amber (`bg-amber-600`) with `<AlertTriangle />` when over budget.
+  - Updated confirmation dialog messages to reflect WBS stage context.
+- **Goods Issue Form Hygiene (`src/components/GoodsIssueForm.tsx`)**:
+  - Filtered `rab_items` query for `item_type === 'MATERIAL' || !item_type` to avoid non-material items entering direct issue form.
+- **Unit & Integration Testing**:
+  - Created comprehensive unit tests for `gate2BudgetValidation.ts` (9 tests passing).
+  - Created component tests for `RequisitionApprovalGate2.test.tsx` (2 tests passing).
+  - Verified SPK-2668 WBS 1 requisition (`material tes 2`, Rp 55.000) evaluates to valid green status without over-budget warning.
+  - Ran full test suite: 26/26 test suites passing, 178/178 tests passing (100%).
+  - Linter: 0 warnings, 0 errors across 146 files (Oxlint).
   - TypeScript: Clean compilation (`npx tsc -b`).
-  - Production build: Clean build in 597ms (`npm run build`).
+  - Production build: Clean build in 1.98s (`npm run build`).
 
 ### Explicitly Excluded
-- Modifying SPK borongan or material requisition core workflow.
-- Changing financial database view calculation logic.
+- Altering financial database views (`spk_job_order_cost_summary` or `spk_wbs_cost_variance`).
+- Modifying Mandor portal submission workflow or SPK Borongan assignment workflows.
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| 1. Database migration: Add `rab_item_id` to `spk_overhead_logs` & update types/services | Antigravity | ✅ Done | 0.2h |
-| 2. Implement dynamic RAB presets and fallback in `SpkOverheadModal.tsx` | Antigravity | ✅ Done | 0.4h |
-| 3. Synchronize WBS pending allocation counter and overhead logging in `WbsChecklist.tsx` & `rabItemAllocation.ts` | Antigravity | ✅ Done | 0.3h |
-| 4. Update unit tests, verify SPK-2668 end-to-end, and run quality checks | Antigravity | ✅ Done | 0.3h |
+| 1. Create modular Gate 2 budget validation engine (`gate2BudgetValidation.ts`) | Antigravity | ✅ Done | 0.3h |
+| 2. Refactor `RequisitionApproval.tsx` to evaluate WBS-specific material budgets and remove labor | Antigravity | ✅ Done | 0.4h |
+| 3. Update `GoodsIssueForm.tsx` to strictly filter material items in RAB query | Antigravity | ✅ Done | 0.1h |
+| 4. Write unit tests for Gate 2 logic & verify SPK-2668 end-to-end | Antigravity | ✅ Done | 0.3h |
 
 ## Daily Log
 
-### 2026-10-19
-- Initialized Sprint 47: Dynamic RAB-Driven Presets for Floor Overhead Terminal in Mandor Portal.
-- Archived Sprint 46 to `.gsd/sprints/sprint-46-propagate-item-type-from-inventory-assembly-packages-to-rab-and-fix-corrupted-active-spk-items.md`.
-- Inspected database schema: confirmed `spk_overhead_logs` requires `rab_item_id` column.
-- Inspected SPK-2668: verified WBS 1 (Pembongkaran) has 2 overhead items (`LISTRIK` and `sewa kompressor`), and verified current static presets and pending badge.
-- Created and executed migration `supabase/migrations/20261019020000_add_rab_item_id_to_spk_overhead_logs.sql`: added `rab_item_id` with foreign key to `rab_items(id)` and created index.
-- Updated `src/types/financialReports.ts` (`SpkOverheadLog`, `CreateSpkOverheadLogPayload`) and `src/services/financialReportsService.ts`.
-- Refactored `src/components/SpkOverheadModal.tsx` to dynamically query and calculate active stage RAB overhead items, render cards with pagu/rate/remaining balance, auto-fill form and bind `rab_item_id`, and provide general preset fallback.
-- Updated `src/utils/rabItemAllocation.ts` (`OverheadLogLike`, overhead checking in `isRabItemAllocated`) and `src/components/WbsChecklist.tsx` to query `spk_overhead_logs` and refresh allocations on overhead log updates.
-- Added quick "Overhead FOH" navigation in `src/components/WbsPendingMaterialModal.tsx`.
-- Created `src/utils/__tests__/rabItemAllocation.test.ts` (6 tests).
-- Updated `src/components/__tests__/SpkOverheadModal.test.tsx` (6 tests).
-- Empirically verified on PostgreSQL with SPK-2668: initial 4 pending items decrements to 3 when LISTRIK is logged.
-- Full test suite: 24/24 passed, 167/167 tests passed.
-- Oxlint: 0 errors, 0 warnings across 142 files.
-- TypeScript static check and Vite production build passed cleanly.
+### 2026-10-19 / 2026-10-20
+- Initialized Sprint 48: Refactor Gate 2 Warehouse Approval Budget Guard to Material-Only and WBS-Specific Scope.
+- Archived Sprint 47 to `.gsd/sprints/sprint-47-dynamic-rab-driven-presets-for-floor-overhead-terminal-in-mandor-portal.md`.
+- Executed full test suite baseline: 24/24 suites passed, 167/167 tests passed.
+- Analyzed root causes of false-positive Gate 2 warning on SPK-2668:
+  1. `spk_borongan.contract_value` (Rp 1.900.000 labor jasa) was incorrectly summed into `boronganMaterialCost` and added to material expenditures.
+  2. `rab_items` query omitted `item_type` and `wbs_stage`, mixing all items together.
+  3. Budget evaluation was calculated globally across the entire SPK instead of per WBS stage.
+- Implemented `src/utils/gate2BudgetValidation.ts` providing pure, testable functions (`normalizeWbsStage`, `getWbsMaterialBudget`, `getWbsMaterialCommitted`, `evaluateGate2Budget`).
+- Refactored `src/components/RequisitionApproval.tsx`:
+  - Removed `spk_borongan` query and labor cost additions.
+  - Added `item_type`, `wbs_stage`, `cost_price` to `rab_items` and `change_order_items` queries.
+  - Linked each pending card to WBS-specific Gate 2 budget evaluation via `getRequisitionGate2Evaluation`.
+  - Updated card alert banner to emerald green "Pagu Gate 2 (Aman — Sesuai Alokasi RAB [WBS])" with detailed breakdown.
+  - Configured Approve button to dynamic green valid status with Check icon when within budget, and amber when over-budget.
+  - Updated confirmation modal to include WBS stage context.
+- Updated `src/components/GoodsIssueForm.tsx` to filter `rab_items` strictly for `(item.item_type || 'MATERIAL').toUpperCase() === 'MATERIAL'`.
+- Created unit test suite `src/utils/__tests__/gate2BudgetValidation.test.ts` (9 tests passing).
+- Created component test suite `src/components/__tests__/RequisitionApprovalGate2.test.tsx` (2 tests passing).
+- Full regression verification: 26/26 test suites passed (178/178 tests passed, 100%).
+- Oxlint: 0 errors, 0 warnings across 146 files.
+- TypeScript compilation and Vite production build passed cleanly.

@@ -1,10 +1,18 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { Check, X, ClipboardList, Loader2, AlertTriangle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ShieldCheck } from 'lucide-react';
 import { ConfirmationModal } from './ConfirmationModal';
 import type { StockAuditItem } from './RecentApprovedMaterials';
 import { normalizeText } from '../utils/rabItemAllocation';
+import {
+  evaluateGate2Budget,
+  type RabItemGate2,
+  type ChangeOrderItemGate2,
+  type ApprovedRequisitionGate2,
+  type DirectIssueGate2,
+  type Gate2EvaluationResult
+} from '../utils/gate2BudgetValidation';
 
 export interface SpkSummaryItem {
   spkId: string;
@@ -43,7 +51,10 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
 }) => {
   const { user, profile } = useAuth();
   const [requisitions, setRequisitions] = useState<any[]>([]);
-  const [spkBudgetMap, setSpkBudgetMap] = useState<Record<string, SpkBudgetData>>({});
+  const [rabItemsList, setRabItemsList] = useState<RabItemGate2[]>([]);
+  const [approvedCoItemsList, setApprovedCoItemsList] = useState<ChangeOrderItemGate2[]>([]);
+  const [approvedReqsList, setApprovedReqsList] = useState<ApprovedRequisitionGate2[]>([]);
+  const [directIssuesList, setDirectIssuesList] = useState<DirectIssueGate2[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
@@ -177,17 +188,16 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
         .from('materials')
         .select('id, name, unit, unit_price');
 
-      // Ambil data RAB, Requisition Approved, SPK Borongan, dan Direct Issues untuk akumulasi Gate 2
+      // Ambil data RAB, Requisition Approved, dan Direct Issues untuk akumulasi Gate 2 (Eksklusif Material)
       const spkIds = Array.from(new Set((data || []).map((r: any) => r.spk_id).filter(Boolean)));
       const rabItemsBySpk: any[] = [];
       let rabEstsData: any[] = [];
       let approvedReqsData: any[] = [];
-      let boronganRowsData: any[] = [];
       let directIssuesData: any[] = [];
       let approvedCoData: any[] = [];
 
       if (spkIds.length > 0) {
-        const [rabRes, approvedRes, borongRes, directRes, coRes] = await Promise.all([
+        const [rabRes, approvedRes, directRes, coRes] = await Promise.all([
           supabase
             .from('rab_estimations')
             .select(`
@@ -198,8 +208,13 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                 id,
                 description,
                 quantity,
+                cost_price,
+                unit_price,
                 item_total,
-                wbs_category
+                wbs_category,
+                wbs_stage,
+                item_type,
+                material_id
               )
             `)
             .in('spk_id', spkIds),
@@ -208,26 +223,25 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
             .select(`
               id,
               spk_id,
+              wbs_category,
               material_requisition_items (
                 id,
                 quantity,
                 unit_price,
                 subtotal,
                 material_id,
+                wbs_stage,
                 materials ( unit_price )
               )
             `)
             .in('spk_id', spkIds)
             .eq('status', 'APPROVED'),
           supabase
-            .from('spk_borongan')
-            .select('id, spk_id, contract_value, status, material_id, rab_item_id')
-            .in('spk_id', spkIds),
-          supabase
             .from('inventory_transactions')
             .select(`
               id,
               spk_id,
+              material_id,
               quantity_issued,
               custom_unit_price,
               status,
@@ -245,6 +259,7 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
               change_order_items (
                 id,
                 item_type,
+                wbs_stage,
                 quantity,
                 unit_price,
                 cost_price,
@@ -257,98 +272,41 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
 
         if (rabRes.data) rabEstsData = rabRes.data;
         if (approvedRes.data) approvedReqsData = approvedRes.data;
-        if (borongRes.data) boronganRowsData = borongRes.data;
         if (directRes.data) directIssuesData = directRes.data;
         if (coRes.data) approvedCoData = coRes.data;
 
+        const allRabItems: RabItemGate2[] = [];
         rabEstsData.forEach((est: any) => {
           const items = est.rab_items || [];
           items.forEach((ri: any) => {
-            rabItemsBySpk.push({
+            const itemObj = {
+              spk_id: est.spk_id,
               spkId: est.spk_id,
               ...ri
+            };
+            allRabItems.push(itemObj);
+            rabItemsBySpk.push(itemObj);
+          });
+        });
+        setRabItemsList(allRabItems);
+
+        const allCoItems: ChangeOrderItemGate2[] = [];
+        approvedCoData.forEach((co: any) => {
+          (co.change_order_items || []).forEach((ci: any) => {
+            allCoItems.push({
+              spk_id: co.spk_id,
+              ...ci
             });
           });
         });
-
-        // Hitung komponen biaya riil akumulasi historis untuk setiap SPK
-        const budgetMap: Record<string, SpkBudgetData> = {};
-        spkIds.forEach((sId: string) => {
-          // rabBudgetLimit: total material cost dari RAB (dengan fallback sum items atau total_estimated_cost)
-          const est = rabEstsData.find((e: any) => e.spk_id === sId);
-          let rabBudget = Number(est?.total_material_cost || 0);
-          if (rabBudget === 0 && est?.rab_items && est.rab_items.length > 0) {
-            rabBudget = est.rab_items.reduce((sum: number, ri: any) => sum + (Number(ri.item_total) || 0), 0);
-          }
-          if (rabBudget === 0) {
-            const spkObj = (data || []).find((r: any) => r.spk_id === sId)?.spk;
-            const s: any = Array.isArray(spkObj) ? spkObj[0] : spkObj;
-            if (s?.total_estimated_cost) rabBudget = Number(s.total_estimated_cost);
-          }
-
-          // Tambahkan alokasi material dari Change Order yang telah APPROVED (Gate 2 Expansion)
-          let coMaterialBudget = 0;
-          approvedCoData
-            .filter((co: any) => co.spk_id === sId)
-            .forEach((co: any) => {
-              (co.change_order_items || []).forEach((ci: any) => {
-                if (ci.item_type === 'MATERIAL') {
-                  const qty = Number(ci.quantity || 0);
-                  const price = Number(ci.unit_price || ci.cost_price || 0);
-                  coMaterialBudget += (qty * price);
-                }
-              });
-            });
-          rabBudget += coMaterialBudget;
-
-          // approvedReqCost: total biaya requisition yang sudah di-approve
-          let approvedCost = 0;
-          approvedReqsData
-            .filter((ar: any) => ar.spk_id === sId)
-            .forEach((ar: any) => {
-              (ar.material_requisition_items || []).forEach((item: any) => {
-                const sub = Number(item.subtotal || 0);
-                if (sub > 0) {
-                  approvedCost += sub;
-                } else {
-                  const qty = Number(item.quantity || 0);
-                  const unitP = Number(item.unit_price || item.materials?.unit_price || 0);
-                  approvedCost += (qty * unitP);
-                }
-              });
-            });
-
-          // boronganMaterialCost: total material yang teralokasi pada SPK Borongan
-          let boronganCost = 0;
-          boronganRowsData
-            .filter((b: any) => b.spk_id === sId && b.status !== 'CANCELLED' && b.status !== 'CUT_OFF')
-            .forEach((b: any) => {
-              boronganCost += Number(b.contract_value || 0);
-            });
-
-          // directIssueCost: total material yang dikeluarkan langsung via tab Issue Material
-          let directCost = 0;
-          directIssuesData
-            .filter((it: any) => it.spk_id === sId && it.status !== 'VOID')
-            .forEach((it: any) => {
-              const qty = Number(it.quantity_issued || 0);
-              const unitP = Number(it.custom_unit_price ?? it.materials?.unit_price ?? 0);
-              directCost += (qty * unitP);
-            });
-
-          budgetMap[sId] = {
-            spkId: sId,
-            rabBudgetLimit: rabBudget,
-            approvedReqCost: approvedCost,
-            boronganMaterialCost: boronganCost,
-            directIssueCost: directCost,
-            totalCommittedBefore: approvedCost + boronganCost + directCost
-          };
-        });
-
-        setSpkBudgetMap(budgetMap);
+        setApprovedCoItemsList(allCoItems);
+        setApprovedReqsList(approvedReqsData);
+        setDirectIssuesList(directIssuesData);
       } else {
-        setSpkBudgetMap({});
+        setRabItemsList([]);
+        setApprovedCoItemsList([]);
+        setApprovedReqsList([]);
+        setDirectIssuesList([]);
       }
 
       // Normalisasi data requisition agar mendukung berbagai penamaan properti secara defensif
@@ -441,22 +399,31 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
     fetchRequisitions();
   }, [refreshKey]);
 
+  const getRequisitionGate2Evaluation = useCallback((requisition: any): Gate2EvaluationResult => {
+    const sId = requisition.spk_id || requisition.spk?.id;
+    const wbsStage = requisition.wbs_category || requisition.material_requisition_items?.[0]?.wbs_stage || null;
+    const currentTicketCost = Number(requisition.totalRequisitionCost || 0);
+
+    return evaluateGate2Budget({
+      spkId: sId,
+      wbsStage,
+      currentTicketCost,
+      rabItems: rabItemsList,
+      approvedCoItems: approvedCoItemsList,
+      approvedReqs: approvedReqsList,
+      directIssues: directIssuesList
+    });
+  }, [rabItemsList, approvedCoItemsList, approvedReqsList, directIssuesList]);
+
   const handleRequestApprove = (requisition: any) => {
     const totalCostStr = (requisition.totalRequisitionCost || 0).toLocaleString('id-ID');
     const spkDisplayName = requisition.spk?.spk_no || requisition.spk?.spk_number || '-';
-    const sId = requisition.spk_id || requisition.spk?.id;
-    const budgetData = sId ? spkBudgetMap[sId] : null;
-    const currentTicketCost = Number(requisition.totalRequisitionCost || 0);
-    const approvedReqCost = budgetData?.approvedReqCost || 0;
-    const boronganMaterialCost = budgetData?.boronganMaterialCost || 0;
-    const directIssueCost = budgetData?.directIssueCost || 0;
-    const rabBudgetLimit = budgetData?.rabBudgetLimit || 0;
-    const projectedTotal = approvedReqCost + boronganMaterialCost + directIssueCost + currentTicketCost;
-    const isOverBudget = rabBudgetLimit > 0 ? (projectedTotal > rabBudgetLimit) : (projectedTotal > 0);
-    const overAmount = Math.max(0, projectedTotal - rabBudgetLimit);
+    const gate2 = getRequisitionGate2Evaluation(requisition);
+    const isOverBudget = gate2.isOverBudget;
+    const stageDisplayName = requisition.wbs_category || gate2.wbsStageName || 'WBS Terkait';
 
     const overBudgetMessage = isOverBudget
-      ? `\n\n⚠️ PERINGATAN PAGU GATE 2 (OVER BUDGET):\nMenyetujui requisition ini (Rp ${currentTicketCost.toLocaleString('id-ID')}) akan menyebabkan total pengeluaran material (Rp ${projectedTotal.toLocaleString('id-ID')}) MELEBIHI pagu RAB (Rp ${rabBudgetLimit.toLocaleString('id-ID')}) sebesar Rp ${overAmount.toLocaleString('id-ID')}.\n\nPastikan sudah ada persetujuan Change Order / SPK Tambahan dari Service Advisor sebelum menyetujui!`
+      ? `\n\n⚠️ PERINGATAN PAGU GATE 2 (OVER BUDGET):\nMenyetujui requisition ini (Rp ${gate2.currentTicketCost.toLocaleString('id-ID')}) akan menyebabkan total pengeluaran material ${stageDisplayName} (Rp ${gate2.projectedTotal.toLocaleString('id-ID')}) MELEBIHI pagu material RAB WBS (Rp ${gate2.wbsBudgetLimit.toLocaleString('id-ID')}) sebesar Rp ${gate2.overAmount.toLocaleString('id-ID')}.\n\nPastikan sudah ada persetujuan Change Order / SPK Tambahan dari Service Advisor sebelum menyetujui!`
       : '';
 
     setConfirmDialog({
@@ -464,7 +431,7 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
       type: 'APPROVE',
       requisition,
       title: isOverBudget ? 'Konfirmasi Persetujuan (Peringatan Over Budget)' : 'Setujui Permintaan Material',
-      message: `Apakah Anda yakin ingin menyetujui permintaan material untuk SPK ${spkDisplayName} sebesar Rp ${totalCostStr} dan mengeluarkan material terkait?\n\nKuantitas material akan otomatis dicatat pada transaksi inventaris gudang dan stok fisik akan disesuaikan.${overBudgetMessage}`,
+      message: `Apakah Anda yakin ingin menyetujui permintaan material untuk SPK ${spkDisplayName} (${stageDisplayName}) sebesar Rp ${totalCostStr} dan mengeluarkan material terkait?\n\nKuantitas material akan otomatis dicatat pada transaksi inventaris gudang dan stok fisik akan disesuaikan.${overBudgetMessage}`,
       confirmText: isOverBudget ? 'Tetap Setujui (Change Order Disetujui)' : 'Ya, Setujui & Keluarkan',
       variant: isOverBudget ? 'danger' : 'info',
     });
@@ -863,32 +830,31 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                     
                     {/* Ringkasan Gate 2 Berjenjang (Dynamic Tiered Gate 2 Budget Warning) */}
                     {(() => {
-                      const sId = req.spk_id || req.spk?.id;
-                      const budgetData = sId ? spkBudgetMap[sId] : null;
-                      const currentTicketCost = Number(req.totalRequisitionCost || 0);
-                      const approvedReqCost = budgetData?.approvedReqCost || 0;
-                      const boronganMaterialCost = budgetData?.boronganMaterialCost || 0;
-                      const directIssueCost = budgetData?.directIssueCost || 0;
-                      const rabBudgetLimit = budgetData?.rabBudgetLimit || 0;
-                      const projectedTotal = approvedReqCost + boronganMaterialCost + directIssueCost + currentTicketCost;
-                      const isOverBudget = rabBudgetLimit > 0 ? (projectedTotal > rabBudgetLimit) : (projectedTotal > 0);
-                      const overAmount = Math.max(0, projectedTotal - rabBudgetLimit);
-                      const remainingQuota = Math.max(0, rabBudgetLimit - projectedTotal);
+                      const gate2 = getRequisitionGate2Evaluation(req);
+                      const stageDisplayName = req.wbs_category || gate2.wbsStageName;
 
-                      if (isOverBudget) {
+                      if (gate2.isOverBudget) {
                         return (
                           <div className="mt-3 flex items-start gap-2.5 text-xs bg-rose-950/70 border border-rose-600 text-rose-200 p-3 rounded-md shadow-sm">
                             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
                             <div className="space-y-1.5 w-full">
                               <p className="leading-relaxed">
-                                <span className="font-bold text-rose-300">PERINGATAN PAGU GATE 2 (OVER BUDGET):</span> Menyetujui requisition ini (Rp {currentTicketCost.toLocaleString('id-ID')}) akan menyebabkan total pengeluaran material (Rp {projectedTotal.toLocaleString('id-ID')}) MELEBIHI pagu RAB (Rp {rabBudgetLimit.toLocaleString('id-ID')}) sebesar Rp {overAmount.toLocaleString('id-ID')}. Pastikan sudah ada persetujuan Change Order / SPK Tambahan dari Service Advisor sebelum menyetujui.
+                                <span className="font-bold text-rose-300">PERINGATAN PAGU GATE 2 (OVER BUDGET):</span> Menyetujui requisition ini (Rp {gate2.currentTicketCost.toLocaleString('id-ID')}) akan menyebabkan total pengeluaran material <strong className="text-white underline">{stageDisplayName}</strong> (Rp {gate2.projectedTotal.toLocaleString('id-ID')}) MELEBIHI pagu material RAB WBS (Rp {gate2.wbsBudgetLimit.toLocaleString('id-ID')}) sebesar Rp {gate2.overAmount.toLocaleString('id-ID')}. Pastikan sudah ada persetujuan Change Order / SPK Tambahan dari Service Advisor sebelum menyetujui.
                               </p>
                               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-rose-300/80 pt-1.5 border-t border-rose-800/60 font-mono">
-                                <span>Requisition Disetujui: <strong className="text-rose-100">Rp {approvedReqCost.toLocaleString('id-ID')}</strong></span>
+                                <span>Pagu Material WBS: <strong className="text-rose-100">Rp {gate2.wbsBudgetLimit.toLocaleString('id-ID')}</strong></span>
                                 <span>•</span>
-                                <span>SPK Borongan: <strong className="text-rose-100">Rp {boronganMaterialCost.toLocaleString('id-ID')}</strong></span>
+                                <span>Requisition Disetujui: <strong className="text-rose-100">Rp {gate2.approvedReqCost.toLocaleString('id-ID')}</strong></span>
+                                {gate2.directIssueCost > 0 && (
+                                  <>
+                                    <span>•</span>
+                                    <span>Direct Issue: <strong className="text-rose-100">Rp {gate2.directIssueCost.toLocaleString('id-ID')}</strong></span>
+                                  </>
+                                )}
                                 <span>•</span>
-                                <span>Direct Issue: <strong className="text-rose-100">Rp {directIssueCost.toLocaleString('id-ID')}</strong></span>
+                                <span>Tiket Ini: <strong className="text-rose-100">Rp {gate2.currentTicketCost.toLocaleString('id-ID')}</strong></span>
+                                <span>•</span>
+                                <span>Kelebihan: <strong className="text-rose-200">Rp {gate2.overAmount.toLocaleString('id-ID')}</strong></span>
                               </div>
                             </div>
                           </div>
@@ -900,14 +866,22 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                           <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5 text-emerald-400" />
                           <div className="space-y-1.5 w-full">
                             <p className="leading-relaxed">
-                              <span className="font-semibold text-emerald-300">Pagu Gate 2 (Aman):</span> Total permintaan saat ini (Rp {currentTicketCost.toLocaleString('id-ID')}) masih berada dalam kuota RAB. Akumulasi komitmen: Rp {projectedTotal.toLocaleString('id-ID')} dari total pagu Rp {rabBudgetLimit.toLocaleString('id-ID')} (Sisa Pagu: Rp {remainingQuota.toLocaleString('id-ID')}).
+                              <span className="font-semibold text-emerald-300">Pagu Gate 2 (Aman — Sesuai Alokasi RAB {stageDisplayName}):</span> Total permintaan saat ini (Rp {gate2.currentTicketCost.toLocaleString('id-ID')}) masih berada dalam kuota pagu material WBS. Akumulasi komitmen: Rp {gate2.projectedTotal.toLocaleString('id-ID')} dari pagu WBS Rp {gate2.wbsBudgetLimit.toLocaleString('id-ID')} (Sisa Pagu WBS: Rp {gate2.remainingQuota.toLocaleString('id-ID')}).
                             </p>
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-emerald-300/80 pt-1.5 border-t border-emerald-800/50 font-mono">
-                              <span>Requisition Disetujui: <strong className="text-emerald-100">Rp {approvedReqCost.toLocaleString('id-ID')}</strong></span>
+                              <span>Pagu Material WBS: <strong className="text-emerald-100">Rp {gate2.wbsBudgetLimit.toLocaleString('id-ID')}</strong></span>
                               <span>•</span>
-                              <span>SPK Borongan: <strong className="text-emerald-100">Rp {boronganMaterialCost.toLocaleString('id-ID')}</strong></span>
+                              <span>Requisition Disetujui: <strong className="text-emerald-100">Rp {gate2.approvedReqCost.toLocaleString('id-ID')}</strong></span>
+                              {gate2.directIssueCost > 0 && (
+                                <>
+                                  <span>•</span>
+                                  <span>Direct Issue: <strong className="text-emerald-100">Rp {gate2.directIssueCost.toLocaleString('id-ID')}</strong></span>
+                                </>
+                              )}
                               <span>•</span>
-                              <span>Direct Issue: <strong className="text-emerald-100">Rp {directIssueCost.toLocaleString('id-ID')}</strong></span>
+                              <span>Tiket Ini: <strong className="text-emerald-100">Rp {gate2.currentTicketCost.toLocaleString('id-ID')}</strong></span>
+                              <span>•</span>
+                              <span>Sisa Pagu WBS: <strong className="text-emerald-300">Rp {gate2.remainingQuota.toLocaleString('id-ID')}</strong></span>
                               <span className="ml-auto text-[10px] text-emerald-400 font-sans italic">Stok gudang akan terpotong setelah persetujuan</span>
                             </div>
                           </div>
@@ -918,15 +892,8 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
 
                   {/* Actions Section */}
                   {(() => {
-                    const sId = req.spk_id || req.spk?.id;
-                    const budgetData = sId ? spkBudgetMap[sId] : null;
-                    const currentTicketCost = Number(req.totalRequisitionCost || 0);
-                    const approvedReqCost = budgetData?.approvedReqCost || 0;
-                    const boronganMaterialCost = budgetData?.boronganMaterialCost || 0;
-                    const directIssueCost = budgetData?.directIssueCost || 0;
-                    const rabBudgetLimit = budgetData?.rabBudgetLimit || 0;
-                    const projectedTotal = approvedReqCost + boronganMaterialCost + directIssueCost + currentTicketCost;
-                    const isOverBudget = rabBudgetLimit > 0 ? (projectedTotal > rabBudgetLimit) : (projectedTotal > 0);
+                    const gate2 = getRequisitionGate2Evaluation(req);
+                    const isOverBudget = gate2.isOverBudget;
 
                     return (
                       <div className="flex lg:flex-col justify-end gap-2 lg:min-w-[120px]">
@@ -938,7 +905,7 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                               ? 'bg-amber-600 hover:bg-amber-700 border border-amber-500 shadow-sm'
                               : 'bg-status-success hover:bg-status-success/90'
                           }`}
-                          title={isOverBudget ? 'Peringatan: Over Budget (Memerlukan persetujuan Change Order)' : 'Setujui Permintaan Material'}
+                          title={isOverBudget ? 'Peringatan: Over Budget (Memerlukan persetujuan Change Order)' : 'Setujui Permintaan Material (Sesuai Alokasi RAB WBS)'}
                         >
                           {processingId === req.id ? (
                             <Loader2 className="w-4 h-4 animate-spin" />

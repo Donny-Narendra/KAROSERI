@@ -71,7 +71,8 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
         rab_items (
           quantity,
           description,
-          material_id
+          material_id,
+          item_type
         )
       `)
       .eq('spk_id', spkId)
@@ -79,7 +80,9 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
 
     let mats: any[] = [];
     if (rabData && rabData.rab_items && masterData) {
-      mats = rabData.rab_items.map((item: any) => {
+      mats = rabData.rab_items
+        .filter((item: any) => (item.item_type || 'MATERIAL').toUpperCase() === 'MATERIAL')
+        .map((item: any) => {
         let matched = null;
         if (item.material_id) matched = masterData.find(m => m.id === item.material_id);
         else if (item.description) matched = masterData.find(m => m.name.toLowerCase() === item.description.toLowerCase());
