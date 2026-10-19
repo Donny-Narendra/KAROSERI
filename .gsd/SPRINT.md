@@ -1,76 +1,47 @@
-# Sprint 48 — Refactor Gate 2 Warehouse Approval Budget Guard to Material-Only and WBS-Specific Scope
+# Sprint 49 — Add Detailed Itemized Breakdown for Approved Change Orders in Kasir Billing Calculator
 
-> **Duration**: 2026-10-19 to 2026-10-20
-> **Status**: Completed ✅
+> **Duration**: 2026-10-20 to 2026-10-21
+> **Status**: In Progress 🟡
 
 ## Goal
-Refactor Gate 2 Warehouse Approval budget limit validation in Petugas Gudang portal (`RequisitionApproval.tsx`) so that budget and expenditure calculations are strictly restricted to physical materials (`item_type = 'MATERIAL'`), completely eliminating labor (`spk_borongan`) and overhead contaminations, and evaluating budget quotas on a WBS-specific scope so valid requisitions (such as SPK-2668 WBS 1: Pembongkaran) display green valid status ("Sesuai Alokasi RAB WBS") without false-positive over-budget warnings.
+Implement a transparent itemized breakdown for approved Change Orders (Addendums) in the Kasir Billing Calculator (`/kasir`), featuring an accordion toggle directly on the Customer Billing card with dispute-protection metadata (WBS stage, approval date/status, unit prices, subtotals), and automatically mapping this breakdown into the final bill printable invoice payload.
 
 ## Scope
 
 ### Included
-- **Gate 2 Calculation Engine (`src/utils/gate2BudgetValidation.ts`)**:
-  - Pure, testable functions for:
-    - `normalizeWbsStage(stage?: string | null): string`: Standardize WBS stage names across formats (e.g. `'WBS 1: Pembongkaran'` vs `'Pembongkaran'`).
-    - `getWbsMaterialBudget(...)`: Sum pure material items (`item_type === 'MATERIAL' || !item_type`) for a given SPK and WBS stage from `rab_items` and approved `change_order_items`.
-    - `getWbsMaterialCommitted(...)`: Sum approved material requisitions and direct material issues for a given SPK and WBS stage.
-    - `evaluateGate2Budget(...)`: Return comprehensive evaluation results including WBS-specific breakdown, remaining quota, over-budget flag, and formatted alerts.
-- **Warehouse Requisition Approval UI Refactoring (`src/components/RequisitionApproval.tsx`)**:
-  - Updated data fetching queries to select `item_type`, `wbs_stage`, `unit_price`, `cost_price` from `rab_items` and `change_order_items`.
-  - Removed labor (`spk_borongan`) and overhead from material commitment calculations.
-  - Computed WBS-specific budget allocations for each requisition card based on its WBS category / stage.
-  - Rendered WBS-specific Gate 2 status cards:
-    - Valid state (Emerald green): "Pagu Gate 2 (Aman — Sesuai Alokasi RAB WBS)".
-    - Over-budget state (Rose/Amber): "PERINGATAN PAGU GATE 2 (OVER BUDGET)".
-  - Dynamic Approve button:
-    - Green (`bg-status-success`) with `<Check />` when within WBS budget.
-    - Amber (`bg-amber-600`) with `<AlertTriangle />` when over budget.
-  - Updated confirmation dialog messages to reflect WBS stage context.
-- **Goods Issue Form Hygiene (`src/components/GoodsIssueForm.tsx`)**:
-  - Filtered `rab_items` query for `item_type === 'MATERIAL' || !item_type` to avoid non-material items entering direct issue form.
-- **Unit & Integration Testing**:
-  - Created comprehensive unit tests for `gate2BudgetValidation.ts` (9 tests passing).
-  - Created component tests for `RequisitionApprovalGate2.test.tsx` (2 tests passing).
-  - Verified SPK-2668 WBS 1 requisition (`material tes 2`, Rp 55.000) evaluates to valid green status without over-budget warning.
-  - Ran full test suite: 26/26 test suites passing, 178/178 tests passing (100%).
-  - Linter: 0 warnings, 0 errors across 146 files (Oxlint).
-  - TypeScript: Clean compilation (`npx tsc -b`).
-  - Production build: Clean build in 1.98s (`npm run build`).
+- **Data Layer (`src/services/billingService.ts`)**:
+  - Define data contracts: `ApprovedChangeOrder`, `ApprovedChangeOrderItem`, and `InvoicePrintPayload`.
+  - Implement `fetchApprovedChangeOrders(spkDbId: string)` querying `change_orders` with nested `change_order_items` (`item_name`, `item_type`, `wbs_stage`, `quantity`, `unit`, `unit_price`, `cost_price`, `subtotal`, `notes`), with resilient fallback to `spk_amendments`.
+- **Print & Export Engine (`src/utils/invoiceExport.ts`)**:
+  - Implement `buildInvoicePrintPayload(...)` mapping SPK base contract, approved change orders itemized breakdown, and manual adjustments.
+  - Implement `printFinalInvoice(payload: InvoicePrintPayload)` rendering a comprehensive, print-optimized invoice document complete with customer details, WBS-aligned change order addendum breakdown, totals, and legal verification signatures.
+- **Kasir Dashboard UI (`src/pages/KasirDashboard.tsx`)**:
+  - Automatically fetch approved change orders when an SPK is selected.
+  - Upgrade the Customer Billing card with an interactive accordion / collapsible toggle under `Change Orders (Addendum)`.
+  - Display legal protection metadata: CO Number, description, WBS stage, approval timestamp, status badge (`APPROVED`), and itemized table of change order items.
+  - Enrich invoice confirmation modal to display itemized change order counts and subtotals.
+  - Provide a direct "Cetak Invoice" action for UNPAID and LUNAS invoices, and wire "Cetak Dokumen Sekarang" to `printFinalInvoice`.
+- **Automated Testing & Quality Verification**:
+  - Unit tests for `fetchApprovedChangeOrders`, `buildInvoicePrintPayload`, and `printFinalInvoice`.
+  - Component tests for Kasir change order accordion toggle and invoice generation workflow.
+  - Full Vitest suite, TypeScript compilation, Oxlint hygiene, and Vite build validation.
 
 ### Explicitly Excluded
-- Altering financial database views (`spk_job_order_cost_summary` or `spk_wbs_cost_variance`).
-- Modifying Mandor portal submission workflow or SPK Borongan assignment workflows.
+- Modifying `AmendmentManager.tsx` creation or approval workflow.
+- Modifying Gate 2 warehouse budget logic or Mandor portal submissions.
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| 1. Create modular Gate 2 budget validation engine (`gate2BudgetValidation.ts`) | Antigravity | ✅ Done | 0.3h |
-| 2. Refactor `RequisitionApproval.tsx` to evaluate WBS-specific material budgets and remove labor | Antigravity | ✅ Done | 0.4h |
-| 3. Update `GoodsIssueForm.tsx` to strictly filter material items in RAB query | Antigravity | ✅ Done | 0.1h |
-| 4. Write unit tests for Gate 2 logic & verify SPK-2668 end-to-end | Antigravity | ✅ Done | 0.3h |
+| 1. Update data fetching & contracts in `billingService.ts` | Antigravity | ⬜ Todo | 0.3h |
+| 2. Implement invoice printable payload & engine in `invoiceExport.ts` | Antigravity | ⬜ Todo | 0.3h |
+| 3. Integrate itemized accordion & print actions in `KasirDashboard.tsx` | Antigravity | ⬜ Todo | 0.5h |
+| 4. Write unit and component tests & verify end-to-end quality | Antigravity | ⬜ Todo | 0.4h |
 
 ## Daily Log
 
-### 2026-10-19 / 2026-10-20
-- Initialized Sprint 48: Refactor Gate 2 Warehouse Approval Budget Guard to Material-Only and WBS-Specific Scope.
-- Archived Sprint 47 to `.gsd/sprints/sprint-47-dynamic-rab-driven-presets-for-floor-overhead-terminal-in-mandor-portal.md`.
-- Executed full test suite baseline: 24/24 suites passed, 167/167 tests passed.
-- Analyzed root causes of false-positive Gate 2 warning on SPK-2668:
-  1. `spk_borongan.contract_value` (Rp 1.900.000 labor jasa) was incorrectly summed into `boronganMaterialCost` and added to material expenditures.
-  2. `rab_items` query omitted `item_type` and `wbs_stage`, mixing all items together.
-  3. Budget evaluation was calculated globally across the entire SPK instead of per WBS stage.
-- Implemented `src/utils/gate2BudgetValidation.ts` providing pure, testable functions (`normalizeWbsStage`, `getWbsMaterialBudget`, `getWbsMaterialCommitted`, `evaluateGate2Budget`).
-- Refactored `src/components/RequisitionApproval.tsx`:
-  - Removed `spk_borongan` query and labor cost additions.
-  - Added `item_type`, `wbs_stage`, `cost_price` to `rab_items` and `change_order_items` queries.
-  - Linked each pending card to WBS-specific Gate 2 budget evaluation via `getRequisitionGate2Evaluation`.
-  - Updated card alert banner to emerald green "Pagu Gate 2 (Aman — Sesuai Alokasi RAB [WBS])" with detailed breakdown.
-  - Configured Approve button to dynamic green valid status with Check icon when within budget, and amber when over-budget.
-  - Updated confirmation modal to include WBS stage context.
-- Updated `src/components/GoodsIssueForm.tsx` to filter `rab_items` strictly for `(item.item_type || 'MATERIAL').toUpperCase() === 'MATERIAL'`.
-- Created unit test suite `src/utils/__tests__/gate2BudgetValidation.test.ts` (9 tests passing).
-- Created component test suite `src/components/__tests__/RequisitionApprovalGate2.test.tsx` (2 tests passing).
-- Full regression verification: 26/26 test suites passed (178/178 tests passed, 100%).
-- Oxlint: 0 errors, 0 warnings across 146 files.
-- TypeScript compilation and Vite production build passed cleanly.
+### 2026-10-20
+- Initialized Sprint 49: Add Detailed Itemized Breakdown for Approved Change Orders in Kasir Billing Calculator.
+- Archived Sprint 48 to `.gsd/sprints/sprint-48-refactor-gate-2-warehouse-approval-budget-guard-to-material-only-and-wbs-specific-scope.md`.
+- Verified pre-sprint baseline: 26/26 test suites passing (178/178 tests, 100%).

@@ -1,6 +1,6 @@
 ## Current Position
-- **Sprint**: Sprint 48 — Refactor Gate 2 Warehouse Approval Budget Guard to Material-Only and WBS-Specific Scope
-- **Status**: Completed ✅
+- **Sprint**: Sprint 49 — Add Detailed Itemized Breakdown for Approved Change Orders in Kasir Billing Calculator
+- **Status**: In Progress 🟡
 - **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness
 
 ## Last Session Summary
@@ -26,6 +26,13 @@ Completed Sprint 48 refactoring Gate 2 Warehouse Approval budget limit evaluatio
    - TypeScript: Clean static compilation (`npx tsc -b`).
    - Production Build: Clean Vite bundle generated in 1.98s (`npm run build`).
 
+## Sprint 49 Objectives
+1. Update `billingService.ts` to fetch approved change orders with complete itemized breakdown (`change_order_items`).
+2. Implement printable invoice payload builder and print engine in `src/utils/invoiceExport.ts`.
+3. Upgrade Customer Billing card in `KasirDashboard.tsx` with an interactive collapsible accordion displaying legal dispute protection details (WBS, approval date, item breakdown).
+4. Map approved change order itemized breakdown into final invoice print payload and provide direct print actions.
+5. Provide comprehensive unit and component tests ensuring zero regression.
+
 ## Quality & Verification Status
 - **Vitest Unit & Component Testing:** 26/26 test suites passing, 178/178 tests passing (100%).
 - **Linter (Oxlint):** 0 errors, 0 warnings across 146 files with 113 rules.
@@ -36,7 +43,7 @@ Completed Sprint 48 refactoring Gate 2 Warehouse Approval budget limit evaluatio
 None.
 
 ## Next Up
-- Ready for feature planning via `/plan` or production deployment.
+- Task 1: Update data fetching & contracts in `billingService.ts`.
 
 ## Blockers
 None.
