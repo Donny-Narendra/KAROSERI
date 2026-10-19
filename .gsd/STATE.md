@@ -1,6 +1,6 @@
 ## Current Position
-- **Sprint**: Sprint 46 — Propagate item_type from Inventory Assembly Packages to RAB and Fix Corrupted Active SPK Items
-- **Status**: Completed ✅
+- **Sprint**: Sprint 47 — Dynamic RAB-Driven Presets for Floor Overhead Terminal in Mandor Portal
+- **Status**: Sprint in progress
 - **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness
 
 ## Last Session Summary
