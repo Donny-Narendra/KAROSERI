@@ -267,61 +267,68 @@ export const SpkForm: React.FC<SpkFormProps> = ({
           </div>
         </div>
 
-        {/* Row 3: Vehicle Plate & Vehicle Model */}
+        {/* Row 3: Vehicle Plate & Chassis Number */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor="vehicle-plate" className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
+            <label htmlFor="vehicle-plate" className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
               Vehicle Plate
             </label>
             <input
               id="vehicle-plate"
               type="text"
+              name="vehicle_plate"
               required
               placeholder="E.G. B 1234 CD"
               value={vehiclePlate}
               onChange={(e) => setVehiclePlate(e.target.value)}
-              className="w-full bg-slate-900/50 border border-slate-700 rounded p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 uppercase text-sm"
+              className="w-full bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500 uppercase"
             />
           </div>
           <div>
-            <label htmlFor="vehicle-model" className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
-              Vehicle Model
+            <label htmlFor="vehicle-vin" className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+              VIN / Chassis Number
             </label>
             <input
-              id="vehicle-model"
+              id="vehicle-vin"
               type="text"
-              placeholder="e.g. Hino Dutro 130 HD, Mitsubishi Canter FE 74"
-              value={vehicleModel}
-              onChange={(e) => setVehicleModel(e.target.value)}
-              className="w-full bg-slate-900/50 border border-slate-700 rounded p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 text-sm"
+              name="vehicle_vin"
+              placeholder="E.G. MH123456789"
+              value={vehicleVin}
+              onChange={(e) => setVehicleVin(e.target.value)}
+              className="w-full bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500 uppercase"
             />
           </div>
         </div>
 
-        {/* Row 4: VIN / Chassis & Engine Number */}
+        {/* Row 4: Engine Number & Vehicle Model / Type */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
-              VIN / Chassis Number
+            <label htmlFor="vehicle-engine" className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+              ENGINE NUMBER
             </label>
             <input
+              id="vehicle-engine"
               type="text"
-              placeholder="E.G. MH123456789"
-              value={vehicleVin}
-              onChange={(e) => setVehicleVin(e.target.value)}
-              className="w-full bg-slate-900/50 border border-slate-700 rounded p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 uppercase text-sm"
-            />
-          </div>
-          <div>
-            <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
-              Engine Number
-            </label>
-            <input
-              type="text"
-              placeholder="E.G. 4D56-12345"
+              name="vehicle_engine"
+              placeholder="e.g. 4D56-12345"
               value={vehicleEngine}
               onChange={(e) => setVehicleEngine(e.target.value)}
-              className="w-full bg-slate-900/50 border border-slate-700 rounded p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 uppercase text-sm"
+              className="w-full bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500 uppercase"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="vehicle-model" className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+              VEHICLE MODEL / TYPE
+            </label>
+            <input
+              id="vehicle-model"
+              type="text"
+              name="vehicle_model"
+              placeholder="e.g. Hino Dutro 130 HD / Canter FE 74"
+              value={vehicleModel}
+              onChange={(e) => setVehicleModel(e.target.value)}
+              className="w-full bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500"
             />
           </div>
         </div>

@@ -115,6 +115,55 @@ describe('Component: SpkForm (Vehicle Model Field & Payload Binding)', () => {
     expect(modelInput).toHaveValue('');
   });
 
+  it('correctly inserts SPK with specific model "Mitsubishi Fuso Canter 125 PS" into public.spk payload', async () => {
+    let capturedPayload: any = null;
+
+    vi.mocked(supabase.from).mockReturnValue({
+      insert: vi.fn().mockImplementation((payload) => {
+        capturedPayload = payload;
+        return {
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: { id: 'spk-test-fuso-1', ...payload },
+              error: null,
+            }),
+          }),
+        };
+      }),
+    } as any);
+
+    const onSuccessMock = vi.fn();
+    render(<SpkForm onSuccess={onSuccessMock} />);
+
+    fireEvent.change(screen.getByLabelText(/target date/i), {
+      target: { value: '2026-11-30' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/pt logistik indo/i), {
+      target: { value: 'CV Ekspedisi Lancar Jaya' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/b 1234 cd/i), {
+      target: { value: 'W 8899 UY' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/hino dutro 130 hd \/ canter fe 74/i), {
+      target: { value: 'Mitsubishi Fuso Canter 125 PS' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/4d56-12345/i), {
+      target: { value: '4D34-T7788' },
+    });
+
+    const submitBtn = screen.getByRole('button', { name: /register spk/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(onSuccessMock).toHaveBeenCalledTimes(1);
+    });
+
+    expect(capturedPayload).not.toBeNull();
+    expect(capturedPayload.vehicle_model).toBe('Mitsubishi Fuso Canter 125 PS');
+    expect(capturedPayload.vehicle_engine).toBe('4D34-T7788');
+    expect(capturedPayload.vehicle_plate).toBe('W 8899 UY');
+  });
+
   it('populates initial vehicle model in edit mode and updates through spkService', async () => {
     const initialSpk = {
       id: 'spk-edit-1',
