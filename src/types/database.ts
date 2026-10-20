@@ -52,6 +52,8 @@ export interface RabItemRecord {
   notes?: string | null;
   wbs_stage?: string;
   package_id?: string | null;
+  /** @deprecated Waste factor is permanently eliminated from calculations and schema */
+  waste_factor?: number;
   created_at?: string;
 }
 

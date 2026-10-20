@@ -13,6 +13,7 @@ export interface RabExportItem {
   description: string;
   qty: number;
   unitPrice: number;
+  /** @deprecated Waste factor is permanently eliminated */
   wasteFactor?: number;
 }
 
@@ -36,7 +37,7 @@ export const exportRabToExcel = (
     ["Nopol Kendaraan", spkDetails?.vehicle_plate || spkDetails?.vehicle_number || "-"],
     ["Tanggal", new Date().toLocaleDateString('id-ID')],
     [""],
-    ["WBS Category", "Tipe", "Deskripsi", "Qty", "Harga Satuan", "Waste (%)", "Subtotal"]
+    ["WBS Category", "Tipe", "Deskripsi", "Qty", "Harga Satuan", "Subtotal"]
   ];
 
   const wbsCategories = [
@@ -51,15 +52,13 @@ export const exportRabToExcel = (
     const itemsInCat = rabItems.filter(item => item.wbsCategory === cat);
     if (itemsInCat.length > 0) {
       itemsInCat.forEach(item => {
-        const wasteMultiplier = 1 + (item.wasteFactor || 0) / 100;
-        const subtotal = item.type === 'material' ? item.qty * item.unitPrice * wasteMultiplier : item.qty * item.unitPrice;
+        const subtotal = item.qty * item.unitPrice;
         wsData.push([
           item.wbsCategory,
           item.type,
           item.description,
           item.qty,
           item.unitPrice,
-          item.type === 'material' ? (item.wasteFactor ?? 0) : 0,
           subtotal
         ]);
       });
@@ -67,10 +66,10 @@ export const exportRabToExcel = (
   });
 
   wsData.push([""]);
-  wsData.push(["", "", "", "", "", "Subtotal Material", totals.material]);
-  wsData.push(["", "", "", "", "", "Subtotal Jasa", totals.labor]);
-  wsData.push(["", "", "", "", "", "Overhead", totals.overhead]);
-  wsData.push(["", "", "", "", "", "Grand Total", totals.grandTotal]);
+  wsData.push(["", "", "", "", "Subtotal Material", totals.material]);
+  wsData.push(["", "", "", "", "Subtotal Jasa", totals.labor]);
+  wsData.push(["", "", "", "", "Overhead", totals.overhead]);
+  wsData.push(["", "", "", "", "Grand Total", totals.grandTotal]);
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
   const wb = XLSX.utils.book_new();
@@ -102,19 +101,17 @@ export const printRabQuotation = (
     if (itemsInCat.length > 0) {
       tableHtml += `
         <tr class="wbs-header">
-          <td colspan="6"><strong>${cat}</strong></td>
+          <td colspan="5"><strong>${cat}</strong></td>
         </tr>
       `;
       itemsInCat.forEach(item => {
-        const wasteMultiplier = 1 + (item.wasteFactor || 0) / 100;
-        const subtotal = item.type === 'material' ? item.qty * item.unitPrice * wasteMultiplier : item.qty * item.unitPrice;
+        const subtotal = item.qty * item.unitPrice;
         tableHtml += `
           <tr>
             <td>${item.description}</td>
             <td>${item.type}</td>
             <td>${item.qty}</td>
             <td>Rp ${item.unitPrice.toLocaleString('id-ID')}</td>
-            <td>${item.type === 'material' ? item.wasteFactor + '%' : '-'}</td>
             <td>Rp ${subtotal.toLocaleString('id-ID')}</td>
           </tr>
         `;
@@ -182,7 +179,6 @@ export const printRabQuotation = (
             <th>Tipe</th>
             <th>Qty</th>
             <th>Harga Satuan</th>
-            <th>Waste</th>
             <th>Total Biaya</th>
           </tr>
         </thead>

@@ -30,13 +30,9 @@ interface TestDbRabItem {
   item_total?: number | string | null;
 }
 
-// Logic mirror of RabCalculator item calculation
+// Logic mirror of RabCalculator item calculation (pure qty * unitPrice)
 function calculateItemTotal(item: TestRabItem): number {
-  if (item.type === 'material') {
-    const wasteMultiplier = 1 + (item.wasteFactor || 0) / 100;
-    return item.qty * item.unitPrice * wasteMultiplier;
-  }
-  return item.qty * item.unitPrice;
+  return Number(item.qty) * Number(item.unitPrice || 0);
 }
 
 function calculateRabBudgets(items: TestRabItem[]) {
@@ -114,7 +110,7 @@ function mapFromDbRabItem(dbItem: TestDbRabItem): TestRabItem {
 }
 
 describe('RAB Calculator & Labor Budget Alignment', () => {
-  it('correctly calculates item totals with wasteFactor for materials and without waste for labor', () => {
+  it('correctly calculates pure item totals (quantity * unit_price) without waste factor markup', () => {
     const matItem: TestRabItem = {
       id: '1',
       wbsCategory: 'Sasis/Rangka',
@@ -122,7 +118,6 @@ describe('RAB Calculator & Labor Budget Alignment', () => {
       description: 'Plat Besi 3mm',
       qty: 10,
       unitPrice: 100000,
-      wasteFactor: 5,
     };
 
     const laborItem: TestRabItem = {
@@ -132,7 +127,6 @@ describe('RAB Calculator & Labor Budget Alignment', () => {
       description: 'Upah Tukang Las Gerinda',
       qty: 2,
       unitPrice: 200000,
-      wasteFactor: 0,
     };
 
     const overheadItem: TestRabItem = {
@@ -144,7 +138,7 @@ describe('RAB Calculator & Labor Budget Alignment', () => {
       unitPrice: 150000,
     };
 
-    expect(calculateItemTotal(matItem)).toBe(1050000); // 10 * 100000 * 1.05
+    expect(calculateItemTotal(matItem)).toBe(1000000); // 10 * 100000
     expect(calculateItemTotal(laborItem)).toBe(400000);  // 2 * 200000
     expect(calculateItemTotal(overheadItem)).toBe(150000); // 1 * 150000
   });
@@ -467,7 +461,7 @@ describe('RAB Calculator & Labor Budget Alignment', () => {
       expect(itemTotal).not.toBe(1680000);
     });
 
-    it('still supports legacy non-zero wasteFactor if loaded from historical records', () => {
+    it('ignores legacy non-zero wasteFactor and calculates pure total', () => {
       const historicalItem: TestRabItem = {
         id: 'hist-1',
         wbsCategory: 'Sasis/Rangka',
@@ -479,7 +473,8 @@ describe('RAB Calculator & Labor Budget Alignment', () => {
       };
 
       const itemTotal = calculateItemTotal(historicalItem);
-      expect(itemTotal).toBe(1680000);
+      // Pure calculation: 1 * 1,600,000 = 1,600,000 without 5% scrap markup
+      expect(itemTotal).toBe(1600000);
     });
   });
 });

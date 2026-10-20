@@ -4,21 +4,30 @@
 - **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness
 
 ## Last Session Summary
-Sprint 58 completed:
-- Refactored `src/components/finance/DpReceiptPrintModal.tsx`:
-  - Upgraded modal dialog wrapper to `max-h-[92vh]` and dark backdrop `bg-black/80 backdrop-blur-sm`.
-  - Configured scrollable wrapper with `flex-1 overflow-y-auto p-4 md:p-6 bg-slate-950 flex justify-center`.
-  - Configured printable paper sheet `#printable-dp-receipt` with `bg-white text-slate-900 w-full max-w-[210mm] min-h-[297mm] h-auto p-6 md:p-8 rounded-sm shadow-2xl text-xs flex flex-col justify-between`.
-  - Structured upper section wrapping kop, invoice metadata, customer table, DP calculation table, and Syarat & Ketentuan DP.
-  - Implemented clean two-column signature block in the receipt footer with `pt-4 border-t border-slate-200 mt-auto` ensuring 100% containment within the white sheet.
-  - Configured `@media print` rules with `min-height: auto !important; height: auto !important; padding: 10mm 12mm !important;` to ensure exact single-page A4 output.
-- Updated unit tests in `src/components/finance/__tests__/DpReceiptPrintModal.test.tsx` verifying sheet dimensions, styles, and full containment of terms and signatures.
+Sprint 59 completed:
+- Refactored `src/components/RabCalculator.tsx`:
+  - Removed table column header `<th className="px-3 py-3 text-right">Waste</th>` and corresponding `<td>` cell.
+  - Simplified subtotal formula: `calculateItemTotal = (item) => Number(item.qty) * Number(item.unitPrice || 0)`.
+  - Removed `wasteFactor` from state (`newItem`, resets, handlers, tab switches) and removed hidden input `#waste-factor-input`.
+  - Cleaned `waste_factor` out of database insertion payload (`itemsToInsert`).
+- Aligned Modal, Export & Service Layer:
+  - Removed `wasteFactor` from `RabItemPayload` interface and `handleApply` in `src/components/PackageAllocationModal.tsx`.
+  - Removed `waste_factor` from `rabItemsToInsert` payload in `src/services/packageService.ts`.
+  - Updated `src/utils/rabExport.ts` to eliminate Waste columns and waste multipliers from Excel and Print Quotation outputs.
+  - Marked `waste_factor?: number` deprecated in `RabItemRecord` (`src/types/database.ts`).
+- Created Supabase Migration:
+  - `supabase/migrations/20261023020000_remove_waste_factor.sql` to make `waste_factor` and `waste_factor_percentage` nullable with default 0 in `rab_items` and reload PostgREST schema cache.
+- Quality & Verification:
+  - Updated unit tests across `RabCalculatorLabor.test.tsx`, `packageAssemblyImport.test.ts`, and `rabLaborBudget.test.ts`.
+  - 37/37 Vitest suites passing, 236/236 tests passing (100%).
+  - 0 lint errors/warnings with Oxlint.
+  - Clean TypeScript compilation & Vite production build (`tsc -b && vite build`).
 
 ## Quality & Verification Status
 - **Vitest Unit & Component Testing:** 37/37 test suites passing, 236/236 tests passing (100%).
 - **Linter (Oxlint):** 0 errors, 0 warnings across 160 files with 113 rules.
 - **TypeScript Static Analysis:** Clean compilation with 0 errors (`npx tsc -b`).
-- **Production Build:** Clean build in ~478ms (`npm run build`).
+- **Production Build:** Clean build in ~580ms (`npm run build`).
 
 ## Technical Debt Backlog
 None.

@@ -185,7 +185,6 @@ class PackageService {
         overhead_rate: itemType === 'OVERHEAD' ? unitPrice / 8 : 0,
         subtotal: qty * unitPrice,
         item_total: qty * unitPrice,
-        waste_factor: itemType === 'MATERIAL' ? (pkgItem.waste_factor || pkgItem.material?.waste_factor_percentage || 0) : 0,
         package_id: packageId,
         is_locked: false,
       };

@@ -10,7 +10,6 @@ export interface RabItemPayload {
   description: string;
   qty: number;
   unitPrice: number;
-  wasteFactor?: number;
   materialId?: string;
   unit?: string;
 }
@@ -130,7 +129,6 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
 
       const description = itemName || (finalType === 'labor' ? 'Labor Item' : finalType === 'overhead' ? 'Overhead Item' : 'Material Item');
       const unit = item.material?.unit || (finalType === 'labor' ? 'lot' : finalType === 'overhead' ? 'hari' : 'pcs');
-      const wasteFactor = finalType === 'material' ? (item.material?.waste_factor_percentage || 0) : 0;
 
       WBS_CATEGORIES.forEach((cat) => {
         const qty = parseFloat(allocations[idx]?.[cat]) || 0;
@@ -144,7 +142,6 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
             description,
             qty,
             unitPrice: item.cost_per_unit,
-            wasteFactor,
             materialId: finalType === 'material' ? (item.material_id || item.material?.id) : undefined,
             unit,
           });

@@ -310,7 +310,7 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
     });
   });
 
-  it('hides Waste Factor (%) input in Material mode and defaults value to 0', async () => {
+  it('completely removes Waste Factor from UI, form inputs, and table headers', async () => {
     render(<RabCalculator spkId="spk-test-1" />);
 
     await waitFor(() => {
@@ -320,10 +320,12 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
     // Verify Waste Factor (%) label is not rendered in Material mode
     expect(screen.queryByText('Waste Factor (%)')).not.toBeInTheDocument();
 
-    // Verify hidden waste-factor-input exists with value 0
-    const hiddenWasteInput = document.getElementById('waste-factor-input') as HTMLInputElement;
-    expect(hiddenWasteInput).toBeInTheDocument();
-    expect(hiddenWasteInput.value).toBe('0');
+    // Verify Waste table column header is not rendered
+    expect(screen.queryByRole('columnheader', { name: /^Waste$/i })).not.toBeInTheDocument();
+
+    // Verify hidden waste-factor-input does not exist
+    const hiddenWasteInput = document.getElementById('waste-factor-input');
+    expect(hiddenWasteInput).toBeNull();
   });
 
   it('filters master inventory materials strictly to labor keywords and excludes physical items from auto-suggest', async () => {

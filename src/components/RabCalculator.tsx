@@ -62,7 +62,6 @@ interface RabItem {
   costPrice?: number;
   subtotal?: number;
   isLocked?: boolean;
-  wasteFactor?: number; // percentage (0-100)
   packageId?: string;
   materialId?: string;
 }
@@ -201,13 +200,11 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     description?: string;
     qty: string | number;
     unitPrice?: number;
-    wasteFactor?: number;
     materialId?: string;
   }>({
     type: 'material',
     qty: 1,
     unitPrice: 0,
-    wasteFactor: 0,
   });
 
   useEffect(() => {
@@ -286,7 +283,6 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
               costPrice,
               subtotal: Number(dbItem.subtotal) || (qty * unitPrice),
               isLocked: dbItem.is_locked ?? false,
-              wasteFactor: 0,
               packageId: dbItem.package_id || undefined,
               materialId: dbItem.material_id || undefined
             };
@@ -363,7 +359,6 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
           costPrice: laborForm.estimatedCost,
           subtotal: Math.round(wbsQty * laborForm.estimatedCost),
           isLocked: false,
-          wasteFactor: 0,
           notes: laborForm.notes.trim() || undefined,
           materialId: undefined,
         });
@@ -410,7 +405,6 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       type: itemMode,
       qty: 1,
       unitPrice: itemMode === 'overhead' ? bayHourlyRate * 8 : 0,
-      wasteFactor: 0,
     });
     setManualAllocations({});
   };
@@ -459,7 +453,6 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
              costPrice,
              subtotal: wbsQty * (newItem.unitPrice as number),
              isLocked: false,
-             wasteFactor: newItem.type === 'material' ? (newItem.wasteFactor || 0) : 0,
              materialId: newItem.materialId,
           });
        }
@@ -474,7 +467,6 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       type: newItem.type,
       qty: 1,
       unitPrice: newItem.type === 'overhead' ? bayHourlyRate * 8 : 0,
-      wasteFactor: 0,
     });
   };
 
@@ -529,7 +521,6 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
         description: item.description,
         qty: item.qty,
         unitPrice: item.unitPrice,
-        wasteFactor: item.wasteFactor,
         materialId: item.materialId,
       });
       setManualAllocations({ [item.wbsCategory]: String(item.qty) });
@@ -561,11 +552,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   };
 
   const calculateItemTotal = (item: RabItem) => {
-    if (item.type === 'material') {
-      const wasteMultiplier = 1 + (item.wasteFactor || 0) / 100;
-      return item.qty * item.unitPrice * wasteMultiplier;
-    }
-    return item.qty * item.unitPrice;
+    return Number(item.qty) * Number(item.unitPrice || 0);
   };
 
   const totalMaterialCost = items.filter(i => i.type === 'material').reduce((sum, i) => sum + calculateItemTotal(i), 0);
@@ -650,7 +637,6 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
             overhead_rate: itemType === 'OVERHEAD' ? unitPrice / 8 : 0,
             item_total: calculateItemTotal(item),
             subtotal: calculateItemTotal(item),
-            waste_factor: itemType === 'MATERIAL' ? (item.wasteFactor || matchedMat?.waste_factor_percentage || 0) : 0,
             package_id: item.packageId || null,
             material_id: itemType === 'MATERIAL' ? (item.materialId || matchedMat?.id || null) : null,
             is_locked: false
@@ -754,7 +740,6 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
         costPrice,
         subtotal: payload.qty * payload.unitPrice,
         isLocked: false,
-        wasteFactor: itemType === 'MATERIAL' ? (payload.wasteFactor ?? matchedMat?.waste_factor_percentage ?? 0) : 0,
         packageId: pkgId,
         materialId: itemType === 'MATERIAL' ? (payloadMatId || matchedMat?.id) : undefined,
       };
@@ -943,7 +928,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
               id="toggle-mode-material"
               onClick={() => {
                 setItemMode('material');
-                setNewItem(prev => ({ ...prev, type: 'material', wasteFactor: 0, materialId: undefined, unitPrice: 0 }));
+                setNewItem(prev => ({ ...prev, type: 'material', materialId: undefined, unitPrice: 0 }));
                 setManualAllocations({});
                 if (editingId) handleCancelEdit();
               }}
@@ -971,7 +956,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                   'Cat/Finishing': '0',
                   'Kelistrikan/Hidrolik': '0',
                 });
-                setNewItem(prev => ({ ...prev, type: 'labor', wasteFactor: 0, materialId: undefined }));
+                setNewItem(prev => ({ ...prev, type: 'labor', materialId: undefined }));
                 if (editingId) handleCancelEdit();
               }}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-bold transition cursor-pointer ${
@@ -989,7 +974,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
               id="toggle-mode-overhead"
               onClick={() => {
                 setItemMode('overhead');
-                setNewItem(prev => ({ ...prev, type: 'overhead', wasteFactor: 0, unitPrice: bayHourlyRate * 8, materialId: undefined }));
+                setNewItem(prev => ({ ...prev, type: 'overhead', unitPrice: bayHourlyRate * 8, materialId: undefined }));
                 setManualAllocations({});
                 if (editingId) handleCancelEdit();
               }}
@@ -1335,13 +1320,6 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                 </div>
               </div>
 
-              {/* Waste factor is hidden and defaults to 0% to keep material calculation pure */}
-              <input
-                type="hidden"
-                id="waste-factor-input"
-                value={newItem.wasteFactor ?? 0}
-              />
-
               {/* Multi-WBS Allocation Matrix */}
               <div className="border border-border rounded-lg overflow-hidden mt-2">
                 <div className="bg-surface px-3 py-2 border-b border-border">
@@ -1448,7 +1426,6 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                       <th className="px-3 py-3 text-right">Qty</th>
                       <th className="px-3 py-3 text-right">Harga Satuan</th>
                       <th className="px-3 py-3 text-right">Harga Modal (HPP)</th>
-                      <th className="px-3 py-3 text-right">Waste</th>
                       <th className="px-3 py-3 text-right">Subtotal</th>
                       <th className="px-3 py-3 text-center">Aksi / Status</th>
                     </tr>
@@ -1495,9 +1472,6 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                         </td>
                         <td className="px-3 py-3 text-right font-mono text-text-muted">
                           Rp {(item.costPrice || 0).toLocaleString('id-ID')}
-                        </td>
-                        <td className="px-3 py-3 text-right font-mono text-text-muted">
-                          {item.type === 'material' ? `${item.wasteFactor}%` : '-'}
                         </td>
                         <td className="px-3 py-3 text-right font-mono font-medium text-primary">
                           Rp {calculateItemTotal(item).toLocaleString('id-ID')}
