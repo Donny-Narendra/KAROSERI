@@ -137,7 +137,7 @@ describe('Component: DpReceiptPrintModal', () => {
     expect(window.print).toHaveBeenCalledTimes(1);
   });
 
-  it('renders responsive modal structure with max-h-[90vh] card, scrollable container, and printable sheet', () => {
+  it('renders responsive modal structure with max-h-[92vh] card, scrollable container, and printable sheet', () => {
     render(
       <DpReceiptPrintModal
         isOpen={true}
@@ -150,7 +150,7 @@ describe('Component: DpReceiptPrintModal', () => {
     expect(backdrop).toBeInTheDocument();
     expect(backdrop).toHaveClass('overflow-y-auto');
 
-    const card = backdrop?.querySelector('.max-h-\\[90vh\\]');
+    const card = backdrop?.querySelector('.max-h-\\[92vh\\]');
     expect(card).toBeInTheDocument();
     expect(card).toHaveClass('flex-col');
 
@@ -160,6 +160,20 @@ describe('Component: DpReceiptPrintModal', () => {
     const sheet = document.getElementById('printable-dp-receipt');
     expect(sheet).toBeInTheDocument();
     expect(sheet).toHaveAttribute('data-id', 'printable-dp-receipt');
+    expect(sheet).toHaveClass('min-h-[297mm]');
+    expect(sheet).toHaveClass('h-auto');
+    expect(sheet).toHaveClass('bg-white');
+    expect(sheet).toHaveClass('text-slate-900');
+
+    // Verify Syarat & Ketentuan and Signatures are strictly children inside the white sheet
+    const terms = sheet?.querySelector('.bg-slate-50.border.border-slate-200') as HTMLElement | null;
+    expect(terms).toBeInTheDocument();
+    expect(sheet).toContainElement(terms);
+
+    const signatureKasir = screen.getByText('Kasir Sari');
+    const customerInstances = screen.getAllByText('PT. Grosir Murah Kediri');
+    expect(sheet).toContainElement(signatureKasir);
+    expect(sheet).toContainElement(customerInstances[1]);
   });
 
   it('calls onClose when close button is clicked', () => {

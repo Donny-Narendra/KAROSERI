@@ -155,9 +155,9 @@ export const DpReceiptPrintModal: React.FC<DpReceiptPrintModalProps> = ({
   return createPortal(
     <div
       id="dp-receipt-modal-backdrop"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/75 backdrop-blur-sm overflow-y-auto print:static print:inset-auto print:z-auto print:p-0 print:m-0 print:bg-transparent print:overflow-visible print:block"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/80 backdrop-blur-sm overflow-y-auto print:static print:inset-auto print:z-auto print:p-0 print:m-0 print:bg-transparent print:overflow-visible print:block"
     >
-      <div className="bg-slate-900 border border-slate-700/80 rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden print:static print:w-full print:max-w-none print:border-none print:shadow-none print:rounded-none print:bg-transparent print:overflow-visible print:m-0 print:p-0 print:block">
+      <div className="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden print:static print:w-full print:max-w-none print:border-none print:shadow-none print:rounded-none print:bg-transparent print:overflow-visible print:m-0 print:p-0 print:block">
         
         {/* Sticky Header */}
         <div className="no-print flex items-center justify-between px-5 py-3.5 border-b border-slate-800 bg-slate-900 sticky top-0 z-10 text-white shrink-0">
@@ -217,220 +217,208 @@ export const DpReceiptPrintModal: React.FC<DpReceiptPrintModalProps> = ({
         </div>
 
         {/* Scrollable Body Kontainer Kertas */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-950/80 flex justify-center print:static print:p-0 print:overflow-visible print:max-h-none print:bg-transparent print:m-0 print:block">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-950 flex justify-center print:static print:p-0 print:overflow-visible print:max-h-none print:bg-transparent print:m-0 print:block">
           
           {/* Printable A4 Document Sheet */}
-          <div
-            id="printable-dp-receipt"
+          <div 
+            id="printable-dp-receipt" 
             data-id="printable-dp-receipt"
-            className="dp-receipt-sheet bg-white text-black w-full max-w-[210mm] p-6 md:p-8 rounded-sm text-xs space-y-4 print:w-full print:max-w-none print:min-h-0 print:h-auto print:p-0 print:shadow-none print:border-none print:rounded-none"
+            className="dp-receipt-sheet bg-white text-slate-900 w-full max-w-[210mm] min-h-[297mm] h-auto p-6 md:p-8 rounded-sm shadow-2xl text-xs flex flex-col justify-between print:w-full print:max-w-none print:min-h-0 print:h-auto print:p-0 print:shadow-none print:border-none print:rounded-none"
           >
-            {/* Kop Surat RobelKaroseri */}
-            <div className="border-b-2 border-black pb-1.5 mb-1 break-inside-avoid">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h1 className="text-xl font-black tracking-tight text-black uppercase font-display leading-none">
-                    ROBELKAROSERI
-                  </h1>
-                  <p className="text-xs font-bold tracking-wide text-gray-800 uppercase mt-0.5">
-                    PT ROBEL KAROSERI INDONESIA
-                  </p>
-                  <p className="text-[10px] text-gray-600 leading-snug mt-0.5">
-                    Spesialisasi Pembuatan &amp; Modifikasi Karoseri Kendaraan Komersial
-                  </p>
-                  <p className="text-[9px] text-gray-500 leading-snug mt-0.5">
-                    Kawasan Industri Karoseri Terpadu Kav. 88, Jawa Timur &bull; Telp: (031) 8988-2233 &bull; Email: finance@robelkaroseri.com
-                  </p>
-                </div>
-                <div className="text-right flex flex-col items-end">
-                  <span className="inline-block bg-emerald-50 border border-emerald-600 text-emerald-800 px-2 py-0.5 rounded text-[9px] font-bold tracking-wider uppercase">
-                    BUKTI PEMBAYARAN RESMI
-                  </span>
-                  <span className="text-[9px] text-gray-500 mt-0.5">Formulir: DP-KASIR-V1</span>
-                </div>
-              </div>
-            </div>
-            <div className="border-b border-black mb-2"></div>
-
-            {/* Judul & Nomor Kuitansi */}
-            <div className="text-center my-1.5 break-inside-avoid">
-              <h2 className="text-base font-bold tracking-wide text-black uppercase underline decoration-1 underline-offset-4">
-                BUKTI PENERIMAAN UANG MUKA (INVOICE DP)
-              </h2>
-              <div className="flex items-center justify-center gap-2 mt-0.5">
-                <span className="text-[11px] font-semibold text-gray-700">Nomor Kuitansi:</span>
-                <span className="text-[11px] font-bold font-mono text-gray-900 bg-gray-100 px-2 py-0.5 rounded border border-gray-300">
-                  {receiptNumber}
-                </span>
-              </div>
-            </div>
-
-            {/* Informasi Waktu & Tanggal Pembayaran */}
-            <div className="flex justify-between items-center text-[10.5px] text-gray-700 bg-gray-50 border border-gray-300 rounded px-2.5 py-1 my-2 break-inside-avoid">
-              <div>
-                <span className="font-semibold text-gray-600">Tanggal &amp; Waktu Pembayaran: </span>
-                <span className="font-bold text-gray-900">{dateDetails.formattedDate}</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-emerald-700 font-bold">
-                <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-                <span>DITERIMA / SAH</span>
-              </div>
-            </div>
-
-            {/* Section 1: Data Konsumen & SPK */}
-            <div className="my-2 break-inside-avoid">
-              <div className="text-[10.5px] font-bold uppercase tracking-wider text-gray-900 mb-1 flex items-center gap-1.5 border-b border-gray-300 pb-0.5">
-                <span>1. Data Konsumen &amp; Identitas Kendaraan</span>
-              </div>
-              <table className="w-full border-collapse border border-gray-300 text-[11px]">
-                <tbody>
-                  <tr className="border-b border-gray-300">
-                    <td className="w-44 bg-gray-100 font-semibold py-1.5 px-3 border-r border-gray-300 text-gray-800">
-                      Nama Pelanggan / Perusahaan
-                    </td>
-                    <td className="py-1.5 px-3 font-bold text-gray-900">
-                      {data.customerName}
-                    </td>
-                  </tr>
-                  <tr className="border-b border-gray-300">
-                    <td className="bg-gray-100 font-semibold py-1.5 px-3 border-r border-gray-300 text-gray-800">
-                      Nomor SPK Induk
-                    </td>
-                    <td className="py-1.5 px-3 font-bold font-mono text-blue-900">
-                      {data.spkNo}
-                    </td>
-                  </tr>
-                  <tr className="border-b border-gray-300">
-                    <td className="bg-gray-100 font-semibold py-1.5 px-3 border-r border-gray-300 text-gray-800">
-                      Nomor Polisi Kendaraan
-                    </td>
-                    <td className="py-1.5 px-3 font-bold text-gray-900">
-                      <span className="inline-block bg-gray-100 border border-gray-400 px-1.5 py-0.2 rounded text-[10.5px] font-mono">
-                        {data.vehiclePlate || '-'}
-                      </span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="bg-gray-100 font-semibold py-1.5 px-3 border-r border-gray-300 text-gray-800">
-                      Model Kendaraan / No. Rangka
-                    </td>
-                    <td className="py-1.5 px-3 text-gray-800">
-                      {data.vehicleModel || '-'} {data.vehicleVin && data.vehicleVin !== '-' ? `(VIN: ${data.vehicleVin})` : ''}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {/* Section 2: Rincian Pembayaran Uang Muka */}
-            <div className="my-2 break-inside-avoid">
-              <div className="text-[10.5px] font-bold uppercase tracking-wider text-gray-900 mb-1 flex items-center gap-1.5 border-b border-gray-300 pb-0.5">
-                <span>2. Rincian Penerimaan Uang Muka (Down Payment)</span>
-              </div>
-              
-              <table className="w-full border-collapse border border-gray-300 text-[11px]">
-                <tbody>
-                  <tr className="border-b border-gray-300">
-                    <td className="w-56 bg-gray-100 font-semibold py-1.5 px-3 border-r border-gray-300 text-gray-800">
-                      Total Estimasi Nilai Kontrak SPK
-                    </td>
-                    <td className="py-1.5 px-3 font-bold text-right text-gray-900">
-                      {formatCurrency(totalContract)}
-                    </td>
-                  </tr>
-                  <tr className="border-b border-gray-300 bg-emerald-50">
-                    <td className="bg-emerald-100 font-bold py-1.5 px-3 border-r border-gray-300 text-emerald-950">
-                      Nominal Uang Muka (DP) Dibayarkan
-                    </td>
-                    <td className="py-1.5 px-3 font-black text-right text-sm sm:text-base text-emerald-700">
-                      {formatCurrency(dpAmount)}
-                    </td>
-                  </tr>
-                  <tr className="border-b border-gray-300">
-                    <td className="bg-gray-100 font-semibold py-1.5 px-3 border-r border-gray-300 text-gray-800">
-                      Terbilang (Nominal Huruf)
-                    </td>
-                    <td className="py-1.5 px-3 italic font-semibold text-gray-800">
-                      &ldquo;# {terbilangDp} #&rdquo;
-                    </td>
-                  </tr>
-                  <tr className="border-b border-gray-300">
-                    <td className="bg-gray-100 font-semibold py-1.5 px-3 border-r border-gray-300 text-gray-800">
-                      Metode Pembayaran
-                    </td>
-                    <td className="py-1.5 px-3 font-bold text-gray-900">
-                      {data.paymentMethod || 'Transfer Bank'}
-                    </td>
-                  </tr>
-                  <tr className="border-b border-gray-300">
-                    <td className="bg-gray-100 font-semibold py-1.5 px-3 border-r border-gray-300 text-gray-800">
-                      Catatan / Referensi Bukti Transfer
-                    </td>
-                    <td className="py-1.5 px-3 text-gray-800 font-mono text-[10.5px]">
-                      {data.notes && data.notes.trim() !== '' ? data.notes : '-'}
-                    </td>
-                  </tr>
-                  <tr className="bg-gray-50">
-                    <td className="bg-gray-100 font-semibold py-1.5 px-3 border-r border-gray-300 text-gray-800">
-                      Sisa Estimasi Tagihan Pelunasan
-                    </td>
-                    <td className="py-1.5 px-3 font-bold text-right text-rose-700">
-                      {formatCurrency(remainingBill)}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {/* Syarat & Ketentuan Uang Muka */}
-            <div className="my-2 p-2.5 bg-gray-50 border border-gray-300 rounded text-[10px] text-gray-700 leading-tight break-inside-avoid">
-              <span className="font-bold text-gray-900 block mb-0.5 text-[10px]">Syarat &amp; Ketentuan Uang Muka (DP):</span>
-              <ol className="list-decimal pl-4 space-y-0.5 text-[10px]">
-                <li>Dokumen ini merupakan tanda terima sah atas pembayaran uang muka pengerjaan unit karoseri sesuai SPK <strong>{data.spkNo}</strong>.</li>
-                <li>Dengan dibayarkannya uang muka ini, status SPK dinyatakan <strong>ACTIVE</strong> dan tahapan produksi dimulai.</li>
-                <li>Sisa estimasi tagihan di atas belum memperhitungkan perubahan spesifikasi / Addendum (Change Orders) selama pengerjaan, dan wajib dilunasi saat penyelesaian unit sebelum BAST diterbitkan.</li>
-              </ol>
-            </div>
-
-            {/* Kolom Pengesahan Tanda Tangan */}
-            <div className="my-2 pt-0.5 break-inside-avoid">
-              <div className="grid grid-cols-2 gap-6 text-center text-[10.5px]">
-                
-                {/* Kolom 1: Kasir Penerima */}
-                <div className="flex flex-col justify-between h-16 border border-dashed border-gray-300 p-1.5 rounded">
+            {/* 1. KOP & HEADER KUITANSI + TABEL + SYARAT KETENTUAN */}
+            <div className="space-y-4">
+              {/* Kop Surat RobelKaroseri */}
+              <div className="border-b-2 border-slate-900 pb-1.5 mb-1 break-inside-avoid">
+                <div className="flex items-start justify-between">
                   <div>
-                    <p className="font-semibold text-gray-700 text-[9.5px] leading-none">Kasir Penerima Pembayaran,</p>
-                    <p className="font-bold text-gray-900 text-[10px] leading-tight mt-0.5">PT Robel Karoseri Indonesia</p>
-                  </div>
-                  <div>
-                    <div className="w-28 mx-auto border-b border-gray-800 mb-0.5"></div>
-                    <p className="text-[9.5px] text-gray-700 font-medium leading-none">
-                      {data.cashierName || 'Kasir Keuangan Bengkel'}
+                    <h1 className="text-xl font-black tracking-tight text-slate-900 uppercase font-display leading-none">
+                      ROBELKAROSERI
+                    </h1>
+                    <p className="text-xs font-bold tracking-wide text-slate-800 uppercase mt-0.5">
+                      PT ROBEL KAROSERI INDONESIA
                     </p>
-                    <p className="text-[8px] text-gray-500 leading-none mt-0.5">Tercatat di Sistem Finansial</p>
+                    <p className="text-[10px] text-slate-600 leading-snug mt-0.5">
+                      Spesialisasi Pembuatan &amp; Modifikasi Karoseri Kendaraan Komersial
+                    </p>
+                    <p className="text-[9px] text-slate-500 leading-snug mt-0.5">
+                      Kawasan Industri Karoseri Terpadu Kav. 88, Jawa Timur &bull; Telp: (031) 8988-2233 &bull; Email: finance@robelkaroseri.com
+                    </p>
+                  </div>
+                  <div className="text-right flex flex-col items-end">
+                    <span className="inline-block bg-emerald-50 border border-emerald-600 text-emerald-800 px-2 py-0.5 rounded text-[9px] font-bold tracking-wider uppercase">
+                      BUKTI PEMBAYARAN RESMI
+                    </span>
+                    <span className="text-[9px] text-slate-500 mt-0.5">Formulir: DP-KASIR-V1</span>
                   </div>
                 </div>
+              </div>
+              <div className="border-b border-slate-900 mb-2"></div>
 
-                {/* Kolom 2: Penyetor / Konsumen */}
-                <div className="flex flex-col justify-between h-16 border border-dashed border-gray-300 p-1.5 rounded">
-                  <div>
-                    <p className="font-semibold text-gray-700 text-[9.5px] leading-none">Pihak Penyetor (Konsumen),</p>
-                    <p className="font-bold text-gray-900 text-[10px] leading-tight mt-0.5 truncate px-1">{data.customerName}</p>
-                  </div>
-                  <div>
-                    <div className="w-28 mx-auto border-b border-gray-800 mb-0.5"></div>
-                    <p className="text-[9.5px] text-gray-700 font-medium leading-none">Nama Terang &amp; Tanda Tangan</p>
-                    <p className="text-[8px] text-gray-500 leading-none mt-0.5">Pelanggan / Kuasa Pembayaran</p>
-                  </div>
+              {/* Judul & Nomor Kuitansi */}
+              <div className="text-center my-1.5 break-inside-avoid">
+                <h2 className="text-base font-bold tracking-wide text-slate-900 uppercase underline decoration-1 underline-offset-4">
+                  BUKTI PENERIMAAN UANG MUKA (INVOICE DP)
+                </h2>
+                <div className="flex items-center justify-center gap-2 mt-0.5">
+                  <span className="text-[11px] font-semibold text-slate-700">Nomor Kuitansi:</span>
+                  <span className="text-[11px] font-bold font-mono text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
+                    {receiptNumber}
+                  </span>
                 </div>
+              </div>
 
+              {/* Informasi Waktu & Tanggal Pembayaran */}
+              <div className="flex justify-between items-center text-[10.5px] text-slate-700 bg-slate-50 border border-slate-300 rounded px-2.5 py-1 my-2 break-inside-avoid">
+                <div>
+                  <span className="font-semibold text-slate-600">Tanggal &amp; Waktu Pembayaran: </span>
+                  <span className="font-bold text-slate-900">{dateDetails.formattedDate}</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-emerald-700 font-bold">
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>DITERIMA / SAH</span>
+                </div>
+              </div>
+
+              {/* Section 1: Data Konsumen & SPK */}
+              <div className="my-2 break-inside-avoid">
+                <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-900 mb-1 flex items-center gap-1.5 border-b border-slate-300 pb-0.5">
+                  <span>1. Data Konsumen &amp; Identitas Kendaraan</span>
+                </div>
+                <table className="w-full border-collapse border border-slate-300 text-[11px]">
+                  <tbody>
+                    <tr className="border-b border-slate-300">
+                      <td className="w-44 bg-slate-100 font-semibold py-1.5 px-3 border-r border-slate-300 text-slate-800">
+                        Nama Pelanggan / Perusahaan
+                      </td>
+                      <td className="py-1.5 px-3 font-bold text-slate-900">
+                        {data.customerName}
+                      </td>
+                    </tr>
+                    <tr className="border-b border-slate-300">
+                      <td className="bg-slate-100 font-semibold py-1.5 px-3 border-r border-slate-300 text-slate-800">
+                        Nomor SPK Induk
+                      </td>
+                      <td className="py-1.5 px-3 font-bold font-mono text-blue-900">
+                        {data.spkNo}
+                      </td>
+                    </tr>
+                    <tr className="border-b border-slate-300">
+                      <td className="bg-slate-100 font-semibold py-1.5 px-3 border-r border-slate-300 text-slate-800">
+                        Nomor Polisi Kendaraan
+                      </td>
+                      <td className="py-1.5 px-3 font-bold text-slate-900">
+                        <span className="inline-block bg-slate-100 border border-slate-400 px-1.5 py-0.2 rounded text-[10.5px] font-mono">
+                          {data.vehiclePlate || '-'}
+                        </span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="bg-slate-100 font-semibold py-1.5 px-3 border-r border-slate-300 text-slate-800">
+                        Model Kendaraan / No. Rangka
+                      </td>
+                      <td className="py-1.5 px-3 text-slate-800">
+                        {data.vehicleModel || '-'} {data.vehicleVin && data.vehicleVin !== '-' ? `(VIN: ${data.vehicleVin})` : ''}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Section 2: Rincian Pembayaran Uang Muka */}
+              <div className="my-2 break-inside-avoid">
+                <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-900 mb-1 flex items-center gap-1.5 border-b border-slate-300 pb-0.5">
+                  <span>2. Rincian Penerimaan Uang Muka (Down Payment)</span>
+                </div>
+                
+                <table className="w-full border-collapse border border-slate-300 text-[11px]">
+                  <tbody>
+                    <tr className="border-b border-slate-300">
+                      <td className="w-56 bg-slate-100 font-semibold py-1.5 px-3 border-r border-slate-300 text-slate-800">
+                        Total Estimasi Nilai Kontrak SPK
+                      </td>
+                      <td className="py-1.5 px-3 font-bold text-right text-slate-900">
+                        {formatCurrency(totalContract)}
+                      </td>
+                    </tr>
+                    <tr className="border-b border-slate-300 bg-emerald-50">
+                      <td className="bg-emerald-100 font-bold py-1.5 px-3 border-r border-slate-300 text-emerald-950">
+                        Nominal Uang Muka (DP) Dibayarkan
+                      </td>
+                      <td className="py-1.5 px-3 font-black text-right text-sm sm:text-base text-emerald-700">
+                        {formatCurrency(dpAmount)}
+                      </td>
+                    </tr>
+                    <tr className="border-b border-slate-300">
+                      <td className="bg-slate-100 font-semibold py-1.5 px-3 border-r border-slate-300 text-slate-800">
+                        Terbilang (Nominal Huruf)
+                      </td>
+                      <td className="py-1.5 px-3 italic font-semibold text-slate-800">
+                        &ldquo;# {terbilangDp} #&rdquo;
+                      </td>
+                    </tr>
+                    <tr className="border-b border-slate-300">
+                      <td className="bg-slate-100 font-semibold py-1.5 px-3 border-r border-slate-300 text-slate-800">
+                        Metode Pembayaran
+                      </td>
+                      <td className="py-1.5 px-3 font-bold text-slate-900">
+                        {data.paymentMethod || 'Transfer Bank'}
+                      </td>
+                    </tr>
+                    <tr className="border-b border-slate-300">
+                      <td className="bg-slate-100 font-semibold py-1.5 px-3 border-r border-slate-300 text-slate-800">
+                        Catatan / Referensi Bukti Transfer
+                      </td>
+                      <td className="py-1.5 px-3 text-slate-800 font-mono text-[10.5px]">
+                        {data.notes && data.notes.trim() !== '' ? data.notes : '-'}
+                      </td>
+                    </tr>
+                    <tr className="bg-slate-50">
+                      <td className="bg-slate-100 font-semibold py-1.5 px-3 border-r border-slate-300 text-slate-800">
+                        Sisa Estimasi Tagihan Pelunasan
+                      </td>
+                      <td className="py-1.5 px-3 font-bold text-right text-rose-700">
+                        {formatCurrency(remainingBill)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Syarat & Ketentuan Uang Muka (Wajib di dalam div putih) */}
+              <div className="my-4 p-3 bg-slate-50 border border-slate-200 rounded text-[10px] text-slate-700 leading-relaxed break-inside-avoid">
+                <div className="font-bold text-slate-800 mb-1">Syarat &amp; Ketentuan Uang Muka (DP):</div>
+                <ol className="list-decimal pl-4 space-y-0.5">
+                  <li>Dokumen ini merupakan tanda terima sah atas pembayaran uang muka pengerjaan unit karoseri sesuai SPK <strong>{data.spkNo}</strong>.</li>
+                  <li>Dengan dibayarkannya uang muka ini, status SPK dinyatakan <strong>ACTIVE</strong> dan tahapan produksi dimulai.</li>
+                  <li>Sisa estimasi tagihan di atas belum memperhitungkan perubahan spesifikasi / Addendum (Change Orders) selama pengerjaan, dan wajib dilunasi saat penyelesaian unit sebelum BAST diterbitkan.</li>
+                </ol>
               </div>
             </div>
 
-            {/* Catatan Kaki Legal */}
-            <div className="pt-1.5 border-t border-gray-300 text-[8.5px] text-gray-500 flex justify-between items-center break-inside-avoid">
-              <span>* Kuitansi ini dicetak otomatis dari Sistem Kasir RobelKaroseri dan berlaku sah sebagai bukti setor asli.</span>
-              <span className="font-mono">Tercetak: {dateDetails.timestamp}</span>
+            {/* Footer Tanda Tangan Kasir & Konsumen (Wajib di dalam div putih) */}
+            <div className="pt-4 border-t border-slate-200 mt-auto break-inside-avoid">
+              <div className="grid grid-cols-2 gap-8 text-center text-xs">
+                <div className="flex flex-col items-center">
+                  <span className="text-slate-600 text-[11px]">Kasir Penerima Pembayaran,</span>
+                  <div className="h-14"></div>
+                  <span className="font-semibold border-t border-slate-400 pt-1 w-48 text-slate-900">
+                    {data.cashierName || 'Kasir Keuangan Bengkel'}
+                  </span>
+                  <span className="text-[10px] text-slate-500">Tercatat di Sistem Finansial</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className="text-slate-600 text-[11px]">Pihak Penyetor (Konsumen),</span>
+                  <div className="h-14"></div>
+                  <span className="font-semibold border-t border-slate-400 pt-1 w-48 text-slate-900">
+                    {data.customerName || 'Pelanggan'}
+                  </span>
+                  <span className="text-[10px] text-slate-500">Nama Terang &amp; Tanda Tangan</span>
+                </div>
+              </div>
+              <div className="mt-4 pt-2 text-[9px] text-slate-400 flex justify-between border-t border-slate-100">
+                <span>* Kuitansi ini dicetak otomatis dari Sistem Kasir RobelKaroseri dan berlaku sah sebagai bukti setor asli.</span>
+                <span>Tercetak: {dateDetails.timestamp}</span>
+              </div>
             </div>
 
           </div>
@@ -459,8 +447,10 @@ export const DpReceiptPrintModal: React.FC<DpReceiptPrintModalProps> = ({
             top: 0 !important;
             width: 100% !important;
             max-width: 100% !important;
+            min-height: auto !important;
+            height: auto !important;
             margin: 0 !important;
-            padding: 12mm 15mm !important;
+            padding: 10mm 12mm !important;
             box-shadow: none !important;
             border: none !important;
             background: white !important;
