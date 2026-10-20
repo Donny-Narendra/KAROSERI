@@ -61,6 +61,9 @@ export const financialReportsService = {
       .select('*')
       .order('registration_date', { ascending: false });
 
+    // Defensive layer: exclude DRAFT & PENDING_DP at postgrest query level
+    query = query.not('spk_status', 'in', '("DRAFT","PENDING_DP")');
+
     if (filter?.startDate) {
       query = query.gte('registration_date', filter.startDate);
     }
@@ -85,16 +88,18 @@ export const financialReportsService = {
       throw new Error(`Gagal mengambil data laba rugi proyek: ${error.message}`);
     }
 
-    return ((data || []) as any[]).map(row => ({
-      ...row,
-      total_revenue: Number(row.total_revenue || 0),
-      actual_material_cost: Number(row.actual_material_cost || 0),
-      actual_labor_cost: Number(row.actual_labor_cost || 0),
-      actual_overhead_cost: Number(row.actual_overhead_cost || 0),
-      total_cogs: Number(row.total_cogs || 0),
-      gross_profit: Number(row.gross_profit || 0),
-      gross_margin_percentage: Number(row.gross_margin_percentage || 0),
-    })) as SpkJobProfitability[];
+    return ((data || []) as any[])
+      .filter(row => !['DRAFT', 'PENDING_DP'].includes(String(row.spk_status || '').toUpperCase()))
+      .map(row => ({
+        ...row,
+        total_revenue: Number(row.total_revenue || 0),
+        actual_material_cost: Number(row.actual_material_cost || 0),
+        actual_labor_cost: Number(row.actual_labor_cost || 0),
+        actual_overhead_cost: Number(row.actual_overhead_cost || 0),
+        total_cogs: Number(row.total_cogs || 0),
+        gross_profit: Number(row.gross_profit || 0),
+        gross_margin_percentage: Number(row.gross_margin_percentage || 0),
+      })) as SpkJobProfitability[];
   },
 
   /**

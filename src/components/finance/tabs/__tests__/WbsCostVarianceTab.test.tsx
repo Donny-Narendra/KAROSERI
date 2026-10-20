@@ -56,17 +56,20 @@ describe('Component: WbsCostVarianceTab (3-Pillar Modular Table)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    vi.mocked(supabase.from).mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        order: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValue({
-            data: [
-              { id: 'spk-1', spk_no: 'SPK-2026-001', customer_name: 'PT Kargo Ekspres', vehicle_plate: 'B 1234 CD' },
-            ],
-            error: null,
-          }),
+    const mockQueryBuilder: any = {
+      order: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue({
+          data: [
+            { id: 'spk-1', spk_no: 'SPK-2026-001', customer_name: 'PT Kargo Ekspres', vehicle_plate: 'B 1234 CD', status: 'ACTIVE' },
+          ],
+          error: null,
         }),
       }),
+    };
+    mockQueryBuilder.not = vi.fn().mockReturnValue(mockQueryBuilder);
+
+    vi.mocked(supabase.from).mockReturnValue({
+      select: vi.fn().mockReturnValue(mockQueryBuilder),
     } as any);
 
     vi.mocked(financialReportsService.getWbsCostVariance).mockResolvedValue(mockVarianceData);

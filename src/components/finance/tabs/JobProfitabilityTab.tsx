@@ -56,7 +56,10 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
         spkStatus: spkStatus !== 'ALL' ? spkStatus : undefined,
         paymentStatus: paymentStatus !== 'ALL' ? paymentStatus : undefined,
       });
-      setData(result);
+      const operationalData = result.filter(
+        row => !['DRAFT', 'PENDING_DP'].includes(String(row.spk_status || '').toUpperCase())
+      );
+      setData(operationalData);
     } catch (err: any) {
       console.error('JobProfitabilityTab fetch error:', err);
       setError(err.message || 'Gagal memuat data profitabilitas proyek.');
@@ -123,7 +126,7 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
             onChange={(e) => setSpkStatus(e.target.value)}
             className="bg-background/80 border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
           >
-            <option value="ALL">Semua Status SPK</option>
+            <option value="ALL">Semua SPK Operasional (Non-Draft)</option>
             <option value="ACTIVE">ACTIVE</option>
             <option value="COMPLETED">COMPLETED</option>
             <option value="HANDED_OVER">HANDED_OVER</option>

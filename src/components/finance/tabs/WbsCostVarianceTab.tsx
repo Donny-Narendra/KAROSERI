@@ -51,11 +51,15 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
       try {
         const { data: spks } = await supabase
           .from('spk')
-          .select('id, spk_no, customer_name, vehicle_plate')
+          .select('id, spk_no, customer_name, vehicle_plate, status')
+          .not('status', 'in', '("DRAFT","PENDING_DP")')
           .order('created_at', { ascending: false })
           .limit(100);
         if (spks) {
-          setSpkList(spks);
+          const operationalSpks = spks.filter(
+            s => !['DRAFT', 'PENDING_DP'].includes(String(s.status || '').toUpperCase())
+          );
+          setSpkList(operationalSpks);
         }
       } catch (e) {
         console.error('Failed to load SPK list for variance tab:', e);
