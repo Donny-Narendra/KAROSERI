@@ -64,6 +64,8 @@ Resolve PostgreSQL data exception 22P02 (`invalid input value for enum spk_statu
 - Updated frontend query in `src/services/financialReportsService.ts` to `.not('spk_status', 'in', '("DRAFT","PENDING_PAYMENT")')` and added defensive in-memory exclusion.
 - Fixed direct table query in `src/components/finance/tabs/WbsCostVarianceTab.tsx` from `.not('status', 'in', '("DRAFT","PENDING_DP")')` to `.not('status', 'in', '("DRAFT","PENDING_PAYMENT")')`.
 - Updated `JobProfitabilityTab.tsx` and `AdminDashboardPage.tsx` filtering.
+- Aligned `JobProfitabilityTab.tsx` SPK status dropdown: eliminated non-existent `HANDED_OVER` status option, ensuring dropdown strictly presents database-backed enum values (`ACTIVE`, `COMPLETED`, `CANCELLED`).
+- Purged all legacy `PENDING_DP` references from active frontend code (`financialReportsService.ts`, `JobProfitabilityTab.tsx`, `WbsCostVarianceTab.tsx`, `AdminDashboardPage.tsx`).
 - Updated test suites in `financialReportsService.test.ts` and `JobProfitabilityTab.test.tsx`.
 - Ran full regression verification:
   - Vitest: 31/31 test suites passing, 199/199 tests passing (100%).

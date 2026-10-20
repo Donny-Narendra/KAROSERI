@@ -57,7 +57,7 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
           .limit(100);
         if (spks) {
           const operationalSpks = spks.filter(
-            s => !['DRAFT', 'PENDING_PAYMENT', 'PENDING_DP'].includes(String(s.status || '').toUpperCase())
+            s => !['DRAFT', 'PENDING_PAYMENT'].includes(String(s.status || '').toUpperCase())
           );
           setSpkList(operationalSpks);
         }

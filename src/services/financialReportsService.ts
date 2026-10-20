@@ -89,7 +89,7 @@ export const financialReportsService = {
     }
 
     return ((data || []) as any[])
-      .filter(row => !['DRAFT', 'PENDING_PAYMENT', 'PENDING_DP'].includes(String(row.spk_status || '').toUpperCase()))
+      .filter(row => !['DRAFT', 'PENDING_PAYMENT'].includes(String(row.spk_status || '').toUpperCase()))
       .map(row => ({
         ...row,
         total_revenue: Number(row.total_revenue || 0),

@@ -220,7 +220,7 @@ export const AdminDashboardPage: React.FC = () => {
   const overbudgetCount = spks.filter(s => s.is_overbudget === true || s.material_gate_status === 'OVERBUDGET').length;
   const pendingQcCount = spks.filter(s => s.qc_status === 'PENDING' || s.wbs_status === 'WAITING_REVIEW').length;
 
-  const validSpksForCosting = spks.filter(s => !['CANCELLED', 'DRAFT', 'PENDING_PAYMENT', 'PENDING_DP'].includes(s.status));
+  const validSpksForCosting = spks.filter(s => !['CANCELLED', 'DRAFT', 'PENDING_PAYMENT'].includes(s.status));
   let totalProjectedCost = 0;
   let totalActualCost = 0;
 

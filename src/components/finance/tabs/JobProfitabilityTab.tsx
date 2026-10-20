@@ -57,7 +57,7 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
         paymentStatus: paymentStatus !== 'ALL' ? paymentStatus : undefined,
       });
       const operationalData = result.filter(
-        row => !['DRAFT', 'PENDING_PAYMENT', 'PENDING_DP'].includes(String(row.spk_status || '').toUpperCase())
+        row => !['DRAFT', 'PENDING_PAYMENT'].includes(String(row.spk_status || '').toUpperCase())
       );
       setData(operationalData);
     } catch (err: any) {
@@ -129,7 +129,6 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
             <option value="ALL">Semua SPK Operasional (Non-Draft)</option>
             <option value="ACTIVE">ACTIVE</option>
             <option value="COMPLETED">COMPLETED</option>
-            <option value="HANDED_OVER">HANDED_OVER</option>
             <option value="CANCELLED">CANCELLED</option>
           </select>
 
