@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { AlertCircle, FileText, CheckCircle, Calculator, Lock, Receipt, TrendingUp, ChevronDown, ChevronUp, Printer } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
@@ -6,7 +6,7 @@ import { DownPaymentModal } from '../components/DownPaymentModal';
 import { DpHistoryList } from '../components/DpHistoryList';
 import { BastModal } from '../components/BastModal';
 import { ConfirmationModal, type ConfirmationModalVariant } from '../components/ConfirmationModal';
-import { fetchDPHistory, fetchApprovedChangeOrders } from '../services/billingService';
+import { fetchDPHistory, fetchDpHistory, fetchApprovedChangeOrders } from '../services/billingService';
 import type { DPHistoryRecord, ApprovedChangeOrder } from '../services/billingService';
 import { packageService } from '../services/packageService';
 import type { ProductPackage } from '../types/package';
@@ -116,7 +116,26 @@ export const KasirDashboard: React.FC = () => {
     setLoadingHistory(true);
     try {
       let history = await fetchDPHistory();
-      // Resilient fallback: If remote query returns empty array but local active/completed SPKs have DP paid,
+      // If joined history is empty, query spk table directly via fetchDpHistory
+      if (!history || history.length === 0) {
+        const rawHistory = await fetchDpHistory();
+        if (rawHistory && rawHistory.length > 0) {
+          history = rawHistory.map((s: any) => ({
+            spk_id: s.id,
+            spk_no: s.spk_number || s.spk_no || s.id,
+            customer_name: s.customer_name || 'Pelanggan',
+            vehicle_plate: s.vehicle_plate || '-',
+            vehicle_vin: s.vehicle_vin || '-',
+            vehicle_model: s.vehicle_model || s.vehicle_plate || '-',
+            total_contract_estimate: Number(s.total_estimated_cost || 0),
+            dp_amount: Number(s.dp_amount || 0),
+            payment_method: 'Transfer Bank',
+            notes: 'Pembayaran DP Terverifikasi',
+            payment_date: s.created_at || new Date().toISOString(),
+          }));
+        }
+      }
+      // Resilient fallback: If remote query still returns empty array but local active/completed SPKs have DP paid,
       // reconstruct DP history records from the local SPK list!
       if ((!history || history.length === 0) && spks.length > 0) {
         const localPaidSpks = spks.filter(
@@ -310,9 +329,40 @@ export const KasirDashboard: React.FC = () => {
 
   const selectedSpk = spks.find(s => s.id === selectedSpkId) || null;
   const draftStatuses = ['DRAFT', 'PENDING_PAYMENT'];
+
+  const dpPaidSpks = useMemo(() => {
+    return spks.filter(s => Number(s.dpAmount || 0) > 0 && s.status !== 'CANCELLED');
+  }, [spks]);
+
   const displayedSpks = activeTab === 'DP' 
-    ? spks.filter(s => draftStatuses.includes(s.status) && s.allocationStatus !== 'PARTIAL')
+    ? (dpSubTab === 'HISTORY'
+        ? dpPaidSpks
+        : spks.filter(s => draftStatuses.includes(s.status) && s.allocationStatus !== 'PARTIAL'))
     : spks.filter(s => !draftStatuses.includes(s.status));
+
+  const historyToDisplay = useMemo(() => {
+    if (!selectedSpk) return dpHistory;
+    const filtered = dpHistory.filter(
+      h => h.spk_no === selectedSpk.id || h.spk_id === selectedSpk.dbId
+    );
+    if (filtered.length > 0) return filtered;
+    if (selectedSpk.dpAmount > 0) {
+      return [{
+        spk_id: selectedSpk.dbId,
+        spk_no: selectedSpk.id,
+        customer_name: selectedSpk.customerName,
+        vehicle_plate: selectedSpk.vehiclePlate || '-',
+        vehicle_vin: selectedSpk.vehicleVin || '-',
+        vehicle_model: selectedSpk.vehicleModel || selectedSpk.vehiclePlate || '-',
+        total_contract_estimate: selectedSpk.quotationAmount || selectedSpk.totalEstimatedCost || 0,
+        dp_amount: Number(selectedSpk.dpAmount || 0),
+        payment_method: 'Transfer Bank',
+        notes: 'Pembayaran DP Terverifikasi',
+        payment_date: new Date().toISOString(),
+      }];
+    }
+    return [];
+  }, [selectedSpk, dpHistory]);
 
   const effectiveAmendmentCost = approvedChangeOrders.length > 0
     ? approvedChangeOrders.reduce((acc, curr) => acc + curr.total_amount, 0)
@@ -707,25 +757,21 @@ export const KasirDashboard: React.FC = () => {
           )}
 
           <h2 className="text-lg font-display font-medium text-text-primary mb-2 mt-4">
-            {activeTab === 'DP' ? (dpSubTab === 'HISTORY' ? 'Riwayat DP Diterima' : 'Menunggu DP') : 'Select SPK for Billing'}
+            {activeTab === 'DP' ? (dpSubTab === 'HISTORY' ? 'Daftar SPK DP Lunas' : 'Menunggu DP') : 'Select SPK for Billing'}
           </h2>
           
           <div className="space-y-3">
-            {activeTab === 'DP' && dpSubTab === 'HISTORY' ? (
-              <div className="p-4 text-center text-sm text-text-muted border border-dashed border-surface-border rounded-lg bg-surface/30">
-                Data riwayat ditampilkan di panel utama.
-              </div>
-            ) : displayedSpks.length === 0 ? (
+            {displayedSpks.length === 0 ? (
               <div className="text-center p-6 border border-dashed border-surface-border rounded-lg text-text-muted">
-                Tidak ada data.
+                {activeTab === 'DP' && dpSubTab === 'HISTORY' ? 'Belum ada data DP lunas.' : 'Tidak ada data.'}
               </div>
             ) : displayedSpks.map((spk) => (
               <div
                 key={spk.id}
-                onClick={() => setSelectedSpkId(spk.id)}
+                onClick={() => setSelectedSpkId(selectedSpkId === spk.id ? null : spk.id)}
                 className={`p-4 rounded-lg border cursor-pointer transition-all ${
                   selectedSpk?.id === spk.id
-                    ? 'bg-surface border-secondary'
+                    ? 'bg-surface border-secondary ring-1 ring-secondary/50'
                     : 'bg-surface/50 border-surface-border hover:border-text-muted'
                 }`}
               >
@@ -741,22 +787,38 @@ export const KasirDashboard: React.FC = () => {
                         QC: {spk.qcStatus}
                       </span>
                     )}
-                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                      spk.paymentStatus === 'LUNAS' ? 'bg-status-success/20 text-status-success' : 'bg-status-warning/20 text-status-warning'
-                    }`}>
-                      Pay: {spk.paymentStatus}
-                    </span>
+                    {activeTab === 'DP' && dpSubTab === 'HISTORY' ? (
+                      <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-status-success/20 text-status-success flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3 text-status-success" />
+                        DP LUNAS
+                      </span>
+                    ) : (
+                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                        spk.paymentStatus === 'LUNAS' ? 'bg-status-success/20 text-status-success' : 'bg-status-warning/20 text-status-warning'
+                      }`}>
+                        Pay: {spk.paymentStatus}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <p className="text-sm text-text-muted">{spk.customerName}</p>
                 <p className="text-xs text-text-muted">{spk.vehicleModel}</p>
                 
-                {activeTab === 'DP' && (
+                {activeTab === 'DP' && dpSubTab === 'HISTORY' ? (
+                  <div className="mt-3 pt-3 border-t border-surface-border flex justify-between items-center">
+                    <span className="text-xs text-text-muted">Nominal DP Terbayar</span>
+                    <span className="text-sm font-semibold text-emerald-400">
+                      Rp {Number(spk.dpAmount || 0).toLocaleString('id-ID')}
+                    </span>
+                  </div>
+                ) : activeTab === 'DP' ? (
                   <div className="mt-3 pt-3 border-t border-surface-border flex justify-between items-center">
                     <span className="text-xs text-text-muted">Harga Jual (Quotation)</span>
-                    <span className="text-sm font-semibold text-secondary">{formatCurrency(spk.quotationAmount + spk.amendmentCost + (manualAdjustments[spk.id] || 0))}</span>
+                    <span className="text-sm font-semibold text-secondary">
+                      {formatCurrency(spk.quotationAmount + spk.amendmentCost + (manualAdjustments[spk.id] || 0))}
+                    </span>
                   </div>
-                )}
+                ) : null}
               </div>
             ))}
           </div>
@@ -766,10 +828,27 @@ export const KasirDashboard: React.FC = () => {
         <div className="lg:w-2/3">
           {activeTab === 'DP' && dpSubTab === 'HISTORY' ? (
             <div className="bg-surface rounded-xl border border-surface-border p-6 shadow-xl">
-              <h2 className="text-2xl font-display font-semibold text-text-primary mb-6">
-                Riwayat DP Diterima
-              </h2>
-              <DpHistoryList history={dpHistory} loading={loadingHistory} />
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                <div>
+                  <h2 className="text-2xl font-display font-semibold text-text-primary">
+                    {selectedSpk ? `Rincian DP: ${selectedSpk.id}` : 'Riwayat DP Diterima'}
+                  </h2>
+                  <p className="text-xs text-text-muted mt-1">
+                    {selectedSpk
+                      ? `Menampilkan rincian transaksi pembayaran DP untuk ${selectedSpk.customerName} (${selectedSpk.vehiclePlate})`
+                      : 'Daftar seluruh transaksi pembayaran uang muka yang telah tercatat'}
+                  </p>
+                </div>
+                {selectedSpk && (
+                  <button
+                    onClick={() => setSelectedSpkId(null)}
+                    className="text-xs bg-surface-border hover:bg-surface-border/80 text-text-primary px-3 py-1.5 rounded transition-colors"
+                  >
+                    Tampilkan Semua Transaksi
+                  </button>
+                )}
+              </div>
+              <DpHistoryList history={historyToDisplay} loading={loadingHistory} />
             </div>
           ) : selectedSpk ? (
             <div className="bg-surface rounded-xl border border-surface-border p-6 shadow-xl">

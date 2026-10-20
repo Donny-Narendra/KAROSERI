@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fetchApprovedChangeOrders, fetchDPHistory } from '../billingService';
+import { fetchApprovedChangeOrders, fetchDPHistory, fetchDpHistory } from '../billingService';
 import { supabase } from '../../lib/supabaseClient';
 
 vi.mock('../../lib/supabaseClient', () => ({
@@ -259,5 +259,77 @@ describe('Sprint 49: billingService.fetchApprovedChangeOrders Tests', () => {
     expect(result[0].spk_no).toBe('SPK-8698-FALLBACK');
     expect(result[0].dp_amount).toBe(3500000);
     expect(result[0].customer_name).toBe('Toko Sumber Rejeki');
+  });
+
+  it('fetchDpHistory queries or clause with updated_at order when available', async () => {
+    const mockData = [
+      {
+        id: 'spk-uuid-8698',
+        spk_no: 'SPK-8698',
+        customer_name: 'PT. Grosir Murah Kediri',
+        vehicle_plate: 'AG 9988 GK',
+        dp_amount: 2165000,
+        status: 'ACTIVE',
+        created_at: '2026-10-20T10:00:00Z',
+        updated_at: '2026-10-20T10:30:00Z',
+      },
+    ];
+
+    const mockOrSelect = vi.fn().mockReturnValue({
+      or: vi.fn().mockReturnValue({
+        order: vi.fn().mockResolvedValue({
+          data: mockData,
+          error: null,
+        }),
+      }),
+    });
+
+    vi.mocked(supabase.from).mockReturnValue({
+      select: mockOrSelect,
+    } as any);
+
+    const result = await fetchDpHistory();
+    expect(result).toEqual(mockData);
+  });
+
+  it('fetchDpHistory falls back to created_at order when updated_at query fails', async () => {
+    const mockFallbackData = [
+      {
+        id: 'spk-uuid-8698',
+        spk_no: 'SPK-8698',
+        customer_name: 'PT. Grosir Murah Kediri',
+        vehicle_plate: 'AG 9988 GK',
+        dp_amount: 2165000,
+        status: 'ACTIVE',
+        created_at: '2026-10-20T10:00:00Z',
+      },
+    ];
+
+    const mockOrSelect = vi.fn().mockReturnValue({
+      or: vi.fn().mockReturnValue({
+        order: vi.fn().mockResolvedValue({
+          data: null,
+          error: { message: 'column updated_at does not exist', code: '42703' },
+        }),
+      }),
+    });
+
+    const mockFallbackSelect = vi.fn().mockReturnValue({
+      gt: vi.fn().mockReturnValue({
+        in: vi.fn().mockReturnValue({
+          order: vi.fn().mockResolvedValue({
+            data: mockFallbackData,
+            error: null,
+          }),
+        }),
+      }),
+    });
+
+    vi.mocked(supabase.from)
+      .mockReturnValueOnce({ select: mockOrSelect } as any)
+      .mockReturnValueOnce({ select: mockFallbackSelect } as any);
+
+    const result = await fetchDpHistory();
+    expect(result).toEqual(mockFallbackData);
   });
 });

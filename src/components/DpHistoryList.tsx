@@ -1,5 +1,5 @@
 import React from 'react';
-import { Printer, Copy, ExternalLink, Check } from 'lucide-react';
+import { Printer, Copy, ExternalLink, Check, CheckCircle } from 'lucide-react';
 import type { DPHistoryRecord } from '../services/billingService';
 import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
 import { DpReceiptPrintModal, type DpReceiptData } from './finance/DpReceiptPrintModal';
@@ -47,10 +47,6 @@ export const DpHistoryList: React.FC<DpHistoryListProps> = ({ history, loading }
     );
   }
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(amount);
-  };
-
   const handlePrintReceipt = (record: DPHistoryRecord) => {
     const receiptData: DpReceiptData = {
       spkNo: record.spk_no,
@@ -83,8 +79,9 @@ export const DpHistoryList: React.FC<DpHistoryListProps> = ({ history, loading }
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <h3 className="font-medium text-text-primary">{record.spk_no}</h3>
-                <span className="bg-status-success/20 text-status-success text-xs px-2 py-0.5 rounded-full font-medium">
-                  DP LUNAS
+                <span className="bg-status-success/20 text-status-success text-xs px-2.5 py-0.5 rounded-full font-semibold flex items-center gap-1">
+                  <CheckCircle className="w-3.5 h-3.5 text-status-success" />
+                  DITERIMA / AKTIF
                 </span>
               </div>
               <p className="text-sm text-text-muted">{record.customer_name} — {record.vehicle_plate}</p>
@@ -98,7 +95,9 @@ export const DpHistoryList: React.FC<DpHistoryListProps> = ({ history, loading }
           <div className="bg-background rounded p-3 border border-surface-border grid grid-cols-2 gap-4 mb-4">
             <div>
               <p className="text-xs text-text-muted uppercase mb-1">Nominal DP Terbayar</p>
-              <p className="font-semibold text-lg text-secondary">{formatCurrency(record.dp_amount)}</p>
+              <p className="font-semibold text-lg text-secondary">
+                Rp {record.dp_amount?.toLocaleString('id-ID')}
+              </p>
             </div>
             <div>
               <p className="text-xs text-text-muted uppercase mb-1">Metode & Referensi</p>
@@ -112,18 +111,18 @@ export const DpHistoryList: React.FC<DpHistoryListProps> = ({ history, loading }
               <span className="text-xs text-text-muted font-medium">Pelacakan Progres:</span>
               <button
                 onClick={() => handleCopyLink(record.spk_no)}
-                className="flex items-center gap-1.5 text-xs bg-secondary/10 hover:bg-secondary/20 text-secondary px-2.5 py-1.5 rounded transition-colors border border-secondary/20"
-                title="Salin Tautan Pelacakan"
+                className="flex items-center gap-1.5 text-xs bg-secondary/10 hover:bg-secondary/20 text-secondary px-2.5 py-1.5 rounded transition-colors border border-secondary/20 cursor-pointer"
+                title="Salin Link Tracking"
               >
                 {copiedId === record.spk_no ? (
                   <>
-                    <Check className="w-3.5 h-3.5" />
+                    <Check className="w-3.5 h-3.5 text-status-success" />
                     Tersalin!
                   </>
                 ) : (
                   <>
                     <Copy className="w-3.5 h-3.5" />
-                    Salin Tautan
+                    Salin Link Tracking
                   </>
                 )}
               </button>
@@ -141,7 +140,7 @@ export const DpHistoryList: React.FC<DpHistoryListProps> = ({ history, loading }
 
             <button
               onClick={() => handlePrintReceipt(record)}
-              className="flex items-center gap-2 text-sm bg-surface-border hover:bg-surface-border/80 text-text-primary px-4 py-2 rounded transition-colors"
+              className="flex items-center gap-2 text-sm bg-surface-border hover:bg-surface-border/80 text-text-primary px-4 py-2 rounded transition-colors cursor-pointer"
             >
               <Printer className="w-4 h-4" />
               Cetak Kuitansi DP

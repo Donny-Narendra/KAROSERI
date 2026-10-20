@@ -261,36 +261,36 @@ export const DpReceiptPrintModal: React.FC<DpReceiptPrintModalProps> = ({
               <table className="w-full border-collapse border border-gray-300 text-[11px]">
                 <tbody>
                   <tr className="border-b border-gray-300">
-                    <td className="w-44 bg-gray-100 font-semibold py-1.5 px-2.5 border-r border-gray-300 text-gray-800">
+                    <td className="w-44 bg-gray-100 font-semibold py-1.5 px-3 border-r border-gray-300 text-gray-800">
                       Nama Pelanggan / Perusahaan
                     </td>
-                    <td className="py-1.5 px-2.5 font-bold text-gray-900">
+                    <td className="py-1.5 px-3 font-bold text-gray-900">
                       {data.customerName}
                     </td>
                   </tr>
                   <tr className="border-b border-gray-300">
-                    <td className="bg-gray-100 font-semibold py-1.5 px-2.5 border-r border-gray-300 text-gray-800">
+                    <td className="bg-gray-100 font-semibold py-1.5 px-3 border-r border-gray-300 text-gray-800">
                       Nomor SPK Induk
                     </td>
-                    <td className="py-1.5 px-2.5 font-bold font-mono text-primary-900">
+                    <td className="py-1.5 px-3 font-bold font-mono text-primary-900">
                       {data.spkNo}
                     </td>
                   </tr>
                   <tr className="border-b border-gray-300">
-                    <td className="bg-gray-100 font-semibold py-1.5 px-2.5 border-r border-gray-300 text-gray-800">
+                    <td className="bg-gray-100 font-semibold py-1.5 px-3 border-r border-gray-300 text-gray-800">
                       Nomor Polisi Kendaraan
                     </td>
-                    <td className="py-1.5 px-2.5 font-bold text-gray-900">
+                    <td className="py-1.5 px-3 font-bold text-gray-900">
                       <span className="inline-block bg-gray-100 border border-gray-400 px-1.5 py-0.2 rounded text-[10.5px] font-mono">
                         {data.vehiclePlate || '-'}
                       </span>
                     </td>
                   </tr>
                   <tr>
-                    <td className="bg-gray-100 font-semibold py-1.5 px-2.5 border-r border-gray-300 text-gray-800">
+                    <td className="bg-gray-100 font-semibold py-1.5 px-3 border-r border-gray-300 text-gray-800">
                       Model Kendaraan / No. Rangka
                     </td>
-                    <td className="py-1.5 px-2.5 text-gray-800">
+                    <td className="py-1.5 px-3 text-gray-800">
                       {data.vehicleModel || '-'} {data.vehicleVin && data.vehicleVin !== '-' ? `(VIN: ${data.vehicleVin})` : ''}
                     </td>
                   </tr>
@@ -307,50 +307,50 @@ export const DpReceiptPrintModal: React.FC<DpReceiptPrintModalProps> = ({
               <table className="w-full border-collapse border border-gray-300 text-[11px]">
                 <tbody>
                   <tr className="border-b border-gray-300">
-                    <td className="w-56 bg-gray-100 font-semibold py-1.5 px-2.5 border-r border-gray-300 text-gray-800">
+                    <td className="w-56 bg-gray-100 font-semibold py-1.5 px-3 border-r border-gray-300 text-gray-800">
                       Total Estimasi Nilai Kontrak SPK
                     </td>
-                    <td className="py-1.5 px-2.5 font-bold text-right text-gray-900">
+                    <td className="py-1.5 px-3 font-bold text-right text-gray-900">
                       {formatCurrency(totalContract)}
                     </td>
                   </tr>
                   <tr className="border-b border-gray-300 bg-emerald-50/70">
-                    <td className="bg-emerald-100/70 font-bold py-1.5 px-2.5 border-r border-gray-300 text-emerald-950">
+                    <td className="bg-emerald-100/70 font-bold py-1.5 px-3 border-r border-gray-300 text-emerald-950">
                       Nominal Uang Muka (DP) Dibayarkan
                     </td>
-                    <td className="py-1.5 px-2.5 font-black text-right text-sm sm:text-base text-emerald-700">
+                    <td className="py-1.5 px-3 font-black text-right text-sm sm:text-base text-emerald-700">
                       {formatCurrency(dpAmount)}
                     </td>
                   </tr>
                   <tr className="border-b border-gray-300">
-                    <td className="bg-gray-100 font-semibold py-1.5 px-2.5 border-r border-gray-300 text-gray-800">
+                    <td className="bg-gray-100 font-semibold py-1.5 px-3 border-r border-gray-300 text-gray-800">
                       Terbilang (Nominal Huruf)
                     </td>
-                    <td className="py-1.5 px-2.5 italic font-semibold text-gray-800">
+                    <td className="py-1.5 px-3 italic font-semibold text-gray-800">
                       &ldquo;# {terbilangDp} #&rdquo;
                     </td>
                   </tr>
                   <tr className="border-b border-gray-300">
-                    <td className="bg-gray-100 font-semibold py-1.5 px-2.5 border-r border-gray-300 text-gray-800">
+                    <td className="bg-gray-100 font-semibold py-1.5 px-3 border-r border-gray-300 text-gray-800">
                       Metode Pembayaran
                     </td>
-                    <td className="py-1.5 px-2.5 font-bold text-gray-900">
+                    <td className="py-1.5 px-3 font-bold text-gray-900">
                       {data.paymentMethod || 'Transfer Bank'}
                     </td>
                   </tr>
                   <tr className="border-b border-gray-300">
-                    <td className="bg-gray-100 font-semibold py-1.5 px-2.5 border-r border-gray-300 text-gray-800">
+                    <td className="bg-gray-100 font-semibold py-1.5 px-3 border-r border-gray-300 text-gray-800">
                       Catatan / Referensi Bukti Transfer
                     </td>
-                    <td className="py-1.5 px-2.5 text-gray-800 font-mono text-[10.5px]">
+                    <td className="py-1.5 px-3 text-gray-800 font-mono text-[10.5px]">
                       {data.notes && data.notes.trim() !== '' ? data.notes : '-'}
                     </td>
                   </tr>
                   <tr className="bg-gray-50">
-                    <td className="bg-gray-100 font-semibold py-1.5 px-2.5 border-r border-gray-300 text-gray-800">
+                    <td className="bg-gray-100 font-semibold py-1.5 px-3 border-r border-gray-300 text-gray-800">
                       Sisa Estimasi Tagihan Pelunasan
                     </td>
-                    <td className="py-1.5 px-2.5 font-bold text-right text-rose-700">
+                    <td className="py-1.5 px-3 font-bold text-right text-rose-700">
                       {formatCurrency(remainingBill)}
                     </td>
                   </tr>
@@ -359,9 +359,9 @@ export const DpReceiptPrintModal: React.FC<DpReceiptPrintModalProps> = ({
             </div>
 
             {/* Syarat & Ketentuan Uang Muka */}
-            <div className="my-2.5 p-2.5 bg-gray-50 border border-gray-300 rounded text-[10px] text-gray-700 leading-tight break-inside-avoid">
-              <span className="font-bold text-gray-900 block mb-0.5">Syarat &amp; Ketentuan Uang Muka (DP):</span>
-              <ol className="list-decimal pl-4 space-y-0.5">
+            <div className="my-2 p-2.5 bg-gray-50 border border-gray-300 rounded text-[10px] text-gray-700 leading-tight break-inside-avoid">
+              <span className="font-bold text-gray-900 block mb-0.5 text-[10px]">Syarat &amp; Ketentuan Uang Muka (DP):</span>
+              <ol className="list-decimal pl-4 space-y-0.5 text-[10px]">
                 <li>Dokumen ini merupakan tanda terima sah atas pembayaran uang muka pengerjaan unit karoseri sesuai SPK <strong>{data.spkNo}</strong>.</li>
                 <li>Dengan dibayarkannya uang muka ini, status SPK dinyatakan <strong>ACTIVE</strong> dan tahapan produksi dimulai.</li>
                 <li>Sisa estimasi tagihan di atas belum memperhitungkan perubahan spesifikasi / Addendum (Change Orders) selama pengerjaan, dan wajib dilunasi saat penyelesaian unit sebelum BAST diterbitkan.</li>
@@ -369,34 +369,34 @@ export const DpReceiptPrintModal: React.FC<DpReceiptPrintModalProps> = ({
             </div>
 
             {/* Kolom Pengesahan Tanda Tangan */}
-            <div className="my-2.5 pt-0.5 break-inside-avoid">
+            <div className="my-2 pt-0.5 break-inside-avoid">
               <div className="grid grid-cols-2 gap-6 text-center text-[10.5px]">
                 
                 {/* Kolom 1: Kasir Penerima */}
-                <div className="flex flex-col justify-between min-h-[76px] border border-dashed border-gray-300 p-2 rounded">
+                <div className="flex flex-col justify-between h-16 border border-dashed border-gray-300 p-1.5 rounded">
                   <div>
-                    <p className="font-semibold text-gray-700 text-[10px] leading-none">Kasir Penerima Pembayaran,</p>
-                    <p className="font-bold text-gray-900 text-[10.5px] leading-tight mt-0.5">PT Robel Karoseri Indonesia</p>
+                    <p className="font-semibold text-gray-700 text-[9.5px] leading-none">Kasir Penerima Pembayaran,</p>
+                    <p className="font-bold text-gray-900 text-[10px] leading-tight mt-0.5">PT Robel Karoseri Indonesia</p>
                   </div>
-                  <div className="mt-3">
-                    <div className="w-32 mx-auto border-b border-gray-800 mb-0.5"></div>
+                  <div>
+                    <div className="w-28 mx-auto border-b border-gray-800 mb-0.5"></div>
                     <p className="text-[9.5px] text-gray-700 font-medium leading-none">
                       {data.cashierName || 'Kasir Keuangan Bengkel'}
                     </p>
-                    <p className="text-[8.5px] text-gray-500 leading-none mt-0.5">Tercatat di Sistem Finansial</p>
+                    <p className="text-[8px] text-gray-500 leading-none mt-0.5">Tercatat di Sistem Finansial</p>
                   </div>
                 </div>
 
                 {/* Kolom 2: Penyetor / Konsumen */}
-                <div className="flex flex-col justify-between min-h-[76px] border border-dashed border-gray-300 p-2 rounded">
+                <div className="flex flex-col justify-between h-16 border border-dashed border-gray-300 p-1.5 rounded">
                   <div>
-                    <p className="font-semibold text-gray-700 text-[10px] leading-none">Pihak Penyetor (Konsumen),</p>
-                    <p className="font-bold text-gray-900 text-[10.5px] leading-tight mt-0.5 truncate px-1">{data.customerName}</p>
+                    <p className="font-semibold text-gray-700 text-[9.5px] leading-none">Pihak Penyetor (Konsumen),</p>
+                    <p className="font-bold text-gray-900 text-[10px] leading-tight mt-0.5 truncate px-1">{data.customerName}</p>
                   </div>
-                  <div className="mt-3">
-                    <div className="w-32 mx-auto border-b border-gray-800 mb-0.5"></div>
+                  <div>
+                    <div className="w-28 mx-auto border-b border-gray-800 mb-0.5"></div>
                     <p className="text-[9.5px] text-gray-700 font-medium leading-none">Nama Terang &amp; Tanda Tangan</p>
-                    <p className="text-[8.5px] text-gray-500 leading-none mt-0.5">Pelanggan / Kuasa Pembayaran</p>
+                    <p className="text-[8px] text-gray-500 leading-none mt-0.5">Pelanggan / Kuasa Pembayaran</p>
                   </div>
                 </div>
 
