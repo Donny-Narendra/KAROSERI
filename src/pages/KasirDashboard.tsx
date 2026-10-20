@@ -34,6 +34,8 @@ interface KasirSpkJoinRow {
   vehicle_vin?: string | null;
   vehicle_number?: string | null;
   vehicle_engine?: string | null;
+  vehicle_model?: string | null;
+  vehicle_brand?: string | null;
   status: string;
   dp_amount?: number | null;
   total_estimated_cost?: number | null;
@@ -305,7 +307,7 @@ export const KasirDashboard: React.FC = () => {
           vehiclePlate: d.vehicle_plate,
           vehicleVin: d.vehicle_vin || d.vehicle_plate || '-',
           vehicleEngine: d.vehicle_engine || '-',
-          vehicleModel: d.vehicle_plate,
+          vehicleModel: d.vehicle_model || d.vehicle_plate || '-',
           vin: d.vehicle_vin || d.vehicle_plate,
           status: d.status,
           dpAmount: Number(d.dp_amount || 0),

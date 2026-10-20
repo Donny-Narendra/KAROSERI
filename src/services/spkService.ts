@@ -392,6 +392,8 @@ export const spkService = {
     customerName,
     customerPhone,
     vehiclePlate,
+    vehicleModel,
+    vehicleBrand,
     vinChassis,
     engineNumber,
     subTasks,
@@ -411,6 +413,8 @@ export const spkService = {
       customer_name: customerName.trim(),
       customer_phone: customerPhone?.trim() || null,
       vehicle_plate: vehiclePlate.trim().toUpperCase(),
+      vehicle_model: vehicleModel?.trim() || null,
+      vehicle_brand: vehicleBrand?.trim() || null,
       vehicle_vin: vinChassis?.trim().toUpperCase() || null,
       vin_chassis: vinChassis?.trim().toUpperCase() || null,
       vehicle_engine: engineNumber?.trim().toUpperCase() || null,
@@ -439,6 +443,8 @@ export interface UpdateSpkCredentialsParams {
   customerName: string;
   customerPhone?: string | null;
   vehiclePlate: string;
+  vehicleModel?: string | null;
+  vehicleBrand?: string | null;
   vinChassis?: string | null;
   engineNumber?: string | null;
   subTasks?: string[] | null;

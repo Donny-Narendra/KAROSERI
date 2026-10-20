@@ -17,6 +17,8 @@ export interface BastSpkData {
   vin?: string;
   vehicle_engine?: string;
   vehicleEngine?: string;
+  vehicle_model?: string;
+  vehicleModel?: string;
   status?: string;
   qc_status?: string;
   qcStatus?: string;
@@ -98,6 +100,7 @@ export const BastModal: React.FC<BastModalProps> = ({
   const spkNo = spk.spk_no || spk.id || 'SPK-9846';
   const customerName = spk.customer_name || spk.customerName || 'PT WARA-WIRI';
   const vehiclePlate = spk.vehicle_plate || spk.vehiclePlate || 'B 1234 WWR';
+  const vehicleModel = spk.vehicle_model || spk.vehicleModel || '-';
   const vehicleVin = spk.vehicle_vin || spk.vehicleVin || spk.vin || 'MHFC1234567890';
   const vehicleEngine = spk.vehicle_engine || spk.vehicleEngine || 'ENG-987654321';
   const bastNumber = `BAST/${spkNo}/${year}/${month}`;
@@ -381,6 +384,14 @@ export const BastModal: React.FC<BastModalProps> = ({
                         <span className="inline-block bg-gray-100 border border-gray-400 px-1.5 py-0.2 rounded text-[10.5px] font-mono">
                           {vehiclePlate}
                         </span>
+                      </td>
+                    </tr>
+                    <tr className="border-b border-gray-800">
+                      <td className="bg-gray-100 font-semibold px-2.5 py-1 border-r border-gray-800 text-gray-800">
+                        Model Kendaraan
+                      </td>
+                      <td className="px-2.5 py-1 font-bold text-gray-900">
+                        {vehicleModel}
                       </td>
                     </tr>
                     <tr className="border-b border-gray-800">

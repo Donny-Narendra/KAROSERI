@@ -24,6 +24,7 @@ export const SpkCredentialSection: React.FC<SpkCredentialSectionProps> = ({
   const [customerName, setCustomerName] = useState(spk.customer_name || '');
   const [customerPhone, setCustomerPhone] = useState(spk.customer_phone || '');
   const [vehiclePlate, setVehiclePlate] = useState(spk.vehicle_plate || '');
+  const [vehicleModel, setVehicleModel] = useState(spk.vehicle_model || spk.vehicleModel || '');
   const [vinChassis, setVinChassis] = useState(spk.vin_chassis || spk.vehicle_vin || '');
   const [engineNumber, setEngineNumber] = useState(spk.engine_number || spk.vehicle_engine || '');
   const [targetDate, setTargetDate] = useState(
@@ -40,6 +41,7 @@ export const SpkCredentialSection: React.FC<SpkCredentialSectionProps> = ({
     setCustomerName(spk.customer_name || '');
     setCustomerPhone(spk.customer_phone || '');
     setVehiclePlate(spk.vehicle_plate || '');
+    setVehicleModel(spk.vehicle_model || spk.vehicleModel || '');
     setVinChassis(spk.vin_chassis || spk.vehicle_vin || '');
     setEngineNumber(spk.engine_number || spk.vehicle_engine || '');
     setTargetDate(spk.target_date ? spk.target_date.substring(0, 10) : '');
@@ -93,6 +95,7 @@ export const SpkCredentialSection: React.FC<SpkCredentialSectionProps> = ({
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim() || null,
         vehiclePlate: vehiclePlate.trim().toUpperCase(),
+        vehicleModel: vehicleModel.trim() || null,
         vinChassis: vinChassis.trim().toUpperCase() || null,
         engineNumber: engineNumber.trim().toUpperCase() || null,
         subTasks: parsedSubTasks,
@@ -115,6 +118,7 @@ export const SpkCredentialSection: React.FC<SpkCredentialSectionProps> = ({
     setCustomerName(spk.customer_name || '');
     setCustomerPhone(spk.customer_phone || '');
     setVehiclePlate(spk.vehicle_plate || '');
+    setVehicleModel(spk.vehicle_model || spk.vehicleModel || '');
     setVinChassis(spk.vin_chassis || spk.vehicle_vin || '');
     setEngineNumber(spk.engine_number || spk.vehicle_engine || '');
     setTargetDate(spk.target_date ? spk.target_date.substring(0, 10) : '');
@@ -197,7 +201,7 @@ export const SpkCredentialSection: React.FC<SpkCredentialSectionProps> = ({
       {/* Mode View: Tampilan Rangkuman Credential */}
       {!isEditMode ? (
         <div className="mt-4 space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 bg-background/60 p-4 rounded-lg border border-border/50 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 bg-background/60 p-4 rounded-lg border border-border/50 text-sm">
             <div>
               <span className="text-xs text-text-muted block uppercase tracking-wider">Pelanggan</span>
               <strong className="text-text font-medium text-base block mt-0.5">{spk.customer_name}</strong>
@@ -211,6 +215,11 @@ export const SpkCredentialSection: React.FC<SpkCredentialSectionProps> = ({
             <div>
               <span className="text-xs text-text-muted block uppercase tracking-wider">No. Polisi / Plat</span>
               <strong className="text-text font-mono text-base block mt-0.5">{spk.vehicle_plate || '-'}</strong>
+            </div>
+
+            <div>
+              <span className="text-xs text-text-muted block uppercase tracking-wider">Model Kendaraan</span>
+              <strong className="text-text font-medium text-base block mt-0.5">{spk.vehicle_model || spk.vehicleModel || '-'}</strong>
             </div>
 
             <div>
@@ -341,7 +350,7 @@ export const SpkCredentialSection: React.FC<SpkCredentialSectionProps> = ({
             </div>
           </div>
 
-          {/* Row 3: Vehicle Plate & Chassis Number */}
+          {/* Row 3: Vehicle Plate & Vehicle Model */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
@@ -358,6 +367,22 @@ export const SpkCredentialSection: React.FC<SpkCredentialSectionProps> = ({
             </div>
             <div>
               <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
+                Vehicle Model
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Hino Dutro 130 HD, Mitsubishi Canter FE 74"
+                value={vehicleModel}
+                onChange={(e) => setVehicleModel(e.target.value)}
+                className="w-full bg-slate-900/50 border border-slate-700 rounded p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Row 4: VIN / Chassis & Engine Number */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
                 VIN / Chassis Number
               </label>
               <input
@@ -368,10 +393,6 @@ export const SpkCredentialSection: React.FC<SpkCredentialSectionProps> = ({
                 className="w-full bg-slate-900/50 border border-slate-700 rounded p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 uppercase text-sm"
               />
             </div>
-          </div>
-
-          {/* Row 4: Engine Number */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
                 Engine Number

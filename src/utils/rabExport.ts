@@ -5,6 +5,7 @@ export interface RabExportSpkDetails {
   customer_name?: string | null;
   vehicle_number?: string | null;
   vehicle_plate?: string | null;
+  vehicle_model?: string | null;
 }
 
 export interface RabExportItem {
@@ -35,6 +36,7 @@ export const exportRabToExcel = (
     ["No. SPK", spkDetails?.spk_no || "-"],
     ["Nama Konsumen", spkDetails?.customer_name || "-"],
     ["Nopol Kendaraan", spkDetails?.vehicle_plate || spkDetails?.vehicle_number || "-"],
+    ["Model Kendaraan", spkDetails?.vehicle_model || "-"],
     ["Tanggal", new Date().toLocaleDateString('id-ID')],
     [""],
     ["WBS Category", "Tipe", "Deskripsi", "Qty", "Harga Satuan", "Subtotal"]
@@ -168,7 +170,7 @@ export const printRabQuotation = (
         </div>
         <div class="info-item">
           <div><strong>Pelanggan:</strong> ${spkDetails?.customer_name || '-'}</div>
-          <div><strong>No. Polisi:</strong> ${spkDetails?.vehicle_plate || spkDetails?.vehicle_number || '-'}</div>
+          <div><strong>No. Polisi:</strong> ${spkDetails?.vehicle_plate || spkDetails?.vehicle_number || '-'}${spkDetails?.vehicle_model ? ` (${spkDetails.vehicle_model})` : ''}</div>
         </div>
       </div>
 

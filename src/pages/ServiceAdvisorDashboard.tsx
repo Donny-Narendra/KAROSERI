@@ -442,7 +442,12 @@ export const ServiceAdvisorDashboard: React.FC = () => {
                             <div className="text-xs text-text-muted font-mono">{spk.customer_phone}</div>
                           )}
                         </td>
-                        <td className="px-5 py-4 font-mono">{spk.vehicle_plate}</td>
+                        <td className="px-5 py-4 font-mono">
+                          <div>{spk.vehicle_plate}</div>
+                          {spk.vehicle_model && (
+                            <div className="text-xs text-text-muted font-sans">{spk.vehicle_model}</div>
+                          )}
+                        </td>
                         <td className="px-5 py-4">
                           <span className="bg-surface-active px-2 py-1 rounded text-xs font-mono">{spk.status}</span>
                         </td>

@@ -145,6 +145,9 @@ describe('Assembly Package Import & item_type Propagation', () => {
                 maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'est-spk-100' }, error: null }),
               }),
             }),
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+            }),
           };
         }
         if (table === 'rab_items') {
@@ -155,9 +158,24 @@ describe('Assembly Package Import & item_type Propagation', () => {
                 select: vi.fn().mockResolvedValue({ data: payload, error: null }),
               };
             }),
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+            }),
           };
         }
-        return { select: vi.fn() };
+        if (table === 'spk') {
+          return {
+            update: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+            }),
+          };
+        }
+        return {
+          select: vi.fn(),
+          update: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+          }),
+        };
       });
 
       const result = await packageService.importAssemblyToRab('spk-100', 'pkg-dump-truck');

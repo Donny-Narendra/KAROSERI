@@ -24,6 +24,8 @@ export interface SpkRecord {
   cancelled_by?: string | null;
   vehicle_vin?: string | null;
   vehicle_engine?: string | null;
+  vehicle_model?: string | null;
+  vehicle_brand?: string | null;
   allocation_status?: string | null;
   qc_status?: string;
   customer_phone?: string | null;

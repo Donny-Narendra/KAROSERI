@@ -31,6 +31,7 @@ export const SpkForm: React.FC<SpkFormProps> = ({
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [vehiclePlate, setVehiclePlate] = useState('');
+  const [vehicleModel, setVehicleModel] = useState('');
   const [vehicleVin, setVehicleVin] = useState('');
   const [vehicleEngine, setVehicleEngine] = useState('');
   const [targetDate, setTargetDate] = useState('');
@@ -44,6 +45,7 @@ export const SpkForm: React.FC<SpkFormProps> = ({
       setCustomerName(initialData.customer_name || '');
       setCustomerPhone(initialData.customer_phone || '');
       setVehiclePlate(initialData.vehicle_plate || '');
+      setVehicleModel(initialData.vehicle_model || initialData.vehicleModel || '');
       setVehicleVin(initialData.vin_chassis || initialData.vehicle_vin || '');
       setVehicleEngine(initialData.engine_number || initialData.vehicle_engine || '');
       setTargetDate(initialData.target_date ? initialData.target_date.substring(0, 10) : '');
@@ -104,6 +106,7 @@ export const SpkForm: React.FC<SpkFormProps> = ({
           customer_name: customerName,
           customer_phone: customerPhone || null,
           vehicle_plate: vehiclePlate,
+          vehicle_model: vehicleModel.trim() || null,
           vehicle_vin: vehicleVin || null,
           vin_chassis: vehicleVin || null,
           vehicle_engine: vehicleEngine || null,
@@ -124,6 +127,7 @@ export const SpkForm: React.FC<SpkFormProps> = ({
       setCustomerName('');
       setCustomerPhone('');
       setVehiclePlate('');
+      setVehicleModel('');
       setVehicleVin('');
       setVehicleEngine('');
       setTargetDate('');
@@ -150,6 +154,7 @@ export const SpkForm: React.FC<SpkFormProps> = ({
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim() || null,
         vehiclePlate: vehiclePlate.trim().toUpperCase(),
+        vehicleModel: vehicleModel.trim() || null,
         vinChassis: vehicleVin.trim().toUpperCase() || null,
         engineNumber: vehicleEngine.trim().toUpperCase() || null,
         subTasks: parsedSubTasks,
@@ -217,10 +222,11 @@ export const SpkForm: React.FC<SpkFormProps> = ({
             />
           </div>
           <div>
-            <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
+            <label htmlFor="target-date" className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
               Target Date
             </label>
             <input
+              id="target-date"
               type="date"
               required
               value={targetDate}
@@ -233,10 +239,11 @@ export const SpkForm: React.FC<SpkFormProps> = ({
         {/* Row 2: Customer Name & Phone Number */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
+            <label htmlFor="customer-name" className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
               Customer Name
             </label>
             <input
+              id="customer-name"
               type="text"
               required
               placeholder="e.g. PT Logistik Indo"
@@ -246,10 +253,11 @@ export const SpkForm: React.FC<SpkFormProps> = ({
             />
           </div>
           <div>
-            <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
+            <label htmlFor="customer-phone" className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
               Phone Number
             </label>
             <input
+              id="customer-phone"
               type="tel"
               placeholder="e.g. 0812-3456-7890"
               value={customerPhone}
@@ -259,13 +267,14 @@ export const SpkForm: React.FC<SpkFormProps> = ({
           </div>
         </div>
 
-        {/* Row 3: Vehicle Plate & Chassis Number */}
+        {/* Row 3: Vehicle Plate & Vehicle Model */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
+            <label htmlFor="vehicle-plate" className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
               Vehicle Plate
             </label>
             <input
+              id="vehicle-plate"
               type="text"
               required
               placeholder="E.G. B 1234 CD"
@@ -274,6 +283,23 @@ export const SpkForm: React.FC<SpkFormProps> = ({
               className="w-full bg-slate-900/50 border border-slate-700 rounded p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 uppercase text-sm"
             />
           </div>
+          <div>
+            <label htmlFor="vehicle-model" className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
+              Vehicle Model
+            </label>
+            <input
+              id="vehicle-model"
+              type="text"
+              placeholder="e.g. Hino Dutro 130 HD, Mitsubishi Canter FE 74"
+              value={vehicleModel}
+              onChange={(e) => setVehicleModel(e.target.value)}
+              className="w-full bg-slate-900/50 border border-slate-700 rounded p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 text-sm"
+            />
+          </div>
+        </div>
+
+        {/* Row 4: VIN / Chassis & Engine Number */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
               VIN / Chassis Number
@@ -286,10 +312,6 @@ export const SpkForm: React.FC<SpkFormProps> = ({
               className="w-full bg-slate-900/50 border border-slate-700 rounded p-2.5 text-slate-200 focus:outline-none focus:border-amber-500 uppercase text-sm"
             />
           </div>
-        </div>
-
-        {/* Row 4: Engine Number */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2 block">
               Engine Number

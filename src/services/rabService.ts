@@ -58,6 +58,8 @@ export interface RabSpkDetails {
   vehicle_plate: string;
   vehicle_vin?: string | null;
   vin_chassis?: string | null;
+  vehicle_model?: string | null;
+  vehicle_brand?: string | null;
   status: string;
   total_estimated_cost?: number | null;
   dp_amount?: number | null;

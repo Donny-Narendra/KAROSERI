@@ -19,6 +19,8 @@ export interface Spk {
   vehicle_engine?: string;
   vin_chassis?: string;
   engine_number?: string;
+  vehicle_model?: string;
+  vehicle_brand?: string;
   target_date?: string;
   sub_tasks?: string[];
   pending_requisitions_count?: number;
