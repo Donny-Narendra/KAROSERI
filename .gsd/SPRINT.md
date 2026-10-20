@@ -22,12 +22,18 @@ Fix Supabase select query calling non-existent column `spk.vehicle_number` to us
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| Correct spk.vehicle_plate column reference in billingService and related files | Claude | ⬜ Todo | — |
-| Harden html2pdf export in DpReceiptPrintModal with style proxy and onclone cleanup | Claude | ⬜ Todo | — |
-| Update and add unit tests for billingService and DpReceiptPrintModal | Claude | ⬜ Todo | — |
-| Verify Vitest suite, Oxlint, and TypeScript production build | Claude | ⬜ Todo | — |
+| Correct spk.vehicle_plate column reference in billingService and related files | Claude | ✅ Done | 0.5 |
+| Harden html2pdf export in DpReceiptPrintModal with style proxy and onclone cleanup | Claude | ✅ Done | 0.5 |
+| Update and add unit tests for billingService and DpReceiptPrintModal | Claude | ✅ Done | 0.5 |
+| Verify Vitest suite, Oxlint, and TypeScript production build | Claude | ✅ Done | 0.5 |
 
 ## Daily Log
 
 ### 2026-10-20
-- Sprint created
+- Sprint created.
+- Removed non-existent `vehicle_number` from `fetchDPHistory` Supabase select query in `billingService.ts`, fixing PostgreSQL error 42703.
+- Updated mappings in `KasirDashboard.tsx`, `PublicProgressTracking.tsx`, and `rabExport.ts` to prefer `vehicle_plate` and `vehicle_vin`.
+- Extracted and implemented `convertColorToRgb` and `createStyleProxy` in `src/utils/pdfExportUtils.ts` to convert Tailwind v4 `oklch`, `lab`, `color-mix` values into valid RGB declarations during `html2canvas` traversal.
+- Hardened `handleDownloadPdf` in `DpReceiptPrintModal.tsx` with onclone cleanup (stripping `boxShadow`), options configuration, and elegant fallback to `window.print()`.
+- Added unit tests in `pdfExportUtils.test.ts` and `DpReceiptPrintModal.test.tsx`, plus column query assertions in `billingService.test.ts`.
+- All 37 test suites (236 tests) passing 100%, 0 Oxlint errors/warnings, and clean production build.

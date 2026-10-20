@@ -1,6 +1,17 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { DpReceiptPrintModal, type DpReceiptData } from '../DpReceiptPrintModal';
+
+const mockSave = vi.fn().mockResolvedValue(undefined);
+const mockFrom = vi.fn().mockReturnValue({ save: mockSave });
+const mockSet = vi.fn().mockReturnValue({ from: mockFrom });
+const mockHtml2PdfWorker = vi.fn().mockReturnValue({ set: mockSet });
+
+vi.mock('html2pdf.js', () => {
+  return {
+    default: () => mockHtml2PdfWorker(),
+  };
+});
 
 describe('Component: DpReceiptPrintModal', () => {
   const mockData: DpReceiptData = {
@@ -166,4 +177,78 @@ describe('Component: DpReceiptPrintModal', () => {
 
     expect(handleClose).toHaveBeenCalledTimes(1);
   });
+
+  it('triggers html2pdf download with sanitized options when Download PDF is clicked', async () => {
+    mockHtml2PdfWorker.mockClear();
+    mockSet.mockClear();
+    mockFrom.mockClear();
+    mockSave.mockClear();
+
+    render(
+      <DpReceiptPrintModal
+        isOpen={true}
+        onClose={vi.fn()}
+        data={mockData}
+      />
+    );
+
+    const downloadButton = screen.getByRole('button', { name: /Download PDF/i });
+    fireEvent.click(downloadButton);
+
+    await waitFor(() => {
+      expect(mockHtml2PdfWorker).toHaveBeenCalled();
+    });
+
+    expect(mockSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filename: 'Kuitansi-DP-SPK-8698.pdf',
+        margin: [8, 8, 8, 8],
+        html2canvas: expect.objectContaining({
+          scale: 2,
+          useCORS: true,
+          letterRendering: true,
+          backgroundColor: '#ffffff',
+          onclone: expect.any(Function),
+        }),
+      })
+    );
+
+    const passedOpt = mockSet.mock.calls[0][0];
+    const dummyClonedDoc = document.implementation.createHTMLDocument();
+    const dummyEl = dummyClonedDoc.createElement('div');
+    dummyEl.id = 'printable-dp-receipt';
+    dummyEl.style.boxShadow = '0 10px 15px rgba(0,0,0,0.5)';
+    dummyClonedDoc.body.appendChild(dummyEl);
+
+    // Call onclone to verify it safely strips box-shadow and attaches style proxy
+    passedOpt.html2canvas.onclone(dummyClonedDoc);
+    expect(dummyEl.style.boxShadow).toBe('none');
+  });
+
+  it('falls back gracefully to window.print when html2pdf throws an error', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockSave.mockRejectedValueOnce(new Error('CSSParsedDeclaration: unsupported color function oklch'));
+
+    render(
+      <DpReceiptPrintModal
+        isOpen={true}
+        onClose={vi.fn()}
+        data={mockData}
+      />
+    );
+
+    const downloadButton = screen.getByRole('button', { name: /Download PDF/i });
+    fireEvent.click(downloadButton);
+
+    await waitFor(() => {
+      expect(window.print).toHaveBeenCalled();
+    });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Gagal mengunduh dokumen kuitansi DP via html2pdf:'),
+      expect.any(Error)
+    );
+    consoleSpy.mockRestore();
+  });
 });
+

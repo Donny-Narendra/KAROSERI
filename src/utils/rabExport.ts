@@ -33,7 +33,7 @@ export const exportRabToExcel = (
     [""],
     ["No. SPK", spkDetails?.spk_no || "-"],
     ["Nama Konsumen", spkDetails?.customer_name || "-"],
-    ["Nopol Kendaraan", spkDetails?.vehicle_number || "-"],
+    ["Nopol Kendaraan", spkDetails?.vehicle_plate || spkDetails?.vehicle_number || "-"],
     ["Tanggal", new Date().toLocaleDateString('id-ID')],
     [""],
     ["WBS Category", "Tipe", "Deskripsi", "Qty", "Harga Satuan", "Waste (%)", "Subtotal"]
@@ -171,7 +171,7 @@ export const printRabQuotation = (
         </div>
         <div class="info-item">
           <div><strong>Pelanggan:</strong> ${spkDetails?.customer_name || '-'}</div>
-          <div><strong>No. Polisi:</strong> ${spkDetails?.vehicle_number || '-'}</div>
+          <div><strong>No. Polisi:</strong> ${spkDetails?.vehicle_plate || spkDetails?.vehicle_number || '-'}</div>
         </div>
       </div>
 

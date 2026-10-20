@@ -226,7 +226,7 @@ export const PublicProgressTracking: React.FC = () => {
             </div>
             <div>
               <p className="text-sm text-text-muted print:text-gray-500 mb-1">Nomor Rangka (VIN)</p>
-              <p className="font-bold font-mono">{spk?.vehicle_number || '-'}</p>
+              <p className="font-bold font-mono">{spk?.vehicle_vin || spk?.vehicle_number || '-'}</p>
             </div>
             <div>
               <p className="text-sm text-text-muted print:text-gray-500 mb-1">Nomor Polisi</p>

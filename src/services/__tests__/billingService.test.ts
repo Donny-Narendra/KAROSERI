@@ -175,6 +175,8 @@ describe('Sprint 49: billingService.fetchApprovedChangeOrders Tests', () => {
     const result = await fetchDPHistory();
 
     expect(supabase.from).toHaveBeenCalledWith('spk');
+    expect(mockSelect).toHaveBeenCalledWith(expect.stringContaining('vehicle_plate'));
+    expect(mockSelect).toHaveBeenCalledWith(expect.not.stringContaining('vehicle_number'));
     expect(result).toHaveLength(1);
     expect(result[0].spk_no).toBe('SPK-2668');
     expect(result[0].dp_amount).toBe(10000000);

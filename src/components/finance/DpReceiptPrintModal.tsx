@@ -4,6 +4,7 @@ import { Printer, X, Receipt, CheckCircle, Download, Loader2 } from 'lucide-reac
 import html2pdf from 'html2pdf.js';
 import { terbilang } from '../../utils/terbilang';
 import { formatCurrency } from '../../utils/invoiceExport';
+import { createStyleProxy } from '../../utils/pdfExportUtils';
 
 export interface DpReceiptData {
   spkNo: string;
@@ -92,20 +93,38 @@ export const DpReceiptPrintModal: React.FC<DpReceiptPrintModalProps> = ({
       return;
     }
 
+    const origWindowGetComputedStyle = typeof window !== 'undefined' ? window.getComputedStyle : null;
+
     try {
       setIsDownloadingPdf(true);
-      const safeSpk = data.spkNo.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const safeSpk = (data.spkNo || 'SPK').replace(/[^a-zA-Z0-9_-]/g, '_');
       const filename = `Kuitansi-DP-${safeSpk}.pdf`;
 
+      // Intercept window.getComputedStyle in the main window during html2pdf run
+      if (origWindowGetComputedStyle && typeof window !== 'undefined') {
+        window.getComputedStyle = createStyleProxy(origWindowGetComputedStyle.bind(window));
+      }
+
       const opt = {
-        margin: [10, 10, 10, 10] as [number, number, number, number],
+        margin: [8, 8, 8, 8] as [number, number, number, number],
         filename,
         image: { type: 'jpeg' as const, quality: 0.98 },
         html2canvas: {
           scale: 2,
           useCORS: true,
           logging: false,
+          letterRendering: true,
           backgroundColor: '#ffffff',
+          onclone: (clonedDoc: Document) => {
+            const win = clonedDoc.defaultView;
+            if (win) {
+              win.getComputedStyle = createStyleProxy(win.getComputedStyle.bind(win));
+            }
+            const clonedEl = clonedDoc.getElementById('printable-dp-receipt') || clonedDoc.getElementById('dp-receipt-print-area');
+            if (clonedEl) {
+              clonedEl.style.boxShadow = 'none';
+            }
+          },
         },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
       };
@@ -113,8 +132,13 @@ export const DpReceiptPrintModal: React.FC<DpReceiptPrintModalProps> = ({
       const html2pdfWorker = ((html2pdf as any).default || html2pdf) as typeof html2pdf;
       await html2pdfWorker().set(opt).from(element).save();
     } catch (err) {
-      console.error('Gagal mengunduh dokumen kuitansi DP:', err);
+      console.error('Gagal mengunduh dokumen kuitansi DP via html2pdf:', err);
+      // Fallback elegan: buka print window dialog jika canvas parsing gagal
+      window.print();
     } finally {
+      if (origWindowGetComputedStyle && typeof window !== 'undefined') {
+        window.getComputedStyle = origWindowGetComputedStyle;
+      }
       if (typeof document !== 'undefined') {
         document.querySelectorAll('.html2pdf__overlay').forEach(el => el.remove());
       }
@@ -199,7 +223,7 @@ export const DpReceiptPrintModal: React.FC<DpReceiptPrintModalProps> = ({
           <div
             id="printable-dp-receipt"
             data-id="printable-dp-receipt"
-            className="dp-receipt-sheet bg-white text-slate-900 w-full max-w-[210mm] p-6 md:p-8 rounded-sm shadow-xl text-xs space-y-4 print:w-full print:max-w-none print:min-h-0 print:h-auto print:p-0 print:shadow-none print:border-none print:rounded-none"
+            className="dp-receipt-sheet bg-white text-black w-full max-w-[210mm] p-6 md:p-8 rounded-sm text-xs space-y-4 print:w-full print:max-w-none print:min-h-0 print:h-auto print:p-0 print:shadow-none print:border-none print:rounded-none"
           >
             {/* Kop Surat RobelKaroseri */}
             <div className="border-b-2 border-black pb-1.5 mb-1 break-inside-avoid">
@@ -272,7 +296,7 @@ export const DpReceiptPrintModal: React.FC<DpReceiptPrintModalProps> = ({
                     <td className="bg-gray-100 font-semibold py-1.5 px-3 border-r border-gray-300 text-gray-800">
                       Nomor SPK Induk
                     </td>
-                    <td className="py-1.5 px-3 font-bold font-mono text-primary-900">
+                    <td className="py-1.5 px-3 font-bold font-mono text-blue-900">
                       {data.spkNo}
                     </td>
                   </tr>
@@ -314,8 +338,8 @@ export const DpReceiptPrintModal: React.FC<DpReceiptPrintModalProps> = ({
                       {formatCurrency(totalContract)}
                     </td>
                   </tr>
-                  <tr className="border-b border-gray-300 bg-emerald-50/70">
-                    <td className="bg-emerald-100/70 font-bold py-1.5 px-3 border-r border-gray-300 text-emerald-950">
+                  <tr className="border-b border-gray-300 bg-emerald-50">
+                    <td className="bg-emerald-100 font-bold py-1.5 px-3 border-r border-gray-300 text-emerald-950">
                       Nominal Uang Muka (DP) Dibayarkan
                     </td>
                     <td className="py-1.5 px-3 font-black text-right text-sm sm:text-base text-emerald-700">
