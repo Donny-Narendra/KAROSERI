@@ -126,6 +126,31 @@ describe('Component: DpReceiptPrintModal', () => {
     expect(window.print).toHaveBeenCalledTimes(1);
   });
 
+  it('renders responsive modal structure with max-h-[90vh] card, scrollable container, and printable sheet', () => {
+    render(
+      <DpReceiptPrintModal
+        isOpen={true}
+        onClose={vi.fn()}
+        data={mockData}
+      />
+    );
+
+    const backdrop = document.getElementById('dp-receipt-modal-backdrop');
+    expect(backdrop).toBeInTheDocument();
+    expect(backdrop).toHaveClass('overflow-hidden');
+
+    const card = backdrop?.querySelector('.max-h-\\[90vh\\]');
+    expect(card).toBeInTheDocument();
+    expect(card).toHaveClass('flex-col');
+
+    const scrollContainer = card?.querySelector('.overflow-y-auto');
+    expect(scrollContainer).toBeInTheDocument();
+
+    const sheet = document.getElementById('printable-dp-receipt');
+    expect(sheet).toBeInTheDocument();
+    expect(sheet).toHaveAttribute('data-id', 'printable-dp-receipt');
+  });
+
   it('calls onClose when close button is clicked', () => {
     const handleClose = vi.fn();
     render(
