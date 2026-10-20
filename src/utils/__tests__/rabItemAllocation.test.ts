@@ -71,7 +71,20 @@ describe('Util: rabItemAllocation (Multi-element 3-Pillar Allocation Matching)',
         frequency_qty: 0.2,
       }
     ];
-
     expect(isRabItemAllocated(rabItem, null, null, null, overheadLogs)).toBe(false);
+  });
+
+  it('detects allocated material in material requisitions via change_order_item_id', () => {
+    const coItem = { id: 'co-item-1', description: 'Material Tambahan CO' };
+    const requisitions = [
+      {
+        id: 'req-1',
+        material_requisition_items: [
+          { rab_item_id: null, change_order_item_id: 'co-item-1', material_name: 'Material Tambahan CO' }
+        ]
+      }
+    ];
+
+    expect(isRabItemAllocated(coItem, requisitions, null, null, null)).toBe(true);
   });
 });

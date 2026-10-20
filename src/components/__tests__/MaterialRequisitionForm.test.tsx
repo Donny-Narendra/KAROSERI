@@ -27,7 +27,8 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
   const setupSupabaseMock = (
     rabItemsData: any[] = [],
     masterMaterials: any[] = [],
-    existingRequisitions: any[] = []
+    existingRequisitions: any[] = [],
+    changeOrderItemsData: any[] = []
   ) => {
     const mockInsert = vi.fn().mockReturnValue({
       select: vi.fn().mockReturnValue({
@@ -98,7 +99,7 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
           then: vi.fn().mockImplementation((fn: any) =>
-            Promise.resolve({ data: [], error: null }).then(fn)
+            Promise.resolve({ data: changeOrderItemsData, error: null }).then(fn)
           ),
         } as any;
       }
@@ -456,5 +457,221 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
 
     const headerElement = screen.getByText('Alokasi RAB (WBS Terkait)').closest('div');
     expect(within(headerElement!).getByText('2')).toBeInTheDocument();
+  });
+
+  it('loads approved Change Order materials into available list and submits with change_order_item_id and null rab_item_id', async () => {
+    const sampleCoItems = [
+      {
+        id: 'co-item-uuid-1',
+        material_id: null,
+        item_name: 'material test 1',
+        quantity: 2,
+        unit: 'pcs',
+        unit_price: 15000,
+        cost_price: 12000,
+        wbs_stage: 'Pembongkaran',
+        item_type: 'MATERIAL',
+        change_orders: { status: 'APPROVED', co_number: 'CO-SPK2668-1407' },
+      },
+    ];
+
+    const { mockInsert, mockItemsInsert } = setupSupabaseMock(
+      [], // No RAB items
+      sampleMasterMaterials,
+      [],
+      sampleCoItems
+    );
+
+    render(
+      <MaterialRequisitionForm
+        spkId={mockSpkId}
+        wbsCategory={mockWbsCategory}
+        onClose={mockOnClose}
+      />
+    );
+
+    // Verify Change Order item appears in available items list
+    await waitFor(() => {
+      expect(screen.getByText('[CO-SPK2668-1407] material test 1')).toBeInTheDocument();
+    });
+
+    // Double click to transfer to requisition list
+    const coRow = screen.getByText('[CO-SPK2668-1407] material test 1').closest('div[class*="cursor-pointer"]');
+    fireEvent.doubleClick(coRow!);
+
+    // Wait for transfer to update left panel
+    await waitFor(() => {
+      expect(screen.getByText(/Submit Requisition \(1 baru\)/i)).toBeInTheDocument();
+      // Should show [CHANGE ORDER] badge in selected list
+      expect(screen.getByText('[CHANGE ORDER]')).toBeInTheDocument();
+    });
+
+    // Click Submit Requisition
+    const submitBtn = screen.getByText(/Submit Requisition \(1 baru\)/i);
+    fireEvent.click(submitBtn);
+
+    // Verify insert into material_requisitions and material_requisition_items
+    await waitFor(() => {
+      expect(mockInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          spk_id: mockSpkId,
+          wbs_category: 'Pembongkaran',
+          status: 'PENDING',
+        })
+      );
+      // Critical check: rab_item_id MUST be null, change_order_item_id MUST be set!
+      expect(mockItemsInsert).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            material_name: '[CO-SPK2668-1407] material test 1',
+            rab_item_id: null,
+            change_order_item_id: 'co-item-uuid-1',
+            quantity: 2,
+            unit: 'pcs',
+            unit_price: 15000,
+          }),
+        ])
+      );
+    });
+  });
+
+  it('segregates rab_item_id and change_order_item_id when submitting both RAB and Change Order items together', async () => {
+    const sampleCoItems = [
+      {
+        id: 'co-item-uuid-1',
+        material_id: null,
+        item_name: 'material test 1',
+        quantity: 2,
+        unit: 'pcs',
+        unit_price: 15000,
+        cost_price: 12000,
+        wbs_stage: 'Pembongkaran',
+        item_type: 'MATERIAL',
+        change_orders: { status: 'APPROVED', co_number: 'CO-SPK2668-1407' },
+      },
+    ];
+
+    const { mockItemsInsert } = setupSupabaseMock(
+      [sampleMixedRabItems[0]], // AMPLAS 100
+      sampleMasterMaterials,
+      [],
+      sampleCoItems
+    );
+
+    render(
+      <MaterialRequisitionForm
+        spkId={mockSpkId}
+        wbsCategory={mockWbsCategory}
+        onClose={mockOnClose}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('AMPLAS 100')).toBeInTheDocument();
+      expect(screen.getByText('[CO-SPK2668-1407] material test 1')).toBeInTheDocument();
+    });
+
+    // Transfer both items
+    const amplasRow = screen.getByText('AMPLAS 100').closest('div[class*="cursor-pointer"]');
+    fireEvent.doubleClick(amplasRow!);
+
+    const coRow = screen.getByText('[CO-SPK2668-1407] material test 1').closest('div[class*="cursor-pointer"]');
+    fireEvent.doubleClick(coRow!);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Submit Requisition \(2 baru\)/i)).toBeInTheDocument();
+    });
+
+    const submitBtn = screen.getByText(/Submit Requisition \(2 baru\)/i);
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(mockItemsInsert).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          // RAB item: rab_item_id set, change_order_item_id null
+          expect.objectContaining({
+            material_name: 'AMPLAS 100',
+            rab_item_id: 'rab-item-mat-1',
+            change_order_item_id: null,
+            quantity: 10,
+          }),
+          // Change Order item: rab_item_id null, change_order_item_id set
+          expect.objectContaining({
+            material_name: '[CO-SPK2668-1407] material test 1',
+            rab_item_id: null,
+            change_order_item_id: 'co-item-uuid-1',
+            quantity: 2,
+          }),
+        ])
+      );
+    });
+  });
+
+  it('hydrates persisted Change Order requisition items on left list with [CHANGE ORDER] badge and excludes them from right list', async () => {
+    const sampleCoItems = [
+      {
+        id: 'co-item-uuid-1',
+        material_id: null,
+        item_name: 'material test 1',
+        quantity: 2,
+        unit: 'pcs',
+        unit_price: 15000,
+        cost_price: 12000,
+        wbs_stage: 'Pembongkaran',
+        item_type: 'MATERIAL',
+        change_orders: { status: 'APPROVED', co_number: 'CO-SPK2668-1407' },
+      },
+    ];
+
+    const sampleExistingRequisitions = [
+      {
+        id: 'req-existing-uuid-1',
+        wbs_category: 'Pembongkaran',
+        status: 'PENDING',
+        notes: 'Permintaan CO sebelumnya',
+        material_requisition_items: [
+          {
+            id: 'mri-existing-1',
+            material_id: null,
+            rab_item_id: null,
+            change_order_item_id: 'co-item-uuid-1',
+            material_name: '[CO-SPK2668-1407] material test 1',
+            quantity: 2,
+            unit: 'pcs',
+            unit_price: 15000,
+            subtotal: 30000,
+            wbs_stage: 'Pembongkaran',
+            materials: null,
+          },
+        ],
+      },
+    ];
+
+    setupSupabaseMock(
+      [], // No RAB items
+      sampleMasterMaterials,
+      sampleExistingRequisitions,
+      sampleCoItems
+    );
+
+    render(
+      <MaterialRequisitionForm
+        spkId={mockSpkId}
+        wbsCategory={mockWbsCategory}
+        onClose={mockOnClose}
+      />
+    );
+
+    // Left panel: The persisted item appears with [CHANGE ORDER] and TERCATAT badge
+    await waitFor(() => {
+      expect(screen.getByText('[CO-SPK2668-1407] material test 1')).toBeInTheDocument();
+      expect(screen.getByText('[CHANGE ORDER]')).toBeInTheDocument();
+      expect(screen.getByText('TERCATAT')).toBeInTheDocument();
+    });
+
+    // Right panel: The item is excluded from initialAvailable and does not appear on right side
+    const rightPanelHeader = screen.getByText('Alokasi RAB (WBS Terkait)').closest('div');
+    expect(within(rightPanelHeader!).getByText('0')).toBeInTheDocument();
+    expect(screen.getByText('Semua material telah dipindahkan')).toBeInTheDocument();
   });
 });

@@ -38,6 +38,7 @@ export interface RequisitionItemLike {
   material_requisition_items?: Array<{
     material_id?: string | null;
     rab_item_id?: string | null;
+    change_order_item_id?: string | null;
     material_name?: string | null;
     materials?: {
       id?: string;
@@ -125,8 +126,9 @@ export function isRabItemAllocated(
             const subMat = Array.isArray(subItem.materials) ? subItem.materials[0] : subItem.materials;
             const subMatId = subMat?.id || subItem.material_id;
             const subRabId = subItem.rab_item_id;
-            // Exact RAB Item ID match
-            if (rabItemId && (subRabId === rabItemId || subMatId === rabItemId)) return true;
+            const subCoId = subItem.change_order_item_id;
+            // Exact RAB Item ID or Change Order Item ID match
+            if (rabItemId && (subRabId === rabItemId || subCoId === rabItemId || subMatId === rabItemId)) return true;
 
             const subName = (subMat?.name || subItem.material_name || '').trim();
             const normSubName = normalizeText(subName);
@@ -140,7 +142,7 @@ export function isRabItemAllocated(
 
         const reqMat = Array.isArray(req.materials) ? req.materials[0] : req.materials;
         const reqMatId = reqMat?.id || req.material_id || req.materialId;
-        const reqRabId = req.sourceRabId || req.tempId || req.id;
+        const reqRabId = req.sourceRabId || req.changeOrderItemId || req.tempId || req.id;
 
         // Check exact RAB Item ID
         if (rabItemId && (reqRabId === rabItemId || reqMatId === rabItemId)) return true;

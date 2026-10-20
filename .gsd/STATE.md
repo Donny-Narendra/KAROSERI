@@ -1,37 +1,37 @@
 ## Current Position
-- **Sprint**: Sprint 49 — Add Detailed Itemized Breakdown for Approved Change Orders in Kasir Billing Calculator
+- **Sprint**: Sprint 50 — Fix material_requisition_items Foreign Key Constraint for Change Order Items
 - **Status**: Completed ✅
 - **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness
 
 ## Last Session Summary
-Completed Sprint 49 implementing transparent itemized breakdown for approved Change Orders (Addendums) in the Kasir Billing Calculator (`/kasir`), interactive collapsible accordion, dispute protection details, and mapping into the final printable invoice payload:
-1. **Data Layer (`src/services/billingService.ts`)**:
-   - Defined interfaces `ApprovedChangeOrder` and `ApprovedChangeOrderItem`.
-   - Implemented `fetchApprovedChangeOrders(spkDbId: string)` querying `change_orders` and nested `change_order_items` (`item_name`, `item_type`, `wbs_stage`, `quantity`, `unit`, `unit_price`, `cost_price`, `subtotal`, `notes`), with resilient fallback to `spk_amendments`.
-2. **Printable Engine & Invoice Payload (`src/utils/invoiceExport.ts`)**:
-   - Implemented `buildInvoicePrintPayload` mapping base SPK contract, itemized change orders, and manual adjustments into a structured payload.
-   - Implemented `printFinalInvoice` rendering a formal printable invoice with business branding, WBS-aligned change order itemized breakdown, legal dispute protection clause, and formal signatures.
-3. **Kasir Dashboard UI (`src/pages/KasirDashboard.tsx`)**:
-   - Wired `loadApprovedChangeOrders` to fetch approved change orders when an SPK is selected.
-   - Upgraded Customer Billing card with an interactive accordion toggle (`Lihat Rincian` / `Tutup Rincian`), count badge (`{N} APPROVED`), and dispute-protection card.
-   - Displayed itemized table: item name, WBS stage, item type badge, quantity, unit price, and subtotal.
-   - Enriched invoice creation confirmation modal with change order item counts.
-   - Added direct "Cetak Invoice" button to the action bar for UNPAID and LUNAS invoices.
-   - Wired "Cetak Dokumen Sekarang" confirmation action directly to `printFinalInvoice`.
+Completed Sprint 50 fixing foreign key constraint violation (`material_requisition_items_rab_item_id_fkey`) when requesting materials originating from Change Orders in `/mandor` portal:
+1. **Database Migration (`supabase/migrations/20261020010000_fix_requisition_change_order_fk.sql`)**:
+   - Set `rab_item_id` in `material_requisition_items` to nullable (`DROP NOT NULL`).
+   - Added column `change_order_item_id UUID REFERENCES public.change_order_items(id) ON DELETE SET NULL`.
+   - Created index `idx_material_req_items_co_id` on `material_requisition_items(change_order_item_id)`.
+2. **Frontend Requisition Management (`src/components/MaterialRequisitionForm.tsx`)**:
+   - Updated `RabSourceItem` and `RequisitionItem` interfaces to distinguish `sourceType` ('RAB' | 'CHANGE_ORDER') and `changeOrderItemId`.
+   - Mapped Change Order items in Step 3b with `sourceType: 'CHANGE_ORDER'` and `changeOrderItemId: ci.id`.
+   - Mapped submit payload in `handleSubmit` sending `rab_item_id: null` and `change_order_item_id: item.changeOrderItemId` for Change Order items, preventing FK constraint violations against `rab_items`.
+   - Supported `change_order_item_id` in existing requisition queries, hydration, and right-panel available exclusion.
+   - Added visual `Change Order` purple badges for Change Order items in both list panels.
+3. **Requisition Approval & Allocation Check (`src/components/RequisitionApproval.tsx` & `src/utils/rabItemAllocation.ts`)**:
+   - Updated `RequisitionApproval.tsx` to query `change_order_item_id` and join `change_order_items`, with fallback item naming/pricing and review badges.
+   - Enhanced `isRabItemAllocated` in `rabItemAllocation.ts` to detect allocations by `change_order_item_id`.
 4. **Testing & Verification**:
-   - `src/services/__tests__/billingService.test.ts` (4/4 tests passing).
-   - `src/utils/__tests__/invoiceExport.test.ts` (4/4 tests passing).
-   - `src/components/__tests__/KasirChangeOrderBreakdown.test.tsx` (2/2 tests passing).
-   - Full Vitest suite: 29/29 test suites passing, 188/188 tests passing (100%).
+   - Added unit test in `MaterialRequisitionForm.test.tsx` verifying Change Order material loading, transfer, and submission with `change_order_item_id` and `rab_item_id: null`.
+   - Added unit test in `MaterialRequisitionForm.test.tsx` verifying simultaneous mixed submission segregating RAB vs Change Order IDs.
+   - Added unit test in `rabItemAllocation.test.ts` verifying allocation detection via `change_order_item_id`.
+   - Full Vitest suite: 29/29 test suites passing, 191/191 tests passing (100%).
    - Oxlint: 0 errors, 0 warnings across 149 files.
    - TypeScript: Clean static compilation (`npx tsc -b`).
-   - Production Build: Clean Vite bundle generated in 2.03s (`npm run build`).
+   - Production Build: Clean Vite bundle generated in 511ms (`npm run build`).
 
 ## Quality & Verification Status
-- **Vitest Unit & Component Testing:** 29/29 test suites passing, 188/188 tests passing (100%).
+- **Vitest Unit & Component Testing:** 29/29 test suites passing, 191/191 tests passing (100%).
 - **Linter (Oxlint):** 0 errors, 0 warnings across 149 files with 113 rules.
 - **TypeScript Static Analysis:** Clean compilation with 0 errors (`npx tsc -b`).
-- **Production Build:** Clean build in 2.03s (`npm run build`).
+- **Production Build:** Clean build in 511ms (`npm run build`).
 
 ## Technical Debt Backlog
 None.

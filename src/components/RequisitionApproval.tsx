@@ -169,13 +169,15 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
             quantity,
             status,
             rab_item_id,
+            change_order_item_id,
             material_name,
             unit,
             unit_price,
             subtotal,
             wbs_stage,
             materials ( id, name, unit, unit_price ),
-            rab_items ( id, item_total, quantity, description )
+            rab_items ( id, item_total, quantity, description ),
+            change_order_items ( id, item_name, unit_price, quantity )
           )
         `)
         .eq('status', 'PENDING')
@@ -314,8 +316,9 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
         const rawItems = req.material_requisition_items || req.items || [];
         const items = rawItems.map((item: any) => {
           const mat = item.material || item.materials;
-          const name = (item.material_name || mat?.name || 'Material Non-Stok').trim();
-          const unit = item.unit || mat?.unit || 'pcs';
+          const coItem = item.change_order_items || item.change_order_item;
+          const name = (item.material_name || coItem?.item_name || mat?.name || 'Material Non-Stok').trim();
+          const unit = item.unit || coItem?.unit || mat?.unit || 'pcs';
           const rab = item.rab_items || item.rab_item;
           const normName = normalizeText(name);
 
@@ -332,10 +335,13 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
             return normName && normalizeText(ri.description) === normName;
           });
 
-          // Multi-layer fallback resolusi harga satuan (Snapshot -> Join Materials -> Join RAB -> Master Match -> SPK RAB Match)
+          // Multi-layer fallback resolusi harga satuan (Snapshot -> Join Materials -> Join Change Order -> Join RAB -> Master Match -> SPK RAB Match)
           let unitPrice = Number(item.unit_price ?? item.estimated_price ?? 0);
           if (unitPrice === 0 && mat?.unit_price) {
             unitPrice = Number(mat.unit_price);
+          }
+          if (unitPrice === 0 && coItem?.unit_price) {
+            unitPrice = Number(coItem.unit_price);
           }
           if (unitPrice === 0 && rab?.item_total) {
             const rabQty = Number(rab.quantity) || 1;
@@ -789,11 +795,18 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                                     <span className="font-bold text-text text-sm block">
                                       {matName}
                                     </span>
-                                    {item.material_id && (
-                                      <span className="text-[10px] font-mono text-text-muted">
-                                        ID: {item.material_id.substring(0, 8)}...
-                                      </span>
-                                    )}
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      {item.material_id && (
+                                        <span className="text-[10px] font-mono text-text-muted">
+                                          ID: {item.material_id.substring(0, 8)}...
+                                        </span>
+                                      )}
+                                      {item.change_order_item_id && (
+                                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 font-semibold border border-purple-500/30">
+                                          Change Order
+                                        </span>
+                                      )}
+                                    </div>
                                   </td>
                                   <td className="px-4 py-2.5 text-center font-mono font-medium text-text">
                                     {item.quantity} {matUnit}

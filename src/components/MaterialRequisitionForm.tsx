@@ -25,7 +25,7 @@ interface MasterMaterial {
 }
 
 interface RabSourceItem {
-  id: string; // rab_items id
+  id: string; // rab_items id or change_order_items id
   materialId?: string | null;
   name: string;
   unit: string;
@@ -35,11 +35,20 @@ interface RabSourceItem {
   subtotal: number;
   currentStock: number;
   item_type?: string | null;
+  sourceType?: 'RAB' | 'CHANGE_ORDER';
+  changeOrderItemId?: string | null;
+  rabItemId?: string | null;
 }
 
 interface RequisitionItem {
   tempId: string; // unique row id
   sourceRabId?: string | null; // reference to rab_items id if from RAB
+  rab_item_id?: string | null;
+  changeOrderItemId?: string | null; // reference to change_order_items id if from CO
+  change_order_item_id?: string | null;
+  is_change_order?: boolean;
+  sourceType?: 'RAB' | 'CHANGE_ORDER' | 'MANUAL';
+  source_type?: 'RAB' | 'CHANGE_ORDER' | 'MANUAL';
   materialId?: string | null;
   material_id?: string | null;
   id?: string;
@@ -241,7 +250,10 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
               rabQuantity: qty,
               subtotal: calculatedSubtotal,
               currentStock: matchedMat ? Number(matchedMat.current_stock || 0) : 0,
-              item_type: 'MATERIAL'
+              item_type: 'MATERIAL',
+              sourceType: 'RAB' as const,
+              rabItemId: item.id,
+              changeOrderItemId: null
             };
           });
         }
@@ -303,7 +315,10 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
               rabQuantity: qty,
               subtotal: calculatedSubtotal,
               currentStock: matchedMat ? Number(matchedMat.current_stock || 0) : 0,
-              item_type: 'MATERIAL'
+              item_type: 'MATERIAL',
+              sourceType: 'CHANGE_ORDER' as const,
+              rabItemId: null,
+              changeOrderItemId: ci.id
             });
           });
         }
@@ -353,6 +368,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
               id,
               material_id,
               rab_item_id,
+              change_order_item_id,
               material_name,
               quantity,
               unit,
@@ -389,9 +405,12 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                 const cleanItemName = (item.material_name || item.materials?.name || '').trim();
                 const normItemName = normalizeText(cleanItemName);
 
-                // Check if this requisition item matches a RAB item from sourceList
-                const matchedRab = sourceList.find(r => 
+                // Check if this requisition item matches a RAB item or Change Order item from sourceList
+                const matchedSource = sourceList.find(r => 
+                  (item.rab_item_id && r.sourceType === 'RAB' && r.id === item.rab_item_id) ||
+                  (item.change_order_item_id && r.sourceType === 'CHANGE_ORDER' && r.id === item.change_order_item_id) ||
                   (item.rab_item_id && r.id === item.rab_item_id) ||
+                  (item.change_order_item_id && r.id === item.change_order_item_id) ||
                   (normItemName && normalizeText(r.name) === normItemName)
                 );
 
@@ -401,25 +420,27 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                   (normItemName && normalizeText(m.name) === normItemName)
                 );
 
-                const isFromRab = Boolean(matchedRab || item.rab_item_id);
-                const sourceRabId = matchedRab?.id || item.rab_item_id || null;
-                const materialId = item.material_id || item.materials?.id || matchedMaster?.id || matchedRab?.materialId || null;
-                const name = cleanItemName || matchedRab?.name || matchedMaster?.name || 'Material Tanpa Nama';
-                const unit = item.unit || item.materials?.unit || matchedRab?.unit || matchedMaster?.unit || 'pcs';
-                const qty = Number(item.quantity || (matchedRab?.rabQuantity ?? 1));
+                const isFromCO = Boolean(item.change_order_item_id || matchedSource?.sourceType === 'CHANGE_ORDER');
+                const isFromRab = !isFromCO && Boolean(matchedSource || item.rab_item_id);
+                const sourceRabId = isFromRab ? (matchedSource?.id || item.rab_item_id || null) : null;
+                const changeOrderItemId = isFromCO ? (item.change_order_item_id || matchedSource?.id || null) : null;
+                const materialId = item.material_id || item.materials?.id || matchedMaster?.id || matchedSource?.materialId || null;
+                const name = cleanItemName || matchedSource?.name || matchedMaster?.name || 'Material Tanpa Nama';
+                const unit = item.unit || item.materials?.unit || matchedSource?.unit || matchedMaster?.unit || 'pcs';
+                const qty = Number(item.quantity || (matchedSource?.rabQuantity ?? 1));
 
                 // Calculate price and subtotal
                 let unitPrice = Number(item.unit_price ?? item.materials?.unit_price ?? 0);
-                if (unitPrice === 0 && matchedRab) {
-                  unitPrice = matchedRab.unitPrice || (matchedRab.rabQuantity > 0 ? matchedRab.subtotal / matchedRab.rabQuantity : 0);
+                if (unitPrice === 0 && matchedSource) {
+                  unitPrice = matchedSource.unitPrice || (matchedSource.rabQuantity > 0 ? matchedSource.subtotal / matchedSource.rabQuantity : 0);
                 }
                 if (unitPrice === 0 && matchedMaster) {
                   unitPrice = matchedMaster.unit_price;
                 }
 
                 let subtotal = Number(item.subtotal) || (qty * unitPrice);
-                if (subtotal === 0 && matchedRab && matchedRab.subtotal > 0) {
-                  subtotal = matchedRab.subtotal;
+                if (subtotal === 0 && matchedSource && matchedSource.subtotal > 0) {
+                  subtotal = matchedSource.subtotal;
                   if (qty > 0 && unitPrice === 0) {
                     unitPrice = subtotal / qty;
                   }
@@ -428,6 +449,12 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                 persistedItems.push({
                   tempId: `persisted-${item.id}`,
                   sourceRabId,
+                  rab_item_id: sourceRabId,
+                  changeOrderItemId,
+                  change_order_item_id: changeOrderItemId,
+                  is_change_order: isFromCO,
+                  sourceType: isFromCO ? 'CHANGE_ORDER' : (isFromRab ? 'RAB' : 'MANUAL'),
+                  source_type: isFromCO ? 'CHANGE_ORDER' : (isFromRab ? 'RAB' : 'MANUAL'),
                   materialId,
                   material_id: materialId,
                   name,
@@ -439,7 +466,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                   quantity: qty,
                   subtotal,
                   wbs_stage: item.wbs_stage || cleanWbsCategory,
-                  isManual: !isFromRab,
+                  isManual: !isFromRab && !isFromCO,
                   isPersisted: true,
                   dbRequisitionItemId: item.id,
                   dbRequisitionId: req.id,
@@ -453,18 +480,18 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
         console.error('Error loading requisitions for exclusion:', reqErr);
       }
 
-      // 6. Calculate initial available RAB items
+      // 6. Calculate initial available RAB / Change Order items
       // Items are excluded if already persisted in a requisition for this WBS,
       // or already assigned in active SPK Borongan.
-      const persistedRabIds = new Set(
+      const persistedSourceIds = new Set(
         persistedItems
-          .map(p => p.sourceRabId)
+          .map(p => p.changeOrderItemId || p.sourceRabId)
           .filter((id): id is string => Boolean(id))
       );
 
       const initialAvailable = sourceList.filter(item => {
         // Exclude if already in a saved requisition
-        if (persistedRabIds.has(item.id)) return false;
+        if (persistedSourceIds.has(item.id)) return false;
 
         // Exclude if allocated in active SPK Borongan
         const isBorong = matchingBorong.some(b => {
@@ -502,10 +529,24 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
     const sourceItem = availableItems.find(item => item.id === targetId);
     if (!sourceItem) return;
 
+    // Determine source type (RAB vs Change Order)
+    const isChangeOrder = Boolean(
+      sourceItem.sourceType === 'CHANGE_ORDER' ||
+      sourceItem.changeOrderItemId ||
+      (sourceItem as any).is_change_order ||
+      (sourceItem as any).source_type === 'CHANGE_ORDER'
+    );
+
     // Add to left list (selectedItems)
     const newRequisitionItem: RequisitionItem = {
       tempId: `req-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-      sourceRabId: sourceItem.id,
+      sourceRabId: isChangeOrder ? null : (sourceItem.rabItemId || sourceItem.id),
+      rab_item_id: isChangeOrder ? null : (sourceItem.rabItemId || sourceItem.id),
+      changeOrderItemId: isChangeOrder ? (sourceItem.changeOrderItemId || sourceItem.id) : null,
+      change_order_item_id: isChangeOrder ? (sourceItem.changeOrderItemId || sourceItem.id) : null,
+      is_change_order: isChangeOrder,
+      sourceType: isChangeOrder ? 'CHANGE_ORDER' : 'RAB',
+      source_type: isChangeOrder ? 'CHANGE_ORDER' : 'RAB',
       materialId: sourceItem.materialId || null,
       material_id: sourceItem.materialId || null,
       name: sourceItem.name,
@@ -531,9 +572,10 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
 
   // Direct return / remove for unpersisted items (newly transferred or manual)
   const handleReturnItem = (itemToRemove: RequisitionItem) => {
-    // 1. If it originated from RAB, return it to availableItems on the right
-    if (itemToRemove.sourceRabId) {
-      const orig = rawRabItems.find(r => r.id === itemToRemove.sourceRabId);
+    // 1. If it originated from RAB or Change Order, return it to availableItems on the right
+    const returnTargetId = itemToRemove.changeOrderItemId || itemToRemove.sourceRabId;
+    if (returnTargetId) {
+      const orig = rawRabItems.find(r => r.id === returnTargetId);
       if (orig) {
         setAvailableItems(prev => {
           if (prev.some(r => r.id === orig.id)) return prev;
@@ -597,9 +639,10 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
         }
       }
 
-      // 2. If it originated from RAB, restore to availableItems on the right
-      if (itemToCancel.sourceRabId) {
-        const orig = rawRabItems.find(r => r.id === itemToCancel.sourceRabId);
+      // 2. If it originated from RAB or Change Order, restore to availableItems on the right
+      const restoreTargetId = itemToCancel.changeOrderItemId || itemToCancel.sourceRabId;
+      if (restoreTargetId) {
+        const orig = rawRabItems.find(r => r.id === restoreTargetId);
         if (orig) {
           setAvailableItems(prev => {
             if (prev.some(r => r.id === orig.id)) return prev;
@@ -776,17 +819,29 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
         const subtotal = Number(item.subtotal) || (quantity * unitPrice);
         const wbsStage = item.wbs_stage || cleanWbsCategory;
 
+        // Distinguish RAB vs Change Order item
+        const isChangeOrder = Boolean(
+          item.change_order_item_id ||
+          item.changeOrderItemId ||
+          item.is_change_order ||
+          item.sourceType === 'CHANGE_ORDER' ||
+          item.source_type === 'CHANGE_ORDER'
+        );
+
         return {
           requisition_id: reqData.id,
           material_id: resolvedMaterialId,
-          rab_item_id: item.sourceRabId || null,
+          // JANGAN kirim ID change order ke rab_item_id:
+          rab_item_id: isChangeOrder ? null : (item.rab_item_id || item.sourceRabId || item.id || null),
+          change_order_item_id: isChangeOrder ? (item.change_order_item_id || item.changeOrderItemId || item.id || item.sourceRabId || null) : null,
           material_name: itemName,
           quantity,
           unit: item.unit || 'pcs',
           unit_price: unitPrice,
           cost_price: costPrice,
           subtotal,
-          wbs_stage: wbsStage
+          wbs_stage: wbsStage,
+          status: 'PENDING'
         };
       });
 
@@ -959,7 +1014,11 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                                           BARU
                                         </span>
                                       )}
-                                      {!item.isManual || item.sourceRabId ? (
+                                      {item.sourceType === 'CHANGE_ORDER' || item.source_type === 'CHANGE_ORDER' || item.changeOrderItemId || item.change_order_item_id || item.is_change_order ? (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-semibold border border-purple-500/30">
+                                          [CHANGE ORDER]
+                                        </span>
+                                      ) : (!item.isManual || item.sourceRabId || item.rab_item_id) ? (
                                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 font-semibold border border-blue-500/30">
                                           RAB
                                         </span>
@@ -1104,8 +1163,13 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-xs sm:text-sm text-text break-words">
-                                  {item.name}
+                                <p className="font-semibold text-xs sm:text-sm text-text break-words flex items-center gap-1.5 flex-wrap">
+                                  <span>{item.name}</span>
+                                  {item.sourceType === 'CHANGE_ORDER' && (
+                                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 font-semibold border border-purple-500/30">
+                                      Change Order
+                                    </span>
+                                  )}
                                 </p>
                                 <div className="flex items-center gap-2 mt-0.5 text-[11px] text-text-muted">
                                   <span>Stok: {item.currentStock} {item.unit}</span>
