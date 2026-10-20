@@ -137,7 +137,7 @@ describe('Component: DpReceiptPrintModal', () => {
 
     const backdrop = document.getElementById('dp-receipt-modal-backdrop');
     expect(backdrop).toBeInTheDocument();
-    expect(backdrop).toHaveClass('overflow-hidden');
+    expect(backdrop).toHaveClass('overflow-y-auto');
 
     const card = backdrop?.querySelector('.max-h-\\[90vh\\]');
     expect(card).toBeInTheDocument();

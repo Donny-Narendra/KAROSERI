@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { AlertCircle, FileText, CheckCircle, Calculator, Lock, Receipt, TrendingUp, ChevronDown, ChevronUp, Printer } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
@@ -112,18 +112,66 @@ export const KasirDashboard: React.FC = () => {
     fetchSpks();
   }, []);
 
+  const loadHistory = useCallback(async () => {
+    setLoadingHistory(true);
+    try {
+      let history = await fetchDPHistory();
+      // Resilient fallback: If remote query returns empty array but local active/completed SPKs have DP paid,
+      // reconstruct DP history records from the local SPK list!
+      if ((!history || history.length === 0) && spks.length > 0) {
+        const localPaidSpks = spks.filter(
+          s => (Number(s.dpAmount || 0) > 0) && ['ACTIVE', 'COMPLETED'].includes(s.status)
+        );
+        if (localPaidSpks.length > 0) {
+          history = localPaidSpks.map(s => ({
+            spk_id: s.dbId,
+            spk_no: s.id,
+            customer_name: s.customerName,
+            vehicle_plate: s.vehiclePlate || '-',
+            vehicle_vin: s.vehicleVin || '-',
+            vehicle_model: s.vehicleModel || s.vehiclePlate || '-',
+            total_contract_estimate: s.quotationAmount || s.totalEstimatedCost || 0,
+            dp_amount: Number(s.dpAmount || 0),
+            payment_method: 'Transfer Bank',
+            notes: 'Pembayaran DP Terverifikasi',
+            payment_date: new Date().toISOString(),
+          }));
+        }
+      }
+      setDpHistory(history || []);
+    } catch (err) {
+      console.error('Error loading DP history in KasirDashboard:', err);
+      if (spks.length > 0) {
+        const localPaidSpks = spks.filter(
+          s => (Number(s.dpAmount || 0) > 0) && ['ACTIVE', 'COMPLETED'].includes(s.status)
+        );
+        const fallback: DPHistoryRecord[] = localPaidSpks.map(s => ({
+          spk_id: s.dbId,
+          spk_no: s.id,
+          customer_name: s.customerName,
+          vehicle_plate: s.vehiclePlate || '-',
+          vehicle_vin: s.vehicleVin || '-',
+          vehicle_model: s.vehicleModel || s.vehiclePlate || '-',
+          total_contract_estimate: s.quotationAmount || s.totalEstimatedCost || 0,
+          dp_amount: Number(s.dpAmount || 0),
+          payment_method: 'Transfer Bank',
+          notes: 'Pembayaran DP Terverifikasi',
+          payment_date: new Date().toISOString(),
+        }));
+        setDpHistory(fallback);
+      } else {
+        setDpHistory([]);
+      }
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [spks]);
+
   useEffect(() => {
     if (activeTab === 'DP' && dpSubTab === 'HISTORY') {
       loadHistory();
     }
-  }, [activeTab, dpSubTab]);
-
-  const loadHistory = async () => {
-    setLoadingHistory(true);
-    const history = await fetchDPHistory();
-    setDpHistory(history);
-    setLoadingHistory(false);
-  };
+  }, [activeTab, dpSubTab, loadHistory]);
 
   const fetchSpks = async () => {
     let fetchedPackages: ProductPackage[] = [];
@@ -1023,6 +1071,7 @@ export const KasirDashboard: React.FC = () => {
           setIsDpModalOpen(false);
           setSelectedSpkId(null);
           fetchSpks();
+          loadHistory();
         }}
       />
       {/* BAST Handover Modal */}

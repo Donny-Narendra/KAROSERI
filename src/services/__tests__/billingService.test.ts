@@ -180,4 +180,84 @@ describe('Sprint 49: billingService.fetchApprovedChangeOrders Tests', () => {
     expect(result[0].dp_amount).toBe(10000000);
     expect(result[0].payment_method).toBe('Transfer BCA');
   });
+
+  it('gracefully falls back to direct spk query when payments relation join fails', async () => {
+    const mockFallbackSpkData = [
+      {
+        id: 'spk-uuid-8698',
+        spk_no: 'SPK-8698',
+        customer_name: 'PT. Grosir Murah Kediri',
+        vehicle_plate: 'AG 9988 GK',
+        dp_amount: 2165000,
+        status: 'ACTIVE',
+        created_at: '2026-10-20T10:00:00Z',
+      },
+    ];
+
+    // 1st call (with payments join) fails with an error (e.g., relation not found or RLS error)
+    const mockJoinSelect = vi.fn().mockReturnValue({
+      gt: vi.fn().mockReturnValue({
+        in: vi.fn().mockResolvedValue({
+          data: null,
+          error: new Error('relation public.payments does not exist'),
+        }),
+      }),
+    });
+
+    // 2nd call (fallback to spk direct) succeeds
+    const mockFallbackSelect = vi.fn().mockReturnValue({
+      gt: vi.fn().mockReturnValue({
+        in: vi.fn().mockResolvedValue({
+          data: mockFallbackSpkData,
+          error: null,
+        }),
+      }),
+    });
+
+    vi.mocked(supabase.from)
+      .mockReturnValueOnce({ select: mockJoinSelect } as any)
+      .mockReturnValueOnce({ select: mockFallbackSelect } as any);
+
+    const result = await fetchDPHistory();
+
+    expect(result).toHaveLength(1);
+    expect(result[0].spk_no).toBe('SPK-8698');
+    expect(result[0].dp_amount).toBe(2165000);
+    expect(result[0].customer_name).toBe('PT. Grosir Murah Kediri');
+    expect(result[0].payment_method).toBe('Transfer Bank');
+    expect(result[0].notes).toBe('Pembayaran Uang Muka (DP)');
+  });
+
+  it('supports down_payment_amount field and falls back to spk.id when spk_no is missing', async () => {
+    const mockFallbackData = [
+      {
+        id: 'SPK-8698-FALLBACK',
+        customer_name: 'Toko Sumber Rejeki',
+        vehicle_plate: 'N 8899 TR',
+        down_payment_amount: 3500000,
+        status: 'ACTIVE',
+        created_at: '2026-10-20T11:00:00Z',
+      },
+    ];
+
+    const mockSelect = vi.fn().mockReturnValue({
+      gt: vi.fn().mockReturnValue({
+        in: vi.fn().mockResolvedValue({
+          data: mockFallbackData,
+          error: null,
+        }),
+      }),
+    });
+
+    vi.mocked(supabase.from).mockReturnValue({
+      select: mockSelect,
+    } as any);
+
+    const result = await fetchDPHistory();
+
+    expect(result).toHaveLength(1);
+    expect(result[0].spk_no).toBe('SPK-8698-FALLBACK');
+    expect(result[0].dp_amount).toBe(3500000);
+    expect(result[0].customer_name).toBe('Toko Sumber Rejeki');
+  });
 });

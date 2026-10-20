@@ -98,50 +98,97 @@ interface RawLegacyAmendmentRow {
 }
 
 export const fetchDPHistory = async (): Promise<DPHistoryRecord[]> => {
-  const { data, error } = await supabase.from('spk').select(`
-    id,
-    spk_no,
-    customer_name,
-    vehicle_plate,
-    vehicle_vin,
-    vehicle_number,
-    vehicle_engine,
-    total_estimated_cost,
-    dp_amount,
-    status,
-    payments (
-      amount,
-      payment_method,
-      notes,
-      created_at
-    )
-  `)
-  .gt('dp_amount', 0)
-  .in('status', ['ACTIVE', 'COMPLETED']);
+  let rawData: RawSpkDpRow[] | null = null;
+  let isJoinSuccessful = false;
 
-  if (error) {
-    console.error('Error fetching DP history:', error);
+  try {
+    const { data, error } = await supabase.from('spk').select(`
+      id,
+      spk_no,
+      customer_name,
+      vehicle_plate,
+      vehicle_vin,
+      vehicle_number,
+      vehicle_engine,
+      total_estimated_cost,
+      dp_amount,
+      status,
+      created_at,
+      payments (
+        amount,
+        payment_method,
+        notes,
+        created_at
+      )
+    `)
+    .gt('dp_amount', 0)
+    .in('status', ['ACTIVE', 'COMPLETED']);
+
+    if (!error && data) {
+      rawData = data as unknown as RawSpkDpRow[];
+      isJoinSuccessful = true;
+    } else if (error) {
+      console.warn('Direct join spk + payments query failed, falling back to direct spk query:', error);
+    }
+  } catch (err) {
+    console.warn('Exception during joined fetchDPHistory query:', err);
+  }
+
+  // Fallback: Query spk table directly if payments relation/join failed
+  if (!isJoinSuccessful || !rawData) {
+    try {
+      const { data: spkData, error: spkError } = await supabase.from('spk').select(`
+        id,
+        spk_no,
+        customer_name,
+        vehicle_plate,
+        vehicle_vin,
+        vehicle_number,
+        vehicle_engine,
+        total_estimated_cost,
+        dp_amount,
+        status,
+        created_at
+      `)
+      .gt('dp_amount', 0)
+      .in('status', ['ACTIVE', 'COMPLETED']);
+
+      if (spkError) {
+        console.error('Error fetching fallback DP history from spk:', spkError);
+        return [];
+      }
+
+      rawData = spkData as unknown as RawSpkDpRow[];
+    } catch (err) {
+      console.error('Exception during fallback spk query:', err);
+      return [];
+    }
+  }
+
+  if (!rawData || rawData.length === 0) {
     return [];
   }
 
   const history: DPHistoryRecord[] = [];
-  (data as RawSpkDpRow[] | null)?.forEach((spk) => {
+  rawData.forEach((spk) => {
     const payment = spk.payments && spk.payments.length > 0 
       ? [...spk.payments].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
       : null;
       
+    const dpAmt = Number(spk.dp_amount || (spk as any).down_payment_amount || 0);
+
     history.push({
       spk_id: spk.id,
-      spk_no: spk.spk_no,
-      customer_name: spk.customer_name,
-      vehicle_plate: spk.vehicle_plate,
+      spk_no: spk.spk_no || spk.id,
+      customer_name: spk.customer_name || 'Pelanggan',
+      vehicle_plate: spk.vehicle_plate || '-',
       vehicle_vin: spk.vehicle_vin || spk.vehicle_number || '-',
-      vehicle_model: spk.vehicle_plate,
+      vehicle_model: spk.vehicle_plate || '-',
       total_contract_estimate: Number(spk.total_estimated_cost || 0),
-      dp_amount: Number(spk.dp_amount || 0),
+      dp_amount: dpAmt,
       payment_method: payment ? (payment.payment_method || 'Transfer Bank') : 'Transfer Bank',
-      notes: payment ? (payment.notes || '-') : '-',
-      payment_date: payment ? payment.created_at : new Date().toISOString(),
+      notes: payment ? (payment.notes || 'Pembayaran Uang Muka (DP)') : 'Pembayaran Uang Muka (DP)',
+      payment_date: payment ? payment.created_at : ((spk as any).created_at || new Date().toISOString()),
     });
   });
 
