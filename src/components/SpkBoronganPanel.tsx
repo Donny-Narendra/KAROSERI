@@ -31,6 +31,7 @@ interface SpkBorongan {
   assignment_letter_no?: string;
   material_id?: string;
   rab_item_id?: string;
+  change_order_item_id?: string;
   created_at: string;
 }
 
@@ -50,6 +51,8 @@ interface RabMaterial {
   unit_price?: number;
   material_id?: string;
   item_type?: 'MATERIAL' | 'LABOR' | string;
+  sourceType?: 'RAB' | 'CHANGE_ORDER';
+  changeOrderItemId?: string;
   materials: {
     id: string;
     name: string;
@@ -137,21 +140,21 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
 
   const fetchRabMaterials = useCallback(async () => {
     // Langkah 1: Dapatkan rab_estimation_id milik SPK
-    const { data: rabEst, error: rabError } = await supabase
-      .from('rab_estimations')
-      .select('id')
-      .eq('spk_id', spkId)
-      .maybeSingle();
+    let rabEstId: string | null = null;
+    try {
+      const { data: rabEst, error: rabError } = await supabase
+        .from('rab_estimations')
+        .select('id')
+        .eq('spk_id', spkId)
+        .maybeSingle();
 
-    if (rabError) {
-      console.error('Error fetching RAB estimation:', rabError);
-      setRabMaterials([]);
-      return;
-    }
-    
-    if (!rabEst) {
-      setRabMaterials([]);
-      return;
+      if (rabError) {
+        console.error('Error fetching RAB estimation:', rabError);
+      } else if (rabEst) {
+        rabEstId = rabEst.id;
+      }
+    } catch (rabErr) {
+      console.error('Error in rabEst query:', rabErr);
     }
 
     // Langkah 2: Ambil data Requisition aktif untuk mengecualikan material yang sudah diminta ke gudang
@@ -165,6 +168,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
           material_requisition_items (
             material_id,
             rab_item_id,
+            change_order_item_id,
             material_name,
             materials ( name )
           )
@@ -186,7 +190,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
     try {
       const { data: spkBData } = await supabase
         .from('spk_borongan')
-        .select('id, material_id, rab_item_id, task_description, status, wbs_category')
+        .select('id, material_id, rab_item_id, change_order_item_id, task_description, status, wbs_category')
         .eq('spk_id', spkId)
         .neq('status', 'CUT_OFF');
 
@@ -206,51 +210,123 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
       console.error('Error fetching SPK-B for exclusion:', spkBErr);
     }
 
+    const combinedAvailable: RabMaterial[] = [];
+
     // Langkah 4: Ambil items dari rab_items join materials (HANYA item_type = 'LABOR')
-    const { data: itemsData, error: itemsError } = await supabase
-      .from('rab_items')
-      .select(`
-        id,
-        quantity,
-        unit,
-        wbs_category,
-        description,
-        item_total,
-        unit_price,
-        material_id,
-        item_type,
-        materials (
+    if (rabEstId) {
+      const { data: itemsData, error: itemsError } = await supabase
+        .from('rab_items')
+        .select(`
           id,
-          name,
+          quantity,
           unit,
-          unit_price
-        )
-      `)
-      .eq('rab_estimation_id', rabEst.id)
-      .eq('item_type', 'LABOR');
+          wbs_category,
+          description,
+          item_total,
+          unit_price,
+          material_id,
+          item_type,
+          materials (
+            id,
+            name,
+            unit,
+            unit_price
+          )
+        `)
+        .eq('rab_estimation_id', rabEstId)
+        .eq('item_type', 'LABOR');
 
-    if (itemsError) {
-      console.error('Error fetching RAB items:', itemsError);
-      setRabMaterials([]);
-    } else if (itemsData) {
-      // Filter kategori WBS yang cocok secara toleran & syarat wajib item_type === 'LABOR'
-      const matchingCategory = (itemsData as any[]).filter(item => {
-        if (item.item_type && item.item_type !== 'LABOR') return false;
-        if (!item.wbs_category) return true;
-        const itemCatClean = item.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
-        return (
-          itemCatClean === cleanWbsCategory.toLowerCase() ||
-          item.wbs_category.toLowerCase() === wbsCategory.toLowerCase()
-        );
-      });
+      if (itemsError) {
+        console.error('Error fetching RAB items:', itemsError);
+      } else if (itemsData) {
+        // Filter kategori WBS yang cocok secara toleran & syarat wajib item_type === 'LABOR'
+        const matchingCategory = (itemsData as any[]).filter(item => {
+          if (item.item_type && item.item_type !== 'LABOR') return false;
+          if (!item.wbs_category) return true;
+          const itemCatClean = item.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
+          return (
+            itemCatClean === cleanWbsCategory.toLowerCase() ||
+            item.wbs_category.toLowerCase() === wbsCategory.toLowerCase()
+          );
+        });
 
-      // Filter eksklusi material yang sudah masuk ke Requisition atau sudah ditugaskan di SPK Borongan
-      const nonAllocated = matchingCategory.filter(item => {
-        return !isRabItemAllocated(item, requisitionList, activeAssignments);
-      });
-
-      setRabMaterials(nonAllocated as unknown as RabMaterial[]);
+        matchingCategory.forEach((item: any) => {
+          combinedAvailable.push({
+            ...item,
+            sourceType: 'RAB',
+          });
+        });
+      }
     }
+
+    // Langkah 5: Ambil data Change Order berstatus APPROVED bertipe LABOR untuk WBS ini
+    try {
+      const { data: coData, error: coErr } = await supabase
+        .from('change_order_items')
+        .select(`
+          id,
+          change_order_id,
+          spk_id,
+          material_id,
+          item_name,
+          quantity,
+          unit,
+          unit_price,
+          cost_price,
+          subtotal,
+          notes,
+          wbs_stage,
+          item_type,
+          change_orders!inner ( status, co_number )
+        `)
+        .eq('spk_id', spkId)
+        .eq('item_type', 'LABOR')
+        .eq('change_orders.status', 'APPROVED');
+
+      if (coErr) {
+        console.error('Error fetching Change Order LABOR items:', coErr);
+      } else if (coData) {
+        const coMatching = (coData as any[]).filter(item => {
+          if ((item.item_type || '').toUpperCase() !== 'LABOR') return false;
+          if (!item.wbs_stage) return true;
+          const itemStageClean = item.wbs_stage.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
+          return (
+            itemStageClean === cleanWbsCategory.toLowerCase() ||
+            item.wbs_stage.toLowerCase() === wbsCategory.toLowerCase()
+          );
+        });
+
+        coMatching.forEach((ci: any) => {
+          const qty = Number(ci.quantity || 1);
+          const unitPrice = Number(ci.unit_price || 0);
+          const subtotal = Number(ci.subtotal || qty * unitPrice);
+
+          combinedAvailable.push({
+            id: ci.id,
+            quantity: qty,
+            unit: ci.unit || 'lot',
+            wbs_category: ci.wbs_stage || wbsCategory,
+            description: ci.item_name || ci.notes || 'Pekerjaan Borongan Tambahan',
+            item_total: subtotal,
+            unit_price: unitPrice,
+            material_id: ci.material_id || undefined,
+            item_type: 'LABOR',
+            sourceType: 'CHANGE_ORDER',
+            changeOrderItemId: ci.id,
+            materials: null,
+          });
+        });
+      }
+    } catch (coFetchErr) {
+      console.error('Error in fetching CO LABOR items:', coFetchErr);
+    }
+
+    // Filter eksklusi material yang sudah masuk ke Requisition atau sudah ditugaskan di SPK Borongan
+    const nonAllocated = combinedAvailable.filter(item => {
+      return !isRabItemAllocated(item, requisitionList, activeAssignments);
+    });
+
+    setRabMaterials(nonAllocated);
   }, [spkId, cleanWbsCategory, wbsCategory]);
 
   useEffect(() => {
@@ -260,9 +336,12 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
   }, [fetchSpkDetail, fetchRecords, fetchRabMaterials]);
 
 
-  // Handler Transfer Material dari Panduan RAB ke Form Penugasan Baru
+  // Handler Transfer Material dari Panduan RAB / Change Order ke Form Penugasan Baru
   const handleSelectMaterialForAssignment = (item: RabMaterial) => {
-    const itemName = item.materials?.name || item.description || 'Pekerjaan Borongan';
+    const rawName = item.materials?.name || item.description || 'Pekerjaan Borongan';
+    const itemName = item.sourceType === 'CHANGE_ORDER'
+      ? (rawName.startsWith('[CO]') ? rawName : `[CO] ${rawName}`)
+      : rawName;
     const subtotal = (typeof item.item_total === 'number' && item.item_total > 0)
       ? item.item_total
       : ((item.quantity || 0) * (item.materials?.unit_price || item.unit_price || 0));
@@ -323,19 +402,35 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
     
     setLoading(true);
 
-    let finalRabItemId = selectedRabItemForAssignment?.id || null;
-    let finalMaterialId = selectedRabItemForAssignment?.materials?.id || selectedRabItemForAssignment?.material_id || null;
+    let finalRabItemId: string | null = null;
+    let finalChangeOrderItemId: string | null = null;
+    let finalMaterialId: string | null = null;
 
-    // Defensif: jika item tidak dipilih manual dari daftar kanan, cari kecocokan otomatis dari rabMaterials berdasarkan nama/tugas
-    if (!finalRabItemId && taskDescription.trim()) {
+    if (selectedRabItemForAssignment) {
+      if (selectedRabItemForAssignment.sourceType === 'CHANGE_ORDER') {
+        finalChangeOrderItemId = selectedRabItemForAssignment.changeOrderItemId || selectedRabItemForAssignment.id;
+        finalRabItemId = null;
+      } else {
+        finalRabItemId = selectedRabItemForAssignment.id;
+        finalChangeOrderItemId = null;
+      }
+      finalMaterialId = selectedRabItemForAssignment.materials?.id || selectedRabItemForAssignment.material_id || null;
+    } else if (taskDescription.trim()) {
+      // Defensif: jika item tidak dipilih manual dari daftar kanan, cari kecocokan otomatis dari rabMaterials berdasarkan nama/tugas
       const normDesc = normalizeText(taskDescription.trim());
       const matched = rabMaterials.find(item => {
-        const itemName = (item.materials?.name || item.description || '').trim();
-        const normName = normalizeText(itemName);
+        const rawName = (item.materials?.name || item.description || '').trim();
+        const normName = normalizeText(rawName);
         return normName && (normName === normDesc || normDesc.includes(normName) || normName.includes(normDesc));
       });
       if (matched) {
-        finalRabItemId = matched.id;
+        if (matched.sourceType === 'CHANGE_ORDER') {
+          finalChangeOrderItemId = matched.changeOrderItemId || matched.id;
+          finalRabItemId = null;
+        } else {
+          finalRabItemId = matched.id;
+          finalChangeOrderItemId = null;
+        }
         finalMaterialId = matched.materials?.id || matched.material_id || null;
       }
     }
@@ -349,6 +444,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
       status: 'ACTIVE',
       material_id: finalMaterialId,
       rab_item_id: finalRabItemId,
+      change_order_item_id: finalChangeOrderItemId,
       created_by: user.id
     });
     
@@ -688,18 +784,32 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
                       <h3 className="font-bold text-sm sm:text-base text-text">Penugasan Baru SPK-B</h3>
                     </div>
                     {selectedRabItemForAssignment && (
-                      <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-primary/20 text-primary border border-primary/30 flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3" /> Auto-Fill RAB
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded border flex items-center gap-1 ${
+                        selectedRabItemForAssignment.sourceType === 'CHANGE_ORDER'
+                          ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+                          : 'bg-primary/20 text-primary border-primary/30'
+                      }`}>
+                        <CheckCircle2 className="w-3 h-3" />
+                        {selectedRabItemForAssignment.sourceType === 'CHANGE_ORDER' ? 'Auto-Fill Change Order' : 'Auto-Fill RAB'}
                       </span>
                     )}
                   </div>
 
-                  {/* Banner Transfer RAB */}
+                  {/* Banner Transfer RAB / Change Order */}
                   {selectedRabItemForAssignment && (
-                    <div className="bg-primary/10 border border-primary/30 p-2.5 rounded-lg flex items-center justify-between text-xs mb-3 animate-in fade-in">
+                    <div className={`p-2.5 rounded-lg flex items-center justify-between text-xs mb-3 animate-in fade-in border ${
+                      selectedRabItemForAssignment.sourceType === 'CHANGE_ORDER'
+                        ? 'bg-purple-500/10 border-purple-500/30'
+                        : 'bg-primary/10 border-primary/30'
+                    }`}>
                       <div className="min-w-0 flex-1 pr-2">
-                        <span className="text-[11px] text-text-muted">Item Terpilih dari Panduan RAB:</span>
-                        <p className="font-bold text-primary truncate mt-0.5">
+                        <span className="text-[11px] text-text-muted">
+                          {selectedRabItemForAssignment.sourceType === 'CHANGE_ORDER' ? 'Item Terpilih dari Change Order:' : 'Item Terpilih dari Panduan RAB:'}
+                        </span>
+                        <p className={`font-bold truncate mt-0.5 ${
+                          selectedRabItemForAssignment.sourceType === 'CHANGE_ORDER' ? 'text-purple-300' : 'text-primary'
+                        }`}>
+                          {selectedRabItemForAssignment.sourceType === 'CHANGE_ORDER' && !selectedRabItemForAssignment.description?.startsWith('[CO]') ? '[CO] ' : ''}
                           {selectedRabItemForAssignment.materials?.name || selectedRabItemForAssignment.description}
                         </p>
                       </div>
@@ -853,7 +963,14 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
                             title="Double click atau klik tombol '<<' untuk transfer ke Form Penugasan"
                           >
                             <td className="px-3.5 py-2.5 text-text break-words min-w-0">
-                              <span className="font-semibold">{itemName}</span>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {item.sourceType === 'CHANGE_ORDER' && (
+                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                    [CO]
+                                  </span>
+                                )}
+                                <span className="font-semibold">{itemName}</span>
+                              </div>
                             </td>
                             <td className="px-2.5 py-2.5 text-text text-right whitespace-nowrap font-mono">
                               {item.quantity} <span className="text-text-muted text-[10px]">{itemUnit}</span>

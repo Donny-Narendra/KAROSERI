@@ -30,6 +30,9 @@ export interface RabOverheadItem {
   unit_price: number;
   item_total?: number;
   item_type?: string;
+  sourceType?: 'RAB' | 'CHANGE_ORDER';
+  changeOrderItemId?: string;
+  coNumber?: string;
   materials?: {
     id: string;
     name: string;
@@ -125,6 +128,7 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
   const [fetchingRab, setFetchingRab] = useState(false);
   const [showMasterPresets, setShowMasterPresets] = useState(false);
   const [selectedRabItemId, setSelectedRabItemId] = useState<string | null>(null);
+  const [selectedChangeOrderItemId, setSelectedChangeOrderItemId] = useState<string | null>(null);
 
   // Form State
   const cleanDefaultStage = useMemo(() => {
@@ -201,73 +205,131 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
     }
   }, [spkId]);
 
-  // Load RAB Overhead Items for the current SPK
+  // Load RAB & Change Order Overhead Items for the current SPK
   const loadRabOverheadItems = useCallback(async () => {
     if (!spkId) return;
-    if (propRabOverheadItems && propRabOverheadItems.length > 0) {
-      setRabOverheadItems(propRabOverheadItems);
-      return;
-    }
 
     setFetchingRab(true);
     try {
-      const { data: rabEst, error: rabEstErr } = await supabase
-        .from('rab_estimations')
-        .select('id')
-        .eq('spk_id', spkId)
-        .maybeSingle();
+      let rabList: RabOverheadItem[] = [];
 
-      if (rabEstErr) {
-        console.error('Error fetching RAB estimation for overhead modal:', rabEstErr);
-        setRabOverheadItems([]);
-        return;
-      }
+      if (propRabOverheadItems && propRabOverheadItems.length > 0) {
+        rabList = propRabOverheadItems.map(item => ({
+          ...item,
+          sourceType: item.sourceType || 'RAB',
+        }));
+      } else {
+        const { data: rabEst, error: rabEstErr } = await supabase
+          .from('rab_estimations')
+          .select('id')
+          .eq('spk_id', spkId)
+          .maybeSingle();
 
-      if (!rabEst?.id) {
-        setRabOverheadItems([]);
-        return;
-      }
+        if (rabEstErr) {
+          console.error('Error fetching RAB estimation for overhead modal:', rabEstErr);
+        } else if (rabEst?.id) {
+          const { data: items, error: itemsErr } = await supabase
+            .from('rab_items')
+            .select(`
+              id,
+              quantity,
+              unit,
+              wbs_category,
+              wbs_stage,
+              description,
+              material_name,
+              unit_price,
+              item_total,
+              item_type,
+              material_id,
+              materials (
+                id,
+                name,
+                unit,
+                unit_price
+              )
+            `)
+            .eq('rab_estimation_id', rabEst.id);
 
-      const { data: items, error: itemsErr } = await supabase
-        .from('rab_items')
-        .select(`
-          id,
-          quantity,
-          unit,
-          wbs_category,
-          wbs_stage,
-          description,
-          material_name,
-          unit_price,
-          item_total,
-          item_type,
-          material_id,
-          materials (
-            id,
-            name,
-            unit,
-            unit_price
-          )
-        `)
-        .eq('rab_estimation_id', rabEst.id);
+          if (itemsErr) {
+            console.error('Error fetching RAB items for overhead modal:', itemsErr);
+          } else if (items) {
+            const overheadOnly = (items || []).filter((item: any) => {
+              if (item.item_type?.toUpperCase() === 'OVERHEAD') return true;
+              const mat = Array.isArray(item.materials) ? item.materials[0] : item.materials;
+              const name = (mat?.name || item.material_name || item.description || '').toLowerCase();
+              if (name.includes('listrik') || name.includes('kompressor') || name.includes('kompresor') || name.includes('sewa bay') || name.includes('crane') || name.includes('overhead')) {
+                return true;
+              }
+              return false;
+            }).map((item: any) => ({
+              ...item,
+              sourceType: 'RAB' as const,
+            })) as RabOverheadItem[];
 
-      if (itemsErr) {
-        console.error('Error fetching RAB items for overhead modal:', itemsErr);
-        setRabOverheadItems([]);
-        return;
-      }
-
-      const overheadOnly: RabOverheadItem[] = (items || []).filter((item: any) => {
-        if (item.item_type?.toUpperCase() === 'OVERHEAD') return true;
-        const mat = Array.isArray(item.materials) ? item.materials[0] : item.materials;
-        const name = (mat?.name || item.material_name || item.description || '').toLowerCase();
-        if (name.includes('listrik') || name.includes('kompressor') || name.includes('kompresor') || name.includes('sewa bay') || name.includes('crane') || name.includes('overhead')) {
-          return true;
+            rabList = overheadOnly;
+          }
         }
-        return false;
-      }) as RabOverheadItem[];
+      }
 
-      setRabOverheadItems(overheadOnly);
+      // Ambil Change Order OVERHEAD items berstatus APPROVED
+      let coList: RabOverheadItem[] = [];
+      try {
+        const { data: coData, error: coErr } = await supabase
+          .from('change_order_items')
+          .select(`
+            id,
+            change_order_id,
+            spk_id,
+            material_id,
+            item_name,
+            quantity,
+            unit,
+            unit_price,
+            cost_price,
+            subtotal,
+            notes,
+            wbs_stage,
+            item_type,
+            change_orders!inner ( status, co_number )
+          `)
+          .eq('spk_id', spkId)
+          .eq('item_type', 'OVERHEAD')
+          .eq('change_orders.status', 'APPROVED');
+
+        if (coErr) {
+          console.error('Error fetching Change Order OVERHEAD items:', coErr);
+        } else if (coData) {
+          coList = coData.map((ci: any) => {
+            const coNum = (ci.change_orders as any)?.co_number || 'CO';
+            const qty = Number(ci.quantity || 1);
+            const unitPrice = Number(ci.unit_price || 0);
+            const subtotal = Number(ci.subtotal || qty * unitPrice);
+
+            return {
+              id: ci.id,
+              spk_id: ci.spk_id,
+              wbs_stage: ci.wbs_stage,
+              wbs_category: ci.wbs_stage,
+              material_name: ci.item_name || ci.notes || 'Overhead Tambahan',
+              description: ci.item_name || ci.notes || 'Overhead Tambahan',
+              quantity: qty,
+              unit: ci.unit || 'satuan',
+              unit_price: unitPrice,
+              item_total: subtotal,
+              item_type: 'OVERHEAD',
+              sourceType: 'CHANGE_ORDER' as const,
+              changeOrderItemId: ci.id,
+              coNumber: coNum,
+              materials: null,
+            };
+          });
+        }
+      } catch (coFetchErr) {
+        console.error('Error in fetching CO OVERHEAD items:', coFetchErr);
+      }
+
+      setRabOverheadItems([...rabList, ...coList]);
     } catch (err) {
       console.error('Error in loadRabOverheadItems:', err);
       setRabOverheadItems([]);
@@ -289,6 +351,7 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
       void loadRabOverheadItems();
       setWbsStage(cleanDefaultStage);
       setSelectedRabItemId(null);
+      setSelectedChangeOrderItemId(null);
       setErrorMsg(null);
       setSuccessMsg(null);
     }
@@ -306,21 +369,26 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
     });
   }, [rabOverheadItems, cleanActiveStage]);
 
-  // Calculate Realized Quantity vs Pagu for each RAB Overhead Item
+  // Calculate Realized Quantity vs Pagu for each RAB / Change Order Overhead Item
   const rabOverheadCalculations = useMemo(() => {
     return wbsRabOverheadItems.map((item) => {
       const mat = Array.isArray(item.materials) ? item.materials[0] : item.materials;
-      const itemName = item.material_name || mat?.name || item.description || 'Overhead';
+      const baseName = item.material_name || mat?.name || item.description || 'Overhead';
+      const itemName = item.sourceType === 'CHANGE_ORDER'
+        ? (baseName.startsWith('[CO]') ? baseName : `[CO] ${baseName}`)
+        : baseName;
       const paguQty = Number(item.quantity) || 1;
       const unit = item.unit || mat?.unit || 'satuan';
       const unitPrice = Number(item.unit_price) || 
         (Number(item.quantity) && Number(item.item_total) ? Number(item.item_total) / Number(item.quantity) : 0);
 
       const loggedQty = logs.reduce((sum, log) => {
-        const matchesId = log.rab_item_id && log.rab_item_id === item.id;
-        const matchesName = !log.rab_item_id && 
+        const matchesId = (log.rab_item_id && log.rab_item_id === item.id) ||
+          (log.change_order_item_id && (log.change_order_item_id === item.id || log.change_order_item_id === item.changeOrderItemId));
+        const matchesName = !log.rab_item_id && !log.change_order_item_id && 
           normalizeStage(log.wbs_stage) === cleanActiveStage &&
-          log.overhead_name.trim().toLowerCase() === itemName.trim().toLowerCase();
+          (log.overhead_name.trim().toLowerCase() === itemName.trim().toLowerCase() ||
+           log.overhead_name.trim().toLowerCase() === baseName.trim().toLowerCase());
         if (matchesId || matchesName) {
           return sum + (Number(log.frequency_qty) || 0);
         }
@@ -333,6 +401,7 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
       return {
         ...item,
         itemName,
+        baseName,
         paguQty,
         unit,
         unitPrice,
@@ -343,15 +412,23 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
     });
   }, [wbsRabOverheadItems, logs, cleanActiveStage]);
 
-  // Preset Selection: Dynamic RAB
+  // Preset Selection: Dynamic RAB & Change Order
   const applyRabPreset = (item: {
     id: string;
     itemName: string;
     unitPrice: number;
     remainingQty: number;
     paguQty: number;
+    sourceType?: 'RAB' | 'CHANGE_ORDER';
+    changeOrderItemId?: string;
   }) => {
-    setSelectedRabItemId(item.id);
+    if (item.sourceType === 'CHANGE_ORDER') {
+      setSelectedRabItemId(null);
+      setSelectedChangeOrderItemId(item.changeOrderItemId || item.id);
+    } else {
+      setSelectedRabItemId(item.id);
+      setSelectedChangeOrderItemId(null);
+    }
     setOverheadName(item.itemName);
     setRatePerUnit(item.unitPrice);
     setFrequencyQty(item.remainingQty > 0 ? item.remainingQty : item.paguQty);
@@ -361,6 +438,7 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
   // Preset Selection: Master General
   const applyPreset = (preset: OverheadPreset) => {
     setSelectedRabItemId(null);
+    setSelectedChangeOrderItemId(null);
     setOverheadName(preset.name);
     setWbsStage(preset.stage);
     setFrequencyQty(preset.qty);
@@ -402,6 +480,7 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
         notes: notes.trim() || null,
         created_by: user?.id || null,
         rab_item_id: selectedRabItemId || null,
+        change_order_item_id: selectedChangeOrderItemId || null,
       };
 
       await financialReportsService.createSpkOverheadLog(payload);
@@ -412,6 +491,7 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
       setRatePerUnit('');
       setNotes('');
       setSelectedRabItemId(null);
+      setSelectedChangeOrderItemId(null);
       setSuccessMsg(`Berhasil mencatat overhead: ${payload.overhead_name}`);
 
       // Refresh list & notify parent
@@ -513,10 +593,10 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
                   <Zap className="w-3.5 h-3.5 text-amber-400" />
-                  Alokasi Overhead dari RAB ({wbsStage})
+                  Alokasi Overhead dari RAB & Change Orders ({wbsStage})
                 </span>
                 {fetchingRab && (
-                  <span className="text-[10px] text-text-muted animate-pulse">Memuat RAB...</span>
+                  <span className="text-[10px] text-text-muted animate-pulse">Memuat RAB & CO...</span>
                 )}
               </div>
               <div className="flex items-center gap-2">
@@ -533,11 +613,13 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
               </div>
             </div>
 
-            {/* RAB-Driven Dynamic Presets */}
+            {/* RAB & Change Order Driven Dynamic Presets */}
             {rabOverheadCalculations.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
                 {rabOverheadCalculations.map((item) => {
-                  const isSelected = selectedRabItemId === item.id;
+                  const isSelected = item.sourceType === 'CHANGE_ORDER'
+                    ? selectedChangeOrderItemId === (item.changeOrderItemId || item.id)
+                    : selectedRabItemId === item.id;
                   return (
                     <button
                       key={item.id}
@@ -552,6 +634,11 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
                       <div className="flex items-start justify-between gap-1.5 w-full">
                         <div className="flex items-center gap-1.5 text-xs font-bold text-slate-100 truncate">
                           <span className="text-amber-400 shrink-0">⚡</span>
+                          {item.sourceType === 'CHANGE_ORDER' && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 shrink-0">
+                              [CO]
+                            </span>
+                          )}
                           <span className="truncate group-hover:text-amber-300 transition-colors" title={item.itemName}>
                             {item.itemName}
                           </span>
@@ -586,7 +673,7 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
               <div className="p-3.5 rounded-xl border border-dashed border-border bg-background/40 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs">
                 <div className="flex items-center gap-2 text-text-muted text-center sm:text-left">
                   <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
-                  <span>Tidak ada alokasi overhead RAB untuk tahapan <strong>{wbsStage}</strong>.</span>
+                  <span>Tidak ada alokasi overhead RAB atau Change Orders untuk tahapan <strong>{wbsStage}</strong>.</span>
                 </div>
                 {!showMasterPresets && (
                   <button

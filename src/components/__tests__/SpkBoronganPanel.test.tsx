@@ -28,7 +28,11 @@ describe('Component: SpkBoronganPanel (Strict LABOR Filter)', () => {
     vi.clearAllMocks();
   });
 
-  const setupSupabaseMock = (rabItemsData: any[], existingAssignments: any[] = []) => {
+  const setupSupabaseMock = (
+    rabItemsData: any[], 
+    existingAssignments: any[] = [],
+    changeOrderItemsData: any[] = []
+  ) => {
     vi.mocked(supabase.from).mockImplementation((table: string) => {
       if (table === 'spk') {
         return {
@@ -72,12 +76,23 @@ describe('Component: SpkBoronganPanel (Strict LABOR Filter)', () => {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
           neq: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockResolvedValue({ data: null, error: null }),
           order: vi.fn().mockResolvedValue({
             data: existingAssignments,
             error: null,
           }),
           then: vi.fn().mockImplementation((fn: any) =>
             Promise.resolve({ data: existingAssignments, error: null }).then(fn)
+          ),
+        } as any;
+      }
+
+      if (table === 'change_order_items') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          then: vi.fn().mockImplementation((fn: any) =>
+            Promise.resolve({ data: changeOrderItemsData, error: null }).then(fn)
           ),
         } as any;
       }
@@ -363,5 +378,206 @@ describe('Component: SpkBoronganPanel (Strict LABOR Filter)', () => {
 
     // The assigned labor item should be excluded from available list (1 remaining)
     expect(screen.getByText('1 Tersedia')).toBeInTheDocument();
+  });
+
+  it('merges approved Change Order LABOR items into the guide panel with [CO] badge and auto-fills assignment form when transferred', async () => {
+    const mockCoLaborItems = [
+      {
+        id: 'co-labor-item-1',
+        change_order_id: 'co-hdr-1',
+        spk_id: mockSpkId,
+        item_name: 'Jasa Las Tambahan Dudukan Slebor',
+        quantity: 1,
+        unit: 'lot',
+        unit_price: 350000,
+        subtotal: 350000,
+        wbs_stage: 'Pembongkaran',
+        item_type: 'LABOR',
+        change_orders: { status: 'APPROVED', co_number: 'CO-001' },
+      },
+    ];
+
+    let capturedInsertPayload: any = null;
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === 'spk') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({
+            data: {
+              spk_no: 'SPK/2026/001',
+              customer_name: 'PT Karoseri Hebat',
+              vehicle_plate: 'B 1234 XYZ',
+            },
+            error: null,
+          }),
+        } as any;
+      }
+
+      if (table === 'rab_estimations') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: { id: 'rab-est-uuid-1' },
+            error: null,
+          }),
+        } as any;
+      }
+
+      if (table === 'material_requisitions') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnThis(),
+          then: vi.fn().mockImplementation((fn: any) =>
+            Promise.resolve({ data: [], error: null }).then(fn)
+          ),
+        } as any;
+      }
+
+      if (table === 'spk_borongan') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockImplementation((payload: any) => {
+            capturedInsertPayload = payload;
+            return Promise.resolve({ data: null, error: null });
+          }),
+          order: vi.fn().mockResolvedValue({
+            data: [],
+            error: null,
+          }),
+          then: vi.fn().mockImplementation((fn: any) =>
+            Promise.resolve({ data: [], error: null }).then(fn)
+          ),
+        } as any;
+      }
+
+      if (table === 'change_order_items') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          then: vi.fn().mockImplementation((fn: any) =>
+            Promise.resolve({ data: mockCoLaborItems, error: null }).then(fn)
+          ),
+        } as any;
+      }
+
+      if (table === 'rab_items') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockImplementation(() => ({
+            eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+          })),
+        } as any;
+      }
+
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+      } as any;
+    });
+
+    render(
+      <SpkBoronganPanel
+        spkId={mockSpkId}
+        wbsCategory={mockWbsCategory}
+        onClose={mockOnClose}
+      />
+    );
+
+    // Verify [CO] badge and item name appear in guide table
+    await waitFor(() => {
+      const table = screen.getByRole('table');
+      expect(within(table).getByText('[CO]')).toBeInTheDocument();
+      expect(within(table).getByText('Jasa Las Tambahan Dudukan Slebor')).toBeInTheDocument();
+      expect(within(table).getByText(/Rp\s*350\.000/i)).toBeInTheDocument();
+    });
+
+    // Transfer item via transfer button (<<)
+    const transferBtn = screen.getByTitle("Pindahkan ke form penugasan (<<)");
+    fireEvent.click(transferBtn);
+
+    // Form inputs should be filled
+    expect(screen.getByText('Auto-Fill Change Order')).toBeInTheDocument();
+    const taskInput = screen.getByPlaceholderText(/Contoh: TUKANG LAS DUDUKAN SLEBOR/i) as HTMLTextAreaElement;
+    expect(taskInput.value).toBe('[CO] Jasa Las Tambahan Dudukan Slebor');
+
+    const contractInput = screen.getByPlaceholderText('0') as HTMLInputElement;
+    expect(contractInput.value).toBe('350000');
+
+    // Fill worker name and submit
+    const workerInput = screen.getByPlaceholderText(/Contoh: Adi Las, Budi Ketok/i);
+    fireEvent.change(workerInput, { target: { value: 'Budi Santoso' } });
+
+    const submitBtn = screen.getByRole('button', { name: /Buat SPK Borongan/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(capturedInsertPayload).not.toBeNull();
+      expect(capturedInsertPayload).toEqual(
+        expect.objectContaining({
+          spk_id: mockSpkId,
+          wbs_category: 'Pembongkaran',
+          worker_name: 'Budi Santoso',
+          task_description: '[CO] Jasa Las Tambahan Dudukan Slebor',
+          contract_value: 350000,
+          status: 'ACTIVE',
+          rab_item_id: null,
+          change_order_item_id: 'co-labor-item-1',
+        })
+      );
+    });
+  });
+
+  it('excludes approved Change Order LABOR items that are already assigned via change_order_item_id', async () => {
+    const mockCoLaborItems = [
+      {
+        id: 'co-labor-assigned-1',
+        change_order_id: 'co-hdr-1',
+        spk_id: mockSpkId,
+        item_name: 'Jasa Las Tambahan Dudukan Slebor',
+        quantity: 1,
+        unit: 'lot',
+        unit_price: 350000,
+        subtotal: 350000,
+        wbs_stage: 'Pembongkaran',
+        item_type: 'LABOR',
+        change_orders: { status: 'APPROVED', co_number: 'CO-001' },
+      },
+    ];
+
+    const activeAssignments = [
+      {
+        id: 'spk-b-assigned-1',
+        worker_name: 'Budi Santoso',
+        task_description: '[CO] Jasa Las Tambahan Dudukan Slebor',
+        contract_value: 350000,
+        status: 'ACTIVE',
+        change_order_item_id: 'co-labor-assigned-1',
+        rab_item_id: null,
+        wbs_category: 'Pembongkaran',
+        created_at: new Date().toISOString(),
+      },
+    ];
+
+    setupSupabaseMock([], activeAssignments, mockCoLaborItems);
+
+    render(
+      <SpkBoronganPanel
+        spkId={mockSpkId}
+        wbsCategory={mockWbsCategory}
+        onClose={mockOnClose}
+      />
+    );
+
+    // The assigned Change Order item should be excluded from available list (0 Tersedia)
+    await waitFor(() => {
+      expect(screen.getByText('0 Tersedia')).toBeInTheDocument();
+      expect(screen.queryByRole('table')).not.toBeInTheDocument();
+      expect(screen.getByText('Tidak ada pagu pekerjaan/jasa tersisa untuk WBS ini.')).toBeInTheDocument();
+    });
   });
 });

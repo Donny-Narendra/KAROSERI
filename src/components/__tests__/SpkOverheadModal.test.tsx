@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { SpkOverheadModal } from '../SpkOverheadModal';
 import { financialReportsService } from '../../services/financialReportsService';
+import { supabase } from '../../lib/supabaseClient';
 
 // Mock AuthContext
 vi.mock('../../context/AuthContext', () => ({
@@ -18,18 +19,27 @@ vi.mock('../../context/AuthContext', () => ({
 // Mock Supabase
 vi.mock('../../lib/supabaseClient', () => ({
   supabase: {
-    from: vi.fn(() => ({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      maybeSingle: vi.fn().mockResolvedValue({
-        data: {
-          spk_no: 'SPK-2668',
-          vehicle_plate: 'B 3453 iuy',
-          customer_name: 'PT. CARAKANUSA TRANSPORTAMA',
-        },
-        error: null,
-      }),
-    })),
+    from: vi.fn((table: string) => {
+      if (table === 'change_order_items') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          then: vi.fn().mockImplementation((fn: any) => Promise.resolve({ data: [], error: null }).then(fn)),
+        };
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: {
+            spk_no: 'SPK-2668',
+            vehicle_plate: 'B 3453 iuy',
+            customer_name: 'PT. CARAKANUSA TRANSPORTAMA',
+          },
+          error: null,
+        }),
+      };
+    }),
   },
 }));
 
@@ -126,7 +136,7 @@ describe('Component: SpkOverheadModal (Mandor Floor Terminal Overhead Logging)',
     expect(screen.getByText('PT. CARAKANUSA TRANSPORTAMA')).toBeInTheDocument();
 
     // Section header
-    expect(screen.getByText(/Alokasi Overhead dari RAB \(Pembongkaran\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Alokasi Overhead dari RAB & Change Orders \(Pembongkaran\)/i)).toBeInTheDocument();
 
     // Dynamic RAB presets for Pembongkaran
     expect(screen.getByText('LISTRIK')).toBeInTheDocument();
@@ -221,7 +231,7 @@ describe('Component: SpkOverheadModal (Mandor Floor Terminal Overhead Logging)',
     });
 
     // Fallback notice
-    expect(screen.getByText(/Tidak ada alokasi overhead RAB untuk tahapan/i)).toBeInTheDocument();
+    expect(screen.getByText(/Tidak ada alokasi overhead RAB atau Change Orders untuk tahapan/i)).toBeInTheDocument();
     const fallbackToggleBtn = screen.getByText('Tampilkan Master Preset Gudang (Umum)');
     expect(fallbackToggleBtn).toBeInTheDocument();
 
@@ -331,6 +341,111 @@ describe('Component: SpkOverheadModal (Mandor Floor Terminal Overhead Logging)',
     await waitFor(() => {
       expect(financialReportsService.deleteSpkOverheadLog).toHaveBeenCalledWith('log-1');
       expect(onUpdateMock).toHaveBeenCalled();
+    });
+  });
+
+  it('ingests and renders approved Change Order OVERHEAD items as presets, auto-populates form, and submits with change_order_item_id', async () => {
+    vi.mocked(financialReportsService.getSpkOverheadLogs).mockResolvedValue([]);
+    vi.mocked(financialReportsService.createSpkOverheadLog).mockResolvedValue({
+      id: 'log-co-1',
+      spk_id: 'spk-test-1',
+      wbs_stage: 'Pembongkaran',
+      overhead_name: '[CO] Sewa Crane Darurat',
+      frequency_qty: 2,
+      rate_per_unit: 250000,
+      total_amount: 500000,
+      notes: null,
+      recorded_at: '2026-10-20T08:00:00Z',
+      created_by: 'mandor-user-001',
+      rab_item_id: null,
+      change_order_item_id: 'co-oh-item-1',
+    });
+
+    const mockCoOverheadItem = {
+      id: 'co-oh-item-1',
+      change_order_id: 'co-header-1',
+      spk_id: 'spk-test-1',
+      item_name: 'Sewa Crane Darurat',
+      quantity: 2,
+      unit: 'shift',
+      unit_price: 250000,
+      cost_price: 200000,
+      subtotal: 500000,
+      notes: 'Bongkar sasis bengkok darurat',
+      wbs_stage: 'Pembongkaran',
+      item_type: 'OVERHEAD',
+      change_orders: { status: 'APPROVED', co_number: 'CO-001' },
+    };
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === 'change_order_items') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          then: vi.fn().mockImplementation((fn: any) =>
+            Promise.resolve({ data: [mockCoOverheadItem], error: null }).then(fn)
+          ),
+        } as any;
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: {
+            spk_no: 'SPK-2668',
+            vehicle_plate: 'B 3453 iuy',
+            customer_name: 'PT. CARAKANUSA TRANSPORTAMA',
+          },
+          error: null,
+        }),
+      } as any;
+    });
+
+    render(
+      <SpkOverheadModal
+        isOpen={true}
+        onClose={vi.fn()}
+        spkId="spk-test-1"
+        defaultCategory="Pembongkaran"
+        rabOverheadItems={[]}
+      />
+    );
+
+    // Verify [CO] badge and item name appear in dynamic presets
+    await waitFor(() => {
+      expect(screen.getByText('[CO]')).toBeInTheDocument();
+      expect(screen.getByText('[CO] Sewa Crane Darurat')).toBeInTheDocument();
+    });
+
+    // Click Change Order preset
+    fireEvent.click(screen.getByText('[CO] Sewa Crane Darurat'));
+
+    // Verify inputs auto-populated
+    const nameInput = screen.getByPlaceholderText(/Contoh: Oven Spray Booth Jam Lembur/i) as HTMLInputElement;
+    expect(nameInput.value).toBe('[CO] Sewa Crane Darurat');
+
+    const rateInput = screen.getByPlaceholderText('Rp 0') as HTMLInputElement;
+    expect(rateInput.value).toBe('250000');
+
+    const qtyInput = screen.getByPlaceholderText('1') as HTMLInputElement;
+    expect(qtyInput.value).toBe('2');
+
+    // Submit form
+    const submitBtn = screen.getByText('Simpan Catatan Overhead');
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(financialReportsService.createSpkOverheadLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          spk_id: 'spk-test-1',
+          overhead_name: '[CO] Sewa Crane Darurat',
+          frequency_qty: 2,
+          rate_per_unit: 250000,
+          wbs_stage: 'Pembongkaran',
+          rab_item_id: null,
+          change_order_item_id: 'co-oh-item-1',
+        })
+      );
     });
   });
 });

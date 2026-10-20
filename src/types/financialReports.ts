@@ -15,6 +15,7 @@ export interface SpkOverheadLog {
   recorded_at: string;
   created_by?: string | null;
   rab_item_id?: string | null;
+  change_order_item_id?: string | null;
 }
 
 export interface CreateSpkOverheadLogPayload {
@@ -27,6 +28,7 @@ export interface CreateSpkOverheadLogPayload {
   recorded_at?: string;
   created_by?: string | null;
   rab_item_id?: string | null;
+  change_order_item_id?: string | null;
 }
 
 export interface SpkJobProfitabilityItem {

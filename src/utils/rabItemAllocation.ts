@@ -56,6 +56,7 @@ export interface AssignmentLike {
   id?: string;
   material_id?: string | null;
   rab_item_id?: string | null;
+  change_order_item_id?: string | null;
   task_description?: string | null;
   status?: string | null;
   [key: string]: any;
@@ -64,6 +65,7 @@ export interface AssignmentLike {
 export interface OverheadLogLike {
   id?: string;
   rab_item_id?: string | null;
+  change_order_item_id?: string | null;
   overhead_name?: string | null;
   wbs_stage?: string | null;
   frequency_qty?: number;
@@ -193,6 +195,7 @@ export function isRabItemAllocated(
 
       // Check explicit IDs
       if (rabItemId && borong.rab_item_id && borong.rab_item_id === rabItemId) return true;
+      if (rabItemId && borong.change_order_item_id && borong.change_order_item_id === rabItemId) return true;
       if (materialId && borong.material_id && borong.material_id === materialId) return true;
       if (rabItemId && borong.material_id && borong.material_id === rabItemId) return true;
       if (materialId && borong.rab_item_id && borong.rab_item_id === materialId) return true;
@@ -228,8 +231,9 @@ export function isRabItemAllocated(
   if (overheadLogs && Array.isArray(overheadLogs)) {
     const matchInOverhead = overheadLogs.some((oh) => {
       if (!oh) return false;
-      // Direct RAB Item ID match
+      // Direct RAB Item ID match or Change Order Item ID match
       if (rabItemId && oh.rab_item_id && oh.rab_item_id === rabItemId) return true;
+      if (rabItemId && oh.change_order_item_id && oh.change_order_item_id === rabItemId) return true;
 
       // Exact or substring match on overhead name
       const ohName = (oh.overhead_name || '').trim();
