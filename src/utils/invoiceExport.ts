@@ -514,7 +514,7 @@ export const printFinalInvoice = (payload: InvoicePrintPayload): void => {
 
       <!-- Section 2: Approved Change Orders (Addendum Itemized) -->
       <div class="section-title">
-        <span>2. RINCIAN PEKERJAAN TAMBAHAN (CHANGE ORDERS / ADDENDUM)</span>
+        <span>### PEKERJAAN TAMBAHAN (CHANGE ORDERS / ADDENDUM)</span>
         <span style="font-weight: normal; font-size: 12px; color: #047857;">
           ${payload.approvedChangeOrders.length} Addendum Disetujui
         </span>

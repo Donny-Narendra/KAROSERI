@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { AlertCircle, FileText, CheckCircle, Calculator, Lock, Receipt, TrendingUp, ChevronDown, ChevronUp, Printer, ShieldCheck } from 'lucide-react';
+import { AlertCircle, FileText, CheckCircle, Calculator, Lock, Receipt, TrendingUp, ChevronDown, ChevronUp, Printer } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { DownPaymentModal } from '../components/DownPaymentModal';
 import { DpHistoryList } from '../components/DpHistoryList';
@@ -266,6 +266,10 @@ export const KasirDashboard: React.FC = () => {
     ? spks.filter(s => draftStatuses.includes(s.status) && s.allocationStatus !== 'PARTIAL')
     : spks.filter(s => !draftStatuses.includes(s.status));
 
+  const effectiveAmendmentCost = approvedChangeOrders.length > 0
+    ? approvedChangeOrders.reduce((acc, curr) => acc + curr.total_amount, 0)
+    : (selectedSpk ? selectedSpk.amendmentCost : 0);
+
   useEffect(() => {
     if (selectedSpk?.dbId) {
       void loadApprovedChangeOrders(selectedSpk.dbId);
@@ -292,7 +296,7 @@ export const KasirDashboard: React.FC = () => {
     if (!selectedSpk) return;
     
     const manualAdj = manualAdjustments[selectedSpk.id] || 0;
-    const totalHargaJual = selectedSpk.quotationAmount + selectedSpk.amendmentCost + manualAdj;
+    const totalHargaJual = selectedSpk.quotationAmount + effectiveAmendmentCost + manualAdj;
     const totalAmount = Math.max(0, totalHargaJual - selectedSpk.dpAmount);
     
     const coCount = approvedChangeOrders.length;
@@ -306,7 +310,7 @@ export const KasirDashboard: React.FC = () => {
       cancelText: 'Batal',
       message: `Anda akan menerbitkan faktur tagihan akhir untuk SPK ${selectedSpk.id} (${selectedSpk.customerName}):\n\n` +
         `• Harga Jual Dasar: ${formatCurrency(selectedSpk.quotationAmount)}\n` +
-        (selectedSpk.amendmentCost !== 0 ? `• Perubahan Addendum: ${formatCurrency(selectedSpk.amendmentCost)}${coCount > 0 ? ` (${coCount} Addendum, ${coItemCount} item disetujui)` : ''}\n` : '') +
+        (effectiveAmendmentCost !== 0 ? `• Perubahan Addendum: ${formatCurrency(effectiveAmendmentCost)}${coCount > 0 ? ` (${coCount} Addendum, ${coItemCount} item disetujui)` : ''}\n` : '') +
         (manualAdj !== 0 ? `• Penyesuaian Manual: ${manualAdj > 0 ? '+' : ''}${formatCurrency(manualAdj)}\n` : '') +
         `• Total Harga Jual: ${formatCurrency(totalHargaJual)}\n` +
         `• Uang Muka (DP): -${formatCurrency(selectedSpk.dpAmount)}\n` +
@@ -819,128 +823,76 @@ export const KasirDashboard: React.FC = () => {
                     <span className="font-medium text-text-primary">{formatCurrency(selectedSpk.nonPackageMaterialCost)}</span>
                   </div>
 
-                  {/* Change Orders (Addendum) Row & Collapsible Accordion */}
-                  {(selectedSpk.amendmentCost !== 0 || approvedChangeOrders.length > 0) && (
-                    <div className="border border-surface-border/80 rounded-lg p-3 bg-surface/40 space-y-2">
-                      <div className="flex justify-between items-center text-sm">
+                  {/* Change Orders (Addendum) Row & Collapsible Sub-Panel */}
+                  {(effectiveAmendmentCost !== 0 || approvedChangeOrders.length > 0) && (
+                    <div className="border border-surface-border/80 rounded-lg p-2.5 bg-surface/30 space-y-2">
+                      <div 
+                        onClick={() => {
+                          if (approvedChangeOrders.length > 0) {
+                            setIsCoAccordionOpen(prev => !prev);
+                          }
+                        }}
+                        className={`flex justify-between items-center text-sm text-secondary ${approvedChangeOrders.length > 0 ? 'cursor-pointer select-none hover:opacity-90' : ''}`}
+                      >
                         <div className="flex items-center gap-2">
-                          <span className="text-secondary font-medium">Change Orders (Addendum)</span>
-                          {approvedChangeOrders.length > 0 && (
-                            <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded font-bold font-mono">
-                              {approvedChangeOrders.length} APPROVED
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-secondary">
-                            + {formatCurrency(selectedSpk.amendmentCost || approvedChangeOrders.reduce((s, c) => s + c.total_amount, 0))}
-                          </span>
+                          <span className="font-medium">Change Orders (Addendum)</span>
                           {approvedChangeOrders.length > 0 && (
                             <button
                               type="button"
-                              onClick={() => setIsCoAccordionOpen(prev => !prev)}
-                              className="flex items-center gap-1 text-xs text-secondary hover:text-secondary/80 font-medium py-1 px-2 rounded hover:bg-surface-border/60 transition-colors cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsCoAccordionOpen(prev => !prev);
+                              }}
+                              className="flex items-center gap-1 text-[11px] text-purple-400 hover:text-purple-300 font-medium py-0.5 px-2 rounded bg-purple-500/10 border border-purple-500/20 transition-colors cursor-pointer"
                               title="Buka atau tutup rincian pekerjaan tambahan amandemen"
                             >
-                              <span>{isCoAccordionOpen ? 'Tutup Rincian' : 'Lihat Rincian'}</span>
+                              <span>{isCoAccordionOpen ? 'Tutup Rincian' : `Lihat Rincian (${approvedChangeOrders.length})`}</span>
                               {isCoAccordionOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                             </button>
                           )}
                         </div>
+                        <span className="font-semibold font-mono">
+                          + {formatCurrency(effectiveAmendmentCost)}
+                        </span>
                       </div>
 
-                      {/* Accordion / Collapsible Content */}
+                      {/* Sub-Panel Rincian Pekerjaan Tambahan */}
                       {isCoAccordionOpen && (
-                        <div className="mt-3 pt-3 border-t border-surface-border/60 space-y-3">
-                          <div className="p-2.5 rounded bg-surface border border-surface-border text-xs text-text-muted flex items-start gap-2">
-                            <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                            <div>
-                              <span className="font-semibold text-text-primary">Perlindungan Hukum & Sengketa:</span>
-                              <p className="mt-0.5 text-[11px] leading-relaxed">
-                                Rincian pekerjaan tambahan di bawah ini telah disetujui (Approved) secara resmi dan menjadi lampiran mengikat pada pelunasan serta faktur tagihan akhir.
-                              </p>
-                            </div>
+                        <div className="mt-2 p-2.5 rounded-lg bg-slate-900/90 border border-purple-500/30 space-y-2">
+                          <div className="text-[11px] font-semibold text-purple-300 uppercase tracking-wider flex justify-between">
+                            <span>Rincian Pekerjaan Tambahan (Di Luar Kontrak Awal)</span>
+                            <span className="text-slate-400">{approvedChangeOrders.length} Item Disetujui</span>
                           </div>
 
                           {loadingChangeOrders ? (
-                            <div className="p-3 text-center text-xs text-text-muted">
+                            <div className="p-3 text-center text-xs text-slate-400">
                               Memuat rincian Change Order...
                             </div>
                           ) : (
                             approvedChangeOrders.map((co) => (
-                              <div key={co.id} className="bg-surface/70 border border-surface-border rounded-lg p-3 space-y-2 text-xs">
-                                <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-surface-border/50">
-                                  <div className="space-y-0.5">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-mono font-bold text-text-primary bg-surface-border/60 px-1.5 py-0.5 rounded text-[11px]">
-                                        {co.order_number || co.co_number}
-                                      </span>
-                                      <span className="font-medium text-text-primary">{co.description}</span>
-                                    </div>
-                                    <div className="text-[11px] text-text-muted flex items-center gap-3">
-                                      <span>WBS: <strong className="text-text-primary">{co.wbs_stage}</strong></span>
-                                      {co.approved_at && (
-                                        <span>Disetujui: {new Date(co.approved_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                                      )}
+                              <div key={co.id} className="text-xs border-b border-slate-800 pb-1.5 last:border-0 last:pb-0">
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <span className="font-medium text-slate-200">{co.description || co.order_number}</span>
+                                    <div className="text-[10px] text-slate-400">
+                                      {co.wbs_stage && <span className="mr-2">Tahap: {co.wbs_stage}</span>}
+                                      <span>Tgl: {new Date(co.approved_at || co.created_at).toLocaleDateString('id-ID')}</span>
                                     </div>
                                   </div>
-                                  <div className="text-right">
-                                    <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded font-bold mr-2">
-                                      APPROVED
-                                    </span>
-                                    <span className="font-bold text-secondary font-mono">
-                                      + {formatCurrency(co.total_amount)}
-                                    </span>
-                                  </div>
+                                  <span className="font-mono text-purple-400 font-semibold">
+                                    + Rp {Number(co.total_amount).toLocaleString('id-ID')}
+                                  </span>
                                 </div>
 
-                                {/* Items Table */}
-                                {co.change_order_items && co.change_order_items.length > 0 ? (
-                                  <div className="overflow-x-auto">
-                                    <table className="w-full text-[11px] text-left">
-                                      <thead>
-                                        <tr className="text-text-muted border-b border-surface-border/40">
-                                          <th className="py-1 pr-2">Uraian Pekerjaan / Material</th>
-                                          <th className="py-1 px-2">WBS</th>
-                                          <th className="py-1 px-2">Tipe</th>
-                                          <th className="py-1 px-2 text-right">Qty</th>
-                                          <th className="py-1 px-2 text-right">Harga</th>
-                                          <th className="py-1 pl-2 text-right">Subtotal</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody className="divide-y divide-surface-border/30">
-                                        {co.change_order_items.map((item, idx) => (
-                                          <tr key={item.id || idx} className="hover:bg-surface-border/20">
-                                            <td className="py-1.5 pr-2 font-medium text-text-primary">
-                                              {item.item_name}
-                                              {item.notes && <span className="block text-[10px] text-text-muted font-normal">({item.notes})</span>}
-                                            </td>
-                                            <td className="py-1.5 px-2 text-text-muted">{item.wbs_stage || co.wbs_stage}</td>
-                                            <td className="py-1.5 px-2">
-                                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                                                item.item_type === 'MATERIAL' ? 'bg-sky-500/10 text-sky-400' :
-                                                item.item_type === 'LABOR' ? 'bg-amber-500/10 text-amber-400' :
-                                                'bg-purple-500/10 text-purple-400'
-                                              }`}>
-                                                {item.item_type}
-                                              </span>
-                                            </td>
-                                            <td className="py-1.5 px-2 text-right font-mono text-text-muted">
-                                              {item.quantity} {item.unit || 'pcs'}
-                                            </td>
-                                            <td className="py-1.5 px-2 text-right font-mono text-text-muted">
-                                              {formatCurrency(item.unit_price)}
-                                            </td>
-                                            <td className="py-1.5 pl-2 text-right font-mono font-semibold text-text-primary">
-                                              {formatCurrency(item.subtotal)}
-                                            </td>
-                                          </tr>
-                                        ))}
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                ) : (
-                                  <p className="text-[11px] text-text-muted italic">Tidak ada rincian item individual.</p>
+                                {/* Rincian sub-item jika ada item_type MATERIAL/LABOR terperinci */}
+                                {co.change_order_items && co.change_order_items.length > 0 && (
+                                  <ul className="mt-1 pl-2 text-[10px] text-slate-400 list-disc list-inside">
+                                    {co.change_order_items.map((sub, idx) => (
+                                      <li key={idx}>
+                                        {sub.item_name} ({sub.quantity}x @ Rp {Number(sub.unit_price).toLocaleString('id-ID')})
+                                      </li>
+                                    ))}
+                                  </ul>
                                 )}
                               </div>
                             ))
@@ -966,7 +918,7 @@ export const KasirDashboard: React.FC = () => {
 
                   <div className="border-t border-surface-border/50 pt-3 flex justify-between items-center">
                     <span className="text-sm font-bold text-text-primary">Total Harga Jual</span>
-                    <span className="font-bold text-text-primary">{formatCurrency(selectedSpk.quotationAmount + selectedSpk.amendmentCost + (manualAdjustments[selectedSpk.id] || 0))}</span>
+                    <span className="font-bold text-text-primary">{formatCurrency(selectedSpk.quotationAmount + effectiveAmendmentCost + (manualAdjustments[selectedSpk.id] || 0))}</span>
                   </div>
 
                   <div className="flex justify-between items-center text-sm text-status-danger">
@@ -980,7 +932,7 @@ export const KasirDashboard: React.FC = () => {
               <div className="bg-primary/5 border border-primary/20 rounded-lg p-5 flex justify-between items-center mb-8">
                 <span className="text-lg font-medium text-text-primary">Final Bill to Customer</span>
                 <span className="text-2xl font-bold text-primary">
-                  {formatCurrency(Math.max(0, (selectedSpk.quotationAmount + selectedSpk.amendmentCost + (manualAdjustments[selectedSpk.id] || 0)) - selectedSpk.dpAmount))}
+                  {formatCurrency(Math.max(0, (selectedSpk.quotationAmount + effectiveAmendmentCost + (manualAdjustments[selectedSpk.id] || 0)) - selectedSpk.dpAmount))}
                 </span>
               </div>
 

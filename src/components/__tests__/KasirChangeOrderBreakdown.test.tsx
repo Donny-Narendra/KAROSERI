@@ -178,31 +178,30 @@ describe('Component: KasirDashboard (Approved Change Order Itemized Breakdown & 
       expect(billingService.fetchApprovedChangeOrders).toHaveBeenCalledWith(spkDbId);
     });
 
-    // 5. Verify Customer Billing displays Change Orders (Addendum) with APPROVED badge
+    // 5. Verify Customer Billing displays Change Orders (Addendum) and toggle button
     await waitFor(() => {
       expect(screen.getByText(/Change Orders \(Addendum\)/i)).toBeInTheDocument();
-      expect(screen.getByText('1 APPROVED')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Lihat Rincian/i })).toBeInTheDocument();
     });
 
-    // 6. Accordion should initially be collapsed (Lihat Rincian visible)
-    const toggleButton = screen.getByRole('button', { name: /Lihat Rincian/i });
+    // 6. Accordion should initially be collapsed (Rincian Pekerjaan Tambahan not visible)
+    const toggleButton = screen.getByRole('button', { name: /Lihat Rincian \(1\)/i });
     expect(toggleButton).toBeInTheDocument();
-    expect(screen.queryByText(/Perlindungan Hukum & Sengketa/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Rincian Pekerjaan Tambahan \(Di Luar Kontrak Awal\)/i)).not.toBeInTheDocument();
 
-    // 7. Click "Lihat Rincian" to expand accordion
+    // 7. Click "Lihat Rincian (1)" to expand accordion
     fireEvent.click(toggleButton);
 
-    // 8. Verify dispute protection banner and itemized metadata appear
-    expect(screen.getByText(/Perlindungan Hukum & Sengketa/i)).toBeInTheDocument();
-    expect(screen.getByText('CO-SPK2668-01')).toBeInTheDocument();
+    // 8. Verify sub-panel header and change order metadata
+    expect(screen.getByText(/Rincian Pekerjaan Tambahan \(Di Luar Kontrak Awal\)/i)).toBeInTheDocument();
+    expect(screen.getByText('1 Item Disetujui')).toBeInTheDocument();
     expect(screen.getByText('Upgrade Plat Dinding & Pintu Samping')).toBeInTheDocument();
-    expect(screen.getAllByText(/WBS 3: Dinding\/Fabrikasi/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Tahap: WBS 3: Dinding\/Fabrikasi/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/\+ Rp 3\.200\.000/i).length).toBeGreaterThanOrEqual(1);
 
-    // 9. Verify itemized table rows
-    expect(screen.getByText('Plat Bordes Aluminium 2mm')).toBeInTheDocument();
-    expect(screen.getByText('Jasa Las & Engsel Heavy Duty')).toBeInTheDocument();
-    expect(screen.getByText('MATERIAL')).toBeInTheDocument();
-    expect(screen.getByText('LABOR')).toBeInTheDocument();
+    // 9. Verify sub-item list items
+    expect(screen.getByText(/Plat Bordes Aluminium 2mm \(2x @ Rp 1\.000\.000\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Jasa Las & Engsel Heavy Duty \(1x @ Rp 1\.200\.000\)/i)).toBeInTheDocument();
 
     // 10. Button text should update to "Tutup Rincian"
     const closeToggleButton = screen.getByRole('button', { name: /Tutup Rincian/i });
@@ -210,7 +209,7 @@ describe('Component: KasirDashboard (Approved Change Order Itemized Breakdown & 
 
     // 11. Click "Tutup Rincian" and verify it collapses
     fireEvent.click(closeToggleButton);
-    expect(screen.queryByText(/Perlindungan Hukum & Sengketa/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Rincian Pekerjaan Tambahan \(Di Luar Kontrak Awal\)/i)).not.toBeInTheDocument();
   });
 
   it('triggers Cetak Invoice with mapped itemized change order payload when clicked', async () => {
@@ -226,7 +225,7 @@ describe('Component: KasirDashboard (Approved Change Order Itemized Breakdown & 
     fireEvent.click(screen.getByText('SPK-2668'));
 
     await waitFor(() => {
-      expect(screen.getByText('1 APPROVED')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Lihat Rincian/i })).toBeInTheDocument();
     });
 
     // Verify "Cetak Invoice" action button is rendered for UNPAID status
