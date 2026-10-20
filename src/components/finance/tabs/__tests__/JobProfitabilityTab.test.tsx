@@ -69,7 +69,7 @@ describe('Component: JobProfitabilityTab (Operational SPKs & Draft Exclusion)', 
       customer_name: 'Budi Santoso (Draft DP)',
       customer_phone: '081555666777',
       vehicle_plate: 'W 9999 ZZ',
-      spk_status: 'PENDING_DP',
+      spk_status: 'PENDING_PAYMENT',
       registration_date: '2026-10-19T11:00:00Z',
       total_revenue: 0,
       actual_material_cost: 0,
@@ -102,7 +102,7 @@ describe('Component: JobProfitabilityTab (Operational SPKs & Draft Exclusion)', 
     expect(defaultOption).toBeInTheDocument();
   });
 
-  it('strictly excludes DRAFT (SPK-8698) and PENDING_DP (SPK-9999) from table rendering', async () => {
+  it('strictly excludes DRAFT (SPK-8698) and PENDING_PAYMENT (SPK-9999) from table rendering', async () => {
     render(<JobProfitabilityTab />);
 
     await waitFor(() => {
@@ -114,7 +114,7 @@ describe('Component: JobProfitabilityTab (Operational SPKs & Draft Exclusion)', 
     expect(screen.getByText(/PT Angkutan Prima/i)).toBeInTheDocument();
     expect(screen.getByText(/CV Berkah Abadi/i)).toBeInTheDocument();
 
-    // Verify DRAFT and PENDING_DP SPKs are NOT rendered in the table
+    // Verify DRAFT and PENDING_PAYMENT SPKs are NOT rendered in the table
     expect(screen.queryByText('SPK-8698')).not.toBeInTheDocument();
     expect(screen.queryByText(/PT\. Grosir Murah Kediri/i)).not.toBeInTheDocument();
     expect(screen.queryByText('SPK-9999')).not.toBeInTheDocument();

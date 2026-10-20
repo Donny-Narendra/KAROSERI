@@ -1,64 +1,72 @@
-# Sprint 52 — Exclude DRAFT Status SPK from Financial Reports and Executive Profitability Views
+# Sprint 53 — Fix Invalid Enum spk_status PENDING_DP in Financial Views and Queries
 
 > **Duration**: 2026-10-20 to 2026-10-21
 > **Status**: Completed ✅
 
 ## Goal
-Exclude SPKs with status `DRAFT` and `PENDING_DP` from PostgreSQL financial database views (`view_spk_job_profitability`, `view_wbs_cost_variance`), executive summary RPC aggregation (`get_financial_executive_summary`), and ensure frontend views (`JobProfitabilityTab.tsx`, `WbsCostVarianceTab.tsx`, `financialReportsService.ts`) only present active, approved, and operational SPKs to prevent dirtying financial metrics and executive margin statistics.
+Resolve PostgreSQL data exception 22P02 (`invalid input value for enum spk_status: "PENDING_DP"`) occurring on `/finance-reports` by replacing non-existent enum value `'PENDING_DP'` with valid enum `'PENDING_PAYMENT'`, casting status columns to `text` (`s.status::text AS spk_status`) in database views to guard against enum casting runtime errors, and harmonizing queries across `financialReportsService.ts`, `WbsCostVarianceTab.tsx`, and `JobProfitabilityTab.tsx`.
 
 ## Scope
 
 ### Included
-- **Database Migration (`supabase/migrations/20261021010000_exclude_draft_spk_from_financial_reports.sql`)**:
-  - Update `public.view_spk_job_profitability` to filter `WHERE UPPER(s.status::text) NOT IN ('DRAFT', 'PENDING_DP')` while preserving all required columns (`customer_phone`, `target_date`, `payment_status`).
-  - Update `public.view_wbs_cost_variance` to filter `WHERE UPPER(s.status::text) NOT IN ('DRAFT', 'PENDING_DP')` while preserving approved Change Order 3-element cost aggregations and `stages` CTE.
-  - Update RPC `public.get_financial_executive_summary` to filter out `DRAFT` and `PENDING_DP` SPKs from both profitability and receivables aggregations.
+- **Database Migration (`supabase/migrations/20261022010000_fix_enum_spk_status_in_financial_views.sql`)**:
+  - Update `public.view_spk_job_profitability`:
+    - Cast `s.status::text AS spk_status` in column projections so downstream PostgREST queries treat `spk_status` as text.
+    - Filter `WHERE UPPER(s.status::text) NOT IN ('DRAFT', 'PENDING_PAYMENT')`.
+    - Preserve all essential columns: `customer_phone`, `target_date`, `payment_status`, and 3-element COGS calculations.
+  - Update `public.view_wbs_cost_variance`:
+    - Filter `WHERE UPPER(s.status::text) NOT IN ('DRAFT', 'PENDING_PAYMENT')`.
+    - Preserve approved Change Order 3-element cost aggregations, `stages` CTE, and variances.
+  - Update `public.view_project_receivables`:
+    - Cast `s.status::text AS spk_status` for complete schema consistency.
+  - Update RPC `public.get_financial_executive_summary`:
+    - Filter using `UPPER(spk_status::text) NOT IN ('DRAFT', 'PENDING_PAYMENT')` on both profitability and receivables subqueries.
 - **Frontend & Service Layer Harmonization**:
-  - Update `src/services/financialReportsService.ts` to add query-level (`.not('spk_status', 'in', '("DRAFT","PENDING_DP")')`) and in-memory defense filtering against `DRAFT` and `PENDING_DP` SPKs.
-  - Update `src/components/finance/tabs/JobProfitabilityTab.tsx` to ensure default status filter clearly identifies operational SPKs (`Semua SPK Operasional (Non-Draft)`) and excludes draft data.
-  - Update `src/components/finance/tabs/WbsCostVarianceTab.tsx` so the SPK selector dropdown excludes `DRAFT` and `PENDING_DP` SPKs at query level and in memory.
+  - `src/services/financialReportsService.ts`:
+    - Update query filter from `.not('spk_status', 'in', '("DRAFT","PENDING_DP")')` to `.not('spk_status', 'in', '("DRAFT","PENDING_PAYMENT")')`.
+    - Update in-memory defense filter to exclude both `DRAFT` and `PENDING_PAYMENT` (and defensively `PENDING_DP`).
+  - `src/components/finance/tabs/WbsCostVarianceTab.tsx`:
+    - Fix direct table query on `spk` from `.not('status', 'in', '("DRAFT","PENDING_DP")')` to `.not('status', 'in', '("DRAFT","PENDING_PAYMENT")')`.
+    - Update in-memory filter to exclude `DRAFT` and `PENDING_PAYMENT`.
+  - `src/components/finance/tabs/JobProfitabilityTab.tsx`:
+    - Update in-memory filter to exclude `DRAFT` and `PENDING_PAYMENT`.
+  - `src/pages/AdminDashboardPage.tsx`:
+    - Update valid SPK filter to include `PENDING_PAYMENT`.
 - **Automated Testing & Empirical Verification**:
-  - Add test suite in `src/components/finance/tabs/__tests__/JobProfitabilityTab.test.tsx` verifying draft SPKs (`SPK-8698`) are excluded, operational SPKs render correctly, and summaries calculate accurately.
-  - Add test suite in `src/services/__tests__/financialReportsService.test.ts` verifying exclusion logic and defensive layers.
-  - Run database migration via `apply_migration.cjs` and empirically verify `SPK-8698` is omitted from `view_spk_job_profitability` and `total_projects` updates from 6 to 5.
-  - Run full test suite (31/31 suites, 199/199 tests passing), oxlint (0 errors, 0 warnings across 151 files), typescript compiler (`npx tsc -b`), and production build.
+  - Update `src/services/__tests__/financialReportsService.test.ts` to assert against `PENDING_PAYMENT`.
+  - Update `src/components/finance/tabs/__tests__/JobProfitabilityTab.test.tsx` to assert against `PENDING_PAYMENT`.
+  - Apply migration via `apply_migration.cjs` and verify via `verify_financial_reporting_views.cjs`.
+  - Run full test suite (`npm run test`), linter (`npm run lint`), typescript compiler (`npx tsc -b`), and production build (`npm run build`).
 
 ### Explicitly Excluded
+- Altering the PostgreSQL enum `spk_status` definition in the database.
 - Modifying SPK creation, draft editing, or quotation generation in Service Advisor portal.
-- Changing billing or payment registration logic in Kasir Dashboard.
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| 1. Create SQL database migration for `view_spk_job_profitability`, `view_wbs_cost_variance`, and `get_financial_executive_summary` | Antigravity | ✅ Done | 0.3h |
-| 2. Apply migration to PostgreSQL database and empirically verify views & RPC | Antigravity | ✅ Done | 0.2h |
-| 3. Update `financialReportsService.ts`, `JobProfitabilityTab.tsx`, and `WbsCostVarianceTab.tsx` | Antigravity | ✅ Done | 0.4h |
-| 4. Add comprehensive unit & component tests | Antigravity | ✅ Done | 0.4h |
-| 5. Regression testing, linting, build check, and sprint documentation | Antigravity | ✅ Done | 0.2h |
+| 1. Create SQL database migration `20261022010000_fix_enum_spk_status_in_financial_views.sql` | Antigravity | ✅ Done | 0.3h |
+| 2. Apply migration to Supabase PostgreSQL database & verify views/RPC | Antigravity | ✅ Done | 0.2h |
+| 3. Update `financialReportsService.ts`, `WbsCostVarianceTab.tsx`, and `JobProfitabilityTab.tsx` | Antigravity | ✅ Done | 0.3h |
+| 4. Update unit test suites & component tests | Antigravity | ✅ Done | 0.3h |
+| 5. Regression testing (Vitest, Oxlint, TypeScript, Build) | Antigravity | ✅ Done | 0.2h |
 
 ## Daily Log
 
 ### 2026-10-20
-- Archived Sprint 51 to `.gsd/sprints/sprint-51-ingest-approved-change-order-labor-and-overhead-items-into-mandor-workflows.md`.
-- Initialized Sprint 52: Exclude DRAFT Status SPK from Financial Reports and Executive Profitability Views.
-- Verified empirical issue in database: `SPK-8698` (PT. Grosir Murah Kediri) with status `DRAFT` was present in `view_spk_job_profitability` and inflated `total_projects` in `get_financial_executive_summary` to 6.
-- Created SQL migration `supabase/migrations/20261021010000_exclude_draft_spk_from_financial_reports.sql` with explicit `UPPER(s.status::text) NOT IN ('DRAFT', 'PENDING_DP')` casts for PostgreSQL custom enum `spk_status`, preserving all required schema columns and approved change order aggregations.
-- Applied migration to Supabase PostgreSQL database using `apply_migration.cjs`.
-- Empirically validated database output:
-  - `view_spk_job_profitability` returns 0 rows for `SPK-8698` (properly excluded).
-  - `get_financial_executive_summary()` recalculated `total_projects` from 6 down to 5 operational projects.
-  - Ran `verify_financial_reporting_views.cjs`: all 5 stages passed with 100% compliance.
-- Hardened frontend and service layer:
-  - `src/services/financialReportsService.ts`: Added PostgREST `.not('spk_status', 'in', '("DRAFT","PENDING_DP")')` and in-memory defense filter.
-  - `src/components/finance/tabs/JobProfitabilityTab.tsx`: Added in-memory defense filter and updated default dropdown label to `Semua SPK Operasional (Non-Draft)`.
-  - `src/components/finance/tabs/WbsCostVarianceTab.tsx`: Filtered out `DRAFT` and `PENDING_DP` SPKs from the SPK selection dropdown.
-- Created automated unit test suites:
-  - `src/components/finance/tabs/__tests__/JobProfitabilityTab.test.tsx` (3 tests passing).
-  - `src/services/__tests__/financialReportsService.test.ts` (1 test passing).
-  - Updated `WbsCostVarianceTab.test.tsx` query mock to support `.not()` chaining (4 tests passing).
-- Full regression verification:
+- Initialized Sprint 53 to resolve PostgreSQL enum error 22P02 (`invalid input value for enum spk_status: "PENDING_DP"`).
+- Analyzed root causes: PostgREST enum cast on `spk.status` and `view_spk_job_profitability.spk_status`.
+- Identified dependency chain: `view_corporate_monthly_pnl` references `view_spk_job_profitability`. Added cascading drop order so PostgreSQL allows changing column data type of `spk_status` from `spk_status` (enum) to `text`.
+- Created SQL migration `supabase/migrations/20261022010000_fix_enum_spk_status_in_financial_views.sql` updating `view_spk_job_profitability`, `view_wbs_cost_variance`, `view_project_receivables`, `view_corporate_monthly_pnl`, and `get_financial_executive_summary` with `s.status::text` and valid enum comparison `NOT IN ('DRAFT', 'PENDING_PAYMENT')`.
+- Applied migration successfully via `apply_migration.cjs`. Verified column data types are now `text` in `information_schema.columns`.
+- Validated via `verify_financial_reporting_views.cjs`: all 5 stages passed 100%. Verified RPC `get_financial_executive_summary()` executes cleanly.
+- Updated frontend query in `src/services/financialReportsService.ts` to `.not('spk_status', 'in', '("DRAFT","PENDING_PAYMENT")')` and added defensive in-memory exclusion.
+- Fixed direct table query in `src/components/finance/tabs/WbsCostVarianceTab.tsx` from `.not('status', 'in', '("DRAFT","PENDING_DP")')` to `.not('status', 'in', '("DRAFT","PENDING_PAYMENT")')`.
+- Updated `JobProfitabilityTab.tsx` and `AdminDashboardPage.tsx` filtering.
+- Updated test suites in `financialReportsService.test.ts` and `JobProfitabilityTab.test.tsx`.
+- Ran full regression verification:
   - Vitest: 31/31 test suites passing, 199/199 tests passing (100%).
   - Oxlint: 0 errors, 0 warnings across 151 files with 113 rules.
-  - TypeScript: Clean static compilation (`npx tsc -b`).
-  - Production build: Clean bundle generated in 508ms (`npm run build`).
+  - TypeScript: Clean compilation with 0 errors (`npx tsc -b`).
+  - Production build: Clean bundle generated in 491ms (`npm run build`).

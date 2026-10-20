@@ -61,8 +61,8 @@ export const financialReportsService = {
       .select('*')
       .order('registration_date', { ascending: false });
 
-    // Defensive layer: exclude DRAFT & PENDING_DP at postgrest query level
-    query = query.not('spk_status', 'in', '("DRAFT","PENDING_DP")');
+    // Defensive layer: exclude DRAFT & PENDING_PAYMENT at postgrest query level
+    query = query.not('spk_status', 'in', '("DRAFT","PENDING_PAYMENT")');
 
     if (filter?.startDate) {
       query = query.gte('registration_date', filter.startDate);
@@ -89,7 +89,7 @@ export const financialReportsService = {
     }
 
     return ((data || []) as any[])
-      .filter(row => !['DRAFT', 'PENDING_DP'].includes(String(row.spk_status || '').toUpperCase()))
+      .filter(row => !['DRAFT', 'PENDING_PAYMENT', 'PENDING_DP'].includes(String(row.spk_status || '').toUpperCase()))
       .map(row => ({
         ...row,
         total_revenue: Number(row.total_revenue || 0),

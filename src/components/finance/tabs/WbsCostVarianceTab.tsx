@@ -52,12 +52,12 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
         const { data: spks } = await supabase
           .from('spk')
           .select('id, spk_no, customer_name, vehicle_plate, status')
-          .not('status', 'in', '("DRAFT","PENDING_DP")')
+          .not('status', 'in', '("DRAFT","PENDING_PAYMENT")')
           .order('created_at', { ascending: false })
           .limit(100);
         if (spks) {
           const operationalSpks = spks.filter(
-            s => !['DRAFT', 'PENDING_DP'].includes(String(s.status || '').toUpperCase())
+            s => !['DRAFT', 'PENDING_PAYMENT', 'PENDING_DP'].includes(String(s.status || '').toUpperCase())
           );
           setSpkList(operationalSpks);
         }

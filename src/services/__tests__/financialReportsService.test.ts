@@ -14,7 +14,7 @@ describe('Service: financialReportsService (Exclude Draft SPK)', () => {
     vi.clearAllMocks();
   });
 
-  it('excludes DRAFT and PENDING_DP SPKs in getJobProfitability via query filter and in-memory defense', async () => {
+  it('excludes DRAFT and PENDING_PAYMENT SPKs in getJobProfitability via query filter and in-memory defense', async () => {
     const mockQueryBuilder: any = {
       order: vi.fn().mockReturnThis(),
       not: vi.fn().mockReturnThis(),
@@ -61,7 +61,7 @@ describe('Service: financialReportsService (Exclude Draft SPK)', () => {
         spk_id: 'spk-dp-9999',
         spk_number: 'SPK-9999',
         customer_name: 'Draft DP Client',
-        spk_status: 'PENDING_DP',
+        spk_status: 'PENDING_PAYMENT',
         registration_date: '2026-10-13',
         total_revenue: '0',
         actual_material_cost: '0',
@@ -84,10 +84,10 @@ describe('Service: financialReportsService (Exclude Draft SPK)', () => {
 
     const result = await financialReportsService.getJobProfitability();
 
-    // Verify .not('spk_status', 'in', '("DRAFT","PENDING_DP")') was called
-    expect(mockQueryBuilder.not).toHaveBeenCalledWith('spk_status', 'in', '("DRAFT","PENDING_DP")');
+    // Verify .not('spk_status', 'in', '("DRAFT","PENDING_PAYMENT")') was called
+    expect(mockQueryBuilder.not).toHaveBeenCalledWith('spk_status', 'in', '("DRAFT","PENDING_PAYMENT")');
 
-    // Verify in-memory defense removed both DRAFT and PENDING_DP SPKs
+    // Verify in-memory defense removed both DRAFT and PENDING_PAYMENT SPKs
     expect(result).toHaveLength(1);
     expect(result[0].spk_number).toBe('SPK-001');
     expect(result[0].spk_status).toBe('ACTIVE');

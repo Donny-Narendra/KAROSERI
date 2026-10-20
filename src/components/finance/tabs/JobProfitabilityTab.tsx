@@ -57,7 +57,7 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
         paymentStatus: paymentStatus !== 'ALL' ? paymentStatus : undefined,
       });
       const operationalData = result.filter(
-        row => !['DRAFT', 'PENDING_DP'].includes(String(row.spk_status || '').toUpperCase())
+        row => !['DRAFT', 'PENDING_PAYMENT', 'PENDING_DP'].includes(String(row.spk_status || '').toUpperCase())
       );
       setData(operationalData);
     } catch (err: any) {

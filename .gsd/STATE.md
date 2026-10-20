@@ -1,5 +1,5 @@
 ## Current Position
-- **Sprint**: Sprint 52 — Exclude DRAFT Status SPK from Financial Reports and Executive Profitability Views
+- **Sprint**: Sprint 53 — Fix Invalid Enum spk_status PENDING_DP in Financial Views and Queries
 - **Status**: Completed ✅
 - **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness
 
