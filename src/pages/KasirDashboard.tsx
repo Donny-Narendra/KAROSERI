@@ -875,17 +875,26 @@ export const KasirDashboard: React.FC = () => {
 
               {/* DP Recording Form - Only in DP Tab */}
               {activeTab === 'DP' && draftStatuses.includes(selectedSpk.status.toUpperCase()) && (
-                <div className="mb-6 p-5 rounded-lg border border-primary/30 bg-primary/5 flex items-center justify-between">
+                <div className="mb-6 p-5 rounded-lg border border-primary/30 bg-primary/5 flex items-center justify-between flex-wrap gap-4">
                   <div>
                     <h3 className="font-semibold text-text-primary flex items-center gap-2 mb-1">
                       <Receipt className="w-5 h-5 text-primary" />
                       Status: {selectedSpk.status}
                     </h3>
-                    <p className="text-sm text-text-muted">SPK ini membutuhkan Uang Muka (DP) sebelum dilanjutkan ke pengerjaan.</p>
+                    {selectedSpk.totalEstimatedCost > 0 || selectedSpk.quotationAmount > 0 ? (
+                      <p className="text-sm text-text-muted">SPK ini membutuhkan Uang Muka (DP) sebelum dilanjutkan ke pengerjaan.</p>
+                    ) : (
+                      <p className="text-sm text-rose-400 font-medium">⚠️ SPK ini belum memiliki rincian estimasi RAB (Total Rp 0). Service Advisor wajib melengkapi RAB terlebih dahulu.</p>
+                    )}
                   </div>
                   <button 
+                    disabled={selectedSpk.totalEstimatedCost <= 0 && selectedSpk.quotationAmount <= 0}
                     onClick={() => setIsDpModalOpen(true)}
-                    className="px-6 py-2.5 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-primary/90 transition shadow shadow-primary/20"
+                    className={`px-6 py-2.5 font-semibold rounded-lg transition shadow ${
+                      selectedSpk.totalEstimatedCost > 0 || selectedSpk.quotationAmount > 0
+                        ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/20 cursor-pointer'
+                        : 'bg-surface-border text-text-muted cursor-not-allowed opacity-50'
+                    }`}
                   >
                     Terima DP
                   </button>

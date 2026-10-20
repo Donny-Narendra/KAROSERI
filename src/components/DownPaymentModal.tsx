@@ -65,6 +65,20 @@ export const DownPaymentModal: React.FC<DownPaymentModalProps> = ({ isOpen, onCl
       return;
     }
 
+    const contractTotal = Number(suggestedAmount) || Number(spk.totalCost) || 0;
+    if (contractTotal <= 0) {
+      setModalConfig({
+        isOpen: true,
+        title: 'RAB Belum Disusun',
+        message: 'SPK ini belum memiliki rincian estimasi RAB (Total Estimasi Rp 0). Pembayaran uang muka (DP) tidak dapat diterima dan SPK tidak dapat diaktifkan sebelum Service Advisor menyusun rincian RAB.',
+        variant: 'danger',
+        hideCancel: true,
+        confirmText: 'Mengerti',
+        onConfirm: closeModal,
+      });
+      return;
+    }
+
     setModalConfig({
       isOpen: true,
       title: 'Konfirmasi Penerimaan Uang Muka (DP)',

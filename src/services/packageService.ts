@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabaseClient';
 import type { ProductPackage, PackageItem } from '../types/package';
 import { resolveItemType } from '../utils/itemClassification';
+import { rabService } from './rabService';
 
 class PackageService {
   async getPackages(): Promise<ProductPackage[]> {
@@ -184,6 +185,7 @@ class PackageService {
         overhead_hours: itemType === 'OVERHEAD' ? qty * 8 : 0,
         overhead_rate: itemType === 'OVERHEAD' ? unitPrice / 8 : 0,
         item_total: qty * unitPrice,
+        subtotal: qty * unitPrice,
         package_id: packageId,
         is_locked: false,
       };
@@ -195,6 +197,10 @@ class PackageService {
       .select();
 
     if (insertError) throw insertError;
+
+    // Sinkronkan pagu total ke rab_estimations dan spk
+    await rabService.syncRabTotals(spkId, estData!.id);
+
     return inserted || [];
   }
 }

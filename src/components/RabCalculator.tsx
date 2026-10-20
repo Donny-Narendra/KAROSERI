@@ -15,56 +15,9 @@ import { exportRabToExcel, printRabQuotation } from '../utils/rabExport';
 import { parseDecimalValue } from '../utils/numberUtils';
 import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
 
-interface RabSpkDetails {
-  id: string;
-  spk_no: string;
-  customer_name: string;
-  vehicle_number?: string | null;
-  vehicle_plate?: string | null;
-  status?: string | null;
-  is_pricing_locked?: boolean | null;
-  allocation_status?: 'PARTIAL' | 'COMPLETE' | null;
-  locked_at?: string | null;
-}
+import { rabService, type RabItem, type RabSpkDetails, type DbRabItemRecord } from '../services/rabService';
 
-interface DbRabItemRecord {
-  id: string;
-  wbs_category: string;
-  wbs_stage?: string | null;
-  item_type?: 'MATERIAL' | 'LABOR' | 'OVERHEAD' | string | null;
-  description?: string | null;
-  material_name?: string | null;
-  material_id?: string | null;
-  package_id?: string | null;
-  quantity?: number | string | null;
-  unit?: string | null;
-  notes?: string | null;
-  unit_price?: number | string | null;
-  cost_price?: number | string | null;
-  labor_hours?: number | string | null;
-  labor_rate?: number | string | null;
-  overhead_hours?: number | string | null;
-  overhead_rate?: number | string | null;
-  item_total?: number | string | null;
-  subtotal?: number | string | null;
-  is_locked?: boolean | null;
-}
-
-interface RabItem {
-  id: string;
-  wbsCategory: string;
-  type: 'material' | 'labor' | 'overhead';
-  description: string;
-  qty: number;
-  unit?: string;
-  notes?: string;
-  unitPrice: number;
-  costPrice?: number;
-  subtotal?: number;
-  isLocked?: boolean;
-  packageId?: string;
-  materialId?: string;
-}
+export type { RabItem, RabSpkDetails, DbRabItemRecord };
 
 const LABOR_KEYWORDS = ['jasa', 'ongkos', 'borongan', 'tukang', 'upah', 'tenaga'];
 
@@ -217,78 +170,17 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
 
     const fetchExistingRab = async () => {
       if (!spkId) return;
-      
-      const { data: estData, error: estError } = await supabase
-        .from('rab_estimations')
-        .select('id')
-        .eq('spk_id', spkId)
-        .single();
-        
-      const { data: spkData } = await supabase.from('spk').select('*').eq('id', spkId).single();
-      if (spkData) {
-         setSpkDetails(spkData as unknown as RabSpkDetails);
-         if (spkData.allocation_status) {
-           setAllocationStatus(spkData.allocation_status);
-         }
-      }
-        
-      if (!estError && estData) {
-        const { data: itemsData, error: itemsError } = await supabase
-          .from('rab_items')
-          .select('*')
-          .eq('rab_estimation_id', estData.id);
-          
-        if (!itemsError && itemsData) {
-          const loadedItems = (itemsData as unknown as DbRabItemRecord[]).map((dbItem: DbRabItemRecord) => {
-            let type: 'material' | 'labor' | 'overhead' = 'material';
-            let qty = 0;
-            let unitPrice = Number(dbItem.unit_price) || 0;
-            const costPrice = Number(dbItem.cost_price) || 0;
-            
-            const laborHours = Number(dbItem.labor_hours || 0);
-            const overheadHours = Number(dbItem.overhead_hours || 0);
-
-            if (dbItem.item_type === 'LABOR' || laborHours > 0 || Number(dbItem.labor_rate || 0) > 0) {
-              type = 'labor';
-              qty = Number(dbItem.quantity) || laborHours || 1;
-              unitPrice = Number(dbItem.unit_price) || Number(dbItem.labor_rate) || 0;
-              if (unitPrice === 0 && Number(dbItem.item_total || 0) > 0) {
-                unitPrice = Number(dbItem.item_total) / qty;
-              }
-            } else if (dbItem.item_type === 'OVERHEAD' || overheadHours > 0) {
-              type = 'overhead';
-              qty = Number(dbItem.quantity) || (overheadHours > 0 ? overheadHours / 8 : 1);
-              unitPrice = Number(dbItem.unit_price) || (Number(dbItem.overhead_rate) * 8) || 0;
-              if (unitPrice === 0 && Number(dbItem.item_total || 0) > 0) {
-                unitPrice = Number(dbItem.item_total) / qty;
-              }
-            } else {
-              type = 'material';
-              qty = Number(dbItem.quantity || 0);
-              // Recover unit price if still 0
-              if (unitPrice === 0) {
-                unitPrice = Number(dbItem.item_total || 0) / (Number(dbItem.quantity) || 1);
-              }
-            }
-            
-            return {
-              id: dbItem.id,
-              wbsCategory: dbItem.wbs_category,
-              type,
-              description: dbItem.material_name || dbItem.description || '',
-              qty,
-              unit: dbItem.unit || (type === 'labor' ? 'lot' : 'pcs'),
-              notes: dbItem.notes || (type === 'labor' && dbItem.description && dbItem.description !== dbItem.material_name ? dbItem.description : undefined),
-              unitPrice,
-              costPrice,
-              subtotal: Number(dbItem.subtotal) || (qty * unitPrice),
-              isLocked: dbItem.is_locked ?? false,
-              packageId: dbItem.package_id || undefined,
-              materialId: dbItem.material_id || undefined
-            };
-          });
-          setItems(loadedItems);
+      try {
+        const { spk: spkData, items: loadedItems } = await rabService.loadRabItems(spkId);
+        if (spkData) {
+          setSpkDetails(spkData);
+          if (spkData.allocation_status) {
+            setAllocationStatus(spkData.allocation_status);
+          }
         }
+        setItems(loadedItems);
+      } catch (err) {
+        console.error("Gagal memuat data RAB:", err);
       }
     };
 
@@ -365,7 +257,8 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       }
     });
 
-    const baseItems = editingId ? items.filter(i => i.id !== editingId) : items;
+    const prevEditingId = editingId;
+    const baseItems = prevEditingId ? items.filter(i => i.id !== prevEditingId) : items;
     setItems([...baseItems, ...newLaborItemsToPush]);
     setEditingId(null);
     setIsLaborSuggestOpen(false);
@@ -383,6 +276,34 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       'Cat/Finishing': '0',
       'Kelistrikan/Hidrolik': '0',
     });
+
+    // Mutasi database langsung secara permanen
+    (async () => {
+      try {
+        if (prevEditingId) {
+          await rabService.deleteRabItem(spkId, prevEditingId);
+        }
+        const payloads = newLaborItemsToPush.map(i => ({
+          wbsCategory: i.wbsCategory,
+          type: i.type,
+          description: i.description,
+          qty: i.qty,
+          unit: i.unit,
+          unitPrice: i.unitPrice,
+          costPrice: i.costPrice,
+          notes: i.notes,
+        }));
+        const persisted = await rabService.insertRabItems(spkId, payloads);
+        if (persisted && persisted.length > 0) {
+          setItems(prev => {
+            const filtered = prev.filter(p => !newLaborItemsToPush.some(temp => temp.id === p.id));
+            return [...filtered, ...persisted];
+          });
+        }
+      } catch (err) {
+        console.error("Gagal menyimpan item jasa ke database:", err);
+      }
+    })();
   };
 
   const handleCancelEdit = () => {
@@ -448,7 +369,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
              type: newItem.type as 'material' | 'labor' | 'overhead',
              description: newItem.description as string,
              qty: wbsQty,
-             unit: newItem.type === 'labor' ? 'lot' : 'pcs',
+             unit: newItem.type === 'labor' ? 'lot' : (newItem.type === 'overhead' ? 'hari' : 'pcs'),
              unitPrice: newItem.unitPrice as number,
              costPrice,
              subtotal: wbsQty * (newItem.unitPrice as number),
@@ -458,7 +379,8 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
        }
     });
 
-    const baseItems = editingId ? items.filter(i => i.id !== editingId) : items;
+    const prevEditingId = editingId;
+    const baseItems = prevEditingId ? items.filter(i => i.id !== prevEditingId) : items;
     setItems([...baseItems, ...newItemsToPush]);
     setEditingId(null);
     setManualAllocations({});
@@ -468,6 +390,34 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       qty: 1,
       unitPrice: newItem.type === 'overhead' ? bayHourlyRate * 8 : 0,
     });
+
+    // Mutasi database langsung secara permanen
+    (async () => {
+      try {
+        if (prevEditingId) {
+          await rabService.deleteRabItem(spkId, prevEditingId);
+        }
+        const payloads = newItemsToPush.map(i => ({
+          wbsCategory: i.wbsCategory,
+          type: i.type,
+          description: i.description,
+          qty: i.qty,
+          unit: i.unit,
+          unitPrice: i.unitPrice,
+          costPrice: i.costPrice,
+          materialId: i.materialId,
+        }));
+        const persisted = await rabService.insertRabItems(spkId, payloads);
+        if (persisted && persisted.length > 0) {
+          setItems(prev => {
+            const filtered = prev.filter(p => !newItemsToPush.some(temp => temp.id === p.id));
+            return [...filtered, ...persisted];
+          });
+        }
+      } catch (err) {
+        console.error("Gagal menyimpan item ke database:", err);
+      }
+    })();
   };
 
   const handleExportXlsx = () => {
@@ -546,8 +496,13 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       if (editingId === itemToDelete) {
         handleCancelEdit();
       }
-      setItems(items.filter(item => item.id !== itemToDelete));
+      const targetId = itemToDelete;
+      setItems(items.filter(item => item.id !== targetId));
       setItemToDelete(null);
+
+      rabService.deleteRabItem(spkId, targetId).catch(err => {
+        console.error("Gagal menghapus item dari database:", err);
+      });
     }
   };
 
@@ -586,72 +541,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     }
 
     try {
-      // 1. Upsert estimation
-      const { data: estData, error: estError } = await supabase.from('rab_estimations').upsert({
-        spk_id: spkId,
-        total_material_cost: totalMaterialCost,
-        total_labor_cost: totalLaborCost,
-        total_overhead_cost: totalOverheadCost,
-        total_estimated_cost: totalCost,
-      }, { onConflict: 'spk_id' }).select().single();
-
-      if (estError) throw estError;
-
-      // 2. Insert items with point-in-time price snapshot
-      const { error: delError } = await supabase.from('rab_items').delete().eq('rab_estimation_id', estData.id);
-      if (delError && !silent) console.error("Error deleting old items:", delError);
-
-      if (items.length > 0) {
-        const itemsToInsert = items.map(item => {
-          const matchedMat = materials.find(m => (item.materialId && m.id === item.materialId) || m.name.toLowerCase() === item.description.toLowerCase());
-          const unitPrice = (item.type === 'material' || item.type === 'labor' || item.type === 'overhead') ? item.unitPrice : 0;
-          const costPrice = item.costPrice !== undefined 
-            ? item.costPrice 
-            : (item.type === 'labor' 
-                ? item.unitPrice 
-                : (item.type === 'overhead'
-                    ? item.unitPrice
-                    : (matchedMat?.cost_price !== undefined ? matchedMat.cost_price : Math.round(unitPrice * 0.8))));
-
-          const itemType: 'MATERIAL' | 'LABOR' | 'OVERHEAD' = 
-            (item.type === 'labor' ? 'LABOR' : item.type === 'overhead' ? 'OVERHEAD' : null) ||
-            matchedMat?.item_type ||
-            (isLaborKeyword(item.description) ? 'LABOR' : isOverheadKeyword(item.description) ? 'OVERHEAD' : 'MATERIAL');
-
-          return {
-            rab_estimation_id: estData.id,
-            spk_id: spkId,
-            wbs_category: item.wbsCategory,
-            wbs_stage: item.wbsCategory,
-            item_type: itemType,
-            description: item.notes || item.description,
-            material_name: item.description,
-            quantity: item.qty,
-            unit: item.unit || matchedMat?.unit || (itemType === 'LABOR' ? 'lot' : (itemType === 'OVERHEAD' ? 'hari' : 'pcs')),
-            notes: item.notes || null,
-            unit_price: unitPrice,
-            cost_price: costPrice,
-            labor_hours: itemType === 'LABOR' ? item.qty : 0,
-            labor_rate: itemType === 'LABOR' ? unitPrice : 0,
-            overhead_hours: itemType === 'OVERHEAD' ? item.qty * 8 : 0,
-            overhead_rate: itemType === 'OVERHEAD' ? unitPrice / 8 : 0,
-            item_total: calculateItemTotal(item),
-            package_id: item.packageId || null,
-            material_id: itemType === 'MATERIAL' ? (item.materialId || matchedMat?.id || null) : null,
-            is_locked: false
-          };
-        });
-
-        const { error: itemsError } = await supabase.from('rab_items').insert(itemsToInsert);
-        if (itemsError) throw itemsError;
-      }
-
-      // 3. Update SPK total cost
-      const { error: spkError } = await supabase.from('spk').update({ 
-        total_estimated_cost: totalCost,
-        allocation_status: allocationStatus
-      }).eq('id', spkId);
-      if (spkError) throw spkError;
+      await rabService.saveFullRabEstimation(spkId, items, allocationStatus);
 
       if (!silent) {
         setModalFeedback({
@@ -751,6 +641,36 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     setAllocationStatus(isComplete ? 'COMPLETE' : 'PARTIAL');
     setIsPackageModalOpen(false);
     setSelectedPackage(null);
+
+    // Mutasi database langsung secara permanen
+    (async () => {
+      try {
+        await rabService.deletePackageRabItems(spkId, pkgId);
+        const payloads = newItems.map(i => ({
+          wbsCategory: i.wbsCategory,
+          type: i.type,
+          description: i.description,
+          qty: i.qty,
+          unit: i.unit,
+          unitPrice: i.unitPrice,
+          costPrice: i.costPrice,
+          materialId: i.materialId,
+          packageId: pkgId,
+        }));
+        const persisted = await rabService.insertRabItems(spkId, payloads);
+        if (persisted && persisted.length > 0) {
+          setItems(prev => {
+            const filtered = prev.filter(p => !newItems.some(temp => temp.id === p.id));
+            return [...filtered, ...persisted];
+          });
+        }
+        await supabase.from('spk').update({
+          allocation_status: isComplete ? 'COMPLETE' : 'PARTIAL'
+        }).eq('id', spkId);
+      } catch (err) {
+        console.error("Gagal menyimpan alokasi paket ke database:", err);
+      }
+    })();
   };
 
   const appliedPackagesData = packages.filter(p => items.some(i => i.packageId === p.id));
@@ -823,6 +743,22 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                 🔒 Terkunci sejak: {new Date(spkDetails.locked_at).toLocaleString('id-ID')}
               </p>
             )}
+          </div>
+        </div>
+      )}
+
+      {!isDocumentLocked && items.length === 0 && (
+        <div className="mx-6 mt-6 p-4 rounded-xl border border-rose-500/30 bg-rose-500/10 flex items-start gap-3">
+          <div className="p-2 rounded-lg bg-rose-500/20 text-rose-400 border border-rose-500/30 mt-0.5 shrink-0">
+            <Info className="w-5 h-5" />
+          </div>
+          <div className="flex-1">
+            <h4 className="text-sm font-bold text-rose-400 uppercase tracking-wider">
+              Estimasi RAB Masih Kosong (0 Item)
+            </h4>
+            <p className="text-xs text-text-muted mt-1 leading-relaxed">
+              SPK ini belum memiliki rincian biaya. Anda wajib menambahkan item material, jasa borongan, atau memilih paket BOM terlebih dahulu. SPK tidak dapat diajukan ke Kasir untuk penerimaan DP selama rincian item masih kosong.
+            </p>
           </div>
         </div>
       )}
@@ -1533,15 +1469,17 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                      const catItems = items.filter(i => i.wbsCategory === cat.id);
                      const catMat = catItems.filter(i => i.type === 'material').reduce((sum, i) => sum + calculateItemTotal(i), 0);
                      const catLabor = catItems.filter(i => i.type === 'labor').reduce((sum, i) => sum + calculateItemTotal(i), 0);
-                     const catTotal = catMat + catLabor;
+                     const catOverhead = catItems.filter(i => i.type === 'overhead').reduce((sum, i) => sum + calculateItemTotal(i), 0);
+                     const catTotal = catMat + catLabor + catOverhead;
                      return (
                        <div key={cat.id} className="bg-background/80 p-2 rounded border border-border">
                          <span className="text-text font-bold block truncate text-[11px]" title={cat.label}>
                            {cat.label}
                          </span>
-                         <div className="mt-1 flex flex-col text-[10px] font-mono">
+                         <div className="mt-1 flex flex-col text-[10px] font-mono gap-0.5">
                            <span className="text-cyan-400">Material: Rp {catMat.toLocaleString('id-ID')}</span>
                            <span className="text-amber-400">Jasa: Rp {catLabor.toLocaleString('id-ID')}</span>
+                           <span className="text-purple-400">Overhead: Rp {catOverhead.toLocaleString('id-ID')}</span>
                            <span className="text-text font-bold pt-1 border-t border-border/50">
                              Total: Rp {catTotal.toLocaleString('id-ID')}
                            </span>
