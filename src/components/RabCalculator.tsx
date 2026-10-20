@@ -636,7 +636,6 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
             overhead_hours: itemType === 'OVERHEAD' ? item.qty * 8 : 0,
             overhead_rate: itemType === 'OVERHEAD' ? unitPrice / 8 : 0,
             item_total: calculateItemTotal(item),
-            subtotal: calculateItemTotal(item),
             package_id: item.packageId || null,
             material_id: itemType === 'MATERIAL' ? (item.materialId || matchedMat?.id || null) : null,
             is_locked: false

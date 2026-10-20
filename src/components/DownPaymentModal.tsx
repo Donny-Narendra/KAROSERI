@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { X, Receipt } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
 import { DpReceiptPrintModal, type DpReceiptData } from './finance/DpReceiptPrintModal';
 
@@ -13,6 +14,7 @@ interface DownPaymentModalProps {
 }
 
 export const DownPaymentModal: React.FC<DownPaymentModalProps> = ({ isOpen, onClose, spk, suggestedAmount, onSuccess }) => {
+  const { user } = useAuth();
   const [amount, setAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Transfer Bank');
   const [notes, setNotes] = useState('');
@@ -85,13 +87,26 @@ export const DownPaymentModal: React.FC<DownPaymentModalProps> = ({ isOpen, onCl
     setIsSubmitting(true);
     try {
       // 1. Simpan catatan pembayaran ke tabel payments
-      const { error: paymentError } = await supabase.from('payments').insert({
+      const paymentPayload: {
+        spk_id: string;
+        payment_type: string;
+        amount: number;
+        payment_method: string;
+        notes: string | null;
+        created_by?: string;
+      } = {
         spk_id: spk.dbId,
         payment_type: 'DP',
         amount: dpAmount,
         payment_method: paymentMethod,
-        notes: notes
-      });
+        notes: notes || null,
+      };
+
+      if (user?.id) {
+        paymentPayload.created_by = user.id;
+      }
+
+      const { error: paymentError } = await supabase.from('payments').insert(paymentPayload);
 
       if (paymentError) {
         console.error("Gagal mencatat pembayaran, pastikan tabel payments sudah dibuat.", paymentError);

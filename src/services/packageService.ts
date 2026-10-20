@@ -183,7 +183,6 @@ class PackageService {
         labor_rate: itemType === 'LABOR' ? unitPrice : 0,
         overhead_hours: itemType === 'OVERHEAD' ? qty * 8 : 0,
         overhead_rate: itemType === 'OVERHEAD' ? unitPrice / 8 : 0,
-        subtotal: qty * unitPrice,
         item_total: qty * unitPrice,
         package_id: packageId,
         is_locked: false,

@@ -175,7 +175,7 @@ describe('Assembly Package Import & item_type Propagation', () => {
       expect(item1.quantity).toBe(12);
       expect(item1.unit_price).toBe(450000);
       expect(item1.cost_price).toBe(400000);
-      expect(item1.subtotal).toBe(12 * 450000);
+      expect(item1.item_total).toBe(12 * 450000);
       expect(item1.waste_factor).toBeUndefined();
       expect(item1.wbs_stage).toBe('Sasis/Rangka');
 
@@ -189,7 +189,7 @@ describe('Assembly Package Import & item_type Propagation', () => {
       expect(item2.quantity).toBe(2);
       expect(item2.labor_hours).toBe(2);
       expect(item2.labor_rate).toBe(1200000);
-      expect(item2.subtotal).toBe(2 * 1200000);
+      expect(item2.item_total).toBe(2 * 1200000);
       expect(item2.waste_factor).toBeUndefined();
 
       // 3. Overhead item (inherited from master material.item_type = 'OVERHEAD')
@@ -202,7 +202,7 @@ describe('Assembly Package Import & item_type Propagation', () => {
       expect(item3.quantity).toBe(3);
       expect(item3.overhead_hours).toBe(24);
       expect(item3.overhead_rate).toBe(200000 / 8);
-      expect(item3.subtotal).toBe(3 * 200000);
+      expect(item3.item_total).toBe(3 * 200000);
       expect(item3.waste_factor).toBeUndefined();
 
       // 4. Labor item resolved via keyword heuristics
