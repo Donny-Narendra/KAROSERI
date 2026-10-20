@@ -5,6 +5,9 @@ export interface DPHistoryRecord {
   spk_no: string;
   customer_name: string;
   vehicle_plate: string;
+  vehicle_vin?: string;
+  vehicle_model?: string;
+  total_contract_estimate?: number;
   dp_amount: number;
   payment_method: string;
   notes: string;
@@ -49,6 +52,10 @@ interface RawSpkDpRow {
   spk_no: string;
   customer_name: string;
   vehicle_plate: string;
+  vehicle_vin?: string | null;
+  vehicle_number?: string | null;
+  vehicle_engine?: string | null;
+  total_estimated_cost?: number | null;
   dp_amount: number | null;
   status: string;
   payments?: RawPaymentRow[] | null;
@@ -96,6 +103,10 @@ export const fetchDPHistory = async (): Promise<DPHistoryRecord[]> => {
     spk_no,
     customer_name,
     vehicle_plate,
+    vehicle_vin,
+    vehicle_number,
+    vehicle_engine,
+    total_estimated_cost,
     dp_amount,
     status,
     payments (
@@ -124,6 +135,9 @@ export const fetchDPHistory = async (): Promise<DPHistoryRecord[]> => {
       spk_no: spk.spk_no,
       customer_name: spk.customer_name,
       vehicle_plate: spk.vehicle_plate,
+      vehicle_vin: spk.vehicle_vin || spk.vehicle_number || '-',
+      vehicle_model: spk.vehicle_plate,
+      total_contract_estimate: Number(spk.total_estimated_cost || 0),
       dp_amount: Number(spk.dp_amount || 0),
       payment_method: payment ? (payment.payment_method || 'Transfer Bank') : 'Transfer Bank',
       notes: payment ? (payment.notes || '-') : '-',

@@ -2,6 +2,7 @@ import React from 'react';
 import { Printer, Copy, ExternalLink, Check } from 'lucide-react';
 import type { DPHistoryRecord } from '../services/billingService';
 import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
+import { DpReceiptPrintModal, type DpReceiptData } from './finance/DpReceiptPrintModal';
 
 interface DpHistoryListProps {
   history: DPHistoryRecord[];
@@ -10,6 +11,8 @@ interface DpHistoryListProps {
 
 export const DpHistoryList: React.FC<DpHistoryListProps> = ({ history, loading }) => {
   const [copiedId, setCopiedId] = React.useState<string | null>(null);
+  const [selectedReceipt, setSelectedReceipt] = React.useState<DpReceiptData | null>(null);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = React.useState(false);
   const [modalConfig, setModalConfig] = React.useState<{
     isOpen: boolean;
     title: string;
@@ -49,25 +52,20 @@ export const DpHistoryList: React.FC<DpHistoryListProps> = ({ history, loading }
   };
 
   const handlePrintReceipt = (record: DPHistoryRecord) => {
-    setModalConfig({
-      isOpen: true,
-      title: 'Cetak Kuitansi Pembayaran DP',
-      message: `Konfirmasi pencetakan kuitansi resmi uang muka (DP):\n\n` +
-        `• No. SPK: ${record.spk_no}\n` +
-        `• Pelanggan: ${record.customer_name}\n` +
-        `• Kendaraan: ${record.vehicle_plate}\n` +
-        `• Nominal DP: ${formatCurrency(record.dp_amount)}\n` +
-        `• Metode Pembayaran: ${record.payment_method}\n` +
-        `• Tanggal Pembayaran: ${new Date(record.payment_date).toLocaleString('id-ID')}\n\n` +
-        `Klik "Buka Dialog Cetak" untuk memproses pencetakan dokumen kuitansi.`,
-      variant: 'info',
-      confirmText: 'Buka Dialog Cetak',
-      cancelText: 'Batal',
-      onConfirm: () => {
-        closeModal();
-        window.print();
-      },
-    });
+    const receiptData: DpReceiptData = {
+      spkNo: record.spk_no,
+      customerName: record.customer_name,
+      vehiclePlate: record.vehicle_plate,
+      vehicleModel: record.vehicle_model || record.vehicle_plate,
+      vehicleVin: record.vehicle_vin || '-',
+      paymentDate: record.payment_date,
+      totalContractEstimate: record.total_contract_estimate || 0,
+      dpAmount: record.dp_amount,
+      paymentMethod: record.payment_method,
+      notes: record.notes,
+    };
+    setSelectedReceipt(receiptData);
+    setIsReceiptModalOpen(true);
   };
 
   const handleCopyLink = (spkNo: string) => {
@@ -152,7 +150,7 @@ export const DpHistoryList: React.FC<DpHistoryListProps> = ({ history, loading }
         </div>
       ))}
 
-      {/* Modal Dialog Konfirmasi Cetak */}
+      {/* Modal Dialog Konfirmasi */}
       <ConfirmationModal
         isOpen={modalConfig.isOpen}
         title={modalConfig.title}
@@ -163,6 +161,13 @@ export const DpHistoryList: React.FC<DpHistoryListProps> = ({ history, loading }
         hideCancel={modalConfig.hideCancel}
         onConfirm={modalConfig.onConfirm || closeModal}
         onCancel={closeModal}
+      />
+
+      {/* Printable DP Receipt Modal */}
+      <DpReceiptPrintModal
+        isOpen={isReceiptModalOpen}
+        onClose={() => setIsReceiptModalOpen(false)}
+        data={selectedReceipt}
       />
     </div>
   );

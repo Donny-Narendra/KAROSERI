@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { X, Receipt } from 'lucide-react';
 import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
+import { DpReceiptPrintModal, type DpReceiptData } from './finance/DpReceiptPrintModal';
 
 interface DownPaymentModalProps {
   isOpen: boolean;
@@ -16,6 +17,8 @@ export const DownPaymentModal: React.FC<DownPaymentModalProps> = ({ isOpen, onCl
   const [paymentMethod, setPaymentMethod] = useState('Transfer Bank');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+  const [receiptData, setReceiptData] = useState<DpReceiptData | null>(null);
   const [modalConfig, setModalConfig] = useState<{
     isOpen: boolean;
     title: string;
@@ -26,6 +29,7 @@ export const DownPaymentModal: React.FC<DownPaymentModalProps> = ({ isOpen, onCl
     hideCancel?: boolean;
     isLoading?: boolean;
     onConfirm?: () => void | Promise<void>;
+    onCancel?: () => void;
   }>({
     isOpen: false,
     title: '',
@@ -102,14 +106,34 @@ export const DownPaymentModal: React.FC<DownPaymentModalProps> = ({ isOpen, onCl
 
       if (spkError) throw spkError;
       
+      const dpReceiptPayload: DpReceiptData = {
+        spkNo: spk.id,
+        customerName: spk.customerName,
+        vehiclePlate: spk.vehiclePlate,
+        vehicleModel: spk.vehicleModel || spk.vehiclePlate,
+        vehicleVin: spk.vehicleVin || spk.vin,
+        paymentDate: new Date(),
+        totalContractEstimate: suggestedAmount || 0,
+        dpAmount: dpAmount,
+        paymentMethod: paymentMethod,
+        notes: notes,
+      };
+
+      setReceiptData(dpReceiptPayload);
+
       setModalConfig({
         isOpen: true,
         title: 'DP Berhasil Dicatat',
-        message: `Penerimaan DP sebesar ${formatCurrency(dpAmount)} telah berhasil dibukukan.\n\nStatus SPK ${spk.id} kini resmi berubah menjadi ACTIVE.`,
+        message: `Penerimaan DP sebesar ${formatCurrency(dpAmount)} telah berhasil dibukukan.\n\nStatus SPK ${spk.id} kini resmi berubah menjadi ACTIVE.\n\nApakah Anda ingin mencetak Kuitansi / Bukti Penerimaan Uang Muka (Invoice DP) sekarang?`,
         variant: 'success',
-        hideCancel: true,
-        confirmText: 'Selesai',
+        hideCancel: false,
+        confirmText: 'Cetak Bukti Bayar / Invoice DP',
+        cancelText: 'Selesai',
         onConfirm: () => {
+          closeModal();
+          setIsReceiptModalOpen(true);
+        },
+        onCancel: () => {
           closeModal();
           onSuccess();
           onClose();
@@ -241,8 +265,20 @@ export const DownPaymentModal: React.FC<DownPaymentModalProps> = ({ isOpen, onCl
         hideCancel={modalConfig.hideCancel}
         isLoading={modalConfig.isLoading}
         onConfirm={modalConfig.onConfirm || closeModal}
-        onCancel={closeModal}
+        onCancel={modalConfig.onCancel || closeModal}
+      />
+
+      {/* Printable DP Receipt Modal */}
+      <DpReceiptPrintModal
+        isOpen={isReceiptModalOpen}
+        onClose={() => {
+          setIsReceiptModalOpen(false);
+          onSuccess();
+          onClose();
+        }}
+        data={receiptData}
       />
     </div>
   );
 };
+
