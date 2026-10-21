@@ -1,6 +1,6 @@
 ## Current Position
-- **Sprint**: Sprint 60 — Add Vehicle Model Input Field to New SPK Registration Form (Complete)
-- **Status**: Ready for Next Sprint / Milestone Planning
+- **Sprint**: Sprint 61 — Support Cost Price and Selling Price Input for Custom Non-Inventory Labor in RabCalculator
+- **Status**: Active (started 2026-10-21T09:25:00+07:00)
 - **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness
 
 ## Last Session Summary
@@ -10,11 +10,10 @@ Codebase mapping complete (`/map` executed):
 - 35 dependencies analyzed (16 production, 19 development)
 - 0 technical debt items found (0 TODO/FIXME/HACK, clean architecture, 100% tests passing)
 
-Sprint 60 accomplishments verified:
-- Database Migration: Added `vehicle_model` and `vehicle_brand` to `public.spk` via `20261025010000_ensure_vehicle_model_in_spk.sql`.
-- Type & Service Layer: Synchronized `SpkRecord`, `Spk`, `RabSpkDetails`, `updateSpkCredentials`.
-- UI Integration: Vehicle model inputs and displays integrated into `SpkForm.tsx`, `SpkCredentialSection.tsx`, `KasirDashboard.tsx`, `BastModal.tsx`, `ServiceAdvisorDashboard.tsx`, and `rabExport.ts`.
-- Quality: 38/38 Vitest suites passing (242/242 tests), 0 Oxlint errors/warnings across 162 files, clean TypeScript compilation, and production build in ~408ms.
+Sprint 61 initialized:
+- Refactoring `RabCalculator.tsx` to support separate `cost_price` (Upah Pokok Tukang / HPP) and `unit_price` (Tarif Tagih Konsumen / Harga Jual) for custom non-inventory labor.
+- Adding real-time live margin projection preview.
+- Persisting distinct prices to `rab_items` with `material_id = null`.
 
 ## Quality & Verification Status
 - **Vitest Unit & Component Testing:** 38/38 test suites passing, 242/242 tests passing (100%).
@@ -26,7 +25,7 @@ Sprint 60 accomplishments verified:
 None.
 
 ## Next Up
-- Ready for planning via `/plan` or sprint execution via `/execute`.
+- Execute Task 1 to 6 of Sprint 61.
 
 ## Blockers
 None.
