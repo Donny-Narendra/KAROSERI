@@ -60,7 +60,7 @@
 
 | Service | Provider | Purpose |
 |---------|----------|---------|
-| Database & Auth | Supabase (PostgreSQL 15+) | Managed PostgreSQL (88 migrations), Row Level Security, Auth sessions, Views, RPCs, Hard-gate Triggers |
+| Database & Auth | Supabase (PostgreSQL 15+) | Managed PostgreSQL (90 migrations), Row Level Security, Auth sessions, Views, RPCs, Hard-gate Triggers |
 | Media Storage & CDN | Cloudinary | Unsigned image uploads for vehicle intake and progress gallery |
 
 ## Configuration
@@ -91,7 +91,7 @@
 
 ## Quality & Verification Status
 
-- **Vitest Unit & Component Testing:** Passes 40/40 test suites, 267/267 tests passing (100%) (`npm test`). Zero broken assertions.
-- **Linter (Oxlint):** 0 errors, 0 warnings across 165 files with 113 rules (`npm run lint`).
+- **Vitest Unit & Component Testing:** Passes 48/48 test suites, 315/315 tests passing (100%) (`npm test`). Zero broken assertions.
+- **Linter (Oxlint):** 0 errors, 0 warnings across 179 files with 113 rules (`npm run lint`).
 - **TypeScript Static Analysis:** Passes clean with 0 errors (`npx tsc -b`).
-- **Production Bundle:** Built cleanly in ~502ms via `tsc -b && vite build`. Code splitting active with dynamic route `React.lazy` chunks and dedicated vendor separation (`vendor-react`, `vendor-supabase`, `vendor-i18n`, `vendor-xlsx`, `vendor-pdf`, `vendor-libs`). Zero build warnings.
+- **Production Bundle:** Built cleanly in ~498ms via `tsc -b && vite build`. Code splitting active with dynamic route `React.lazy` chunks and dedicated vendor separation (`vendor-react`, `vendor-supabase`, `vendor-i18n`, `vendor-xlsx`, `vendor-pdf`, `vendor-libs`). Zero build warnings.
