@@ -174,7 +174,8 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
     expect(screen.getByText('STATUS')).toBeInTheDocument();
 
     expect(screen.getByText(/Target Qty/i)).toBeInTheDocument();
-    expect(screen.getByText(/Estimasi Biaya Jasa \/ Upah/i)).toBeInTheDocument();
+    expect(screen.getByText(/Upah Pokok Tukang \/ Biaya Modal \(HPP\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Tarif Tagih ke Konsumen \(Harga Jual\)/i)).toBeInTheDocument();
     expect(screen.getByText(/Catatan \/ Scope Pekerjaan/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Tambah Jasa ke RAB/i })).toBeInTheDocument();
 
@@ -205,7 +206,7 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
     fireEvent.change(wbs1Input, { target: { value: '0' } });
     fireEvent.change(wbs2Input, { target: { value: '1' } });
 
-    const costInput = screen.getByPlaceholderText('misal: 500000');
+    const costInput = screen.getByPlaceholderText('Tarif yang ditagihkan di SPK...');
     fireEvent.change(costInput, { target: { value: '500000' } });
 
     const notesInput = screen.getByPlaceholderText('Keterangan ruang lingkup pekerjaan tukang...');
@@ -247,7 +248,7 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
     fireEvent.change(wbs2Input, { target: { value: '1' } });
     fireEvent.change(wbs3Input, { target: { value: '1' } });
 
-    const costInput = screen.getByPlaceholderText('misal: 500000');
+    const costInput = screen.getByPlaceholderText('Tarif yang ditagihkan di SPK...');
     fireEvent.change(costInput, { target: { value: '350000' } });
 
     // Submit form
@@ -298,7 +299,7 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
     expect(updateBtn).toBeInTheDocument();
 
     // Change cost to 450000
-    const costInput = screen.getByPlaceholderText('misal: 500000');
+    const costInput = screen.getByPlaceholderText('Tarif yang ditagihkan di SPK...');
     fireEvent.change(costInput, { target: { value: '450000' } });
 
     // Submit update
@@ -381,7 +382,7 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
     // Verify name and standard rate auto-filled
     expect(laborInput.value).toBe('Ongkos Borongan Cat Oven');
 
-    const costInput = screen.getByPlaceholderText('misal: 500000') as HTMLInputElement;
+    const costInput = screen.getByPlaceholderText('Tarif yang ditagihkan di SPK...') as HTMLInputElement;
     expect(costInput.value).toBe('850000');
   });
 
@@ -450,7 +451,7 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
     const nameInput = screen.getByPlaceholderText('misal: Jasa Tukang Las Sasis');
     fireEvent.change(nameInput, { target: { value: 'Jasa Setel Pintu' } });
 
-    const costInput = screen.getByPlaceholderText('misal: 500000');
+    const costInput = screen.getByPlaceholderText('Tarif yang ditagihkan di SPK...');
     fireEvent.change(costInput, { target: { value: '250000' } });
 
     const submitBtn = screen.getByRole('button', { name: /Tambah Jasa ke RAB/i });
@@ -474,6 +475,181 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Jasa Setel Pintu').length).toBe(2);
     });
+  });
+
+  it('renders dual financial inputs (Upah Pokok HPP and Tarif Tagih) and displays KUSTOM badge for custom non-inventory labor', async () => {
+    render(<RabCalculator spkId="spk-test-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Jasa / Tukang (Labor)')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Jasa / Tukang (Labor)'));
+
+    const nameInput = screen.getByPlaceholderText('misal: Jasa Tukang Las Sasis');
+    fireEvent.change(nameInput, { target: { value: 'cak mat tukang ketok' } });
+
+    // Custom labor badge should appear
+    expect(screen.getByText('KUSTOM (NON-INVENTARIS)')).toBeInTheDocument();
+
+    // Verify dual financial inputs are present
+    const hppInput = screen.getByPlaceholderText('Upah yang dibayar ke tukang...') as HTMLInputElement;
+    const jualInput = screen.getByPlaceholderText('Tarif yang ditagihkan di SPK...') as HTMLInputElement;
+
+    expect(hppInput).toBeInTheDocument();
+    expect(jualInput).toBeInTheDocument();
+
+    // Enter values
+    fireEvent.change(hppInput, { target: { value: '300000' } });
+    fireEvent.change(jualInput, { target: { value: '500000' } });
+
+    expect(hppInput.value).toBe('300000');
+    expect(jualInput.value).toBe('500000');
+
+    // Live margin indicator: (500000 - 300000) = Rp 200.000 (40%)
+    expect(screen.getByText('Proyeksi Margin Jasa:')).toBeInTheDocument();
+    expect(screen.getByText(/Rp\s*200\.000\s*\(40%\)/)).toBeInTheDocument();
+  });
+
+  it('persists distinct cost_price and unit_price to database with material_id = undefined for custom labor', async () => {
+    const { supabase } = await import('../../lib/supabaseClient');
+    const mockSelect = vi.fn().mockResolvedValue({
+      data: [{
+        id: 'persisted-1',
+        wbs_category: 'Pembongkaran',
+        item_type: 'LABOR',
+        material_name: 'Tukang Borongan Pak Joko',
+        quantity: 1,
+        unit_price: 700000,
+        cost_price: 400000,
+        subtotal: 700000,
+      }],
+      error: null,
+    });
+    const mockInsert = vi.fn().mockReturnValue({ select: mockSelect });
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === 'rab_items') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+          }),
+          delete: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }),
+          insert: mockInsert,
+        } as any;
+      }
+      if (table === 'workshop_settings') {
+        return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), single: vi.fn().mockResolvedValue({ data: { bay_hourly_rate: 25000 }, error: null }) } as any;
+      }
+      if (table === 'rab_estimations') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: { id: 'est-test-1', total_material_cost: 0, total_labor_cost: 0, total_overhead_cost: 0, total_estimated_cost: 0 }, error: null }),
+          upsert: vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single: vi.fn().mockResolvedValue({ data: { id: 'est-test-1' }, error: null }) }) }),
+        } as any;
+      }
+      if (table === 'spk') {
+        return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), single: vi.fn().mockResolvedValue({ data: { id: 'spk-test-1', status: 'DRAFT', is_pricing_locked: false }, error: null }), update: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }) } as any;
+      }
+      return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), single: vi.fn().mockResolvedValue({ data: null, error: null }) } as any;
+    });
+
+    render(<RabCalculator spkId="spk-test-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Jasa / Tukang (Labor)')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Jasa / Tukang (Labor)'));
+
+    const nameInput = screen.getByPlaceholderText('misal: Jasa Tukang Las Sasis');
+    fireEvent.change(nameInput, { target: { value: 'Tukang Borongan Pak Joko' } });
+
+    const hppInput = screen.getByPlaceholderText('Upah yang dibayar ke tukang...');
+    const jualInput = screen.getByPlaceholderText('Tarif yang ditagihkan di SPK...');
+    fireEvent.change(hppInput, { target: { value: '400000' } });
+    fireEvent.change(jualInput, { target: { value: '700000' } });
+
+    const submitBtn = screen.getByRole('button', { name: /Tambah Jasa ke RAB/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(mockInsert).toHaveBeenCalled();
+    });
+
+    const insertedRows = mockInsert.mock.calls[0][0];
+    expect(insertedRows[0]).toMatchObject({
+      material_name: 'Tukang Borongan Pak Joko',
+      unit_price: 700000,
+      cost_price: 400000,
+      material_id: null,
+      item_type: 'LABOR',
+    });
+  });
+
+  it('pre-fills both cost price and selling price when editing a custom labor item and displays live margin', async () => {
+    const { supabase } = await import('../../lib/supabaseClient');
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === 'rab_items') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
+              data: [{
+                id: 'custom-labor-1',
+                wbs_category: 'Pembongkaran',
+                item_type: 'LABOR',
+                material_name: 'Tukang Cat Semprot Bodi',
+                quantity: 1,
+                unit_price: 1200000,
+                cost_price: 800000,
+                item_total: 1200000,
+                material_id: null,
+              }],
+              error: null,
+            }),
+          }),
+          delete: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }),
+          insert: vi.fn().mockReturnValue({ select: vi.fn().mockResolvedValue({ data: [], error: null }) }),
+        } as any;
+      }
+      if (table === 'workshop_settings') {
+        return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), single: vi.fn().mockResolvedValue({ data: { bay_hourly_rate: 25000 }, error: null }) } as any;
+      }
+      if (table === 'rab_estimations') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: { id: 'est-test-1', total_material_cost: 0, total_labor_cost: 1200000, total_overhead_cost: 0, total_estimated_cost: 1200000 }, error: null }),
+          upsert: vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single: vi.fn().mockResolvedValue({ data: { id: 'est-test-1' }, error: null }) }) }),
+        } as any;
+      }
+      if (table === 'spk') {
+        return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), single: vi.fn().mockResolvedValue({ data: { id: 'spk-test-1', status: 'DRAFT', is_pricing_locked: false }, error: null }), update: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }) } as any;
+      }
+      return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), single: vi.fn().mockResolvedValue({ data: null, error: null }) } as any;
+    });
+
+    render(<RabCalculator spkId="spk-test-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Tukang Cat Semprot Bodi')).toBeInTheDocument();
+    });
+
+    const editBtn = screen.getByTitle('Edit item');
+    fireEvent.click(editBtn);
+
+    // Form switches to labor mode with KUSTOM badge
+    expect(screen.getByText('KUSTOM (NON-INVENTARIS)')).toBeInTheDocument();
+
+    const hppInput = screen.getByPlaceholderText('Upah yang dibayar ke tukang...') as HTMLInputElement;
+    const jualInput = screen.getByPlaceholderText('Tarif yang ditagihkan di SPK...') as HTMLInputElement;
+
+    expect(hppInput.value).toBe('800000');
+    expect(jualInput.value).toBe('1200000');
+
+    // Live margin: 1.200.000 - 800.000 = 400.000 (33%)
+    expect(screen.getByText('Proyeksi Margin Jasa:')).toBeInTheDocument();
+    expect(screen.getByText(/Rp\s*400\.000\s*\(33%\)/)).toBeInTheDocument();
   });
 });
 

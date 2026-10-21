@@ -173,7 +173,7 @@ describe('Component: RabCalculator (Decimal Precision and Auto-Select on Focus)'
     fireEvent.focus(laborWbs1);
     expect(wbsSelectSpy).toHaveBeenCalled();
 
-    const costInput = screen.getByPlaceholderText('misal: 500000') as HTMLInputElement;
+    const costInput = screen.getByPlaceholderText('Tarif yang ditagihkan di SPK...') as HTMLInputElement;
     const costSelectSpy = vi.spyOn(costInput, 'select');
     fireEvent.focus(costInput);
     expect(costSelectSpy).toHaveBeenCalled();
@@ -291,7 +291,7 @@ describe('Component: RabCalculator (Decimal Precision and Auto-Select on Focus)'
     const nameInput = screen.getByPlaceholderText('misal: Jasa Tukang Las Sasis');
     fireEvent.change(nameInput, { target: { value: 'Jasa Las Custom Rangka' } });
 
-    const costInput = screen.getByPlaceholderText('misal: 500000');
+    const costInput = screen.getByPlaceholderText('Tarif yang ditagihkan di SPK...');
     fireEvent.change(costInput, { target: { value: '400000' } });
 
     // Set Target Qty = 2 to match multi-stage allocations (1.5 + 0.5)

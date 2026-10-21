@@ -55,6 +55,12 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     notes: '',
   });
 
+  // Custom vs Master Labor tracking & dual pricing state
+  const [selectedLaborMaterialId, setSelectedLaborMaterialId] = useState<string | null>(null);
+  const [isCustomLabor, setIsCustomLabor] = useState<boolean>(false);
+  const [laborCostPrice, setLaborCostPrice] = useState<number>(0); // Biaya modal / upah tukang
+  const [laborUnitPrice, setLaborUnitPrice] = useState<number>(0); // Harga jual ke konsumen
+
   const [laborAllocations, setLaborAllocations] = useState<Record<string, string>>({
     'Pembongkaran': '1',
     'Sasis/Rangka': '0',
@@ -105,7 +111,16 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   }, [availableLaborItems, laborForm.name]);
 
   const handleSelectLaborItem = (item: Material) => {
-    const standardRate = item.selling_price || item.cost_price || item.unit_price || 0;
+    const standardRate = item.selling_price || item.unit_price || 0;
+    const costRate = item.cost_price !== undefined && item.cost_price > 0
+      ? item.cost_price
+      : Math.round(standardRate * 0.8);
+
+    setSelectedLaborMaterialId(item.id);
+    setIsCustomLabor(false);
+    setLaborCostPrice(costRate);
+    setLaborUnitPrice(standardRate);
+
     setLaborForm(prev => ({
       ...prev,
       name: item.name,
@@ -133,6 +148,9 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
         e.preventDefault();
         handleSelectLaborItem(filteredLaborItems[laborHighlightedIndex]);
       } else {
+        // Mode kustom (non-inventaris)
+        setSelectedLaborMaterialId(null);
+        setIsCustomLabor(true);
         setIsLaborSuggestOpen(false);
       }
     } else if (e.key === 'Escape') {
@@ -222,7 +240,9 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       });
       return;
     }
-    if (!laborForm.name.trim() || !laborForm.estimatedCost || laborForm.estimatedCost <= 0) return;
+    const effectiveUnitPrice = laborUnitPrice > 0 ? laborUnitPrice : (laborForm.estimatedCost || 0);
+    const effectiveCostPrice = laborCostPrice > 0 ? laborCostPrice : effectiveUnitPrice;
+    if (!laborForm.name.trim() || effectiveUnitPrice <= 0) return;
 
     if (!isLaborAllocationMatch) {
       setModalFeedback({
@@ -247,12 +267,12 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
           description: laborForm.name.trim(),
           qty: wbsQty,
           unit: 'lot',
-          unitPrice: laborForm.estimatedCost,
-          costPrice: laborForm.estimatedCost,
-          subtotal: Math.round(wbsQty * laborForm.estimatedCost),
+          unitPrice: effectiveUnitPrice,
+          costPrice: effectiveCostPrice,
+          subtotal: Math.round(wbsQty * effectiveUnitPrice),
           isLocked: false,
           notes: laborForm.notes.trim() || undefined,
-          materialId: undefined,
+          materialId: isCustomLabor ? undefined : (selectedLaborMaterialId || undefined),
         });
       }
     });
@@ -264,6 +284,10 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     setIsLaborSuggestOpen(false);
 
     setLaborTargetQty(1);
+    setSelectedLaborMaterialId(null);
+    setIsCustomLabor(false);
+    setLaborCostPrice(0);
+    setLaborUnitPrice(0);
     setLaborForm({
       name: '',
       estimatedCost: 0,
@@ -291,6 +315,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
           unit: i.unit,
           unitPrice: i.unitPrice,
           costPrice: i.costPrice,
+          materialId: i.materialId,
           notes: i.notes,
         }));
         const persisted = await rabService.insertRabItems(spkId, payloads);
@@ -310,6 +335,10 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     setEditingId(null);
     setIsLaborSuggestOpen(false);
     setLaborTargetQty(1);
+    setSelectedLaborMaterialId(null);
+    setIsCustomLabor(false);
+    setLaborCostPrice(0);
+    setLaborUnitPrice(0);
     setLaborForm({
       name: '',
       estimatedCost: 0,
@@ -452,9 +481,16 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     if (item.type === 'labor') {
       setItemMode('labor');
       setLaborTargetQty(item.qty);
+      const isCustom = !item.materialId;
+      setIsCustomLabor(isCustom);
+      setSelectedLaborMaterialId(item.materialId || null);
+      const unitPrice = item.unitPrice || 0;
+      const costPrice = item.costPrice !== undefined ? item.costPrice : unitPrice;
+      setLaborUnitPrice(unitPrice);
+      setLaborCostPrice(costPrice);
       setLaborForm({
         name: item.description,
-        estimatedCost: item.unitPrice,
+        estimatedCost: unitPrice,
         notes: item.notes || '',
       });
       setLaborAllocations({
@@ -884,6 +920,10 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                 setItemMode('labor');
                 setIsLaborSuggestOpen(false);
                 setLaborTargetQty(1);
+                setSelectedLaborMaterialId(null);
+                setIsCustomLabor(false);
+                setLaborCostPrice(0);
+                setLaborUnitPrice(0);
                 setLaborAllocations({
                   'Pembongkaran': '1',
                   'Sasis/Rangka': '0',
@@ -928,10 +968,21 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
           {itemMode === 'labor' ? (
             <form onSubmit={handleAddLaborItem} className="bg-background border border-amber-500/30 rounded-lg p-4 space-y-4 shadow-sm">
               <div className="flex items-center justify-between border-b border-border pb-2">
-                <h4 className="font-bold text-sm text-text flex items-center gap-2">
+                <div className="flex items-center gap-2">
                   <Wrench className="w-4 h-4 text-amber-400" />
-                  <span>{editingId ? 'Edit Jasa / Pekerjaan Tukang' : 'Input Jasa / Tukang (Labor)'}</span>
-                </h4>
+                  <h4 className="font-bold text-sm text-text">
+                    {editingId ? 'Edit Jasa / Pekerjaan Tukang' : 'Input Jasa / Tukang (Labor)'}
+                  </h4>
+                  {isCustomLabor ? (
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-bold">
+                      KUSTOM (NON-INVENTARIS)
+                    </span>
+                  ) : selectedLaborMaterialId ? (
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 font-bold">
+                      MASTER INVENTARIS
+                    </span>
+                  ) : null}
+                </div>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold">
                   PAGU JASA
                 </span>
@@ -953,8 +1004,25 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                     required
                     value={laborForm.name}
                     onChange={(e) => {
-                      setLaborForm({ ...laborForm, name: e.target.value });
+                      const val = e.target.value;
+                      setLaborForm(prev => ({ ...prev, name: val }));
                       setIsLaborSuggestOpen(true);
+                      const matched = availableLaborItems.find(
+                        item => item.name.toLowerCase() === val.trim().toLowerCase()
+                      );
+                      if (matched) {
+                        setSelectedLaborMaterialId(matched.id);
+                        setIsCustomLabor(false);
+                        const standardRate = matched.selling_price || matched.unit_price || 0;
+                        const costRate = matched.cost_price !== undefined && matched.cost_price > 0
+                          ? matched.cost_price
+                          : Math.round(standardRate * 0.8);
+                        setLaborCostPrice(costRate);
+                        setLaborUnitPrice(standardRate);
+                      } else {
+                        setSelectedLaborMaterialId(null);
+                        setIsCustomLabor(true);
+                      }
                     }}
                     onFocus={() => setIsLaborSuggestOpen(true)}
                     onBlur={handleLaborBlur}
@@ -1086,51 +1154,88 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="labor-target-qty-input" className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
-                    Target Qty (Lot / Unit) <span className="text-status-danger">*</span>
-                  </label>
-                  <input
-                    id="labor-target-qty-input"
-                    type="number"
-                    required
-                    min="0"
-                    step="any"
-                    value={laborTargetQty}
-                    onChange={(e) => setLaborTargetQty(e.target.value)}
-                    onFocus={(e) => e.target.select()}
-                    onMouseUp={(e) => e.preventDefault()}
-                    placeholder="1"
-                    className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text font-mono focus:outline-none focus:border-amber-500"
-                  />
-                </div>
+              <div>
+                <label htmlFor="labor-target-qty-input" className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
+                  Target Qty (Lot / Unit) <span className="text-status-danger">*</span>
+                </label>
+                <input
+                  id="labor-target-qty-input"
+                  type="number"
+                  required
+                  min="0"
+                  step="any"
+                  value={laborTargetQty}
+                  onChange={(e) => setLaborTargetQty(e.target.value)}
+                  onFocus={(e) => e.target.select()}
+                  onMouseUp={(e) => e.preventDefault()}
+                  placeholder="1"
+                  className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text font-mono focus:outline-none focus:border-amber-500"
+                />
+              </div>
 
+              {/* Dual Financial Inputs: Biaya Modal (HPP) vs Tarif Tagih ke Konsumen */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                {/* Field 1: Biaya Modal / Upah Tukang */}
                 <div>
-                  <label htmlFor="labor-cost-input" className="block text-xs font-medium text-text-muted mb-1 uppercase font-mono">
-                    Estimasi Biaya Jasa / Upah (Rp) <span className="text-status-danger">*</span>
+                  <label htmlFor="labor-cost-price-input" className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                    Upah Pokok Tukang / Biaya Modal (HPP) <span className="text-status-danger">*</span>
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-2 text-sm font-bold text-text-muted font-mono">Rp</span>
+                    <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-mono">Rp</span>
+                    <input
+                      id="labor-cost-price-input"
+                      type="number"
+                      min="0"
+                      value={laborCostPrice || ''}
+                      onChange={(e) => setLaborCostPrice(Number(e.target.value))}
+                      onFocus={(e) => e.target.select()}
+                      placeholder="Upah yang dibayar ke tukang..."
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-10 pr-3 py-2 text-sm text-amber-300 font-mono focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">Jumlah pembayaran beban gaji bengkel</span>
+                </div>
+
+                {/* Field 2: Tarif Jual ke Konsumen */}
+                <div>
+                  <label htmlFor="labor-cost-input" className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                    Tarif Tagih ke Konsumen (Harga Jual) <span className="text-status-danger">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-mono">Rp</span>
                     <input
                       id="labor-cost-input"
                       type="number"
-                      required
-                      min="1"
-                      step="any"
-                      value={laborForm.estimatedCost || ''}
-                      onChange={(e) => setLaborForm({ ...laborForm, estimatedCost: parseFloat(e.target.value) || 0 })}
+                      min="0"
+                      value={laborUnitPrice || ''}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setLaborUnitPrice(val);
+                        setLaborForm(prev => ({ ...prev, estimatedCost: val }));
+                      }}
                       onFocus={(e) => e.target.select()}
-                      onMouseUp={(e) => e.preventDefault()}
-                      placeholder="misal: 500000"
-                      className="w-full bg-surface border border-border rounded pl-10 pr-3 py-2 text-sm text-text font-mono focus:outline-none focus:border-amber-500"
+                      placeholder="Tarif yang ditagihkan di SPK..."
+                      className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-10 pr-3 py-2 text-sm text-emerald-400 font-mono focus:border-emerald-500 focus:outline-none"
                     />
                   </div>
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">Nilai yang tercetak di RAB & faktur konsumen</span>
                 </div>
               </div>
-              {laborForm.estimatedCost > 0 && (
+
+              {/* Live Margin Indicator */}
+              {laborUnitPrice > 0 && (
+                <div className="mt-2 p-2 rounded bg-slate-900/60 border border-slate-800 flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Proyeksi Margin Jasa:</span>
+                  <span className={`font-mono font-bold ${laborUnitPrice >= laborCostPrice ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    Rp {(laborUnitPrice - laborCostPrice).toLocaleString('id-ID')} 
+                    {laborUnitPrice > 0 && ` (${Math.round(((laborUnitPrice - laborCostPrice) / laborUnitPrice) * 100)}%)`}
+                  </span>
+                </div>
+              )}
+
+              {laborUnitPrice > 0 && (
                 <p className="text-[11px] font-mono text-amber-400">
-                  Terbilang: Rp {laborForm.estimatedCost.toLocaleString('id-ID')} (per 1 unit / lot pekerjaan)
+                  Terbilang Tarif Jual: Rp {laborUnitPrice.toLocaleString('id-ID')} (per 1 unit / lot pekerjaan)
                 </p>
               )}
 
@@ -1151,7 +1256,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
               <div className="space-y-2 pt-1">
                 <button
                   type="submit"
-                  disabled={!laborForm.name.trim() || !laborForm.estimatedCost || laborForm.estimatedCost <= 0 || !isLaborAllocationMatch}
+                  disabled={!laborForm.name.trim() || (laborUnitPrice <= 0 && (!laborForm.estimatedCost || laborForm.estimatedCost <= 0)) || !isLaborAllocationMatch}
                   className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded text-sm transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-sm"
                 >
                   <Plus className="w-4 h-4" />
