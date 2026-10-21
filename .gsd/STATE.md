@@ -1,19 +1,20 @@
 ## Current Position
-- **Sprint**: Sprint 66 — Implement 7-Day Post-BAST Expiration for Public Progress Tracking Page
-- **Status**: Sprint in progress
+- **Sprint**: Sprint 66 — Implement 7-Day Post-BAST Expiration for Public Progress Tracking Page (Completed)
+- **Status**: Sprint 66 Completed / Production Ready
 - **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness
 
 ## Last Session Summary
-Sprint 65 complete:
-- **Product Package BOM Explosion Engine (`src/utils/packageExplosion.ts`)**: deterministic BOM explosion supporting Single WBS Target and Multi-WBS auto-distribution using package template allocations, multiplier scaling, and proportional margin selling price calculations.
-- **Interactive Assembly Package Modal (`src/components/ChangeOrderPackageModal.tsx`)**: package picker, real-time exploded component table preview with WBS stages, quantities, HPP, selling prices, and live margin statistics.
-- **Change Order Form Toolbar Integration (`src/components/AmendmentManager.tsx`)**: added `+ Paket Barang Jadi` button with gradient amber styling next to `+ Item Overhead (FOH)`.
+Sprint 66 complete:
+- **Vehicle Release Schema & Mutation (`supabase/migrations/20261028010000_add_released_at_to_spk.sql`)**: added `released_at TIMESTAMPTZ` with database index and automated timestamping upon vehicle release/handover in Kasir.
+- **7-Day Expiration Utility (`src/utils/trackingExpiration.ts`)**: calculated 7-day expiration boundary with countdown days remaining and Indonesian date formatters.
+- **Thank You State in Public Progress Tracking (`src/pages/PublicProgressTracking.tsx`)**: automatic technical WBS and photo gallery masking 7 days post-BAST, replaced by a customer appreciation card with warranty assurances and customer care info.
+- **Cashier Portal Expiration Indicators (`KasirDashboard.tsx`, `DpHistoryList.tsx`)**: visual tags and updated notification dialogs for tracking links post-BAST.
 
 ## Quality & Verification Status
-- **Vitest Unit & Component Testing:** 42/42 test suites passing, 284/284 tests passing (100%).
-- **Linter (Oxlint):** 0 errors, 0 warnings across 169 files with 113 rules.
+- **Vitest Unit & Component Testing:** 44/44 test suites passing, 296/296 tests passing (100%).
+- **Linter (Oxlint):** 0 errors, 0 warnings across 172 files with 113 rules.
 - **TypeScript Static Analysis:** Clean compilation with 0 errors (`tsc -b`).
-- **Production Build:** Clean build in ~503ms (`npm run build`).
+- **Production Build:** Clean build in ~409ms (`npm run build`).
 
 ## Technical Debt Backlog
 None.

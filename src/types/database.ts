@@ -49,6 +49,7 @@ export interface SpkRecord {
   allocation_status?: string | null;
   qc_status?: string;
   customer_phone?: string | null;
+  released_at?: string | null;
 }
 
 export interface RabItemRecord {

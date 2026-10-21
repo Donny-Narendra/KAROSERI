@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { AlertCircle, FileText, CheckCircle, Calculator, Lock, Receipt, TrendingUp, ChevronDown, ChevronUp, Printer } from 'lucide-react';
+import { AlertCircle, FileText, CheckCircle, Calculator, Lock, Receipt, TrendingUp, ChevronDown, ChevronUp, Printer, Clock } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { DownPaymentModal } from '../components/DownPaymentModal';
 import { DpHistoryList } from '../components/DpHistoryList';
@@ -11,6 +11,7 @@ import type { DPHistoryRecord, ApprovedChangeOrder } from '../services/billingSe
 import { packageService } from '../services/packageService';
 import type { ProductPackage } from '../types/package';
 import { buildInvoicePrintPayload, printFinalInvoice } from '../utils/invoiceExport';
+import { checkTrackingExpiration } from '../utils/trackingExpiration';
 
 interface KasirRabEstimationSummary {
   id: string;
@@ -49,6 +50,7 @@ interface KasirSpkJoinRow {
     materials: { unit_price: number; is_customer_supplied?: boolean } | null;
   }>;
   spk_amendments?: Array<{ status: string; cost_adjustment: number }>;
+  released_at?: string | null;
 }
 
 interface KasirSpkViewModel {
@@ -73,6 +75,7 @@ interface KasirSpkViewModel {
   allocationStatus?: string;
   amendmentCost: number;
   vin: string;
+  releasedAt?: string | null;
 }
 
 export const KasirDashboard: React.FC = () => {
@@ -156,6 +159,7 @@ export const KasirDashboard: React.FC = () => {
             payment_method: 'Transfer Bank',
             notes: 'Pembayaran DP Terverifikasi',
             payment_date: new Date().toISOString(),
+            released_at: s.releasedAt || null,
           }));
         }
       }
@@ -178,6 +182,7 @@ export const KasirDashboard: React.FC = () => {
           payment_method: 'Transfer Bank',
           notes: 'Pembayaran DP Terverifikasi',
           payment_date: new Date().toISOString(),
+          released_at: s.releasedAt || null,
         }));
         setDpHistory(fallback);
       } else {
@@ -322,6 +327,7 @@ export const KasirDashboard: React.FC = () => {
           paymentStatus,
           allocationStatus: d.allocation_status || undefined,
           amendmentCost,
+          releasedAt: d.released_at || null,
         };
       });
       setSpks(formatted);
@@ -636,18 +642,29 @@ export const KasirDashboard: React.FC = () => {
     if (!selectedSpk) return;
     setModalConfig(prev => ({ ...prev, isLoading: true }));
     try {
+      const nowIso = new Date().toISOString();
       if (selectedSpk.status !== 'COMPLETED') {
         const { error: spkError } = await supabase
           .from('spk')
-          .update({ status: 'COMPLETED' })
+          .update({ 
+            status: 'COMPLETED',
+            released_at: nowIso 
+          })
           .eq('id', selectedSpk.dbId);
         if (spkError) {
           throw spkError;
         } else {
-          setSpks(prev => prev.map(s => s.id === selectedSpk.id ? { ...s, status: 'COMPLETED' } : s));
+          setSpks(prev => prev.map(s => s.id === selectedSpk.id ? { ...s, status: 'COMPLETED', releasedAt: nowIso } : s));
         }
+      } else if (!selectedSpk.releasedAt) {
+        // Stamp released_at if legacy completed record was never stamped
+        await supabase
+          .from('spk')
+          .update({ released_at: nowIso })
+          .eq('id', selectedSpk.dbId);
+        setSpks(prev => prev.map(s => s.id === selectedSpk.id ? { ...s, releasedAt: nowIso } : s));
       }
-      setSelectedBastSpk({ ...selectedSpk, status: 'COMPLETED' });
+      setSelectedBastSpk({ ...selectedSpk, status: 'COMPLETED', releasedAt: selectedSpk.releasedAt || nowIso });
       closeModal();
       setIsBastModalOpen(true);
     } catch (err: unknown) {
@@ -664,13 +681,15 @@ export const KasirDashboard: React.FC = () => {
     }
   };
 
-  const handleCopyTrackingLink = (spkNo: string) => {
+  const handleCopyTrackingLink = (spkNo: string, isExpired: boolean = false) => {
     const url = `${window.location.origin}/tracking/${spkNo}`;
     navigator.clipboard.writeText(url);
     setModalConfig({
       isOpen: true,
-      title: 'Tautan Pelacakan Tersalin',
-      message: `Tautan pelacakan publik untuk SPK ${spkNo} berhasil disalin ke papan klip:\n\n${url}`,
+      title: isExpired ? 'Tautan Purnajual Tersalin' : 'Tautan Pelacakan Tersalin',
+      message: isExpired
+        ? `Tautan pelacakan untuk SPK ${spkNo} berhasil disalin ke papan klip:\n\n${url}\n\nCatatan: Tautan ini telah melewati 7 hari pasca serah terima (BAST) dan menampilkan kartu ucapan terima kasih resmi purnajual (rincian WBS teknis dinonaktifkan).`
+        : `Tautan pelacakan publik untuk SPK ${spkNo} berhasil disalin ke papan klip:\n\n${url}`,
       variant: 'info',
       hideCancel: true,
       confirmText: 'Tutup',
@@ -859,15 +878,41 @@ export const KasirDashboard: React.FC = () => {
                   Billing Calculator
                 </h2>
                 <div className="flex items-center gap-4">
-                  {!draftStatuses.includes(selectedSpk.status) && selectedSpk.dpAmount > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => handleCopyTrackingLink(selectedSpk.id)}
-                      className="text-xs bg-secondary/10 text-secondary hover:bg-secondary/20 px-3 py-1.5 rounded-full font-medium transition-colors cursor-pointer"
-                    >
-                      Salin Tautan Pelacakan
-                    </button>
-                  )}
+                  {!draftStatuses.includes(selectedSpk.status) && selectedSpk.dpAmount > 0 && (() => {
+                    const trackingExp = checkTrackingExpiration(selectedSpk.releasedAt);
+                    return (
+                      <div className="flex items-center gap-2">
+                        {trackingExp.isExpired ? (
+                          <span 
+                            className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1"
+                            title="Masa aktif dokumentasi teknis WBS telah berakhir (7 hari pasca BAST)"
+                          >
+                            <Clock className="w-3 h-3" />
+                            Tautan Kedaluwarsa (Pasca-BAST)
+                          </span>
+                        ) : trackingExp.isReleased ? (
+                          <span 
+                            className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                            title={`Aktif hingga ${trackingExp.formattedExpiresDate}`}
+                          >
+                            {trackingExp.daysRemaining}h Aktif
+                          </span>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => handleCopyTrackingLink(selectedSpk.id, trackingExp.isExpired)}
+                          className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+                            trackingExp.isExpired
+                              ? 'bg-surface-border text-text-muted hover:bg-surface-border/80'
+                              : 'bg-secondary/10 text-secondary hover:bg-secondary/20'
+                          }`}
+                          title={trackingExp.isExpired ? 'Salin tautan status purnajual (kedaluwarsa)' : 'Salin tautan pelacakan'}
+                        >
+                          Salin Tautan Pelacakan
+                        </button>
+                      </div>
+                    );
+                  })()}
                   <div className="flex items-center gap-2">
                     <FileText className="w-5 h-5 text-text-muted" />
                     <span className="text-sm font-medium text-text-muted">{selectedSpk.id}</span>

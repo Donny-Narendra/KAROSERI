@@ -78,4 +78,32 @@ describe('Component: DpHistoryList (Printable DP Receipt Integration)', () => {
 
     expect(screen.queryByText(/BUKTI PENERIMAAN UANG MUKA \(INVOICE DP\)/i)).not.toBeInTheDocument();
   });
+
+  it('renders "Kedaluwarsa (Pasca-BAST)" badge when vehicle was released more than 7 days ago', () => {
+    const expiredHistory: DPHistoryRecord[] = [
+      {
+        ...mockHistory[0],
+        spk_no: 'SPK-EXPIRED-7D',
+        released_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+    ];
+
+    render(<DpHistoryList history={expiredHistory} loading={false} />);
+
+    expect(screen.getByText('Kedaluwarsa (Pasca-BAST)')).toBeInTheDocument();
+  });
+
+  it('renders active grace period badge when vehicle was released less than 7 days ago', () => {
+    const activeReleasedHistory: DPHistoryRecord[] = [
+      {
+        ...mockHistory[0],
+        spk_no: 'SPK-ACTIVE-3D',
+        released_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+    ];
+
+    render(<DpHistoryList history={activeReleasedHistory} loading={false} />);
+
+    expect(screen.getByText(/4h Aktif/i)).toBeInTheDocument();
+  });
 });

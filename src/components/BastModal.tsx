@@ -25,6 +25,8 @@ export interface BastSpkData {
   payment_status?: string;
   paymentStatus?: string;
   created_at?: string;
+  released_at?: string | null;
+  releasedAt?: string | null;
 }
 
 interface BastModalProps {

@@ -12,6 +12,7 @@ export interface DPHistoryRecord {
   payment_method: string;
   notes: string;
   payment_date: string;
+  released_at?: string | null;
 }
 
 export interface ApprovedChangeOrderItem {
@@ -58,6 +59,7 @@ interface RawSpkDpRow {
   total_estimated_cost?: number | null;
   dp_amount: number | null;
   status: string;
+  released_at?: string | null;
   payments?: RawPaymentRow[] | null;
 }
 
@@ -112,6 +114,7 @@ export async function fetchDpHistory() {
         dp_amount,
         total_estimated_cost,
         status,
+        released_at,
         created_at,
         updated_at
       `) as any;
@@ -155,6 +158,7 @@ export async function fetchDpHistory() {
         dp_amount,
         total_estimated_cost,
         status,
+        released_at,
         created_at
       `)
       .gt('dp_amount', 0)
@@ -191,6 +195,7 @@ export const fetchDPHistory = async (): Promise<DPHistoryRecord[]> => {
       total_estimated_cost,
       dp_amount,
       status,
+      released_at,
       created_at,
       payments (
         amount,
@@ -243,6 +248,7 @@ export const fetchDPHistory = async (): Promise<DPHistoryRecord[]> => {
         payment_method: payment ? (payment.payment_method || 'Transfer Bank') : 'Transfer Bank',
         notes: payment ? (payment.notes || 'Pembayaran Uang Muka (DP)') : 'Pembayaran Uang Muka (DP)',
         payment_date: payment ? payment.created_at : (spk.created_at || new Date().toISOString()),
+        released_at: spk.released_at || null,
       });
     }
   });

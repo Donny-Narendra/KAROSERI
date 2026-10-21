@@ -261,4 +261,46 @@ describe('Component: KasirDashboard (DP History Sub-Tab & Printable Receipt)', (
       expect(screen.getByRole('heading', { level: 2, name: 'Riwayat DP Diterima' })).toBeInTheDocument();
     });
   });
+
+  it('displays "Tautan Kedaluwarsa (Pasca-BAST)" in billing calculator when SPK was released more than 7 days ago', async () => {
+    const expiredSpk = {
+      ...mockSpks[0],
+      id: 'spk-uuid-expired',
+      spk_no: 'SPK-EXP-999',
+      status: 'COMPLETED',
+      released_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+    };
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === 'spk') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnThis(),
+          order: vi.fn().mockResolvedValue({
+            data: [expiredSpk],
+            error: null,
+          }),
+        } as any;
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+      } as any;
+    });
+
+    render(<KasirDashboard />);
+
+    // Switch to FINAL tab
+    const finalTab = await screen.findByRole('button', { name: /Pelunasan Akhir/i });
+    fireEvent.click(finalTab);
+
+    // Select the SPK
+    const spkCard = await screen.findByText('SPK-EXP-999');
+    fireEvent.click(spkCard);
+
+    // Verify expiration indicator badge is rendered
+    await waitFor(() => {
+      expect(screen.getByText('Tautan Kedaluwarsa (Pasca-BAST)')).toBeInTheDocument();
+    });
+  });
 });
