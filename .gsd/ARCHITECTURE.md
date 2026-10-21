@@ -59,7 +59,7 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 ### Operational Components (58 components in `src/components/`)
 - **SPK & Estimates:**
   - [`SpkForm.tsx`](file:///c:/KAROSERI/src/components/SpkForm.tsx): SPK registration with Cloudinary vehicle inspection photo upload, vehicle model & brand inputs.
-  - [`RabCalculator.tsx`](file:///c:/KAROSERI/src/components/RabCalculator.tsx): Comprehensive 3-element RAB estimator (materials, labor, overhead, profit margin, package breakdown) with debounced auto-save, decimal precision, and first-class overhead item support (`item_type: 'OVERHEAD'`). Waste factor is permanently eliminated.
+  - [`RabCalculator.tsx`](file:///c:/KAROSERI/src/components/RabCalculator.tsx): Comprehensive 3-element RAB estimator (materials, labor, overhead, profit margin, package breakdown) with debounced auto-save, decimal precision, dual pricing inputs for custom non-inventory labor (HPP upah tukang vs selling price with live margin indicator), and first-class overhead item support (`item_type: 'OVERHEAD'`). Waste factor is permanently eliminated.
   - [`SpkBoronganPanel.tsx`](file:///c:/KAROSERI/src/components/SpkBoronganPanel.tsx): Mandor/Admin borongan labor management; merges labor items from RAB and approved Change Orders with `[CO]` purple badge, auto-transfer, and quota exclusion.
   - [`SpkCredentialSection.tsx`](file:///c:/KAROSERI/src/components/SpkCredentialSection.tsx): Editable vehicle model, chassis/VIN, engine number, customer phone, target date, and sub-tasks list.
   - [`CancelSpkModal.tsx`](file:///c:/KAROSERI/src/components/CancelSpkModal.tsx): Guarded SPK cancellation workflow (allowed only before DP / material issuance).
@@ -152,13 +152,13 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 - [`pdfExportUtils.ts`](file:///c:/KAROSERI/src/utils/pdfExportUtils.ts): Client utilities for PDF rendering and DOM sanitization.
 - [`terbilang.ts`](file:///c:/KAROSERI/src/utils/terbilang.ts): Converts numeric amounts into Indonesian spelled words for formal receipts.
 
-### Automated Test Suites (38 test suites, 242 tests passing 100%):
+### Automated Test Suites (38 test suites, 248 tests passing 100%):
 - [`src/components/finance/tabs/__tests__/JobProfitabilityTab.test.tsx`](file:///c:/KAROSERI/src/components/finance/tabs/__tests__/JobProfitabilityTab.test.tsx) (3 tests)
 - [`src/services/__tests__/financialReportsService.test.ts`](file:///c:/KAROSERI/src/services/__tests__/financialReportsService.test.ts) (1 test)
 - [`src/components/finance/tabs/__tests__/WbsCostVarianceTab.test.tsx`](file:///c:/KAROSERI/src/components/finance/tabs/__tests__/WbsCostVarianceTab.test.tsx) (4 tests)
 - [`src/components/finance/tabs/__tests__/CorporatePnlTab.test.tsx`](file:///c:/KAROSERI/src/components/finance/tabs/__tests__/CorporatePnlTab.test.tsx) (4 tests)
 - [`src/components/finance/__tests__/ExecutiveKpiCards.test.tsx`](file:///c:/KAROSERI/src/components/finance/__tests__/ExecutiveKpiCards.test.tsx) (6 tests)
-- [`src/components/finance/__tests__/DpReceiptPrintModal.test.tsx`](file:///c:/KAROSERI/src/components/finance/__tests__/DpReceiptPrintModal.test.tsx) (4 tests)
+- [`src/components/finance/__tests__/DpReceiptPrintModal.test.tsx`](file:///c:/KAROSERI/src/components/finance/__tests__/DpReceiptPrintModal.test.tsx) (9 tests)
 - [`src/components/__tests__/RequisitionApprovalGate2.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/RequisitionApprovalGate2.test.tsx) (2 tests)
 - [`src/components/__tests__/KasirChangeOrderBreakdown.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/KasirChangeOrderBreakdown.test.tsx) (2 tests)
 - [`src/components/__tests__/SpkBoronganPanel.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/SpkBoronganPanel.test.tsx) (7 tests)
@@ -171,11 +171,11 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 - [`src/components/__tests__/LanguageSwitcher.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/LanguageSwitcher.test.tsx) (5 tests)
 - [`src/components/__tests__/MaterialRequisitionForm.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/MaterialRequisitionForm.test.tsx) (8 tests)
 - [`src/components/__tests__/RabCalculatorDecimal.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/RabCalculatorDecimal.test.tsx) (7 tests)
-- [`src/components/__tests__/RabCalculatorLabor.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/RabCalculatorLabor.test.tsx) (13 tests)
+- [`src/components/__tests__/RabCalculatorLabor.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/RabCalculatorLabor.test.tsx) (19 tests)
 - [`src/components/__tests__/RabCalculatorOverhead.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/RabCalculatorOverhead.test.tsx) (8 tests)
 - [`src/components/__tests__/SpkFilterListBox.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/SpkFilterListBox.test.tsx) (6 tests)
 - [`src/components/__tests__/SpkForm.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/SpkForm.test.tsx) (6 tests)
-- [`src/components/__tests__/DownPaymentModal.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/DownPaymentModal.test.tsx) (6 tests)
+- [`src/components/__tests__/DownPaymentModal.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/DownPaymentModal.test.tsx) (4 tests)
 - [`src/components/__tests__/DpHistoryList.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/DpHistoryList.test.tsx) (4 tests)
 - [`src/pages/__tests__/KasirDashboardDpHistory.test.tsx`](file:///c:/KAROSERI/src/pages/__tests__/KasirDashboardDpHistory.test.tsx) (4 tests)
 - [`src/services/__tests__/billingService.test.ts`](file:///c:/KAROSERI/src/services/__tests__/billingService.test.ts) (8 tests)
@@ -222,7 +222,7 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 | Supabase Auth | BaaS API | Authentication, session persistence, role-based access | [`src/context/AuthContext.tsx`](file:///c:/KAROSERI/src/context/AuthContext.tsx) |
 | Supabase PostgreSQL | BaaS API | Relational database (86 migrations), RLS policies, Views, RPCs, Completion Triggers | [`src/lib/supabaseClient.ts`](file:///c:/KAROSERI/src/lib/supabaseClient.ts) |
 | Cloudinary | REST API / CDN | Vehicle damage intake photos and production milestone evidence | [`src/lib/cloudinary.ts`](file:///c:/KAROSERI/src/lib/cloudinary.ts), [`src/components/ui/CloudinaryUploader.tsx`](file:///c:/KAROSERI/src/components/ui/CloudinaryUploader.tsx) |
-| Vitest & RTL | Test Runner & Library | Automated unit and component testing with jsdom (38 suites, 242 tests) | `package.json`, [`src/utils/__tests__/`](file:///c:/KAROSERI/src/utils/__tests__/), [`src/components/**/__tests__/`](file:///c:/KAROSERI/src/components/) |
+| Vitest & RTL | Test Runner & Library | Automated unit and component testing with jsdom (38 suites, 248 tests) | `package.json`, [`src/utils/__tests__/`](file:///c:/KAROSERI/src/utils/__tests__/), [`src/components/**/__tests__/`](file:///c:/KAROSERI/src/components/) |
 | jsPDF / html2canvas | Client Library | BAST and invoice PDF rendering and export | [`src/components/BastModal.tsx`](file:///c:/KAROSERI/src/components/BastModal.tsx), [`src/utils/rabExport.ts`](file:///c:/KAROSERI/src/utils/rabExport.ts) |
 | XLSX (SheetJS) | Client Library | Inventory master data and financial reports Excel export | [`src/utils/excelExport.ts`](file:///c:/KAROSERI/src/utils/excelExport.ts), [`src/utils/exportFinancialReports.ts`](file:///c:/KAROSERI/src/utils/exportFinancialReports.ts) |
 
@@ -292,7 +292,8 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 
 ## Technical Debt & Audit Status
 
-### Fully Resolved (Sprints 43–60)
+### Fully Resolved (Sprints 43–61)
+- [x] **Custom Non-Inventory Labor Dual Pricing & Margin Indicator (Sprint 61):** Added dedicated dual inputs in `RabCalculator.tsx` for custom labor (`laborCostPrice` HPP upah tukang vs `laborUnitPrice` tarif tagih), autocomplete selection handler auto-populating standard prices from inventory, dynamic Live Margin Indicator (+ Rp / %), `material_id = null` persistence, and aligned right-hand RAB table + footer modal cost calculation.
 - [x] **Vehicle Model & Brand Ingestion (Sprint 60):** Added `vehicle_model` and `vehicle_brand` to `public.spk`, `SpkRecord`, `SpkForm.tsx`, `SpkCredentialSection.tsx`, `KasirDashboard.tsx`, `BastModal.tsx`, `ServiceAdvisorDashboard.tsx`, and `rabExport.ts`.
 - [x] **Down Payment History & Printable Receipt (Sprints 58-59):** Added sub-tab `Riwayat DP` in Kasir Dashboard with search, printable DP receipt modal (`DpReceiptPrintModal.tsx`), and formal `terbilang` Indonesian words.
 - [x] **Permanent Elimination of Waste Factor (Sprint 55):** Removed waste factor % from calculation formulas, schema, and UI across RAB and inventory modules.

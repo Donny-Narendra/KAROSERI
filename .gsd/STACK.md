@@ -90,7 +90,7 @@
 
 ## Quality & Verification Status
 
-- **Vitest Unit & Component Testing:** Passes 38/38 test suites, 242/242 tests passing (100%) (`npm test`). Zero broken assertions.
+- **Vitest Unit & Component Testing:** Passes 38/38 test suites, 248/248 tests passing (100%) (`npm test`). Zero broken assertions.
 - **Linter (Oxlint):** 0 errors, 0 warnings across 162 files with 113 rules (`npm run lint`).
 - **TypeScript Static Analysis:** Passes clean with 0 errors (`npx tsc -b`).
-- **Production Bundle:** Built cleanly in ~408ms via `tsc -b && vite build`. Code splitting active with dynamic route `React.lazy` chunks and dedicated vendor separation (`vendor-react`, `vendor-supabase`, `vendor-i18n`, `vendor-xlsx`, `vendor-pdf`, `vendor-libs`). Zero build warnings.
+- **Production Bundle:** Built cleanly in ~497ms via `tsc -b && vite build`. Code splitting active with dynamic route `React.lazy` chunks and dedicated vendor separation (`vendor-react`, `vendor-supabase`, `vendor-i18n`, `vendor-xlsx`, `vendor-pdf`, `vendor-libs`). Zero build warnings.
