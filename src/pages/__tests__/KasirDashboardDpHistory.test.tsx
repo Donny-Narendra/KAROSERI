@@ -262,7 +262,7 @@ describe('Component: KasirDashboard (DP History Sub-Tab & Printable Receipt)', (
     });
   });
 
-  it('displays "Tautan Kedaluwarsa (Pasca-BAST)" in billing calculator when SPK was released more than 7 days ago', async () => {
+  it('displays "Tautan Pelacakan Kedaluwarsa (>7 Hari)" in billing calculator when SPK was released more than 7 days ago', async () => {
     const expiredSpk = {
       ...mockSpks[0],
       id: 'spk-uuid-expired',
@@ -300,7 +300,7 @@ describe('Component: KasirDashboard (DP History Sub-Tab & Printable Receipt)', (
 
     // Verify expiration indicator badge is rendered
     await waitFor(() => {
-      expect(screen.getByText('Tautan Kedaluwarsa (Pasca-BAST)')).toBeInTheDocument();
+      expect(screen.getByText('Tautan Pelacakan Kedaluwarsa (>7 Hari)')).toBeInTheDocument();
     });
   });
 });

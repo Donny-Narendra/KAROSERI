@@ -79,7 +79,7 @@ describe('Component: DpHistoryList (Printable DP Receipt Integration)', () => {
     expect(screen.queryByText(/BUKTI PENERIMAAN UANG MUKA \(INVOICE DP\)/i)).not.toBeInTheDocument();
   });
 
-  it('renders "Kedaluwarsa (Pasca-BAST)" badge when vehicle was released more than 7 days ago', () => {
+  it('renders "Tautan Pelacakan Kedaluwarsa (>7 Hari)" grey text when vehicle was released more than 7 days ago', () => {
     const expiredHistory: DPHistoryRecord[] = [
       {
         ...mockHistory[0],
@@ -90,7 +90,8 @@ describe('Component: DpHistoryList (Printable DP Receipt Integration)', () => {
 
     render(<DpHistoryList history={expiredHistory} loading={false} />);
 
-    expect(screen.getByText('Kedaluwarsa (Pasca-BAST)')).toBeInTheDocument();
+    expect(screen.getByText('Tautan Pelacakan Kedaluwarsa (>7 Hari)')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Salin Link Tracking/i })).not.toBeInTheDocument();
   });
 
   it('renders active grace period badge when vehicle was released less than 7 days ago', () => {

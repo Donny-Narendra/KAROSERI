@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { AlertCircle, FileText, CheckCircle, Calculator, Lock, Receipt, TrendingUp, ChevronDown, ChevronUp, Printer, Clock } from 'lucide-react';
+import { AlertCircle, FileText, CheckCircle, Calculator, Lock, Receipt, TrendingUp, ChevronDown, ChevronUp, Printer } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { DownPaymentModal } from '../components/DownPaymentModal';
 import { DpHistoryList } from '../components/DpHistoryList';
@@ -884,32 +884,31 @@ export const KasirDashboard: React.FC = () => {
                       <div className="flex items-center gap-2">
                         {trackingExp.isExpired ? (
                           <span 
-                            className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1"
+                            className="text-xs text-text-muted"
                             title="Masa aktif dokumentasi teknis WBS telah berakhir (7 hari pasca BAST)"
                           >
-                            <Clock className="w-3 h-3" />
-                            Tautan Kedaluwarsa (Pasca-BAST)
+                            Tautan Pelacakan Kedaluwarsa (&gt;7 Hari)
                           </span>
-                        ) : trackingExp.isReleased ? (
-                          <span 
-                            className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                            title={`Aktif hingga ${trackingExp.formattedExpiresDate}`}
-                          >
-                            {trackingExp.daysRemaining}h Aktif
-                          </span>
-                        ) : null}
-                        <button
-                          type="button"
-                          onClick={() => handleCopyTrackingLink(selectedSpk.id, trackingExp.isExpired)}
-                          className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
-                            trackingExp.isExpired
-                              ? 'bg-surface-border text-text-muted hover:bg-surface-border/80'
-                              : 'bg-secondary/10 text-secondary hover:bg-secondary/20'
-                          }`}
-                          title={trackingExp.isExpired ? 'Salin tautan status purnajual (kedaluwarsa)' : 'Salin tautan pelacakan'}
-                        >
-                          Salin Tautan Pelacakan
-                        </button>
+                        ) : (
+                          <>
+                            {trackingExp.isReleased && (
+                              <span 
+                                className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                title={`Aktif hingga ${trackingExp.formattedExpiresDate}`}
+                              >
+                                {trackingExp.daysRemaining}h Aktif
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleCopyTrackingLink(selectedSpk.id, trackingExp.isExpired)}
+                              className="text-xs px-3 py-1.5 rounded-full font-medium transition-colors cursor-pointer flex items-center gap-1.5 bg-secondary/10 text-secondary hover:bg-secondary/20"
+                              title="Salin tautan pelacakan"
+                            >
+                              Salin Tautan Pelacakan
+                            </button>
+                          </>
+                        )}
                       </div>
                     );
                   })()}

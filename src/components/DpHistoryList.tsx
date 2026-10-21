@@ -1,5 +1,5 @@
 import React from 'react';
-import { Printer, Copy, ExternalLink, Check, CheckCircle, Clock } from 'lucide-react';
+import { Printer, Copy, ExternalLink, Check, CheckCircle } from 'lucide-react';
 import type { DPHistoryRecord } from '../services/billingService';
 import { checkTrackingExpiration } from '../utils/trackingExpiration';
 import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
@@ -115,51 +115,50 @@ export const DpHistoryList: React.FC<DpHistoryListProps> = ({ history, loading }
                   <span className="text-xs text-text-muted font-medium">Pelacakan Progres:</span>
                   {trackingExp.isExpired ? (
                     <span 
-                      className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1"
+                      className="text-xs text-text-muted"
                       title="Masa aktif dokumentasi teknis WBS telah berakhir (7 hari pasca BAST)"
                     >
-                      <Clock className="w-3 h-3" />
-                      Kedaluwarsa (Pasca-BAST)
+                      Tautan Pelacakan Kedaluwarsa (&gt;7 Hari)
                     </span>
-                  ) : trackingExp.isReleased ? (
-                    <span 
-                      className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                      title={`Aktif hingga ${trackingExp.formattedExpiresDate}`}
-                    >
-                      {trackingExp.daysRemaining}h Aktif
-                    </span>
-                  ) : null}
-                  <button
-                    onClick={() => handleCopyLink(record.spk_no)}
-                    className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded transition-colors border cursor-pointer ${
-                      trackingExp.isExpired 
-                        ? 'bg-surface-border/50 text-text-muted border-surface-border hover:bg-surface-border'
-                        : 'bg-secondary/10 hover:bg-secondary/20 text-secondary border-secondary/20'
-                    }`}
-                    title={trackingExp.isExpired ? 'Salin tautan status purnajual' : 'Salin link tracking'}
-                  >
-                    {copiedId === record.spk_no ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-status-success" />
-                        Tersalin!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" />
-                        Salin Link Tracking
-                      </>
-                    )}
-                  </button>
-                  <a
-                    href={`/tracking/${record.spk_no}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs bg-surface-border hover:bg-surface-border/80 text-text-primary px-2.5 py-1.5 rounded transition-colors"
-                    title="Buka Laporan Progres"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    Buka
-                  </a>
+                  ) : (
+                    <>
+                      {trackingExp.isReleased && (
+                        <span 
+                          className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                          title={`Aktif hingga ${trackingExp.formattedExpiresDate}`}
+                        >
+                          {trackingExp.daysRemaining}h Aktif
+                        </span>
+                      )}
+                      <button
+                        onClick={() => handleCopyLink(record.spk_no)}
+                        className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded transition-colors border cursor-pointer bg-secondary/10 hover:bg-secondary/20 text-secondary border-secondary/20"
+                        title="Salin link tracking"
+                      >
+                        {copiedId === record.spk_no ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-status-success" />
+                            Tersalin!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            Salin Link Tracking
+                          </>
+                        )}
+                      </button>
+                      <a
+                        href={`/tracking/${record.spk_no}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-xs bg-surface-border hover:bg-surface-border/80 text-text-primary px-2.5 py-1.5 rounded transition-colors"
+                        title="Buka Laporan Progres"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        Buka
+                      </a>
+                    </>
+                  )}
                 </div>
               );
             })()}

@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { 
   Check, Loader2, Printer, AlertTriangle, AlertCircle, ClipboardList,
-  ShieldCheck, CheckCircle2, Clock, Home, Award
+  CheckCircle2
 } from 'lucide-react';
 import { getOptimizedImageUrl } from '../lib/cloudinary';
 import { checkTrackingExpiration } from '../utils/trackingExpiration';
@@ -128,7 +128,19 @@ export const PublicProgressTracking: React.FC = () => {
     void fetchProgressData();
   }, [spk_no, fetchProgressData]);
 
+  const isTrackingExpired = useMemo(() => {
+    const handoverDate = spk?.released_at || spk?.bast_printed_at;
+    if (!handoverDate) return false;
+
+    const releaseTime = new Date(handoverDate).getTime();
+    const currentTime = new Date().getTime();
+    const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000;
+
+    return (currentTime - releaseTime) > sevenDaysInMs;
+  }, [spk]);
+
   const handlePrint = () => {
+    if (isTrackingExpired) return;
     window.print();
   };
 
@@ -181,8 +193,7 @@ export const PublicProgressTracking: React.FC = () => {
     );
   }
 
-  const expiration = checkTrackingExpiration(spk?.released_at);
-  const isExpired = expiration.isExpired;
+  const expiration = checkTrackingExpiration(spk?.released_at || spk?.bast_printed_at);
 
   const totalProgress = Math.round(
     WBS_CATEGORIES.reduce((acc, cat) => acc + (checklists[cat]?.progress_percentage || 0), 0) / WBS_CATEGORIES.length
@@ -196,10 +207,10 @@ export const PublicProgressTracking: React.FC = () => {
           <div>
             <h1 className="font-display font-bold text-lg text-primary">Portal Pelanggan RobelKaroseri</h1>
             <p className="text-sm text-text-muted">
-              {isExpired ? 'Status Purnajual & Informasi Kendaraan' : 'Laporan Progres Pengerjaan Unit'}
+              {isTrackingExpired ? 'Status Purnajual & Informasi Kendaraan' : 'Laporan Progres Pengerjaan Unit'}
             </p>
           </div>
-          {!isExpired && (
+          {!isTrackingExpired && (
             <button
               onClick={handlePrint}
               className="flex items-center gap-2 px-4 py-2 bg-primary text-white font-medium rounded hover:bg-primary-hover transition cursor-pointer"
@@ -212,155 +223,80 @@ export const PublicProgressTracking: React.FC = () => {
       </div>
 
       <div className="max-w-4xl mx-auto p-4 sm:p-8 print:p-0">
-        
-        {/* Printable Header */}
-        <div className="mb-8 border-b-2 border-primary/20 pb-6 print:border-black/20">
-          <div className="flex justify-between items-end mb-6">
-            <div>
-              <h2 className="text-3xl font-display font-bold text-primary print:text-black mb-1">
-                {isExpired ? 'Status Purnajual Kendaraan' : 'Laporan Progres Kendaraan'}
-              </h2>
-              <p className="text-text-muted print:text-gray-600">Terakhir Diperbarui: {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+        {isTrackingExpired ? (
+          <div className="max-w-2xl mx-auto my-12 p-8 bg-slate-900 border border-slate-700/80 rounded-2xl text-center shadow-2xl space-y-6">
+            <div className="w-16 h-16 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mx-auto text-3xl">
+              ✓
             </div>
-            <div className="text-right hidden print:block">
-              <h3 className="font-bold text-xl">RobelKaroseri</h3>
-              <p className="text-sm text-gray-600">Sistem Laporan Resmi</p>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4 bg-surface print:bg-gray-50 p-6 rounded-lg border border-border print:border-gray-200">
-            <div>
-              <p className="text-sm text-text-muted print:text-gray-500 mb-1">Nama Pelanggan</p>
-              <p className="font-bold text-lg">{spk?.customer_name}</p>
-            </div>
-            <div>
-              <p className="text-sm text-text-muted print:text-gray-500 mb-1">Nomor SPK</p>
-              <p className="font-bold font-mono">{spk?.spk_no}</p>
-            </div>
-            <div>
-              <p className="text-sm text-text-muted print:text-gray-500 mb-1">Nomor Rangka (VIN)</p>
-              <p className="font-bold font-mono">{spk?.vehicle_vin || spk?.vehicle_number || '-'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-text-muted print:text-gray-500 mb-1">Nomor Polisi</p>
-              <p className="font-bold font-mono">{spk?.vehicle_plate || '-'}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Active Grace Period Banner (within 7 days of BAST) */}
-        {!isExpired && expiration.isReleased && (
-          <div className="mb-8 bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-emerald-300 shadow-sm print:hidden">
-            <div className="flex items-center gap-2.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>
-                Unit resmi diserahterimakan pada <strong>{expiration.formattedReleasedDate}</strong>. Akses dokumentasi teknis WBS terbuka hingga <strong>{expiration.formattedExpiresDate}</strong>.
-              </span>
-            </div>
-            <span className="px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[11px] font-bold shrink-0 self-start sm:self-auto border border-emerald-500/30">
-              {expiration.daysRemaining} HARI TERSISA
-            </span>
-          </div>
-        )}
-
-        {isExpired ? (
-          /* Thank You State Card (Post 7-Day Expiration) */
-          <div className="space-y-6 animate-in fade-in duration-300">
-            <div className="bg-surface border-2 border-emerald-500/30 rounded-2xl p-6 sm:p-10 shadow-2xl relative overflow-hidden text-center">
-              {/* Decorative top accent */}
-              <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-emerald-500 via-teal-400 to-primary" />
-
-              {/* Status Badge */}
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs sm:text-sm font-semibold mb-6 shadow-sm">
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Unit Telah Selesai &amp; Diserahterimakan (Handover Selesai)</span>
-              </div>
-
-              {/* Headline */}
-              <h2 className="text-2xl sm:text-3xl font-display font-bold text-text mb-3 tracking-tight">
-                Terima Kasih Telah Mempercayakan Kendaraan Anda kepada RobelKaroseri
-              </h2>
-              <p className="text-sm sm:text-base text-text-muted max-w-2xl mx-auto leading-relaxed mb-8">
-                Merupakan kebanggaan bagi kami dapat menyelesaikan perakitan dan modifikasi armada kendaraan Anda. Seluruh rangkaian proses fabrikasi dan pengujian kontrol mutu (QC) telah diselesaikan sesuai standar industri karoseri terbaik.
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold text-white">Unit Telah Resmi Diserahterimakan</h2>
+              <p className="text-slate-400 text-sm">
+                Surat Perintah Kerja: <span className="font-semibold text-slate-200">{spk?.spk_no || spk?.spk_number}</span> • No. Polisi: <span className="font-semibold text-slate-200">{spk?.vehicle_plate}</span>
               </p>
+            </div>
 
-              {/* Handover Details Summary */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-background/80 p-4 sm:p-5 rounded-xl border border-border text-left mb-8">
-                <div>
-                  <span className="text-[11px] uppercase tracking-wider text-text-muted block mb-0.5">Pelanggan</span>
-                  <strong className="text-sm text-text font-medium block truncate" title={spk?.customer_name}>
-                    {spk?.customer_name || '-'}
-                  </strong>
-                </div>
-                <div>
-                  <span className="text-[11px] uppercase tracking-wider text-text-muted block mb-0.5">Nomor SPK</span>
-                  <strong className="text-sm text-primary font-mono block">
-                    {spk?.spk_no || '-'}
-                  </strong>
-                </div>
-                <div>
-                  <span className="text-[11px] uppercase tracking-wider text-text-muted block mb-0.5">Nomor Polisi / Model</span>
-                  <strong className="text-sm text-text font-mono block truncate">
-                    {spk?.vehicle_plate || spk?.vehicle_model || '-'}
-                  </strong>
-                </div>
-                <div>
-                  <span className="text-[11px] uppercase tracking-wider text-text-muted block mb-0.5">Tanggal Serah Terima</span>
-                  <strong className="text-sm text-emerald-400 font-mono block">
-                    {expiration.formattedReleasedDate || 'Telah Diserahterimakan'}
-                  </strong>
-                </div>
-              </div>
+            <div className="p-4 bg-slate-800/60 border border-slate-700/50 rounded-xl text-slate-300 text-sm leading-relaxed">
+              Terima kasih telah mempercayakan pengerjaan modifikasi karoseri armada Anda kepada <strong className="text-white">RobelKaroseri</strong>. 
+              Masa pemantauan pengerjaan unit ini telah selesai dan diarsipkan demi perlindungan data operasional.
+            </div>
 
-              {/* Proprietary & Privacy Policy Notice */}
-              <div className="bg-slate-900/70 border border-amber-500/30 rounded-xl p-4 sm:p-5 text-left flex items-start gap-3.5 mb-8 text-xs text-text-muted leading-relaxed">
-                <Clock className="w-5 h-5 text-amber-400 mt-0.5 shrink-0" />
-                <div>
-                  <strong className="text-text block mb-1 text-sm font-semibold">
-                    Masa Aktif Dokumentasi Teknis Pengerjaan Telah Berakhir
-                  </strong>
-                  Sesuai kebijakan hak cipta dan perlindungan metode fabrikasi internal karoseri, akses rincian live tracking foto dan tahapan WBS dinonaktifkan otomatis tepat 7 hari setelah serah terima kendaraan (BAST). Unit kendaraan Anda kini telah beroperasi dalam masa purnajual resmi.
-                </div>
-              </div>
-
-              {/* Post-Sales & Warranty Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left mb-8">
-                <div className="bg-surface/60 border border-border rounded-xl p-4 flex items-start gap-3">
-                  <ShieldCheck className="w-5 h-5 text-emerald-400 mt-0.5 shrink-0" />
-                  <div>
-                    <h4 className="font-semibold text-text text-sm mb-1">Jaminan Garansi Karoseri</h4>
-                    <p className="text-xs text-text-muted leading-relaxed">
-                      Konstruksi dan pengerjaan unit Anda terlindungi garansi resmi RobelKaroseri sesuai syarat dan ketentuan yang tercantum pada lembar BAST.
-                    </p>
-                  </div>
-                </div>
-                <div className="bg-surface/60 border border-border rounded-xl p-4 flex items-start gap-3">
-                  <Award className="w-5 h-5 text-primary mt-0.5 shrink-0" />
-                  <div>
-                    <h4 className="font-semibold text-text text-sm mb-1">Layanan Purnajual &amp; Modifikasi</h4>
-                    <p className="text-xs text-text-muted leading-relaxed">
-                      Hubungi tim customer support kami untuk kebutuhan servis berkala, konsultasi perawatan sasis/bodi, atau penambahan variasi karoseri lanjutan.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-wrap justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => navigate('/')}
-                  className="px-6 py-2.5 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-semibold flex items-center gap-2 transition shadow-md cursor-pointer"
-                >
-                  <Home className="w-4 h-4" />
-                  <span>Kembali ke Beranda</span>
-                </button>
-              </div>
+            <div className="text-xs text-slate-400">
+              Butuh bantuan seputar garansi atau layanan perawatan? Hubungi Customer Care kami di <span className="text-amber-400 font-semibold">(031) 8988-2233</span>.
             </div>
           </div>
         ) : (
-          /* Normal Progress View */
           <>
+            {/* Printable Header */}
+            <div className="mb-8 border-b-2 border-primary/20 pb-6 print:border-black/20">
+              <div className="flex justify-between items-end mb-6">
+                <div>
+                  <h2 className="text-3xl font-display font-bold text-primary print:text-black mb-1">
+                    Laporan Progres Kendaraan
+                  </h2>
+                  <p className="text-text-muted print:text-gray-600">Terakhir Diperbarui: {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                </div>
+                <div className="text-right hidden print:block">
+                  <h3 className="font-bold text-xl">RobelKaroseri</h3>
+                  <p className="text-sm text-gray-600">Sistem Laporan Resmi</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 bg-surface print:bg-gray-50 p-6 rounded-lg border border-border print:border-gray-200">
+                <div>
+                  <p className="text-sm text-text-muted print:text-gray-500 mb-1">Nama Pelanggan</p>
+                  <p className="font-bold text-lg">{spk?.customer_name}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-text-muted print:text-gray-500 mb-1">Nomor SPK</p>
+                  <p className="font-bold font-mono">{spk?.spk_no}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-text-muted print:text-gray-500 mb-1">Nomor Rangka (VIN)</p>
+                  <p className="font-bold font-mono">{spk?.vehicle_vin || spk?.vehicle_number || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-text-muted print:text-gray-500 mb-1">Nomor Polisi</p>
+                  <p className="font-bold font-mono">{spk?.vehicle_plate || '-'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Active Grace Period Banner (within 7 days of BAST) */}
+            {expiration.isReleased && (
+              <div className="mb-8 bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-emerald-300 shadow-sm print:hidden">
+                <div className="flex items-center gap-2.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>
+                    Unit resmi diserahterimakan pada <strong>{expiration.formattedReleasedDate}</strong>. Akses dokumentasi teknis WBS terbuka hingga <strong>{expiration.formattedExpiresDate}</strong>.
+                  </span>
+                </div>
+                <span className="px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[11px] font-bold shrink-0 self-start sm:self-auto border border-emerald-500/30">
+                  {expiration.daysRemaining} HARI TERSISA
+                </span>
+              </div>
+            )}
+
             {/* Overall Progress */}
             <div className="mb-10">
               <h3 className="text-xl font-bold mb-4 flex items-center gap-2">

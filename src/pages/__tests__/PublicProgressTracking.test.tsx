@@ -100,7 +100,7 @@ describe('Page: PublicProgressTracking (7-Day Post-BAST Expiration & Thank You S
     expect(screen.getByText('WBS 2: Sasis/Rangka')).toBeInTheDocument();
 
     // Thank You state should not be rendered
-    expect(screen.queryByText(/Terima Kasih Telah Mempercayakan Kendaraan Anda/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Unit Telah Resmi Diserahterimakan')).not.toBeInTheDocument();
   });
 
   it('displays grace period countdown banner when vehicle was released within 7 days', async () => {
@@ -138,7 +138,7 @@ describe('Page: PublicProgressTracking (7-Day Post-BAST Expiration & Thank You S
     // Progress details and Unduh PDF should still be available
     expect(screen.getByRole('button', { name: /Unduh PDF/i })).toBeInTheDocument();
     expect(screen.getByText('Penyelesaian Keseluruhan')).toBeInTheDocument();
-    expect(screen.queryByText(/Terima Kasih Telah Mempercayakan Kendaraan Anda/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Unit Telah Resmi Diserahterimakan')).not.toBeInTheDocument();
   });
 
   it('switches to Thank You State and hides WBS details and "Unduh PDF" button when past 7 days of BAST', async () => {
@@ -166,7 +166,7 @@ describe('Page: PublicProgressTracking (7-Day Post-BAST Expiration & Thank You S
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/Terima Kasih Telah Mempercayakan Kendaraan Anda kepada RobelKaroseri/i)).toBeInTheDocument();
+      expect(screen.getByText('Unit Telah Resmi Diserahterimakan')).toBeInTheDocument();
     });
 
     // Check navbar header reflects post-sales state
@@ -180,20 +180,44 @@ describe('Page: PublicProgressTracking (7-Day Post-BAST Expiration & Thank You S
     expect(screen.queryByText('Rincian Tahapan (WBS)')).not.toBeInTheDocument();
 
     // Thank You Card details must be present
-    expect(screen.getByText(/Unit Telah Selesai & Diserahterimakan \(Handover Selesai\)/i)).toBeInTheDocument();
-    expect(screen.getAllByText('PT. Bahtera Karoseri Nusantara').length).toBeGreaterThanOrEqual(2);
-    expect(screen.getAllByText('SPK-2026-003').length).toBeGreaterThanOrEqual(2);
-    expect(screen.getAllByText('L 9999 BB').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText('✓')).toBeInTheDocument();
+    expect(screen.getByText('SPK-2026-003')).toBeInTheDocument();
+    expect(screen.getByText('L 9999 BB')).toBeInTheDocument();
+    expect(screen.getByText(/Terima kasih telah mempercayakan pengerjaan modifikasi karoseri armada Anda/i)).toBeInTheDocument();
+    expect(screen.getByText(/Masa pemantauan pengerjaan unit ini telah selesai dan diarsipkan demi perlindungan data operasional/i)).toBeInTheDocument();
+    expect(screen.getByText('(031) 8988-2233')).toBeInTheDocument();
+  });
 
-    // Privacy notice explaining 7-day technical WBS closure
-    expect(screen.getByText(/Masa Aktif Dokumentasi Teknis Pengerjaan Telah Berakhir/i)).toBeInTheDocument();
-    expect(screen.getByText(/kebijakan hak cipta dan perlindungan metode fabrikasi internal karoseri/i)).toBeInTheDocument();
+  it('triggers Thank You State via bast_printed_at fallback when released_at is null', async () => {
+    // bast_printed_at was 8 days ago
+    const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
+    const bastExpiredSpk = {
+      id: 'spk-4',
+      spk_number: 'SPK-2668',
+      customer_name: 'PT. Logistik Mandiri',
+      vehicle_plate: 'W 1234 CD',
+      status: 'COMPLETED',
+      dp_amount: 50000000,
+      released_at: null,
+      bast_printed_at: eightDaysAgo,
+    };
 
-    // Post-sales assurances
-    expect(screen.getByText(/Jaminan Garansi Karoseri/i)).toBeInTheDocument();
-    expect(screen.getByText(/Layanan Purnajual & Modifikasi/i)).toBeInTheDocument();
+    setupSupabaseMock(bastExpiredSpk);
 
-    // Back to home button
-    expect(screen.getByRole('button', { name: /Kembali ke Beranda/i })).toBeInTheDocument();
+    render(
+      <MemoryRouter initialEntries={['/tracking/SPK-2668']}>
+        <Routes>
+          <Route path="/tracking/:spk_no" element={<PublicProgressTracking />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Unit Telah Resmi Diserahterimakan')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('SPK-2668')).toBeInTheDocument();
+    expect(screen.getByText('W 1234 CD')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Unduh PDF/i })).not.toBeInTheDocument();
   });
 });
