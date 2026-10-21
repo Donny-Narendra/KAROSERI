@@ -22,7 +22,7 @@ export const MandorDashboard: React.FC = () => {
     try {
       const [spkRes, reqRes] = await Promise.all([
         supabase.from('spk').select('*').eq('status', 'ACTIVE').order('created_at', { ascending: false }),
-        supabase.from('material_requisitions').select('id, spk_id').eq('status', 'PENDING')
+        supabase.from('material_requisitions').select('id, spk_id').in('status', ['PENDING', 'PARTIALLY_ISSUED'])
       ]);
 
       if (spkRes.error) {

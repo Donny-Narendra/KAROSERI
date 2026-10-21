@@ -38,6 +38,7 @@ export interface MaterialRequisitionItemGate2 {
   unit_price?: number;
   subtotal?: number;
   wbs_stage?: string | null;
+  status?: string | null;
   materials?: {
     unit_price?: number;
   } | null;
@@ -47,6 +48,7 @@ export interface ApprovedRequisitionGate2 {
   id?: string;
   spk_id?: string;
   wbs_category?: string | null;
+  status?: string | null;
   material_requisition_items?: MaterialRequisitionItemGate2[];
 }
 
@@ -186,6 +188,11 @@ export function getWbsMaterialCommitted(
     .forEach(req => {
       const reqNorm = normalizeWbsStage(req.wbs_category);
       (req.material_requisition_items || []).forEach(item => {
+        // Abaikan item yang ditolak atau item non-approved pada requisition partially issued
+        if (item.status === 'REJECTED' || (req.status === 'PARTIALLY_ISSUED' && item.status !== 'APPROVED')) {
+          return;
+        }
+
         const itemNorm = normalizeWbsStage(item.wbs_stage);
         // If stage filtering is active, match either item-level stage or req-level category
         if (normStage) {

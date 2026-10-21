@@ -64,7 +64,7 @@ export const ServiceAdvisorDashboard: React.FC = () => {
           id,
           spk ( id, spk_no, customer_name, vehicle_plate, sub_tasks )
         `, { count: 'exact' })
-        .eq('status', 'PENDING');
+        .in('status', ['PENDING', 'PARTIALLY_ISSUED']);
       
       if (!error && data) {
         setPendingReqCount(count ?? data.length);

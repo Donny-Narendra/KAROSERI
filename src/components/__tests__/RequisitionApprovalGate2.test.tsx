@@ -140,23 +140,59 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
               }
               return Promise.resolve({ data: [], error: null });
             }),
-            in: vi.fn().mockReturnValue({
-              eq: vi.fn().mockResolvedValue({
-                data: approvedReqs,
-                error: null
-              })
+            in: vi.fn().mockImplementation((col: string, _val: any) => {
+              if (col === 'status') {
+                return {
+                  order: vi.fn().mockResolvedValue({
+                    data: pendingReqs,
+                    error: null
+                  })
+                };
+              }
+              return {
+                eq: vi.fn().mockResolvedValue({
+                  data: approvedReqs,
+                  error: null
+                }),
+                in: vi.fn().mockResolvedValue({
+                  data: approvedReqs,
+                  error: null
+                })
+              };
             })
-          }))
+          })),
+          update: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: null, error: null })
+          })
+        } as any;
+      }
+
+      if (table === 'material_requisition_items') {
+        return {
+          update: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: null, error: null })
+          })
         } as any;
       }
 
       if (table === 'materials') {
         return {
-          select: vi.fn().mockResolvedValue({
-            data: [
-              { id: 'mat-1', name: 'material tes 2', unit: 'pcs', unit_price: 55000 }
-            ],
-            error: null
+          select: vi.fn().mockImplementation(() => ({
+            eq: vi.fn().mockImplementation(() => ({
+              single: vi.fn().mockResolvedValue({
+                data: { id: 'mat-1', name: 'material tes 2', unit: 'pcs', current_stock: 10 },
+                error: null
+              })
+            })),
+            then: (resolve: any) => resolve({
+              data: [
+                { id: 'mat-1', name: 'material tes 2', unit: 'pcs', unit_price: 55000, current_stock: 10 }
+              ],
+              error: null
+            })
+          })),
+          update: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: null, error: null })
           })
         } as any;
       }
@@ -181,7 +217,8 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
                 error: null
               })
             })
-          })
+          }),
+          insert: vi.fn().mockResolvedValue({ data: null, error: null })
         } as any;
       }
 
@@ -203,6 +240,8 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
         eq: vi.fn().mockReturnThis(),
         in: vi.fn().mockReturnThis(),
         is: vi.fn().mockReturnThis(),
+        insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+        update: vi.fn().mockReturnThis(),
       } as any;
     });
   };
@@ -229,14 +268,20 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
     // Check that NO false-positive over-budget alert is shown
     expect(screen.queryByText(/PERINGATAN PAGU GATE 2 \(OVER BUDGET\):/i)).not.toBeInTheDocument();
 
-    // Verify Approve button is standard orange (bg-primary) and NOT amber (bg-amber-600)
-    const approveButton = screen.getByRole('button', { name: /approve/i });
-    expect(approveButton).toHaveClass('bg-primary');
-    expect(approveButton).not.toHaveClass('bg-amber-600');
-    expect(approveButton).toHaveAttribute('title', 'Setujui Permintaan Material (Sesuai Alokasi RAB WBS)');
+    // Verify card footer Approve Semua button is standard primary and NOT amber
+    const approveSemuaButton = screen.getByRole('button', { name: /approve semua/i });
+    expect(approveSemuaButton).toHaveClass('bg-primary');
+    expect(approveSemuaButton).not.toHaveClass('bg-amber-600');
+    expect(approveSemuaButton).toHaveAttribute('title', 'Setujui Seluruh Sisa Material Pending Sekaligus');
+
+    // Verify item-level action buttons (Approve and Tolak) are present in the table row
+    const itemApproveBtn = screen.getByRole('button', { name: /^approve$/i });
+    expect(itemApproveBtn).toBeInTheDocument();
+    const itemRejectBtn = screen.getByRole('button', { name: /^tolak$/i });
+    expect(itemRejectBtn).toBeInTheDocument();
   });
 
-  it('shows red/amber Gate 2 warning and amber Approve button when a requisition genuinely exceeds WBS budget', async () => {
+  it('shows red/amber Gate 2 warning and amber Approve Semua button when a requisition genuinely exceeds WBS budget', async () => {
     // Requisition requesting 2 pcs of material tes 2 = Rp 110,000 (exceeding WBS 1 budget of Rp 55,000)
     const overBudgetReq = {
       ...mockPendingRequisitionWbs1,
@@ -268,9 +313,76 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
     const warningAlert = await screen.findByText(/PERINGATAN PAGU GATE 2 \(OVER BUDGET\):/i);
     expect(warningAlert).toBeInTheDocument();
 
-    // Verify Approve button turns amber
-    const approveButton = screen.getByRole('button', { name: /approve/i });
-    expect(approveButton).toHaveClass('bg-amber-600');
-    expect(approveButton).not.toHaveClass('bg-status-success');
+    // Verify Approve Semua button turns amber
+    const approveSemuaButton = screen.getByRole('button', { name: /approve semua/i });
+    expect(approveSemuaButton).toHaveClass('bg-amber-600');
+    expect(approveSemuaButton).not.toHaveClass('bg-status-success');
+  });
+
+  it('renders granular status badges for APPROVED and REJECTED items and PARTIALLY_ISSUED card badge', async () => {
+    const multiItemPartialReq = {
+      ...mockPendingRequisitionWbs1,
+      id: 'req-partial-1',
+      status: 'PARTIALLY_ISSUED',
+      material_requisition_items: [
+        {
+          id: 'item-req-approved',
+          material_id: 'mat-1',
+          material_name: 'Plat Besi 2mm',
+          quantity: 5,
+          unit: 'lbr',
+          unit_price: 100000,
+          subtotal: 500000,
+          wbs_stage: 'Pembongkaran',
+          status: 'APPROVED'
+        },
+        {
+          id: 'item-req-pending',
+          material_id: 'mat-2',
+          material_name: 'Baut Hex M10',
+          quantity: 50,
+          unit: 'pcs',
+          unit_price: 2000,
+          subtotal: 100000,
+          wbs_stage: 'Pembongkaran',
+          status: 'PENDING'
+        },
+        {
+          id: 'item-req-rejected',
+          material_id: 'mat-3',
+          material_name: 'Kabel Ties',
+          quantity: 10,
+          unit: 'pack',
+          unit_price: 15000,
+          subtotal: 150000,
+          wbs_stage: 'Pembongkaran',
+          status: 'REJECTED'
+        }
+      ]
+    };
+
+    setupSupabaseMock([multiItemPartialReq]);
+
+    render(<RequisitionApproval />);
+
+    await waitFor(() => {
+      expect(screen.getByText('SPK-2668')).toBeInTheDocument();
+    });
+
+    // Card header should display PARTIALLY_ISSUED badge
+    expect(screen.getByText(/Sebagian Dirilis \(Partially Issued\)/i)).toBeInTheDocument();
+
+    // Approved item row should render "Disetujui" badge
+    expect(screen.getByText('Disetujui')).toBeInTheDocument();
+
+    // Rejected item row should render "Ditolak" badge
+    expect(screen.getByText('Ditolak')).toBeInTheDocument();
+
+    // Pending item row should still have individual Approve and Tolak buttons
+    expect(screen.getByRole('button', { name: /^approve$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^tolak$/i })).toBeInTheDocument();
+
+    // Table footer should display remaining pending cost
+    expect(screen.getByText(/Sisa Belum Disetujui \(Pending\):/i)).toBeInTheDocument();
   });
 });
