@@ -7,8 +7,23 @@
 export interface ExpenseCategory {
   id: string;
   name: string;
-  code: string;
-  default_period: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY' | string;
+  code?: string;
+  description?: string | null;
+  is_active?: boolean;
+  default_period?: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY' | string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CreateExpenseCategoryPayload {
+  name: string;
+  description?: string | null;
+}
+
+export interface UpdateExpenseCategoryPayload {
+  name?: string;
+  description?: string | null;
+  is_active?: boolean;
 }
 
 export interface OperatingExpenseItem {

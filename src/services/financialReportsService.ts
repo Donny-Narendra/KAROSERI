@@ -387,18 +387,40 @@ export const financialReportsService = {
   /**
    * 6. Mengambil Master Kategori Beban Operasional (OPEX)
    */
-  async getOperatingExpenseCategories(): Promise<OperatingExpenseCategory[]> {
-    const { data, error } = await supabase
+  async getOperatingExpenseCategories(includeInactive = false): Promise<OperatingExpenseCategory[]> {
+    let query = supabase
+      .from('expense_categories')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (!includeInactive) {
+      query = query.eq('is_active', true);
+    }
+
+    const { data, error } = await query;
+
+    if (!error && data && data.length > 0) {
+      return data as OperatingExpenseCategory[];
+    }
+
+    if (error) {
+      console.warn('Fallback to operating_expense_categories due to:', error.message);
+    }
+
+    const { data: fallbackData, error: fallbackError } = await supabase
       .from('operating_expense_categories')
       .select('*')
       .order('name', { ascending: true });
 
-    if (error) {
+    if (fallbackError && error) {
       console.error('Error fetching operating expense categories:', error);
-      throw new Error(`Gagal mengambil kategori beban operasional: ${error.message}`);
+      throw new Error(`Gagal mengambil kategori beban operasional: ${error.message || fallbackError.message}`);
     }
 
-    return (data || []) as OperatingExpenseCategory[];
+    return (fallbackData || []).map((cat: any) => ({
+      ...cat,
+      is_active: true,
+    })) as OperatingExpenseCategory[];
   },
 
   /**

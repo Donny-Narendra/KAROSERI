@@ -10,11 +10,14 @@ import {
   Building2, 
   CheckCircle, 
   AlertCircle,
-  Clock
+  Clock,
+  FolderKanban
 } from 'lucide-react';
 import { operatingExpenseService } from '../../services/operatingExpenseService';
 import type { OperatingExpenseItem, ExpenseCategory } from '../../types/operatingExpenses';
 import { formatRupiah } from '../../utils/formatters';
+import { useAuth } from '../../context/AuthContext';
+import { ExpenseCategoryManagerModal } from './ExpenseCategoryManagerModal';
 
 interface OperatingExpenseManagerModalProps {
   isOpen: boolean;
@@ -30,6 +33,12 @@ export const OperatingExpenseManagerModal: React.FC<OperatingExpenseManagerModal
   defaultMonth,
 }) => {
   const currentMonthStr = defaultMonth || new Date().toISOString().slice(0, 7);
+
+  const { profile } = useAuth();
+  const isAuthorized = !profile || profile.role === 'owner' || profile.role === 'kasir';
+
+  // Sub-modal Kelola Kategori
+  const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
 
   // Categories & Existing Expenses
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
@@ -55,23 +64,35 @@ export const OperatingExpenseManagerModal: React.FC<OperatingExpenseManagerModal
   // Delete handling
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Load categories
-  useEffect(() => {
-    if (!isOpen) return;
-    const loadCategories = async () => {
-      try {
-        const cats = await operatingExpenseService.getCategories();
-        setCategories(cats);
-        if (cats.length > 0 && !categoryId) {
-          setCategoryId(cats[0].id);
-          setCategoryName(cats[0].name);
-        }
-      } catch (err: any) {
-        console.error('Failed to load expense categories:', err);
+  // Load categories (active categories only for logging)
+  const loadCategories = useCallback(async () => {
+    try {
+      const cats = await operatingExpenseService.getCategories(false);
+      setCategories(cats);
+      if (cats.length > 0) {
+        setCategoryId(prev => {
+          if (!prev || !cats.some(c => c.id === prev)) {
+            setCategoryName(cats[0].name);
+            return cats[0].id;
+          }
+          const current = cats.find(c => c.id === prev);
+          if (current) setCategoryName(current.name);
+          return prev;
+        });
+      } else {
+        setCategoryId('');
+        setCategoryName('');
       }
-    };
-    loadCategories();
-  }, [isOpen, categoryId]);
+    } catch (err: any) {
+      console.error('Failed to load expense categories:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadCategories();
+    }
+  }, [isOpen, loadCategories]);
 
   // Load expenses for selected month
   const loadExpenses = useCallback(async () => {
@@ -270,22 +291,39 @@ export const OperatingExpenseManagerModal: React.FC<OperatingExpenseManagerModal
                   />
                 </div>
 
-                {/* Dropdown Kategori */}
+                {/* Dropdown Kategori Dinamis */}
                 <div>
-                  <label className="block text-xs font-semibold text-text-muted mb-1.5">
-                    Kategori Beban *
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-semibold text-text-muted">
+                      Kategori Beban *
+                    </label>
+                    {isAuthorized && (
+                      <button
+                        type="button"
+                        onClick={() => setIsCategoryManagerOpen(true)}
+                        className="text-[11px] text-purple-400 hover:text-purple-300 font-medium flex items-center gap-1 hover:underline cursor-pointer transition"
+                        title="Kelola Master Kategori Beban"
+                      >
+                        <FolderKanban className="w-3 h-3" />
+                        <span>Kelola Kategori</span>
+                      </button>
+                    )}
+                  </div>
                   <select
                     value={categoryId}
                     onChange={e => handleCategoryChange(e.target.value)}
                     className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-surface text-text focus:ring-1 focus:ring-primary focus:outline-hidden"
                     required
                   >
-                    {categories.map(cat => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </option>
-                    ))}
+                    {categories.length === 0 ? (
+                      <option value="" disabled>Belum ada kategori aktif</option>
+                    ) : (
+                      categories.map(cat => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </option>
+                      ))
+                    )}
                   </select>
                 </div>
               </div>
@@ -481,6 +519,15 @@ export const OperatingExpenseManagerModal: React.FC<OperatingExpenseManagerModal
           )}
         </div>
       </div>
+
+      {/* Sub-modal Kelola Kategori Beban Dinamis */}
+      <ExpenseCategoryManagerModal
+        isOpen={isCategoryManagerOpen}
+        onClose={() => setIsCategoryManagerOpen(false)}
+        onCategoriesUpdated={() => {
+          loadCategories();
+        }}
+      />
     </div>
   );
 };

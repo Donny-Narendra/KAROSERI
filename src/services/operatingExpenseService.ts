@@ -3,25 +3,132 @@ import type {
   OperatingExpenseItem, 
   ExpenseCategory, 
   MonthlyCorporatePnL,
-  CreateExpensePayload 
+  CreateExpensePayload,
+  CreateExpenseCategoryPayload,
+  UpdateExpenseCategoryPayload
 } from '../types/operatingExpenses';
 
 export const operatingExpenseService = {
   /**
-   * Mengambil master kategori beban operasional berkala
+   * Mengambil master kategori beban operasional berkala (tabel expense_categories dengan fallback ke operating_expense_categories)
+   * Jika includeInactive = false (default), hanya menampilkan kategori aktif (is_active !== false)
    */
-  async getCategories(): Promise<ExpenseCategory[]> {
-    const { data, error } = await supabase
+  async getCategories(includeInactive = false): Promise<ExpenseCategory[]> {
+    // 1. Coba ambil dari master expense_categories
+    let query = supabase
+      .from('expense_categories')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (!includeInactive) {
+      query = query.eq('is_active', true);
+    }
+
+    const { data, error } = await query;
+
+    if (!error && data && data.length > 0) {
+      return data as ExpenseCategory[];
+    }
+
+    // 2. Fallback ke operating_expense_categories jika tabel expense_categories belum ada / kosong
+    if (error) {
+      console.warn('Fallback to operating_expense_categories due to:', error.message);
+    }
+
+    const { data: fallbackData, error: fallbackError } = await supabase
       .from('operating_expense_categories')
       .select('*')
       .order('name', { ascending: true });
 
-    if (error) {
-      console.error('Error fetching expense categories:', error);
-      throw new Error(`Gagal mengambil master kategori beban: ${error.message}`);
+    if (fallbackError && error) {
+      console.error('Error fetching expense categories from both tables:', fallbackError);
+      throw new Error(`Gagal mengambil master kategori beban: ${error.message || fallbackError.message}`);
     }
 
-    return (data || []) as ExpenseCategory[];
+    return (fallbackData || []).map((cat: any) => ({
+      ...cat,
+      is_active: true,
+    })) as ExpenseCategory[];
+  },
+
+  /**
+   * Menambahkan kategori beban operasional baru ke master expense_categories
+   */
+  async createCategory(payload: CreateExpenseCategoryPayload): Promise<ExpenseCategory> {
+    const trimmedName = payload.name.trim();
+    if (!trimmedName) {
+      throw new Error('Nama kategori beban wajib diisi.');
+    }
+
+    const { data, error } = await supabase
+      .from('expense_categories')
+      .insert({
+        name: trimmedName,
+        description: payload.description?.trim() || null,
+        is_active: true,
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating expense category:', error);
+      if (error.code === '23505' || error.message.includes('unique')) {
+        throw new Error(`Kategori "${trimmedName}" sudah terdaftar.`);
+      }
+      throw new Error(`Gagal membuat kategori beban: ${error.message}`);
+    }
+
+    return data as ExpenseCategory;
+  },
+
+  /**
+   * Mengubah nama dan/atau deskripsi kategori beban
+   */
+  async updateCategory(id: string, payload: UpdateExpenseCategoryPayload): Promise<ExpenseCategory> {
+    const updates: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (payload.name !== undefined) {
+      const trimmedName = payload.name.trim();
+      if (!trimmedName) {
+        throw new Error('Nama kategori tidak boleh kosong.');
+      }
+      updates.name = trimmedName;
+    }
+
+    if (payload.description !== undefined) {
+      updates.description = payload.description ? payload.description.trim() : null;
+    }
+
+    if (payload.is_active !== undefined) {
+      updates.is_active = payload.is_active;
+    }
+
+    const { data, error } = await supabase
+      .from('expense_categories')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating expense category:', error);
+      if (error.code === '23505' || error.message.includes('unique')) {
+        throw new Error(`Kategori dengan nama "${payload.name}" sudah digunakan.`);
+      }
+      throw new Error(`Gagal memperbarui kategori beban: ${error.message}`);
+    }
+
+    return data as ExpenseCategory;
+  },
+
+  /**
+   * Mengaktifkan atau menonaktifkan status kategori beban
+   */
+  async toggleCategoryActive(id: string, isActive: boolean): Promise<ExpenseCategory> {
+    return this.updateCategory(id, { is_active: isActive });
   },
 
   /**
