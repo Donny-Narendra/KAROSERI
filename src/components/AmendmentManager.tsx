@@ -30,6 +30,8 @@ interface DraftItem {
   unit: string;
   unit_price: number; // Snapshot selling price
   cost_price: number; // Snapshot HPP
+  package_source_id?: string | null;
+  package_name?: string | null;
   notes?: string;
 }
 
@@ -508,6 +510,22 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                             )}
                             {item.item_type}
                           </span>
+                          {(item.package_name || (item.notes && item.notes.includes('Paket:'))) && (
+                            <span 
+                              data-testid={`badge-package-${item.id}`}
+                              className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center gap-1 shadow-xs"
+                              title={`Dihasilkan dari paket: ${item.package_name || item.notes}`}
+                            >
+                              <span>📦</span>
+                              <span>
+                                {item.package_name 
+                                  ? `[Paket: ${item.package_name}]`
+                                  : (item.notes?.includes('[Paket:') 
+                                      ? item.notes.match(/\[Paket:[^\]]+\]/)?.[0] 
+                                      : `[${item.notes}]`)}
+                              </span>
+                            </span>
+                          )}
                           <span className="text-xs text-text-muted font-mono">
                             Subtotal Jual: <strong className="text-primary">Rp {subtotal.toLocaleString('id-ID')}</strong>
                           </span>

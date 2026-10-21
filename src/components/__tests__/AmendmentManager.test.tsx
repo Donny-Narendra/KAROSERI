@@ -472,6 +472,9 @@ describe('Component: AmendmentManager (3-Element Costing & Overhead Support)', (
     // Check notes contains [Paket: HPP DUDUKAN SLEBOR]
     expect(screen.getAllByDisplayValue(/\[Paket: HPP DUDUKAN SLEBOR\]/).length).toBe(2);
 
+    // Check transparent badge [Paket: HPP DUDUKAN SLEBOR] on item row header
+    expect(screen.getAllByText(/\[Paket: HPP DUDUKAN SLEBOR\]/).length).toBeGreaterThanOrEqual(2);
+
     // Fill description and submit
     const descTextarea = screen.getByPlaceholderText(/Contoh: Penambahan lapisan/i);
     fireEvent.change(descTextarea, { target: { value: 'Penambahan paket dudukan slebor komplit' } });

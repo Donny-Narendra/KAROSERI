@@ -1,6 +1,6 @@
 import type { ProductPackage } from '../types/package';
 import type { ChangeOrderItemType } from '../types/database';
-import { resolveItemType } from './itemClassification';
+import { resolveItemType, isLaborKeyword } from './itemClassification';
 
 export const WBS_STAGES = [
   'WBS 1: Pembongkaran',
@@ -20,6 +20,8 @@ export interface ExplodedChangeOrderItem {
   unit: string;
   unit_price: number;
   cost_price: number;
+  package_source_id?: string | null;
+  package_name?: string | null;
   notes?: string;
 }
 
@@ -42,12 +44,14 @@ export const explodePackageToDraftItems = (
   singleWbsStage: string = WBS_STAGES[1],
   packageMultiplier: number = 1
 ): ExplodedChangeOrderItem[] => {
-  if (!pkg.items || pkg.items.length === 0) return [];
+  const rawItems = (pkg as any).package_items || pkg.items || [];
+  if (!rawItems || rawItems.length === 0) return [];
   const multiplier = Math.max(0.01, packageMultiplier || 1);
 
   // 1. Calculate total BOM HPP of the package (single unit)
-  const totalBomHpp = pkg.items.reduce((sum, item) => {
-    const cost = Number(item.cost_per_unit || item.material?.cost_price || 0);
+  const totalBomHpp = rawItems.reduce((sum: number, item: any) => {
+    const mat = item.material || item.materials;
+    const cost = Number(item.cost_per_unit || mat?.cost_price || 0);
     return sum + (Number(item.quantity || 0) * cost);
   }, 0);
 
@@ -58,31 +62,42 @@ export const explodePackageToDraftItems = (
 
   const result: ExplodedChangeOrderItem[] = [];
 
-  pkg.items.forEach((item, itemIdx) => {
-    const rawType = item.item_type || item.material?.item_type;
-    const itemName = item.labor_name || item.material?.name || (item as any).name || 'Item Paket';
-    const resolvedType = resolveItemType(rawType, item.material?.item_type, itemName);
-    const itemType: ChangeOrderItemType = resolvedType === 'LABOR' 
-      ? 'LABOR' 
-      : resolvedType === 'OVERHEAD' 
-        ? 'OVERHEAD' 
-        : 'MATERIAL';
+  rawItems.forEach((item: any, itemIdx: number) => {
+    const mat = item.material || item.materials;
+    const rawType = item.item_type || mat?.item_type;
+    const rawName = item.name || item.description || item.labor_name || mat?.name || '';
+    const resolvedType = resolveItemType(rawType, mat?.item_type, rawName);
+    
+    // Determine item type with strict OVERHEAD / LABOR precedence
+    let itemType: ChangeOrderItemType = 'MATERIAL';
+    if (resolvedType === 'OVERHEAD') {
+      itemType = 'OVERHEAD';
+    } else if (resolvedType === 'LABOR' || (!item.material_id && !mat?.id && (item.labor_name || isLaborKeyword(rawName)))) {
+      itemType = 'LABOR';
+    } else {
+      itemType = 'MATERIAL';
+    }
 
-    const unit = item.material?.unit || (itemType === 'LABOR' ? 'jam' : itemType === 'OVERHEAD' ? 'hari' : 'pcs');
+    const itemName = rawName || (itemType === 'LABOR' ? (item.labor_name || 'Jasa / Pekerjaan Paket') : (mat?.name || 'Material Paket'));
+    const unit = item.unit || mat?.unit || (itemType === 'LABOR' ? 'jam' : itemType === 'OVERHEAD' ? 'hari' : 'pcs');
     const materialId = itemType === 'MATERIAL' 
-      ? (item.material_id || item.material?.id || null) 
+      ? (item.material_id || mat?.id || null) 
       : (itemType === 'LABOR' ? (item.material_id || null) : null);
 
-    const costPrice = Number(item.cost_per_unit || item.material?.cost_price || 0);
+    const costPrice = Number(item.cost_per_unit || mat?.cost_price || 0);
 
     // Calculate unit selling price:
     let unitPrice = 0;
     if (totalBomHpp > 0 && Number(pkg.selling_price || 0) > 0) {
       unitPrice = Math.round(costPrice * marginRatio);
-    } else if (item.material?.selling_price && Number(item.material.selling_price) > 0) {
-      unitPrice = Number(item.material.selling_price);
+    } else if (item.unit_price && Number(item.unit_price) > 0) {
+      unitPrice = Number(item.unit_price);
+    } else if (mat?.selling_price && Number(mat.selling_price) > 0) {
+      unitPrice = Number(mat.selling_price);
+    } else if (mat?.unit_price && Number(mat.unit_price) > 0) {
+      unitPrice = Number(mat.unit_price);
     } else if (Number(pkg.selling_price || 0) > 0 && Number(item.quantity || 0) > 0) {
-      unitPrice = Math.round(Number(pkg.selling_price) / pkg.items!.length / Number(item.quantity));
+      unitPrice = Math.round(Number(pkg.selling_price) / rawItems.length / Number(item.quantity));
     } else {
       unitPrice = costPrice;
     }
@@ -104,6 +119,8 @@ export const explodePackageToDraftItems = (
             unit,
             unit_price: unitPrice,
             cost_price: costPrice,
+            package_source_id: pkg.id,
+            package_name: pkg.name,
             notes: note
           });
         });
@@ -112,8 +129,8 @@ export const explodePackageToDraftItems = (
     }
 
     // Default to Single WBS Stage or fallback
-    const wbsStage = targetWbsMode === 'MULTI' && (item as any).wbs_stage 
-      ? mapToWbsStage((item as any).wbs_stage, singleWbsStage)
+    const wbsStage = targetWbsMode === 'MULTI' && (item.default_wbs_category || item.wbs_stage)
+      ? mapToWbsStage(item.default_wbs_category || item.wbs_stage, singleWbsStage)
       : singleWbsStage;
 
     result.push({
@@ -122,10 +139,12 @@ export const explodePackageToDraftItems = (
       item_type: itemType,
       material_id: materialId,
       item_name: itemName,
-      quantity: Number((Number(item.quantity || 0) * multiplier).toFixed(2)),
+      quantity: Number((Number(item.quantity || 1) * multiplier).toFixed(2)),
       unit,
       unit_price: unitPrice,
       cost_price: costPrice,
+      package_source_id: pkg.id,
+      package_name: pkg.name,
       notes: note
     });
   });
