@@ -1,86 +1,62 @@
-# Sprint 63 — Implement Granular Item-Level Material Approval in Warehouse Mandor Requests
+# Sprint 64 — Add Completion Deadline to SPK-Borongan Assignment Form and Official Work Order Print View
 
-> **Duration**: 2026-10-21 to 2026-10-21
-> **Status**: Completed
+> **Duration**: 2026-10-21 to 2026-10-22
+> **Status**: In Progress
 
 ## Goal
-Implementasi persetujuan pengeluaran material tingkat baris item mandiri (granular item-level material approval) pada modul Warehouse Mandor Requests (`RequisitionApproval.tsx`, `WarehouseDashboard.tsx`, dan migrasi database Supabase), memungkinkan petugas gudang menyetujui atau menahan/menolak masing-masing barang secara mandiri, mencatat pengeluaran barang (Goods Issue) dan pemotongan stok per item secara atomik, memperbarui status requisition induk menjadi `PARTIALLY_ISSUED` atau `COMPLETED`, serta mempertahankan tombol shortcut [Approve Semua].
+Menambahkan input dan penyimpanan tenggat waktu pengerjaan (deadline date) pada form penugasan SPK Borongan, menampilkannya pada kartu riwayat pekerja borongan, serta menyertakannya secara resmi pada dokumen cetak Surat Tugas Pengerjaan Borongan saat dicetak oleh mandor.
 
 ## Scope
 
 ### Included
-- **Migrasi Database & RPC (`supabase/migrations/20261026010000_item_level_requisition_approval.sql`)**:
-  - Penambahan enum value `PARTIALLY_ISSUED` dan `COMPLETED` pada tipe `requisition_status` PostgreSQL jika ada.
-  - Memastikan kolom `status` pada tabel `material_requisition_items` bertipe `VARCHAR(20)` / `TEXT` dengan default `'PENDING'`.
-  - Fungsi RPC `approve_single_requisition_item(p_requisition_item_id UUID, p_approved_by UUID)`:
-    - Atomik update status item menjadi `APPROVED`.
-    - Mengurangi `current_stock` pada master `materials` secara aman.
-    - Mencatat baris transaksi pengeluaran fisik ke `inventory_transactions` dengan relasi `requisition_id`, `requisition_item_id`, `material_id`, kuantitas, harga snapshot, dan profil petugas.
-    - Evaluasi sisa pending item pada requisition induk: jika 0 set ke `COMPLETED`, jika masih ada set ke `PARTIALLY_ISSUED`.
-  - Fungsi RPC `reject_single_requisition_item(p_requisition_item_id UUID, p_rejected_by UUID)`:
-    - Atomik update status item menjadi `REJECTED`.
-    - Evaluasi sisa item untuk menentukan status requisition induk (`REJECTED`, `PARTIALLY_ISSUED`, atau `COMPLETED`).
-  - Grant akses execute RPC untuk role `authenticated`.
-- **Pembaruan Komponen UI `RequisitionApproval.tsx`**:
-  - Perbarui fetch query pending requisition: `.in('status', ['PENDING', 'PARTIALLY_ISSUED'])`.
-  - Perbarui fetch query approved requisitions untuk Gate 2 evaluation: `.in('status', ['APPROVED', 'COMPLETED', 'PARTIALLY_ISSUED', 'ISSUED'])` dan hanya akumulasikan subtotal item dengan `status === 'APPROVED'`.
-  - Tambahkan kolom aksi pada tabel item rincian material:
-    - Tombol [Approve Item] per baris untuk menyetujui item tertentu.
-    - Tombol [Reject / Hold Item] per baris untuk menolak item tertentu.
-    - Status badge untuk item yang telah berstatus `APPROVED` (hijau) atau `REJECTED` (merah).
-  - Modal konfirmasi persetujuan item tunggal dengan evaluasi Gate 2 budget per item.
-  - Mempertahankan tombol [Approve Semua] di footer kartu untuk menyetujui sekaligus seluruh item yang masih berstatus `PENDING`.
-  - Mempertahankan tombol [Reject Semua] di footer kartu untuk menolak sekaligus sisa item yang belum disetujui.
-  - Tampilkan badge indikator status pada kartu tiket requisition: "Pending" atau "Sebagian Dirilis (Partially Issued)".
-- **Penyesuaian Dashboard & Pending Counters**:
-  - `WarehouseDashboard.tsx` & `ServiceAdvisorDashboard.tsx` & `MandorDashboard.tsx`: hitung tiket dengan status `in('status', ['PENDING', 'PARTIALLY_ISSUED'])`.
+- **Migrasi Database (`supabase/migrations/20261027010000_add_deadline_to_spk_borongan.sql`)**:
+  - Menambahkan kolom `deadline_date DATE` pada tabel `public.spk_borongan` secara idempoten (IF NOT EXISTS).
+- **TypeScript Interface Alignment (`src/types/database.ts` & `src/components/SpkBoronganPanel.tsx`)**:
+  - Menambahkan properti `deadline_date?: string | null` ke tipe `SpkBoronganRecord` / interface `SpkBorongan`.
+- **UI Form "Penugasan Baru SPK-B" (`src/components/SpkBoronganPanel.tsx`)**:
+  - Menambahkan state `deadlineDate` dan input type `date` dengan label "Tenggat Waktu / Tanggal Deadline Pengerjaan".
+  - Menyertakan nilai `deadline_date` saat melakukan insert ke Supabase `spk_borongan`.
+  - Mereset field `deadlineDate` ke nilai kosong setelah berhasil submit.
+- **UI "Riwayat Penugasan SPK-B" Card (`src/components/SpkBoronganPanel.tsx`)**:
+  - Menampilkan informasi batas tenggat waktu pengerjaan pada kartu penugasan pekerja dengan format tanggal bahasa Indonesia yang rapi (contoh: "Tenggat: 28 Okt 2026" atau "Deadline: 28 Oktober 2026").
+- **Cetak Surat Tugas Resmi (`src/components/SpkBoronganPanel.tsx`)**:
+  - Menambahkan baris "Tenggat Waktu / Target Selesai" di Bagian B "DETAIL PENUGASAN BORONGAN" pada template cetak HTML window.
 - **Testing & Empirical Validation**:
-  - Unit & component tests di `src/components/__tests__/RequisitionApprovalGate2.test.tsx` dan `src/components/__tests__/GranularItemApproval.test.tsx`:
-    1. Render tombol aksi item-level pada baris material.
-    2. Eksekusi single-item approve memperbarui status item dan status requisition menjadi `PARTIALLY_ISSUED`.
-    3. Eksekusi single-item reject memperbarui status item menjadi `REJECTED`.
-    4. Shortcut [Approve Semua] tetap berfungsi menyetujui seluruh sisa pending item.
-  - Validasi seluruh test suite Vitest (40 test suites, 263 tests passing), linter Oxlint (0 warning), dan build Vite/TypeScript.
+  - Menambahkan unit dan component tests di `src/components/__tests__/SpkBoronganPanel.test.tsx`:
+    1. Render input tanggal deadline pada form penugasan baru.
+    2. Verifikasi payload insert ke tabel `spk_borongan` menyertakan `deadline_date`.
+    3. Verifikasi penampilan tanggal deadline pada kartu riwayat penugasan pekerja.
+    4. Verifikasi tanggal deadline tercetak di dokumen Surat Tugas.
+  - Validasi penuh terhadap seluruh test suite Vitest, Oxlint (0 warning/error), validasi tipe TypeScript (`tsc -b`), dan Vite build.
 
 ### Explicitly Excluded
-- Mengubah alur pengajuan requisition dari sisi Mandor (`MaterialRequisitionForm.tsx`).
-- Mengubah logika perhitungan biaya riil SPK pada invoice Kasir / laporan keuangan.
+- Mengubah alur persetujuan material / warehouse requisition approval.
+- Mengubah alur billing invoice kasir atau perhitungan biaya SPK di modul keuangan.
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| 1. Create SQL Migration & Atomic RPC Procedures (`20261026010000_item_level_requisition_approval.sql`) | Antigravity | ✅ Done | 0.4h |
-| 2. Implement Item-Level Approval & Partial Status in `RequisitionApproval.tsx` | Antigravity | ✅ Done | 0.8h |
-| 3. Update Pending Count Queries in `WarehouseDashboard.tsx` & `ServiceAdvisorDashboard.tsx` | Antigravity | ✅ Done | 0.2h |
-| 4. Add Comprehensive Component & Unit Tests | Antigravity | ✅ Done | 0.5h |
-| 5. Empirical Validation (Vitest test suite, Oxlint 0 warnings, TypeScript build) | Antigravity | ✅ Done | 0.3h |
+| 1. Create SQL Migration (`20261027010000_add_deadline_to_spk_borongan.sql`) & Update TypeScript Types | Antigravity | ⬜ Todo | 0.3h |
+| 2. Add Deadline Date Input & Insert Logic in `SpkBoronganPanel.tsx` | Antigravity | ⬜ Todo | 0.5h |
+| 3. Render Deadline Date on Assignment History Cards | Antigravity | ⬜ Todo | 0.3h |
+| 4. Include Deadline Date in Work Order Print View Window | Antigravity | ⬜ Todo | 0.3h |
+| 5. Add Comprehensive Tests in `SpkBoronganPanel.test.tsx` | Antigravity | ⬜ Todo | 0.5h |
+| 6. Empirical Validation (Vitest test suite, Oxlint 0 warnings, TypeScript build) | Antigravity | ⬜ Todo | 0.3h |
 
 ## Daily Log
 
 ### 2026-10-21
-- Sprint 62 archived.
-- Sprint 63 created for Granular Item-Level Material Approval in Warehouse Mandor Requests.
-- Codebase audited: verified `material_requisition_items` schema, `material_requisitions` statuses, `inventory_transactions` relationships, and Gate 2 budget evaluation logic.
-- Task 1: Created `supabase/migrations/20261026010000_item_level_requisition_approval.sql`:
-  - Added enum values `PARTIALLY_ISSUED`, `COMPLETED`, `ISSUED` to `requisition_status`.
-  - Added index and verified `status` column on `material_requisition_items`.
-  - Created RPC `approve_single_requisition_item(p_requisition_item_id, p_approved_by)` with atomic stock deduction, `inventory_transactions` insertion, and parent status progression to `PARTIALLY_ISSUED` or `COMPLETED`.
-  - Created RPC `reject_single_requisition_item(p_requisition_item_id, p_rejected_by)` with parent status progression.
-- Task 2: Updated `src/components/RequisitionApproval.tsx`:
-  - Updated fetch query to `.in('status', ['PENDING', 'PARTIALLY_ISSUED'])`.
-  - Updated Gate 2 approved requisitions query to include `COMPLETED`, `PARTIALLY_ISSUED`, and `APPROVED`.
-  - Added item-level Approve and Tolak buttons per row with status badges for `APPROVED` and `REJECTED`.
-  - Added item-level confirmation modals with Gate 2 budget checks for the single item cost.
-  - Implemented `handleRequestApproveItem`, `handleRequestRejectItem`, and full transaction execution in `executeConfirmedAction` with RPC attempts and safe fallback.
-  - Updated footer batch actions: `Approve Semua` and `Tolak Semua`.
-  - Added card header badge for `PARTIALLY_ISSUED` ("Sebagian Dirilis").
-  - Updated `src/utils/gate2BudgetValidation.ts` to ignore rejected or unapproved items from `PARTIALLY_ISSUED` requisitions.
-- Task 3: Updated pending requisition count queries in `WarehouseDashboard.tsx`, `ServiceAdvisorDashboard.tsx`, and `MandorDashboard.tsx` to `.in('status', ['PENDING', 'PARTIALLY_ISSUED'])`.
-- Task 4: Created `src/components/__tests__/GranularItemApproval.test.tsx` (5 tests) and updated `src/components/__tests__/RequisitionApprovalGate2.test.tsx` (3 tests).
-- Task 5: Empirical Validation:
-  - Vitest: 40/40 test suites passing, 263/263 tests passing (100%).
-  - Oxlint: 0 errors, 0 warnings across 165 files with 113 rules.
-  - TypeScript static analysis: clean compilation with `tsc -b`.
-  - Production build: clean Vite build bundled in 498ms.
+- Sprint 63 archived to `.gsd/sprints/sprint-63-implement-granular-item-level-material-approval-in-warehouse-mandor-requests.md`.
+- Sprint 64 created for adding completion deadline to SPK-Borongan assignment form, history cards, and official print view.
 
+## Risks & Blockers
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Existing SPK-B records have NULL `deadline_date` | Low | Gracefully handle NULL/empty `deadline_date` with fallback "-" or omission in UI/print |
+| User input date timezone shift | Low | Treat YYYY-MM-DD standard date string consistently |
+
+---
+
+*Last updated: 2026-10-21*
