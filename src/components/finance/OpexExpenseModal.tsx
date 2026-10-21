@@ -1,15 +1,5 @@
-import React from 'react';
-import { OperatingExpenseManagerModal } from './OperatingExpenseManagerModal';
+import { OpexLoggingModal } from './OpexLoggingModal';
 
-export interface OpexExpenseModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onExpenseAdded?: () => void;
-  defaultMonth?: string;
-}
-
-export const OpexExpenseModal: React.FC<OpexExpenseModalProps> = (props) => {
-  return <OperatingExpenseManagerModal {...props} />;
-};
-
-export default OpexExpenseModal;
+export { OpexLoggingModal as OpexExpenseModal };
+export type { OpexLoggingModalProps as OpexExpenseModalProps } from './OpexLoggingModal';
+export default OpexLoggingModal;

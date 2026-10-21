@@ -3,11 +3,18 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { OperatingExpenseManagerModal } from '../OperatingExpenseManagerModal';
 import { OpexLoggingModal } from '../OpexLoggingModal';
 import { operatingExpenseService } from '../../../services/operatingExpenseService';
+import { supabase } from '../../../lib/supabaseClient';
 import type { ExpenseCategory } from '../../../types/operatingExpenses';
 
 const mockUseAuth = vi.fn();
 vi.mock('../../../context/AuthContext', () => ({
   useAuth: () => mockUseAuth(),
+}));
+
+vi.mock('../../../lib/supabaseClient', () => ({
+  supabase: {
+    from: vi.fn(),
+  },
 }));
 
 vi.mock('../../../services/operatingExpenseService', () => ({
@@ -43,11 +50,18 @@ describe('Component: OperatingExpenseManagerModal & OpexLoggingModal', () => {
     mockUseAuth.mockReturnValue({
       profile: { role: 'kasir' },
     });
+
+    // Mock direct supabase query for expense_categories
+    const orderMock = vi.fn().mockResolvedValue({ data: mockCategories, error: null });
+    const eqMock = vi.fn().mockReturnValue({ order: orderMock });
+    const selectMock = vi.fn().mockReturnValue({ eq: eqMock });
+    vi.mocked(supabase.from).mockReturnValue({ select: selectMock } as any);
+
     vi.mocked(operatingExpenseService.getCategories).mockResolvedValue(mockCategories);
     vi.mocked(operatingExpenseService.getExpensesByMonth).mockResolvedValue([]);
   });
 
-  it('renders modal with dynamic categories populated in dropdown', async () => {
+  it('renders modal with dynamic categories populated in dropdown and + Tambah Kategori Baru option', async () => {
     render(<OperatingExpenseManagerModal isOpen={true} onClose={vi.fn()} defaultMonth="2026-10" />);
 
     await waitFor(() => {
@@ -58,22 +72,36 @@ describe('Component: OperatingExpenseManagerModal & OpexLoggingModal', () => {
     expect(screen.getByRole('option', { name: 'Amortisasi Sewa Tempat & Gedung' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Gaji & Tunjangan Staf Tetap' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Token Listrik & Utilitas Bengkel' })).toBeInTheDocument();
-
-    expect(operatingExpenseService.getCategories).toHaveBeenCalledWith(false);
+    expect(screen.getByRole('option', { name: '+ Tambah Kategori Baru...' })).toBeInTheDocument();
   });
 
-  it('displays "Kelola Kategori" button and opens category manager modal when clicked', async () => {
+  it('displays "⚙ Kelola Kategori" button and opens category manager modal when clicked', async () => {
     render(<OperatingExpenseManagerModal isOpen={true} onClose={vi.fn()} defaultMonth="2026-10" />);
 
     await waitFor(() => {
-      expect(screen.getByText('Kelola Kategori')).toBeInTheDocument();
+      expect(screen.getByText(/⚙ Kelola Kategori/i)).toBeInTheDocument();
     });
 
-    const manageBtn = screen.getByText('Kelola Kategori');
+    const manageBtn = screen.getByText(/⚙ Kelola Kategori/i);
     fireEvent.click(manageBtn);
 
     await waitFor(() => {
-      expect(screen.getByText('Kelola Master Kategori Beban OPEX')).toBeInTheDocument();
+      expect(screen.getByText('Kelola Kategori Beban')).toBeInTheDocument();
+    });
+  });
+
+  it('automatically opens category manager modal when __ADD_NEW__ option is selected', async () => {
+    render(<OperatingExpenseManagerModal isOpen={true} onClose={vi.fn()} defaultMonth="2026-10" />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: '+ Tambah Kategori Baru...' })).toBeInTheDocument();
+    });
+
+    const select = screen.getByRole('combobox');
+    fireEvent.change(select, { target: { value: '__ADD_NEW__' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('Kelola Kategori Beban')).toBeInTheDocument();
     });
   });
 
@@ -82,7 +110,7 @@ describe('Component: OperatingExpenseManagerModal & OpexLoggingModal', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Pencatatan Biaya Operasional Berkala (OPEX)')).toBeInTheDocument();
-      expect(screen.getByText('Kelola Kategori')).toBeInTheDocument();
+      expect(screen.getByText(/⚙ Kelola Kategori/i)).toBeInTheDocument();
     });
   });
 
