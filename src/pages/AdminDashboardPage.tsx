@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
-  BarChart3, AlertTriangle, ShieldCheck, Factory, LogOut, Package, 
+  BarChart3, AlertTriangle, ShieldCheck, Factory, LogOut, Package,
   Settings, Bell, Check, X, Search, RotateCcw, FileSpreadsheet, Ban, TrendingUp 
 } from 'lucide-react';
-import { supabase } from '../lib/supabaseClient';
 import { useTranslation } from 'react-i18next';
 import { PackageManager } from '../components/PackageManager';
 import { spkService } from '../services/spkService';
@@ -12,12 +11,13 @@ import { WbsChecklist } from '../components/WbsChecklist';
 import { ConfirmationModal, type ConfirmationModalVariant } from '../components/ConfirmationModal';
 import { CancelledSpkAuditLog } from '../components/CancelledSpkAuditLog';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { dashboardService, type DashboardSpkItem } from '../services/dashboardService';
 
 export const AdminDashboardPage: React.FC = () => {
   const { t } = useTranslation();
   const { profile, signOut } = useAuth();
   const [mainTab, setMainTab] = useState<'dashboard' | 'bom' | 'cancellations'>('dashboard');
-  const [spks, setSpks] = useState<any[]>([]);
+  const [spks, setSpks] = useState<DashboardSpkItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showApprovalsModal, setShowApprovalsModal] = useState(false);
   const [selectedWbsSpkId, setSelectedWbsSpkId] = useState<string | null>(null);
@@ -56,16 +56,14 @@ export const AdminDashboardPage: React.FC = () => {
 
   const fetchSpks = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from('spk').select(`
-      *,
-      cancelled_by_profile:profiles!cancelled_by ( id, full_name, role ),
-      rab_estimations ( total_estimated_cost, total_labor_cost, total_overhead_cost ),
-      inventory_transactions ( quantity_issued, custom_unit_price, materials ( unit_price, is_customer_supplied ) ),
-      spk_amendments ( id, description, cost_adjustment, status, created_at, spk_id )
-    `).order('created_at', { ascending: false });
-    if (data) setSpks(data);
-    if (error) console.error('Error fetching SPKs:', error);
-    setLoading(false);
+    try {
+      const data = await dashboardService.fetchOwnerDashboardSpks();
+      setSpks(data);
+    } catch (error) {
+      console.error('Error fetching SPKs:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleApprovalActionConfirm = async () => {
@@ -152,7 +150,7 @@ export const AdminDashboardPage: React.FC = () => {
 
       if (statusFilter === 'ACTIVE') return spk.status === 'ACTIVE';
       if (statusFilter === 'PENDING_QC') return spk.qc_status === 'PENDING' || spk.wbs_status === 'WAITING_REVIEW';
-      if (statusFilter === 'OVERBUDGET') return spk.is_overbudget === true || spk.material_gate_status === 'OVERBUDGET';
+      if (statusFilter === 'OVERBUDGET') return spk.is_overbudget === true || spk.material_gate_status === 'OVERBUDGET' || spk.financials?.isOverbudget === true;
       if (statusFilter === 'CANCELLED') return spk.status === 'CANCELLED';
       return true;
     });
@@ -173,7 +171,11 @@ export const AdminDashboardPage: React.FC = () => {
         'Plat Nomor': s.vehicle_plate || '-',
         Status: s.status,
         'QC Status': s.qc_status || '-',
-        'Nilai Estimasi': s.total_estimated_cost || 0,
+        'Total HPP': s.financials?.totalHpp ?? (Number(s.total_estimated_cost) || 0),
+        'Total Tagihan': s.financials?.totalTagihan ?? 0,
+        'Realisasi Biaya Aktual': s.financials?.totalRealisasiAktual ?? 0,
+        'Selisih Varian': s.financials?.varianceAmount ?? 0,
+        'Status Biaya': (s.financials?.isOverbudget || s.is_overbudget) ? 'OVERBUDGET' : 'IN BUDGET',
         'Tanggal Dibuat': new Date(s.created_at).toLocaleDateString('id-ID'),
       }));
 
@@ -214,10 +216,10 @@ export const AdminDashboardPage: React.FC = () => {
   const pendingAmendments = spks.flatMap(s => (s.spk_amendments || []).map((a: any) => ({...a, spk_no: s.spk_no, customer_name: s.customer_name}))).filter((a: any) => a.status === 'PENDING');
   const pendingAmendmentsCount = pendingAmendments.length;
 
-  const totalWipValue = activeSpks.reduce((sum: number, spk: any) => sum + (Number(spk.total_estimated_cost) || 0), 0);
+  const totalWipValue = activeSpks.reduce((sum: number, spk: any) => sum + (Number(spk.financials?.totalHpp || spk.total_estimated_cost) || 0), 0);
   const formattedWip = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(totalWipValue);
 
-  const overbudgetCount = spks.filter(s => s.is_overbudget === true || s.material_gate_status === 'OVERBUDGET').length;
+  const overbudgetCount = spks.filter(s => s.is_overbudget === true || s.material_gate_status === 'OVERBUDGET' || s.financials?.isOverbudget === true).length;
   const pendingQcCount = spks.filter(s => s.qc_status === 'PENDING' || s.wbs_status === 'WAITING_REVIEW').length;
 
   const validSpksForCosting = spks.filter(s => !['CANCELLED', 'DRAFT', 'PENDING_PAYMENT'].includes(s.status));
@@ -523,80 +525,132 @@ export const AdminDashboardPage: React.FC = () => {
             <table className="w-full text-left text-sm text-text">
               <thead className="bg-background text-text-muted font-mono text-xs uppercase">
                 <tr>
-                  <th className="px-5 py-3">{t('admin.spk_no')}</th>
-                  <th className="px-5 py-3">{t('admin.client')}</th>
-                  <th className="px-5 py-3">{t('admin.wbs_phase')}</th>
-                  <th className="px-5 py-3">{t('admin.dp_status')}</th>
-                  <th className="px-5 py-3">{t('admin.material_gate')}</th>
-                  <th className="px-5 py-3">{t('admin.qc_status')}</th>
-                  <th className="px-5 py-3">{t('admin.handover')}</th>
-                  <th className="px-5 py-3 text-right">{t('admin.managerial_actions', 'Aksi Manajerial')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">{t('admin.spk_no')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">{t('admin.client')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                    TOTAL HPP
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                    TOTAL TAGIHAN
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                    REALISASI BIAYA AKTUAL
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">{t('admin.qc_status')}</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">{t('admin.handover')}</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-slate-300 uppercase tracking-wider">{t('admin.managerial_actions', 'Aksi Manajerial')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filteredSpks.length === 0 ? (
+                {loading ? (
+                  <tr>
+                    <td colSpan={8} className="px-5 py-12 text-center text-text-muted">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-xs font-mono">Memuat data monitoring SPK...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredSpks.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="px-5 py-8 text-center text-text-muted text-sm">
                       Tidak ada data SPK yang sesuai dengan filter pencarian.
                     </td>
                   </tr>
-                ) : filteredSpks.map((spk) => (
-                  <tr key={spk.id} className="hover:bg-surface-hover/50 transition">
-                    <td className="px-5 py-4 font-mono font-medium">
-                      <div>{spk.spk_no}</div>
-                      {spk.vehicle_plate && (
-                        <div className="text-xs text-text-muted font-normal">{spk.vehicle_plate}</div>
-                      )}
-                    </td>
-                    <td className="px-5 py-4">{spk.customer_name}</td>
-                    <td className="px-5 py-4">
-                      <span className="bg-surface-active px-2 py-1 rounded text-xs font-mono">Phase TBD</span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="text-status-success font-medium flex items-center gap-1">
-                        <ShieldCheck className="w-4 h-4"/> Lunas
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className={spk.is_overbudget ? "text-status-danger font-medium" : "text-status-success font-medium"}>
-                        {spk.is_overbudget ? "Overbudget" : "In Budget"}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className={spk.status === 'CANCELLED' ? 'text-status-danger' : 'text-status-idle'}>
-                        {spk.status}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="text-status-danger font-medium flex items-center gap-1">
-                        <Package className="w-4 h-4"/> Locked
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => setSelectedWbsSpkId(spk.id)}
-                          className="text-primary hover:text-primary-hover text-xs font-semibold px-2.5 py-1 rounded hover:bg-primary/10 transition"
-                        >
-                          WBS & QC
-                        </button>
-                        {spk.status !== 'CANCELLED' && spk.status !== 'COMPLETED' && (
-                          <button
-                            onClick={() => {
-                              setCancellingSpk(spk);
-                              setCancellationReason('');
-                            }}
-                            className="text-status-danger hover:text-red-400 text-xs font-semibold px-2 py-1 rounded hover:bg-status-danger/10 transition flex items-center gap-1"
-                            title="Batalkan SPK Langsung"
-                          >
-                            <Ban className="w-3.5 h-3.5" />
-                            <span>Batalkan</span>
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                ) : (
+                  filteredSpks.map((spk) => {
+                    const fin = spk.financials || dashboardService.calculateSpkFinancialMetrics(spk);
+                    const totalHpp = fin.totalHpp;
+                    const coHpp = fin.coHpp;
+                    const totalTagihan = fin.totalTagihan;
+                    const materialIssuedCost = fin.materialIssuedCost;
+                    const laborActualCost = fin.laborActualCost;
+                    const fohActualCost = fin.fohActualCost;
+                    const totalRealisasiAktual = fin.totalRealisasiAktual;
+
+                    return (
+                      <tr key={spk.id} className="hover:bg-surface-hover/50 transition">
+                        <td className="px-4 py-3 font-mono font-medium">
+                          <div>{spk.spk_no}</div>
+                          {spk.vehicle_plate && (
+                            <div className="text-xs text-text-muted font-normal">{spk.vehicle_plate}</div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">{spk.customer_name}</td>
+                        <td className="px-4 py-3 text-left">
+                          <div className="font-mono font-bold text-slate-100 text-xs">
+                            Rp {totalHpp.toLocaleString('id-ID')}
+                          </div>
+                          {coHpp > 0 && (
+                            <div className="text-[10px] text-purple-400">
+                              Termasuk CO: +Rp {coHpp.toLocaleString('id-ID')}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-left">
+                          <div className="font-mono font-bold text-amber-400 text-xs">
+                            Rp {totalTagihan.toLocaleString('id-ID')}
+                          </div>
+                          <div className="text-[10px] text-slate-400 flex items-center gap-1">
+                            <span>DP: Rp {(spk.dp_amount || 0).toLocaleString('id-ID')}</span>
+                            <span className={spk.payment_status === 'PAID' ? 'text-emerald-400' : 'text-slate-500'}>
+                              • {spk.payment_status || 'UNPAID'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-left">
+                          <div className="font-mono font-bold text-xs flex items-center gap-1.5">
+                            <span className={totalRealisasiAktual > totalHpp ? 'text-rose-400' : 'text-emerald-400'}>
+                              Rp {totalRealisasiAktual.toLocaleString('id-ID')}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            Mat: Rp {materialIssuedCost.toLocaleString('id-ID')} | Jasa+FOH: Rp {(laborActualCost + fohActualCost).toLocaleString('id-ID')}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={spk.status === 'CANCELLED' ? 'text-status-danger' : 'text-status-idle'}>
+                            {spk.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {spk.status === 'COMPLETED' ? (
+                            <span className="text-status-success font-medium flex items-center gap-1 text-xs">
+                              <ShieldCheck className="w-4 h-4"/> Selesai
+                            </span>
+                          ) : (
+                            <span className="text-status-danger font-medium flex items-center gap-1 text-xs">
+                              <Package className="w-4 h-4"/> Locked
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => setSelectedWbsSpkId(spk.id)}
+                              className="text-primary hover:text-primary-hover text-xs font-semibold px-2.5 py-1 rounded hover:bg-primary/10 transition"
+                            >
+                              WBS & QC
+                            </button>
+                            {spk.status !== 'CANCELLED' && spk.status !== 'COMPLETED' && (
+                              <button
+                                onClick={() => {
+                                  setCancellingSpk(spk);
+                                  setCancellationReason('');
+                                }}
+                                className="text-status-danger hover:text-red-400 text-xs font-semibold px-2 py-1 rounded hover:bg-status-danger/10 transition flex items-center gap-1"
+                                title="Batalkan SPK Langsung"
+                              >
+                                <Ban className="w-3.5 h-3.5" />
+                                <span>Batalkan</span>
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
@@ -648,7 +702,7 @@ export const AdminDashboardPage: React.FC = () => {
                     <td className="px-5 py-4 text-xs font-mono text-text-muted">
                       {spk.cancelled_at 
                         ? new Date(spk.cancelled_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-                        : new Date(spk.updated_at).toLocaleString('id-ID')}
+                        : (spk.updated_at ? new Date(spk.updated_at).toLocaleString('id-ID') : '-')}
                     </td>
                     <td className="px-5 py-4 text-xs">
                       {spk.cancelled_by_profile ? (

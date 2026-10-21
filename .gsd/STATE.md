@@ -1,20 +1,25 @@
 ## Current Position
-- **Sprint**: Post-Sprint 67 Codebase Mapping Complete
-- **Status**: Ready for Planning / Production Ready
+- **Sprint**: Sprint 68 — Replace Operational Columns with Financial Metrics in Owner Active SPK Monitoring Table
+- **Status**: Sprint 68 Completed ✅ / Ready for Next Sprint or Milestone
 - **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness
 
 ## Last Session Summary
-Codebase mapping complete:
-- **63 React UI components**, **10 route pages**, **7 service layers**, **18 utilities**, and **6 data contract definitions** mapped.
-- **29 PostgreSQL database tables**, **8 analytics views**, **12 stored procedures/RPCs**, and **8 database triggers** across **90 migrations** inventoried.
-- **35 dependencies** analyzed (16 production, 19 development).
-- **0 code smells** (`TODO`, `FIXME`, `HACK`, `XXX`) and **0 technical debt items** found.
+Sprint 68 Completed:
+- Replaced operational columns (`WBS PHASE`, `DP STATUS`, `MATERIAL GATE`) on the Owner Active SPK Monitoring Table (`/dashboard`) with financial metrics:
+  1. `TOTAL HPP`: Modal RAB awal + modal item Change Orders APPROVED.
+  2. `TOTAL TAGIHAN`: Nilai jual kontrak SPK awal + pendapatan Change Orders disetujui.
+  3. `REALISASI BIAYA AKTUAL`: Total biaya riil di lapangan (Material Approved dikeluarkan gudang + SPK Borongan Tukang aktif + Log Overhead FOH tercatat) dengan indikator varian selisih real-time (Overbudget vs Sisa Pagu).
+- Created `src/services/dashboardService.ts` for calculations and robust SPK data fetching with fallback.
+- Extracted and modularized `src/components/ActiveSpkTable.tsx`.
+- Integrated `dashboardService` and `ActiveSpkTable` in `src/pages/AdminDashboardPage.tsx` with enhanced CSV export.
+- Updated bilingual localization in `src/locales/id.json` and `src/locales/en.json`.
+- Added unit tests in `src/services/__tests__/dashboardService.test.ts` (6 tests) and component tests in `src/components/__tests__/ActiveSpkTable.test.tsx` (6 tests).
 
 ## Quality & Verification Status
-- **Vitest Unit & Component Testing:** 48/48 test suites passing, 315/315 tests passing (100%).
-- **Linter (Oxlint):** 0 errors, 0 warnings across 179 files with 113 rules.
+- **Vitest Unit & Component Testing:** 50/50 test suites passing, 327/327 tests passing (100%).
+- **Linter (Oxlint):** 0 errors, 0 warnings across 181 files with 113 rules.
 - **TypeScript Static Analysis:** Clean compilation with 0 errors (`tsc -b`).
-- **Production Build:** Clean build in ~498ms (`npm run build`).
+- **Production Build:** Clean build in ~485ms (`npm run build`).
 
 ## Technical Debt Backlog
 None. (Zero outstanding technical debt).
