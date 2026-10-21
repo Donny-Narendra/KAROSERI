@@ -7,8 +7,8 @@
 KAROSERI is an enterprise auto body repair and modification management system (*Bengkel Karoseri & Perbaikan Bodi*). It coordinates end-to-end workshop operations from intake estimation to 3-element job order costing, production, quality control, warehouse inventory control, billing, periodic operational expenses (OPEX), and executive corporate financial intelligence across six core roles:
 - **Owner / Administrator** (Executive oversight, 6-card KPI analytics, corporate P&L, CVP sales target solver, financial sanity audits, master settings, audit trails, backup/restore)
 - **Service Advisor (SA)** (Vehicle intake with photo inspection & vehicle model tracking, SPK creation, 3-element RAB estimation, itemized change order / amendment management, material requisitions)
-- **Foreman / Mandor** (7-stage WBS tracking, borongan worker assignments from RAB & Change Orders, photo uploads, floor terminal actual overhead logging with presets, pending material inspection)
-- **Warehouse Officer / Petugas Gudang** (Material requisition approvals with Gate 2 Material-Only budget guard, goods issue against RAB quota limits, stock rollback, restock audit logging)
+- **Foreman / Mandor** (7-stage WBS tracking, borongan worker assignments with completion deadlines from RAB & Change Orders, photo uploads, floor terminal actual overhead logging with presets, pending material inspection)
+- **Warehouse Officer / Petugas Gudang** (Granular item-level material requisition approvals with Gate 2 Material-Only budget guard, goods issue against RAB quota limits, stock rollback, restock audit logging)
 - **Cashier / Kasir** (Down payment recording with receipt print & history, final invoice settlement with itemized Change Order breakdown, handover billing clearance gate, BAST handover)
 - **Customer (Public)** (Read-only real-time SPK progress timeline via `/tracking/:spk_no`)
 
@@ -31,6 +31,7 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 │ PostgreSQL 15+, Auth, RLS, Views,  │    Vehicle intake inspection &    │
 │    RPC Sanity Checks & Summary     │      WBS photo evidence CDN       │
 │  Hard-Gate DB Completion Triggers  │                                   │
+│  Granular Item-Level Approval RPCs │                                   │
 │  3-Element Job Order Costing Views │                                   │
 │  Non-Draft Excluded Financial Views│                                   │
 │  Corporate Monthly P&L View & OPEX │                                   │
@@ -49,8 +50,8 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 - [`AdminSettingsPage.tsx`](file:///c:/KAROSERI/src/pages/AdminSettingsPage.tsx): System configuration, workshop identity, user account management, audit trails, and backup/restore.
 - [`FinancialReportsPage.tsx`](file:///c:/KAROSERI/src/pages/FinancialReportsPage.tsx): Enterprise financial intelligence suite containing 5 analytical reporting tabs, 6-card Executive KPI summary, Sanity Audit panel, and printable PDF/Excel export engine. Strictly excludes DRAFT & PENDING_DP status SPKs.
 - [`ServiceAdvisorDashboard.tsx`](file:///c:/KAROSERI/src/pages/ServiceAdvisorDashboard.tsx): Intake queue, new SPK wizard, vehicle model tracking, RAB cost estimation, package allocation, change orders, and material requisition requests.
-- [`MandorDashboard.tsx`](file:///c:/KAROSERI/src/pages/MandorDashboard.tsx): Production tracking, 7-stage WBS progression, borongan task assignments from RAB and Change Orders, stage photo documentation, floor terminal actual overhead logging, and pending material checks.
-- [`WarehouseDashboard.tsx`](file:///c:/KAROSERI/src/pages/WarehouseDashboard.tsx): Inventory control, material requisition approvals with Gate 2 budget validation, goods issue against RAB limits, goods return, incoming restock with audit logging, and issue rollback.
+- [`MandorDashboard.tsx`](file:///c:/KAROSERI/src/pages/MandorDashboard.tsx): Production tracking, 7-stage WBS progression, borongan task assignments with completion deadlines from RAB and Change Orders, stage photo documentation, floor terminal actual overhead logging, and pending material checks.
+- [`WarehouseDashboard.tsx`](file:///c:/KAROSERI/src/pages/WarehouseDashboard.tsx): Inventory control, granular item-level material requisition approvals with Gate 2 budget validation, goods issue against RAB limits, goods return, incoming restock with audit logging, and issue rollback.
 - [`KasirDashboard.tsx`](file:///c:/KAROSERI/src/pages/KasirDashboard.tsx): Down payment receipts & history modal, final invoice calculation with itemized Change Order breakdown accordion, handover billing clearance verification, mark as paid, and BAST generation.
 - [`PublicProgressTracking.tsx`](file:///c:/KAROSERI/src/pages/PublicProgressTracking.tsx): Publicly accessible vehicle repair status tracker by SPK number with live photo gallery.
 - [`LoginPage.tsx`](file:///c:/KAROSERI/src/pages/LoginPage.tsx): Authentication portal with role switcher and Supabase Auth credentials.
@@ -60,7 +61,7 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 - **SPK & Estimates:**
   - [`SpkForm.tsx`](file:///c:/KAROSERI/src/components/SpkForm.tsx): SPK registration with Cloudinary vehicle inspection photo upload, vehicle model & brand inputs.
   - [`RabCalculator.tsx`](file:///c:/KAROSERI/src/components/RabCalculator.tsx): Comprehensive 3-element RAB estimator (materials, labor, overhead, profit margin, package breakdown) with debounced auto-save, decimal precision, dual pricing inputs for custom non-inventory labor (HPP upah tukang vs selling price with live margin indicator), and first-class overhead item support (`item_type: 'OVERHEAD'`). Waste factor is permanently eliminated.
-  - [`SpkBoronganPanel.tsx`](file:///c:/KAROSERI/src/components/SpkBoronganPanel.tsx): Mandor/Admin borongan labor management; merges labor items from RAB and approved Change Orders with `[CO]` purple badge, auto-transfer, and quota exclusion.
+  - [`SpkBoronganPanel.tsx`](file:///c:/KAROSERI/src/components/SpkBoronganPanel.tsx): Mandor/Admin borongan labor management; merges labor items from RAB and approved Change Orders with `[CO]` purple badge, auto-transfer, completion deadline input and storage (`deadline_date`), worker card deadline display with calendar badges, and official print view integration ("Surat Penugasan Kerja Borongan").
   - [`SpkCredentialSection.tsx`](file:///c:/KAROSERI/src/components/SpkCredentialSection.tsx): Editable vehicle model, chassis/VIN, engine number, customer phone, target date, and sub-tasks list.
   - [`CancelSpkModal.tsx`](file:///c:/KAROSERI/src/components/CancelSpkModal.tsx): Guarded SPK cancellation workflow (allowed only before DP / material issuance).
   - [`CancelledSpkAuditLog.tsx`](file:///c:/KAROSERI/src/components/CancelledSpkAuditLog.tsx): Dedicated audit monitoring module for voided/cancelled SPKs with executor attribution, timestamped reasons, lost revenue KPI cards, search, and CSV export.
@@ -77,7 +78,7 @@ KAROSERI is an enterprise auto body repair and modification management system (*
   - [`GoodsIssueForm.tsx`](file:///c:/KAROSERI/src/components/GoodsIssueForm.tsx): Material issuance with strict double-issue checks, RAB quota enforcement, change order item linkage, and live stock decrement.
   - [`GoodsReturnForm.tsx`](file:///c:/KAROSERI/src/components/GoodsReturnForm.tsx): Returns unused materials back into warehouse stock.
   - [`MaterialRequisitionForm.tsx`](file:///c:/KAROSERI/src/components/MaterialRequisitionForm.tsx): SA/Mandor material requisition submission with stage mapping and strict `item_type = 'MATERIAL'` filtering.
-  - [`RequisitionApproval.tsx`](file:///c:/KAROSERI/src/components/RequisitionApproval.tsx): Warehouse review, approve, or reject requisition items equipped with Gate 2 Material-Only & WBS-specific budget validation.
+  - [`RequisitionApproval.tsx`](file:///c:/KAROSERI/src/components/RequisitionApproval.tsx): Warehouse review, approve, or reject requisition items equipped with Gate 2 Material-Only & WBS-specific budget validation, granular item-level approval / rejection (`approve_single_requisition_item` / `reject_single_requisition_item`), parent status advancement (`PARTIALLY_ISSUED`, `COMPLETED`), and batch approval shortcuts.
   - [`RecentApprovedMaterials.tsx`](file:///c:/KAROSERI/src/components/RecentApprovedMaterials.tsx): Panel showing approved materials ready for physical warehouse issuance.
   - [`SAInventoryPanel.tsx`](file:///c:/KAROSERI/src/components/SAInventoryPanel.tsx): Service Advisor tab for monitoring inventory requisition status and quotas.
   - [`InventoryManager.tsx`](file:///c:/KAROSERI/src/components/InventoryManager.tsx): Master material catalog management with 3 item types (Material Fisik, Jasa Labor, Overhead FOH), and dual pricing (HPP vs selling price).
@@ -127,7 +128,7 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 - [`billingService.ts`](file:///c:/KAROSERI/src/services/billingService.ts): DP history compilation, payment matching, and approved change orders retrieval.
 
 ### Types Layer (6 type files in `src/types/`)
-- [`database.ts`](file:///c:/KAROSERI/src/types/database.ts): Supabase database schema type mappings (`SpkRecord`, `MaterialRecord`, `RabRecord`, `RabItemRecord`, `PaymentRecord`, etc.).
+- [`database.ts`](file:///c:/KAROSERI/src/types/database.ts): Supabase database schema type mappings (`SpkRecord`, `SpkBoronganRecord`, `MaterialRecord`, `RabRecord`, `RabItemRecord`, `PaymentRecord`, etc.).
 - [`spk.ts`](file:///c:/KAROSERI/src/types/spk.ts): Domain models for SPK, SPK status, and credentials.
 - [`financialReports.ts`](file:///c:/KAROSERI/src/types/financialReports.ts): Types for 3-element costing, job profitability, WBS cost variance, receivables aging, and corporate P&L.
 - [`operatingExpenses.ts`](file:///c:/KAROSERI/src/types/operatingExpenses.ts): OPEX categories and monthly expense types.
@@ -135,75 +136,31 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 - [`auth.ts`](file:///c:/KAROSERI/src/types/auth.ts): User role definitions and profile session types.
 
 ### Utilities Layer (16 utility modules in `src/utils/`)
-- [`gate2BudgetValidation.ts`](file:///c:/KAROSERI/src/utils/gate2BudgetValidation.ts): Gate 2 Warehouse Approval Budget Guard scoped strictly to materials and specific WBS stages, preventing false-positive over-budget locks from labor or other stages.
+- [`gate2BudgetValidation.ts`](file:///c:/KAROSERI/src/utils/gate2BudgetValidation.ts): Gate 2 Warehouse Approval Budget Guard scoped strictly to materials and specific WBS stages, ignoring unapproved items from `PARTIALLY_ISSUED` requisitions.
 - [`billingHandoverGate.ts`](file:///c:/KAROSERI/src/utils/billingHandoverGate.ts): Client-side and service-side validation mirroring the PostgreSQL trigger hard-gate for SPK completion.
 - [`financialCalculations.ts`](file:///c:/KAROSERI/src/utils/financialCalculations.ts): Pure calculation functions for 3-element COGS (Material + Labor + Overhead), gross profit, margin percentages, and variance.
-- [`cvpCalculations.ts`](file:///c:/KAROSERI/src/utils/cvpCalculations.ts): Mathematical formulas for Break-Even Point (BEP units & Rupiah), Contribution Margin (CM), Target Profit volume, Margin of Safety (MoS), and sensitivity matrices.
-- [`exportFinancialReports.ts`](file:///c:/KAROSERI/src/utils/exportFinancialReports.ts): Multi-format export engine supporting Excel (.xlsx) and printable PDF with browser print dialog.
-- [`auditDiffHelper.ts`](file:///c:/KAROSERI/src/utils/auditDiffHelper.ts): Formats before/after JSON diffs for audit logs.
-- [`excelExport.ts`](file:///c:/KAROSERI/src/utils/excelExport.ts): Generic tabular Excel exporter using SheetJS.
-- [`rabExport.ts`](file:///c:/KAROSERI/src/utils/rabExport.ts): Quotation export and printable RAB layout with vehicle model.
-- [`rabItemAllocation.ts`](file:///c:/KAROSERI/src/utils/rabItemAllocation.ts): Distributes package items into WBS stages and verifies allocation states across RAB items and Change Order items.
-- [`numberUtils.ts`](file:///c:/KAROSERI/src/utils/numberUtils.ts): Robust numeric parsing and currency formatting.
-- [`formatters.ts`](file:///c:/KAROSERI/src/utils/formatters.ts): Formats dates, percentages, and currencies.
-- [`spkUtils.ts`](file:///c:/KAROSERI/src/utils/spkUtils.ts): Shared SPK status mappings and helpers.
-- [`invoiceExport.ts`](file:///c:/KAROSERI/src/utils/invoiceExport.ts): Formats and exports customer billing invoices with itemized change orders.
-- [`itemClassification.ts`](file:///c:/KAROSERI/src/utils/itemClassification.ts): Classifies inventory materials, labor jasa, and overhead FOH.
-- [`pdfExportUtils.ts`](file:///c:/KAROSERI/src/utils/pdfExportUtils.ts): Client utilities for PDF rendering and DOM sanitization.
-- [`terbilang.ts`](file:///c:/KAROSERI/src/utils/terbilang.ts): Converts numeric amounts into Indonesian spelled words for formal receipts.
-
-### Automated Test Suites (39 test suites, 257 tests passing 100%):
-- [`src/components/finance/tabs/__tests__/JobProfitabilityTab.test.tsx`](file:///c:/KAROSERI/src/components/finance/tabs/__tests__/JobProfitabilityTab.test.tsx) (3 tests)
-- [`src/services/__tests__/financialReportsService.test.ts`](file:///c:/KAROSERI/src/services/__tests__/financialReportsService.test.ts) (1 test)
-- [`src/components/finance/tabs/__tests__/WbsCostVarianceTab.test.tsx`](file:///c:/KAROSERI/src/components/finance/tabs/__tests__/WbsCostVarianceTab.test.tsx) (4 tests)
-- [`src/components/finance/tabs/__tests__/CorporatePnlTab.test.tsx`](file:///c:/KAROSERI/src/components/finance/tabs/__tests__/CorporatePnlTab.test.tsx) (4 tests)
-- [`src/components/finance/__tests__/ExecutiveKpiCards.test.tsx`](file:///c:/KAROSERI/src/components/finance/__tests__/ExecutiveKpiCards.test.tsx) (6 tests)
-- [`src/components/finance/__tests__/DpReceiptPrintModal.test.tsx`](file:///c:/KAROSERI/src/components/finance/__tests__/DpReceiptPrintModal.test.tsx) (9 tests)
-- [`src/components/__tests__/RequisitionApprovalGate2.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/RequisitionApprovalGate2.test.tsx) (2 tests)
-- [`src/components/__tests__/KasirChangeOrderBreakdown.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/KasirChangeOrderBreakdown.test.tsx) (2 tests)
-- [`src/components/__tests__/SpkBoronganPanel.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/SpkBoronganPanel.test.tsx) (7 tests)
-- [`src/components/__tests__/SpkOverheadModal.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/SpkOverheadModal.test.tsx) (7 tests)
-- [`src/components/__tests__/InventoryManagerItemType.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/InventoryManagerItemType.test.tsx) (3 tests)
-- [`src/components/__tests__/PackageAllocationModal.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/PackageAllocationModal.test.tsx) (3 tests)
-- [`src/components/__tests__/LaborSearchAutocomplete.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/LaborSearchAutocomplete.test.tsx) (7 tests)
-- [`src/components/__tests__/AmendmentManager.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/AmendmentManager.test.tsx) (5 tests)
-- [`src/components/__tests__/CancelledSpkAuditLog.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/CancelledSpkAuditLog.test.tsx) (6 tests)
-- [`src/components/__tests__/ConfirmationModal.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/ConfirmationModal.test.tsx) (8 tests)
-- [`src/components/__tests__/LanguageSwitcher.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/LanguageSwitcher.test.tsx) (5 tests)
-- [`src/components/__tests__/MaterialRequisitionForm.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/MaterialRequisitionForm.test.tsx) (8 tests)
-- [`src/components/__tests__/RabCalculatorDecimal.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/RabCalculatorDecimal.test.tsx) (7 tests)
-- [`src/components/__tests__/RabCalculatorLabor.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/RabCalculatorLabor.test.tsx) (19 tests)
-- [`src/components/__tests__/RabCalculatorOverhead.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/RabCalculatorOverhead.test.tsx) (8 tests)
-- [`src/components/__tests__/SpkFilterListBox.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/SpkFilterListBox.test.tsx) (6 tests)
-- [`src/components/__tests__/SpkForm.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/SpkForm.test.tsx) (6 tests)
-- [`src/components/__tests__/DownPaymentModal.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/DownPaymentModal.test.tsx) (4 tests)
-- [`src/components/__tests__/DpHistoryList.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/DpHistoryList.test.tsx) (4 tests)
-- [`src/pages/__tests__/KasirDashboardDpHistory.test.tsx`](file:///c:/KAROSERI/src/pages/__tests__/KasirDashboardDpHistory.test.tsx) (4 tests)
-- [`src/services/__tests__/billingService.test.ts`](file:///c:/KAROSERI/src/services/__tests__/billingService.test.ts) (8 tests)
-- [`src/utils/__tests__/billingHandoverLockTrigger.test.ts`](file:///c:/KAROSERI/src/utils/__tests__/billingHandoverLockTrigger.test.ts) (10 tests)
-- [`src/utils/__tests__/cvpCalculations.test.ts`](file:///c:/KAROSERI/src/utils/__tests__/cvpCalculations.test.ts) (5 tests)
-- [`src/utils/__tests__/executiveKpiCalculations.test.ts`](file:///c:/KAROSERI/src/utils/__tests__/executiveKpiCalculations.test.ts) (6 tests)
-- [`src/utils/__tests__/exportFinancialReports.test.ts`](file:///c:/KAROSERI/src/utils/__tests__/exportFinancialReports.test.ts) (9 tests)
-- [`src/utils/__tests__/financialCalculations.test.ts`](file:///c:/KAROSERI/src/utils/__tests__/financialCalculations.test.ts) (21 tests)
-- [`src/utils/__tests__/gate2BudgetValidation.test.ts`](file:///c:/KAROSERI/src/utils/__tests__/gate2BudgetValidation.test.ts) (9 tests)
-- [`src/utils/__tests__/invoiceExport.test.ts`](file:///c:/KAROSERI/src/utils/__tests__/invoiceExport.test.ts) (4 tests)
-- [`src/utils/__tests__/packageAssemblyImport.test.ts`](file:///c:/KAROSERI/src/utils/__tests__/packageAssemblyImport.test.ts) (4 tests)
-- [`src/utils/__tests__/pdfExportUtils.test.ts`](file:///c:/KAROSERI/src/utils/__tests__/pdfExportUtils.test.ts) (5 tests)
-- [`src/utils/__tests__/rabItemAllocation.test.ts`](file:///c:/KAROSERI/src/utils/__tests__/rabItemAllocation.test.ts) (7 tests)
-- [`src/utils/__tests__/rabLaborBudget.test.ts`](file:///c:/KAROSERI/src/utils/__tests__/rabLaborBudget.test.ts) (14 tests)
-- [`src/utils/__tests__/terbilang.test.ts`](file:///c:/KAROSERI/src/utils/__tests__/terbilang.test.ts) (7 tests)
+- [`cvpCalculations.ts`](file:///c:/KAROSERI/src/utils/cvpCalculations.ts): Cost-Volume-Profit solver mathematics (BEP units & revenue, Contribution Margin ratio, Margin of Safety).
+- [`rabLaborBudget.ts`](file:///c:/KAROSERI/src/utils/rabLaborBudget.ts): Labor budget evaluation and non-inventory labor rate calculators.
+- [`rabItemAllocation.ts`](file:///c:/KAROSERI/src/utils/rabItemAllocation.ts): Interactive assignment allocation tracker between RAB/CO items and active SPK Borongan or Requisitions.
+- [`packageAssemblyImport.ts`](file:///c:/KAROSERI/src/utils/packageAssemblyImport.ts): Package template and assembly import utility with strict item type enforcement.
+- [`terbilang.ts`](file:///c:/KAROSERI/src/utils/terbilang.ts): Pure algorithmic Indonesian number-to-words currency converter for formal receipts.
+- [`invoiceExport.ts`](file:///c:/KAROSERI/src/utils/invoiceExport.ts): Generates formal printable billing invoices with itemized change orders.
+- [`pdfExportUtils.ts`](file:///c:/KAROSERI/src/utils/pdfExportUtils.ts): HTML-to-PDF engine with custom print styles and margins.
+- [`excelExport.ts`](file:///c:/KAROSERI/src/utils/excelExport.ts) & [`exportFinancialReports.ts`](file:///c:/KAROSERI/src/utils/exportFinancialReports.ts): Multi-sheet Excel workbook generators.
+- [`rabExport.ts`](file:///c:/KAROSERI/src/utils/rabExport.ts): Printable quotation & RAB document generator.
+- [`spkUtils.ts`](file:///c:/KAROSERI/src/utils/spkUtils.ts): SPK number generators and status helpers.
+- [`receiptExport.ts`](file:///c:/KAROSERI/src/utils/receiptExport.ts): Standalone print handler for cashier receipts.
 
 ## Data Flow
 
-1. **Authentication & Session:**
-   - User authenticates via Supabase Auth ([`LoginPage.tsx`](file:///c:/KAROSERI/src/pages/LoginPage.tsx)).
+1. **User Authentication & Session Initialization:**
    - [`AuthContext.tsx`](file:///c:/KAROSERI/src/context/AuthContext.tsx) resolves user session and fetches profile metadata from `profiles` table.
    - [`App.tsx`](file:///c:/KAROSERI/src/App.tsx) routes the user to the role-specific dashboard.
 2. **Work Order Lifecycle:**
    - **Intake:** SA creates SPK ([`SpkForm.tsx`](file:///c:/KAROSERI/src/components/SpkForm.tsx)) recording vehicle model, brand, chassis, license plate, uploads initial condition photos to Cloudinary, and prepares 3-element RAB estimation ([`RabCalculator.tsx`](file:///c:/KAROSERI/src/components/RabCalculator.tsx)).
    - **Approval & DP:** Customer approves; Kasir records Down Payment ([`DownPaymentModal.tsx`](file:///c:/KAROSERI/src/components/DownPaymentModal.tsx)), with printable DP receipt ([`DpReceiptPrintModal.tsx`](file:///c:/KAROSERI/src/components/finance/DpReceiptPrintModal.tsx)), transitioning SPK from `DRAFT` / `PENDING_DP` to `ACTIVE`.
-   - **Production & Mandor Assignment:** Mandor assigns workers ([`SpkBoronganPanel.tsx`](file:///c:/KAROSERI/src/components/SpkBoronganPanel.tsx)) pulling labor items from both RAB and approved Change Orders, checks off 7 WBS stages ([`WbsChecklist.tsx`](file:///c:/KAROSERI/src/components/WbsChecklist.tsx)), records actual FOH bay/tool costs via [`SpkOverheadModal.tsx`](file:///c:/KAROSERI/src/components/SpkOverheadModal.tsx) using dynamic RAB/CO presets, and documents progress photos ([`WbsGalleryUploader.tsx`](file:///c:/KAROSERI/src/components/WbsGalleryUploader.tsx)).
-   - **Material Requisition & Issue (Gate 2 Guarded):** SA/Mandor requests materials via [`MaterialRequisitionForm.tsx`](file:///c:/KAROSERI/src/components/MaterialRequisitionForm.tsx); Warehouse approves via [`RequisitionApproval.tsx`](file:///c:/KAROSERI/src/components/RequisitionApproval.tsx) enforced by Gate 2 Material-Only budget guard ([`gate2BudgetValidation.ts`](file:///c:/KAROSERI/src/utils/gate2BudgetValidation.ts)) and issues items against RAB quota limits via [`GoodsIssueForm.tsx`](file:///c:/KAROSERI/src/components/GoodsIssueForm.tsx).
+   - **Production & Mandor Assignment:** Mandor assigns workers ([`SpkBoronganPanel.tsx`](file:///c:/KAROSERI/src/components/SpkBoronganPanel.tsx)) with written completion deadlines (`deadline_date`) pulling labor items from both RAB and approved Change Orders, checks off 7 WBS stages ([`WbsChecklist.tsx`](file:///c:/KAROSERI/src/components/WbsChecklist.tsx)), records actual FOH bay/tool costs via [`SpkOverheadModal.tsx`](file:///c:/KAROSERI/src/components/SpkOverheadModal.tsx) using dynamic RAB/CO presets, and documents progress photos ([`WbsGalleryUploader.tsx`](file:///c:/KAROSERI/src/components/WbsGalleryUploader.tsx)).
+   - **Material Requisition & Issue (Granular & Gate 2 Guarded):** SA/Mandor requests materials via [`MaterialRequisitionForm.tsx`](file:///c:/KAROSERI/src/components/MaterialRequisitionForm.tsx); Warehouse approves individually or in batches via [`RequisitionApproval.tsx`](file:///c:/KAROSERI/src/components/RequisitionApproval.tsx) with atomic RPC procedures (`approve_single_requisition_item`, `reject_single_requisition_item`), enforced by Gate 2 Material-Only budget guard ([`gate2BudgetValidation.ts`](file:///c:/KAROSERI/src/utils/gate2BudgetValidation.ts)), automatically transitioning tickets to `PARTIALLY_ISSUED` or `COMPLETED`. Warehouse issues items against RAB quota limits via [`GoodsIssueForm.tsx`](file:///c:/KAROSERI/src/components/GoodsIssueForm.tsx).
    - **Change Orders:** Unforeseen work is submitted via [`AmendmentManager.tsx`](file:///c:/KAROSERI/src/components/AmendmentManager.tsx) as itemized change orders supporting Materials, Labor, and Overhead FOH. Approved Change Orders propagate dynamically to Mandor Borongan guides, Mandor Overhead presets, and Kasir final billing.
    - **Quality Control:** QC Officer conducts final inspection ([`QcInspectionForm.tsx`](file:///c:/KAROSERI/src/components/QcInspectionForm.tsx)) to set `PASS` status.
    - **Settlement & Handover Gate:** Kasir reviews balance with itemized Change Order breakdowns in [`KasirDashboard.tsx`](file:///c:/KAROSERI/src/pages/KasirDashboard.tsx). Handover gate blocks BAST generation until the invoice status is strictly `LUNAS`. Database trigger `trg_enforce_handover_billing_lock` rolls back any query attempting to set SPK status to `COMPLETED` if unpaid. Once paid, signed BAST is issued ([`BastModal.tsx`](file:///c:/KAROSERI/src/components/BastModal.tsx)) with vehicle model details.
@@ -221,9 +178,9 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 | Service | Type | Purpose | Location |
 |---------|------|---------|----------|
 | Supabase Auth | BaaS API | Authentication, session persistence, role-based access | [`src/context/AuthContext.tsx`](file:///c:/KAROSERI/src/context/AuthContext.tsx) |
-| Supabase PostgreSQL | BaaS API | Relational database (86 migrations), RLS policies, Views, RPCs, Completion Triggers | [`src/lib/supabaseClient.ts`](file:///c:/KAROSERI/src/lib/supabaseClient.ts) |
+| Supabase PostgreSQL | BaaS API | Relational database (88 migrations), RLS policies, Views, RPCs, Completion Triggers | [`src/lib/supabaseClient.ts`](file:///c:/KAROSERI/src/lib/supabaseClient.ts) |
 | Cloudinary | REST API / CDN | Vehicle damage intake photos and production milestone evidence | [`src/lib/cloudinary.ts`](file:///c:/KAROSERI/src/lib/cloudinary.ts), [`src/components/ui/CloudinaryUploader.tsx`](file:///c:/KAROSERI/src/components/ui/CloudinaryUploader.tsx) |
-| Vitest & RTL | Test Runner & Library | Automated unit and component testing with jsdom (39 suites, 257 tests) | `package.json`, [`src/utils/__tests__/`](file:///c:/KAROSERI/src/utils/__tests__/), [`src/components/**/__tests__/`](file:///c:/KAROSERI/src/components/) |
+| Vitest & RTL | Test Runner & Library | Automated unit and component testing with jsdom (40 suites, 267 tests) | `package.json`, [`src/utils/__tests__/`](file:///c:/KAROSERI/src/utils/__tests__/), [`src/components/**/__tests__/`](file:///c:/KAROSERI/src/components/) |
 | jsPDF / html2canvas | Client Library | BAST and invoice PDF rendering and export | [`src/components/BastModal.tsx`](file:///c:/KAROSERI/src/components/BastModal.tsx), [`src/utils/rabExport.ts`](file:///c:/KAROSERI/src/utils/rabExport.ts) |
 | XLSX (SheetJS) | Client Library | Inventory master data and financial reports Excel export | [`src/utils/excelExport.ts`](file:///c:/KAROSERI/src/utils/excelExport.ts), [`src/utils/exportFinancialReports.ts`](file:///c:/KAROSERI/src/utils/exportFinancialReports.ts) |
 
@@ -243,9 +200,9 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 11. `invoices`: Customer billing and invoice settlements.
 12. `workshop_settings`: General workshop metadata, logos, letterheads.
 13. `payments`: Payment receipts (down payments & final payments).
-14. `material_requisitions`: Requisition headers submitted by SA or Mandor.
-15. `material_requisition_items`: Itemized requisition requests with stage mappings and Change Order linkages.
-16. `spk_borongan`: Borongan subcontract labor assignments to workers from RAB and Change Orders.
+14. `material_requisitions`: Requisition headers submitted by SA or Mandor with status (`PENDING`, `PARTIALLY_ISSUED`, `APPROVED`, `COMPLETED`, `REJECTED`).
+15. `material_requisition_items`: Itemized requisition requests with status (`PENDING`, `APPROVED`, `REJECTED`), stage mappings, and Change Order linkages.
+16. `spk_borongan`: Borongan subcontract labor assignments to workers from RAB and Change Orders with written completion deadline (`deadline_date`).
 17. `product_packages`: Predefined modification/repair bundles.
 18. `package_items`: Bill of Materials (BOM) items for packages.
 19. `inventory_audit_logs`: User-attributed audit log for price and stock edits.
@@ -269,7 +226,9 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 - `material_issues`: View for issued material queries.
 - `final_billing`: Billing calculation helper view.
 
-### Stored Procedures / RPC Functions (10 functions)
+### Stored Procedures / RPC Functions (12 functions)
+- `approve_single_requisition_item`: Atomically approves an individual material line item, deducts inventory stock, writes to `inventory_transactions`, and auto-progresses parent requisition status to `PARTIALLY_ISSUED` or `COMPLETED`.
+- `reject_single_requisition_item`: Atomically rejects an individual material line item and evaluates overall requisition status (`REJECTED`, `PARTIALLY_ISSUED`, `COMPLETED`).
 - `get_financial_executive_summary`: Generates 6-card executive financial KPIs with strict non-draft exclusions.
 - `audit_financial_sanity_check`: Automated financial diagnostic engine scanning for negative margins, budget overruns, and billing anomalies.
 - `void_material_issue` / `void_material_issues`: Reverses material issue transactions and restores inventory quantities safely.
@@ -293,7 +252,9 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 
 ## Technical Debt & Audit Status
 
-### Fully Resolved (Sprints 43–62)
+### Fully Resolved (Sprints 43–64)
+- [x] **SPK-Borongan Completion Deadline (Sprint 64):** Added `deadline_date DATE` column to `spk_borongan`, date input field in `SpkBoronganPanel.tsx`, calendar badge display on worker cards, and official print view inclusion in "Surat Penugasan Kerja Borongan". Verified by 3 dedicated tests in `SpkBoronganPanel.test.tsx`.
+- [x] **Granular Item-Level Material Approval in Warehouse (Sprint 63):** Implemented atomic RPCs `approve_single_requisition_item` & `reject_single_requisition_item`, `material_requisition_items.status`, parent status progression (`PARTIALLY_ISSUED`, `COMPLETED`), Gate 2 item budget evaluation, and row action buttons in `RequisitionApproval.tsx`. Verified by 6 tests in `GranularItemApproval.test.tsx`.
 - [x] **Labor Search Autocomplete from Materials Inventory (Sprint 62):** Implemented [LaborSearchAutocomplete.tsx](file:///c:/KAROSERI/src/components/LaborSearchAutocomplete.tsx) featuring real-time debounce-free catalog filtering, ArrowUp/ArrowDown/Enter keyboard navigation, freeform custom name fallback, status badges (Master, Kustom, Katalog), auto-population of `unit_price` / `cost_price`, and `material_id` persistence in [AmendmentManager.tsx](file:///c:/KAROSERI/src/components/AmendmentManager.tsx). Verified by 7 dedicated component tests in [`LaborSearchAutocomplete.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/LaborSearchAutocomplete.test.tsx).
 - [x] **Custom Non-Inventory Labor Dual Pricing & Margin Indicator (Sprint 61):** Added dedicated dual inputs in `RabCalculator.tsx` for custom labor (`laborCostPrice` HPP upah tukang vs `laborUnitPrice` tarif tagih), autocomplete selection handler auto-populating standard prices from inventory, dynamic Live Margin Indicator (+ Rp / %), `material_id = null` persistence, and aligned right-hand RAB table + footer modal cost calculation.
 - [x] **Vehicle Model & Brand Ingestion (Sprint 60):** Added `vehicle_model` and `vehicle_brand` to `public.spk`, `SpkRecord`, `SpkForm.tsx`, `SpkCredentialSection.tsx`, `KasirDashboard.tsx`, `BastModal.tsx`, `ServiceAdvisorDashboard.tsx`, and `rabExport.ts`.

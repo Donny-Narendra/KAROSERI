@@ -60,7 +60,7 @@
 
 | Service | Provider | Purpose |
 |---------|----------|---------|
-| Database & Auth | Supabase (PostgreSQL 15+) | Managed PostgreSQL (86 migrations), Row Level Security, Auth sessions, Views, RPCs, Hard-gate Triggers |
+| Database & Auth | Supabase (PostgreSQL 15+) | Managed PostgreSQL (88 migrations), Row Level Security, Auth sessions, Views, RPCs, Hard-gate Triggers |
 | Media Storage & CDN | Cloudinary | Unsigned image uploads for vehicle intake and progress gallery |
 
 ## Configuration
@@ -83,14 +83,15 @@
 |---------|---------|--------|--------|------|
 | `@types/node` | 24.19.2 | 24.19.2 | 26.6.5 | Low (major release deferred) |
 | `typescript` | 6.0.3 | 6.0.3 | 7.0.2 | Medium (major release deferred) |
+| `vite` | 8.3.4 | 8.3.5 | 8.3.5 | Low (patch update available) |
+| `lucide-react` | 1.59.0 | 1.61.0 | 1.61.0 | Low (minor update available) |
 | `oxlint` | 1.88.0 | 1.89.0 | 1.89.0 | Low (patch update available) |
 | `i18next` | 26.5.2 | 26.5.3 | 26.5.3 | Low (patch update available) |
-| `lucide-react` | 1.59.0 | 1.60.0 | 1.60.0 | Low (minor update available) |
 | `postcss` | 8.5.30 | 8.5.31 | 8.5.31 | Low (patch update available) |
 
 ## Quality & Verification Status
 
-- **Vitest Unit & Component Testing:** Passes 39/39 test suites, 257/257 tests passing (100%) (`npm test`). Zero broken assertions.
-- **Linter (Oxlint):** 0 errors, 0 warnings across 164 files with 113 rules (`npm run lint`).
+- **Vitest Unit & Component Testing:** Passes 40/40 test suites, 267/267 tests passing (100%) (`npm test`). Zero broken assertions.
+- **Linter (Oxlint):** 0 errors, 0 warnings across 165 files with 113 rules (`npm run lint`).
 - **TypeScript Static Analysis:** Passes clean with 0 errors (`npx tsc -b`).
-- **Production Bundle:** Built cleanly in ~507ms via `tsc -b && vite build`. Code splitting active with dynamic route `React.lazy` chunks and dedicated vendor separation (`vendor-react`, `vendor-supabase`, `vendor-i18n`, `vendor-xlsx`, `vendor-pdf`, `vendor-libs`). Zero build warnings.
+- **Production Bundle:** Built cleanly in ~502ms via `tsc -b && vite build`. Code splitting active with dynamic route `React.lazy` chunks and dedicated vendor separation (`vendor-react`, `vendor-supabase`, `vendor-i18n`, `vendor-xlsx`, `vendor-pdf`, `vendor-libs`). Zero build warnings.
