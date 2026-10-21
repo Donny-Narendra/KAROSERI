@@ -10,7 +10,8 @@ import {
   X, 
   AlertCircle, 
   CheckCircle2, 
-  PackageCheck 
+  PackageCheck,
+  Calendar
 } from 'lucide-react';
 import { isRabItemAllocated, normalizeText } from '../utils/rabItemAllocation';
 import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
@@ -32,6 +33,7 @@ interface SpkBorongan {
   material_id?: string;
   rab_item_id?: string;
   change_order_item_id?: string;
+  deadline_date?: string | null;
   created_at: string;
 }
 
@@ -70,6 +72,23 @@ const formatCurrency = (val: number | null | undefined): string => {
   }).format(val);
 };
 
+const formatDeadlineDate = (dateStr?: string | null): string => {
+  if (!dateStr) return '-';
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const d = new Date(year, month, day);
+    return d.toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+  }
+  return dateStr;
+};
+
 export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCategory, onClose }) => {
   const cleanWbsCategory = wbsCategory.replace(/^WBS\s*\d+:\s*/i, '').trim();
   const { user } = useAuth();
@@ -87,6 +106,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
   const [workerName, setWorkerName] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
   const [contractValue, setContractValue] = useState<number | ''>('');
+  const [deadlineDate, setDeadlineDate] = useState('');
   
   // Cut-off state
   const [cutOffId, setCutOffId] = useState<string | null>(null);
@@ -441,6 +461,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
       worker_name: workerName.trim(),
       task_description: taskDescription.trim(),
       contract_value: Number(contractValue),
+      deadline_date: deadlineDate ? deadlineDate : null,
       status: 'ACTIVE',
       material_id: finalMaterialId,
       rab_item_id: finalRabItemId,
@@ -462,6 +483,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
       setWorkerName('');
       setTaskDescription('');
       setContractValue('');
+      setDeadlineDate('');
       setSelectedRabItemForAssignment(null);
       await fetchRecords();
       await fetchRabMaterials();
@@ -575,6 +597,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
             <div class="row"><div class="label">Nama Pekerja/Mandor</div><div class="value">: <strong>${record.worker_name}</strong></div></div>
             <div class="row"><div class="label">Tugas/Uraian Kerja</div><div class="value">: ${record.task_description || '-'}</div></div>
             <div class="row"><div class="label">Nilai Kontrak</div><div class="value">: <strong>Rp ${record.contract_value.toLocaleString('id-ID')}</strong></div></div>
+            <div class="row"><div class="label">Tenggat Waktu / Deadline</div><div class="value">: <strong>${formatDeadlineDate(record.deadline_date)}</strong></div></div>
             <div class="row"><div class="label">Tanggal Dikeluarkan</div><div class="value">: ${new Date(record.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div></div>
           </div>
 
@@ -694,6 +717,17 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
                             </p>
                             <p className="text-xs text-text-muted mt-0.5">
                               <span className="font-medium text-text">Nilai Kontrak:</span> <strong className="text-primary font-mono">{formatCurrency(record.contract_value)}</strong>
+                            </p>
+                            <p className="text-xs text-text-muted mt-0.5 flex items-center gap-1.5">
+                              <span className="font-medium text-text">Tenggat Waktu:</span>{' '}
+                              {record.deadline_date ? (
+                                <span className="inline-flex items-center gap-1 font-semibold text-amber-400">
+                                  <Calendar className="w-3 h-3 text-amber-400" />
+                                  {formatDeadlineDate(record.deadline_date)}
+                                </span>
+                              ) : (
+                                <span className="text-text-muted italic">-</span>
+                              )}
                             </p>
                             <div className="flex items-center gap-2 mt-1">
                               <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${
@@ -871,6 +905,18 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
                         value={contractValue}
                         onChange={(e) => setContractValue(e.target.value === '' ? '' : Number(e.target.value))}
                         placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="spk-b-deadline" className="block text-xs font-semibold text-text mb-1">
+                        Tenggat Waktu / Tanggal Deadline Pengerjaan
+                      </label>
+                      <input
+                        id="spk-b-deadline"
+                        type="date"
+                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-xs sm:text-sm text-text focus:outline-none focus:border-primary font-mono"
+                        value={deadlineDate}
+                        onChange={(e) => setDeadlineDate(e.target.value)}
                       />
                     </div>
                   </form>

@@ -580,4 +580,245 @@ describe('Component: SpkBoronganPanel (Strict LABOR Filter)', () => {
       expect(screen.getByText('Tidak ada pagu pekerjaan/jasa tersisa untuk WBS ini.')).toBeInTheDocument();
     });
   });
+
+  it('renders "Tenggat Waktu / Tanggal Deadline Pengerjaan" input on new assignment form and persists deadline_date in insert payload', async () => {
+    let capturedInsertPayload: any = null;
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === 'spk') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({
+            data: {
+              spk_no: 'SPK/2026/001',
+              customer_name: 'PT Karoseri Hebat',
+              vehicle_plate: 'B 1234 XYZ',
+            },
+            error: null,
+          }),
+        } as any;
+      }
+
+      if (table === 'rab_estimations') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: { id: 'rab-est-uuid-1' },
+            error: null,
+          }),
+        } as any;
+      }
+
+      if (table === 'material_requisitions' || table === 'change_order_items') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnThis(),
+          then: vi.fn().mockImplementation((fn: any) =>
+            Promise.resolve({ data: [], error: null }).then(fn)
+          ),
+        } as any;
+      }
+
+      if (table === 'spk_borongan') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockImplementation((payload: any) => {
+            capturedInsertPayload = payload;
+            return Promise.resolve({ data: null, error: null });
+          }),
+          order: vi.fn().mockResolvedValue({
+            data: [],
+            error: null,
+          }),
+          then: vi.fn().mockImplementation((fn: any) =>
+            Promise.resolve({ data: [], error: null }).then(fn)
+          ),
+        } as any;
+      }
+
+      if (table === 'rab_items') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockImplementation(() => ({
+            eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+          })),
+        } as any;
+      }
+
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+      } as any;
+    });
+
+    render(
+      <SpkBoronganPanel
+        spkId={mockSpkId}
+        wbsCategory={mockWbsCategory}
+        onClose={mockOnClose}
+      />
+    );
+
+    // Wait for initial load to finish
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Buat SPK Borongan/i })).toBeInTheDocument();
+    });
+
+    // Verify deadline input is present
+    const deadlineLabel = screen.getByText('Tenggat Waktu / Tanggal Deadline Pengerjaan');
+    expect(deadlineLabel).toBeInTheDocument();
+
+    const deadlineInput = screen.getByLabelText(/Tenggat Waktu \/ Tanggal Deadline Pengerjaan/i) as HTMLInputElement;
+    expect(deadlineInput).toBeInTheDocument();
+    expect(deadlineInput.type).toBe('date');
+
+    // Fill form fields
+    const workerInput = screen.getByPlaceholderText(/Contoh: Adi Las, Budi Ketok/i);
+    fireEvent.change(workerInput, { target: { value: 'Joko Las' } });
+
+    const taskInput = screen.getByPlaceholderText(/Contoh: TUKANG LAS DUDUKAN SLEBOR/i);
+    fireEvent.change(taskInput, { target: { value: 'Pengelasan Sasis Utama' } });
+
+    const contractInput = screen.getByPlaceholderText('0');
+    fireEvent.change(contractInput, { target: { value: '1250000' } });
+
+    fireEvent.change(deadlineInput, { target: { value: '2026-10-30' } });
+    expect(deadlineInput.value).toBe('2026-10-30');
+
+    // Submit form
+    const submitBtn = screen.getByRole('button', { name: /Buat SPK Borongan/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(capturedInsertPayload).not.toBeNull();
+      expect(capturedInsertPayload).toEqual(
+        expect.objectContaining({
+          spk_id: mockSpkId,
+          wbs_category: 'Pembongkaran',
+          worker_name: 'Joko Las',
+          task_description: 'Pengelasan Sasis Utama',
+          contract_value: 1250000,
+          deadline_date: '2026-10-30',
+          status: 'ACTIVE',
+        })
+      );
+    });
+
+    // Form should be reset after submission
+    await waitFor(() => {
+      expect(deadlineInput.value).toBe('');
+    });
+  });
+
+  it('displays formatted deadline date on worker cards in "Riwayat Penugasan SPK-B" and "-" when not set', async () => {
+    const assignmentsWithDeadline = [
+      {
+        id: 'spk-b-1',
+        worker_name: 'Rudi Cat',
+        task_description: 'Pengecatan Dasar Epoxy',
+        contract_value: 750000,
+        status: 'ACTIVE',
+        deadline_date: '2026-10-28',
+        wbs_category: 'Pembongkaran',
+        created_at: '2026-10-21T08:00:00Z',
+      },
+      {
+        id: 'spk-b-2',
+        worker_name: 'Bambang Dempul',
+        task_description: 'Dempul Halus Body Kanan',
+        contract_value: 500000,
+        status: 'ACTIVE',
+        deadline_date: null,
+        wbs_category: 'Pembongkaran',
+        created_at: '2026-10-21T09:00:00Z',
+      },
+    ];
+
+    setupSupabaseMock([], assignmentsWithDeadline);
+
+    render(
+      <SpkBoronganPanel
+        spkId={mockSpkId}
+        wbsCategory={mockWbsCategory}
+        onClose={mockOnClose}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Rudi Cat')).toBeInTheDocument();
+      expect(screen.getByText('Bambang Dempul')).toBeInTheDocument();
+    });
+
+    // Verify first worker shows formatted deadline date
+    expect(screen.getByText('28 Oktober 2026')).toBeInTheDocument();
+
+    // Verify "Tenggat Waktu:" label is rendered for both workers
+    const deadlineLabels = screen.getAllByText('Tenggat Waktu:');
+    expect(deadlineLabels.length).toBe(2);
+
+    // Verify second worker without deadline shows '-'
+    expect(screen.getByText('-')).toBeInTheDocument();
+  });
+
+  it('includes official deadline date row in printable work order document when Cetak is clicked', async () => {
+    const singleAssignment = [
+      {
+        id: 'spk-b-print-1',
+        worker_name: 'Hadi Ketok',
+        task_description: 'Perbaikan Plat Pintu Belakang',
+        contract_value: 800000,
+        status: 'ACTIVE',
+        deadline_date: '2026-11-05',
+        assignment_letter_no: 'ST-BORONG/SPK-001/WBS-1/01',
+        wbs_category: 'Pembongkaran',
+        created_at: '2026-10-21T10:00:00Z',
+      },
+    ];
+
+    setupSupabaseMock([], singleAssignment);
+
+    let printedHtmlContent = '';
+    const mockPrintWindow = {
+      document: {
+        write: vi.fn().mockImplementation((html: string) => {
+          printedHtmlContent = html;
+        }),
+        close: vi.fn(),
+      },
+      focus: vi.fn(),
+      print: vi.fn(),
+      close: vi.fn(),
+    };
+
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(mockPrintWindow as any);
+
+    render(
+      <SpkBoronganPanel
+        spkId={mockSpkId}
+        wbsCategory={mockWbsCategory}
+        onClose={mockOnClose}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Hadi Ketok')).toBeInTheDocument();
+    });
+
+    const printButton = screen.getByTitle('Cetak Surat Tugas');
+    fireEvent.click(printButton);
+
+    expect(openSpy).toHaveBeenCalledWith('', '_blank');
+    expect(mockPrintWindow.document.write).toHaveBeenCalled();
+
+    // Verify that printed HTML includes Tenggat Waktu / Deadline and formatted date
+    expect(printedHtmlContent).toContain('Tenggat Waktu / Deadline');
+    expect(printedHtmlContent).toContain('5 November 2026');
+
+    openSpy.mockRestore();
+  });
 });
+

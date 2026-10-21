@@ -6,6 +6,25 @@ export type RequisitionStatus = 'PENDING' | 'PARTIALLY_ISSUED' | 'APPROVED' | 'C
 export type RequisitionItemStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 export type SpkBoronganStatus = 'ACTIVE' | 'CUT_OFF' | 'COMPLETED';
 
+export interface SpkBoronganRecord {
+  id: string;
+  spk_id: string;
+  wbs_category: string;
+  worker_name: string;
+  task_description?: string;
+  contract_value: number;
+  status: SpkBoronganStatus;
+  progress_percentage?: number;
+  assignment_letter_no?: string;
+  material_id?: string | null;
+  rab_item_id?: string | null;
+  change_order_item_id?: string | null;
+  deadline_date?: string | null;
+  created_by?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
 export interface SpkRecord {
   id: string;
   spk_no: string;
