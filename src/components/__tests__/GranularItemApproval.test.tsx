@@ -230,16 +230,24 @@ describe('Component: RequisitionApproval (Granular Item-Level Material Approval)
     expect(screen.getByText('material tes 1')).toBeInTheDocument();
     expect(screen.getByText('material tes 2')).toBeInTheDocument();
 
-    // 2 rows of Approve and Tolak buttons
-    const approveButtons = screen.getAllByRole('button', { name: /^approve$/i });
+    // 2 rows of Rilis / Approve and Tolak / Hold buttons
+    const approveButtons = screen.getAllByRole('button', { name: /rilis \/ approve/i });
     expect(approveButtons).toHaveLength(2);
 
-    const tolakButtons = screen.getAllByRole('button', { name: /^tolak$/i });
+    const tolakButtons = screen.getAllByRole('button', { name: /tolak \/ hold/i });
     expect(tolakButtons).toHaveLength(2);
 
-    // Card footer should also have Approve Semua and Tolak Semua
-    expect(screen.getByRole('button', { name: /approve semua/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /tolak semua/i })).toBeInTheDocument();
+    // Card footer should have Approve Semua yang Tersisa and Reject Semua
+    expect(screen.getByRole('button', { name: /approve semua yang tersisa/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /reject semua/i })).toBeInTheDocument();
+
+    // Table header should have AKSI / STATUS
+    expect(screen.getByText('AKSI / STATUS')).toBeInTheDocument();
+
+    // Table footer should show Subtotal calculations
+    expect(screen.getByText(/Total Keseluruhan Pengajuan:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Subtotal yang Sudah Dirilis:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Subtotal Belum Dirilis \(Pending\):/i)).toBeInTheDocument();
   });
 
   it('approving single item triggers confirmation, deducts stock, creates goods issue transaction, and sets parent to PARTIALLY_ISSUED', async () => {
@@ -250,15 +258,15 @@ describe('Component: RequisitionApproval (Granular Item-Level Material Approval)
     });
 
     // Click Approve on the first item (material tes 1)
-    const firstItemApproveBtn = screen.getAllByRole('button', { name: /^approve$/i })[0];
+    const firstItemApproveBtn = screen.getAllByRole('button', { name: /rilis \/ approve/i })[0];
     fireEvent.click(firstItemApproveBtn);
 
     // Confirmation modal should appear with item name
-    expect(screen.getByText('Setujui Pengeluaran Item')).toBeInTheDocument();
-    expect(screen.getByText(/Apakah Anda yakin ingin menyetujui material "material tes 1"/i)).toBeInTheDocument();
+    expect(screen.getByText('Rilis / Approve Item Material')).toBeInTheDocument();
+    expect(screen.getByText(/Apakah Anda yakin ingin menyetujui \/ merilis material "material tes 1"/i)).toBeInTheDocument();
 
     // Confirm approval
-    const confirmBtn = screen.getByRole('button', { name: /Ya, Setujui Item & Keluarkan/i });
+    const confirmBtn = screen.getByRole('button', { name: /Ya, Rilis \/ Approve Item/i });
     fireEvent.click(confirmBtn);
 
     // Verify stock deduction on materials
@@ -299,15 +307,15 @@ describe('Component: RequisitionApproval (Granular Item-Level Material Approval)
     });
 
     // Click Tolak on the second item (material tes 2)
-    const secondItemRejectBtn = screen.getAllByRole('button', { name: /^tolak$/i })[1];
+    const secondItemRejectBtn = screen.getAllByRole('button', { name: /tolak \/ hold/i })[1];
     fireEvent.click(secondItemRejectBtn);
 
     // Confirmation modal should appear
-    expect(screen.getByText('Tolak Item Material')).toBeInTheDocument();
-    expect(screen.getByText(/Apakah Anda yakin ingin menolak material "material tes 2"/i)).toBeInTheDocument();
+    expect(screen.getByText('Tolak / Hold Item Material')).toBeInTheDocument();
+    expect(screen.getByText(/Apakah Anda yakin ingin menolak \/ menahan material "material tes 2"/i)).toBeInTheDocument();
 
     // Confirm rejection
-    const confirmBtn = screen.getByRole('button', { name: /Ya, Tolak Item/i });
+    const confirmBtn = screen.getByRole('button', { name: /Ya, Tolak \/ Hold Item/i });
     fireEvent.click(confirmBtn);
 
     // Verify item status updated to REJECTED
@@ -319,23 +327,23 @@ describe('Component: RequisitionApproval (Granular Item-Level Material Approval)
     expect(await screen.findByText('Item Ditolak')).toBeInTheDocument();
   });
 
-  it('clicking Approve Semua approves all items, deducts stock, and marks requisition COMPLETED', async () => {
+  it('clicking Approve Semua yang Tersisa approves all items, deducts stock, and marks requisition COMPLETED', async () => {
     render(<RequisitionApproval />);
 
     await waitFor(() => {
       expect(screen.getByText('SPK-7879')).toBeInTheDocument();
     });
 
-    // Click Approve Semua on card footer
-    const approveSemuaBtn = screen.getByRole('button', { name: /approve semua/i });
+    // Click Approve Semua yang Tersisa on card footer
+    const approveSemuaBtn = screen.getByRole('button', { name: /approve semua yang tersisa/i });
     fireEvent.click(approveSemuaBtn);
 
     // Confirmation modal should appear
-    expect(screen.getByText('Setujui Semua Permintaan Material')).toBeInTheDocument();
+    expect(screen.getByText('Setujui Semua Permintaan yang Tersisa')).toBeInTheDocument();
     expect(screen.getByText(/seluruh sisa permintaan material \(2 item\)/i)).toBeInTheDocument();
 
     // Confirm approval
-    const confirmBtn = screen.getByRole('button', { name: /Ya, Setujui & Keluarkan/i });
+    const confirmBtn = screen.getByRole('button', { name: /Ya, Setujui Semua yang Tersisa/i });
     fireEvent.click(confirmBtn);
 
     // Verify item status updated to APPROVED for both items
@@ -364,10 +372,10 @@ describe('Component: RequisitionApproval (Granular Item-Level Material Approval)
       expect(screen.getByText('SPK-7879')).toBeInTheDocument();
     });
 
-    const firstItemApproveBtn = screen.getAllByRole('button', { name: /^approve$/i })[0];
+    const firstItemApproveBtn = screen.getAllByRole('button', { name: /rilis \/ approve/i })[0];
     fireEvent.click(firstItemApproveBtn);
 
-    const confirmBtn = screen.getByRole('button', { name: /Ya, Setujui Item & Keluarkan/i });
+    const confirmBtn = screen.getByRole('button', { name: /Ya, Rilis \/ Approve Item/i });
     fireEvent.click(confirmBtn);
 
     await waitFor(() => {
@@ -378,5 +386,59 @@ describe('Component: RequisitionApproval (Granular Item-Level Material Approval)
     });
 
     expect(await screen.findByText('Item Disetujui')).toBeInTheDocument();
+  });
+
+  it('SPK-7879 (Pembongkaran): approving ONLY material tes 2 changes its badge to ✓ Dirilis while material tes 1 remains PENDING', async () => {
+    const onApprovalRecordedMock = vi.fn();
+
+    render(<RequisitionApproval onApprovalRecorded={onApprovalRecordedMock} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('SPK-7879')).toBeInTheDocument();
+    });
+
+    // Check initial table state
+    expect(screen.getByText('material tes 1')).toBeInTheDocument();
+    expect(screen.getByText('material tes 2')).toBeInTheDocument();
+
+    // Click Approve HANYA pada baris material tes 2 (baris kedua)
+    const approveButtons = screen.getAllByRole('button', { name: /rilis \/ approve/i });
+    expect(approveButtons).toHaveLength(2);
+    const materialTes2ApproveBtn = approveButtons[1];
+    fireEvent.click(materialTes2ApproveBtn);
+
+    // Modal konfirmasi harus spesifik untuk material tes 2 (Rp 55.000)
+    expect(screen.getByText('Rilis / Approve Item Material')).toBeInTheDocument();
+    expect(screen.getByText(/Apakah Anda yakin ingin menyetujui \/ merilis material "material tes 2"/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/55\.000/i).length).toBeGreaterThan(0);
+
+    // Konfirmasi rilis item
+    const confirmBtn = screen.getByRole('button', { name: /Ya, Rilis \/ Approve Item/i });
+    fireEvent.click(confirmBtn);
+
+    // 1. Verifikasi stok fisik material tes 2 (stok awal 20 di mock, diminta 1 -> berkurang jadi 19)
+    await waitFor(() => {
+      expect(updateMaterialMock).toHaveBeenCalledWith(expect.objectContaining({
+        current_stock: 19 // 20 - 1
+      }));
+    });
+
+    // 2. Verifikasi status item material tes 2 diupdate ke APPROVED
+    expect(updateReqItemMock).toHaveBeenCalledWith({ status: 'APPROVED' });
+
+    // 3. Verifikasi riwayat audit tercatat
+    expect(onApprovalRecordedMock).toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({
+        materialName: 'material tes 2',
+        quantityApproved: 1,
+        stockBefore: 20,
+        stockAfter: 19
+      })
+    ]));
+
+    // 4. Verifikasi status tiket induk material_requisitions diupdate ke PARTIALLY_ISSUED (bukan COMPLETED)
+    expect(updateReqMock).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'PARTIALLY_ISSUED'
+    }));
   });
 });

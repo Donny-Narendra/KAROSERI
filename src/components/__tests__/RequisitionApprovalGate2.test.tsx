@@ -274,10 +274,10 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
     expect(approveSemuaButton).not.toHaveClass('bg-amber-600');
     expect(approveSemuaButton).toHaveAttribute('title', 'Setujui Seluruh Sisa Material Pending Sekaligus');
 
-    // Verify item-level action buttons (Approve and Tolak) are present in the table row
-    const itemApproveBtn = screen.getByRole('button', { name: /^approve$/i });
+    // Verify item-level action buttons (Rilis / Approve and Tolak / Hold) are present in the table row
+    const itemApproveBtn = screen.getByRole('button', { name: /rilis \/ approve/i });
     expect(itemApproveBtn).toBeInTheDocument();
-    const itemRejectBtn = screen.getByRole('button', { name: /^tolak$/i });
+    const itemRejectBtn = screen.getByRole('button', { name: /tolak \/ hold/i });
     expect(itemRejectBtn).toBeInTheDocument();
   });
 
@@ -372,17 +372,18 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
     // Card header should display PARTIALLY_ISSUED badge
     expect(screen.getByText(/Sebagian Dirilis \(Partially Issued\)/i)).toBeInTheDocument();
 
-    // Approved item row should render "Disetujui" badge
-    expect(screen.getByText('Disetujui')).toBeInTheDocument();
+    // Approved item row should render "✓ Dirilis" badge
+    expect(screen.getByText(/✓ Dirilis/i)).toBeInTheDocument();
 
-    // Rejected item row should render "Ditolak" badge
-    expect(screen.getByText('Ditolak')).toBeInTheDocument();
+    // Rejected item row should render "✕ Ditolak" badge
+    expect(screen.getByText(/✕ Ditolak/i)).toBeInTheDocument();
 
-    // Pending item row should still have individual Approve and Tolak buttons
-    expect(screen.getByRole('button', { name: /^approve$/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^tolak$/i })).toBeInTheDocument();
+    // Pending item row should still have individual Rilis / Approve and Tolak / Hold buttons
+    expect(screen.getByRole('button', { name: /rilis \/ approve/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /tolak \/ hold/i })).toBeInTheDocument();
 
-    // Table footer should display remaining pending cost
-    expect(screen.getByText(/Sisa Belum Disetujui \(Pending\):/i)).toBeInTheDocument();
+    // Table footer should display subtotals
+    expect(screen.getByText(/Subtotal yang Sudah Dirilis:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Subtotal Belum Dirilis \(Pending\):/i)).toBeInTheDocument();
   });
 });

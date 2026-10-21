@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
-import { Check, X, ClipboardList, Loader2, AlertTriangle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { ClipboardList, Loader2, AlertTriangle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { ConfirmationModal } from './ConfirmationModal';
 import type { StockAuditItem } from './RecentApprovedMaterials';
 import { normalizeText } from '../utils/rabItemAllocation';
@@ -385,6 +385,10 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
 
         const pendingItems = items.filter((it: any) => it.status === 'PENDING' || !it.status);
         const pendingCost = pendingItems.reduce((sum: number, it: any) => sum + (Number(it.subtotal) || 0), 0);
+        const approvedItems = items.filter((it: any) => it.status === 'APPROVED');
+        const approvedCost = approvedItems.reduce((sum: number, it: any) => sum + (Number(it.subtotal) || 0), 0);
+        const rejectedItems = items.filter((it: any) => it.status === 'REJECTED');
+        const rejectedCost = rejectedItems.reduce((sum: number, it: any) => sum + (Number(it.subtotal) || 0), 0);
         const totalRequisitionCost = items.reduce((sum: number, it: any) => sum + (Number(it.subtotal) || 0), 0);
         const rawSpk = Array.isArray(req.spk) ? req.spk[0] : req.spk;
 
@@ -399,6 +403,10 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
           material_requisition_items: items,
           pendingItems,
           pendingCost,
+          approvedItems,
+          approvedCost,
+          rejectedItems,
+          rejectedCost,
           totalRequisitionCost
         };
       });
@@ -450,21 +458,24 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
       isOpen: true,
       type: 'APPROVE',
       requisition,
-      title: isOverBudget ? 'Konfirmasi Persetujuan (Peringatan Over Budget)' : 'Setujui Semua Permintaan Material',
+      title: isOverBudget ? 'Konfirmasi Persetujuan (Peringatan Over Budget)' : 'Setujui Semua Permintaan yang Tersisa',
       message: `Apakah Anda yakin ingin menyetujui seluruh sisa permintaan material (${pendingItems.length} item) untuk SPK ${spkDisplayName} (${stageDisplayName}) sebesar Rp ${totalCostStr} dan mengeluarkan material terkait?\n\nKuantitas material akan otomatis dicatat pada transaksi inventaris gudang dan stok fisik akan disesuaikan.${overBudgetMessage}`,
-      confirmText: isOverBudget ? 'Tetap Setujui (Change Order Disetujui)' : 'Ya, Setujui & Keluarkan',
+      confirmText: isOverBudget ? 'Tetap Setujui (Change Order Disetujui)' : 'Ya, Setujui Semua yang Tersisa',
       variant: isOverBudget ? 'danger' : 'info',
     });
   };
 
   const handleRequestReject = (requisition: any) => {
+    const pendingItems = (requisition.material_requisition_items || []).filter(
+      (it: any) => it.status === 'PENDING' || !it.status
+    );
     setConfirmDialog({
       isOpen: true,
       type: 'REJECT',
       requisition,
-      title: 'Tolak Permintaan Material',
-      message: `Apakah Anda yakin ingin menolak seluruh sisa permintaan material untuk SPK ${requisition.spk?.spk_no || '-'}?\n\nStatus item yang belum disetujui akan diubah menjadi REJECTED.`,
-      confirmText: 'Ya, Tolak Permintaan',
+      title: 'Tolak Semua Permintaan yang Tersisa',
+      message: `Apakah Anda yakin ingin menolak seluruh sisa permintaan material (${pendingItems.length} item) untuk SPK ${requisition.spk?.spk_no || '-'}?\n\nStatus item yang belum disetujui akan diubah menjadi REJECTED.`,
+      confirmText: 'Ya, Reject Semua',
       variant: 'danger',
     });
   };
@@ -497,9 +508,9 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
       type: 'APPROVE_ITEM',
       requisition,
       item,
-      title: isOverBudget ? 'Konfirmasi Persetujuan Item (Over Budget)' : 'Setujui Pengeluaran Item',
-      message: `Apakah Anda yakin ingin menyetujui material "${matName}" (${item.quantity} ${matUnit}) untuk SPK ${spkDisplayName} sebesar Rp ${itemCostStr}?\n\nKuantitas material akan langsung dicatat pada transaksi pengeluaran gudang (Goods Issue) dan stok fisik akan dikurangi.${overBudgetMessage}`,
-      confirmText: isOverBudget ? 'Tetap Setujui Item' : 'Ya, Setujui Item & Keluarkan',
+      title: isOverBudget ? 'Konfirmasi Rilis Item (Over Budget)' : 'Rilis / Approve Item Material',
+      message: `Apakah Anda yakin ingin menyetujui / merilis material "${matName}" (${item.quantity} ${matUnit}) untuk SPK ${spkDisplayName} sebesar Rp ${itemCostStr}?\n\nKuantitas material akan langsung dicatat pada transaksi pengeluaran gudang (Goods Issue) dan stok fisik akan dikurangi.${overBudgetMessage}`,
+      confirmText: isOverBudget ? 'Tetap Rilis Item' : 'Ya, Rilis / Approve Item',
       variant: isOverBudget ? 'danger' : 'info',
     });
   };
@@ -514,9 +525,9 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
       type: 'REJECT_ITEM',
       requisition,
       item,
-      title: 'Tolak Item Material',
-      message: `Apakah Anda yakin ingin menolak material "${matName}" (${item.quantity} ${matUnit}) untuk SPK ${spkDisplayName}?\n\nStatus item ini akan diubah menjadi REJECTED dan barang tidak akan dikeluarkan dari gudang.`,
-      confirmText: 'Ya, Tolak Item',
+      title: 'Tolak / Hold Item Material',
+      message: `Apakah Anda yakin ingin menolak / menahan material "${matName}" (${item.quantity} ${matUnit}) untuk SPK ${spkDisplayName}?\n\nStatus item ini akan diubah menjadi REJECTED dan barang tidak akan dikeluarkan dari gudang.`,
+      confirmText: 'Ya, Tolak / Hold Item',
       variant: 'danger',
     });
   };
@@ -1099,41 +1110,57 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                                   <td className="px-4 py-2.5 text-center">
                                     {item.status === 'APPROVED' ? (
                                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                        <Check className="w-3.5 h-3.5" />
-                                        Disetujui
+                                        ✓ Dirilis
                                       </span>
                                     ) : item.status === 'REJECTED' ? (
                                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                                        <X className="w-3.5 h-3.5" />
-                                        Ditolak
+                                        ✕ Ditolak
                                       </span>
                                     ) : (
-                                      <div className="flex items-center justify-center gap-1.5">
-                                        <button
-                                          type="button"
-                                          onClick={() => handleRequestApproveItem(req, item)}
-                                          disabled={processingId !== null}
-                                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white transition disabled:opacity-50 shadow-sm"
-                                          title="Setujui dan keluarkan item ini saja"
-                                        >
-                                          {processingId === item.id ? (
-                                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                          ) : (
-                                            <Check className="w-3.5 h-3.5" />
-                                          )}
-                                          Approve
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleRequestRejectItem(req, item)}
-                                          disabled={processingId !== null}
-                                          className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-surface hover:bg-rose-950/40 text-rose-300 border border-border hover:border-rose-500/40 transition disabled:opacity-50"
-                                          title="Tolak item ini"
-                                        >
-                                          <X className="w-3.5 h-3.5" />
-                                          Tolak
-                                        </button>
-                                      </div>
+                                      (() => {
+                                        const itemGate2 = evaluateGate2Budget({
+                                          spkId: req.spk_id || req.spk?.id,
+                                          wbsStage: item.wbs_stage || req.wbs_category,
+                                          currentTicketCost: Number(item.subtotal || 0),
+                                          rabItems: rabItemsList,
+                                          approvedCoItems: approvedCoItemsList,
+                                          approvedReqs: approvedReqsList,
+                                          directIssues: directIssuesList
+                                        });
+                                        const isItemOverBudget = itemGate2.isOverBudget;
+
+                                        return (
+                                          <div className="flex items-center justify-center gap-1.5">
+                                            <button
+                                              type="button"
+                                              onClick={() => handleRequestApproveItem(req, item)}
+                                              disabled={processingId !== null}
+                                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium text-white transition disabled:opacity-50 shadow-sm ${
+                                                isItemOverBudget
+                                                  ? 'bg-amber-600 hover:bg-amber-500'
+                                                  : 'bg-emerald-600 hover:bg-emerald-500'
+                                              }`}
+                                              title={isItemOverBudget ? 'Peringatan: Item Melebihi Pagu WBS. Butuh persetujuan Change Order' : 'Rilis dan setujui item ini saja'}
+                                            >
+                                              {processingId === item.id ? (
+                                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                              ) : isItemOverBudget ? (
+                                                <AlertTriangle className="w-3.5 h-3.5" />
+                                              ) : null}
+                                              ✓ Rilis / Approve
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleRequestRejectItem(req, item)}
+                                              disabled={processingId !== null}
+                                              className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-surface hover:bg-rose-950/40 text-rose-300 border border-border hover:border-rose-500/40 transition disabled:opacity-50"
+                                              title="Tolak / tahan item ini"
+                                            >
+                                              ✕ Tolak / Hold
+                                            </button>
+                                          </div>
+                                        );
+                                      })()
                                     )}
                                   </td>
                                 </tr>
@@ -1150,22 +1177,28 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                         <tfoot className="bg-surface-hover/80 border-t border-border font-mono text-xs">
                           <tr>
                             <td colSpan={4} className="px-4 py-2.5 text-right font-bold text-text uppercase">
-                              Total Estimasi Biaya Requisition:
+                              Total Keseluruhan Pengajuan:
                             </td>
                             <td className="px-4 py-2.5 text-right font-bold text-primary text-sm">
                               Rp {(req.totalRequisitionCost || 0).toLocaleString('id-ID')}
                             </td>
                           </tr>
-                          {req.pendingCost !== undefined && req.pendingCost !== req.totalRequisitionCost && (
-                            <tr>
-                              <td colSpan={4} className="px-4 py-1.5 text-right font-semibold text-amber-300 text-xs">
-                                Sisa Belum Disetujui (Pending):
-                              </td>
-                              <td className="px-4 py-1.5 text-right font-bold text-amber-300 text-xs">
-                                Rp {(req.pendingCost || 0).toLocaleString('id-ID')}
-                              </td>
-                            </tr>
-                          )}
+                          <tr>
+                            <td colSpan={4} className="px-4 py-1.5 text-right font-semibold text-emerald-400 text-xs">
+                              Subtotal yang Sudah Dirilis:
+                            </td>
+                            <td className="px-4 py-1.5 text-right font-bold text-emerald-400 text-xs">
+                              Rp {(req.approvedCost || 0).toLocaleString('id-ID')}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td colSpan={4} className="px-4 py-1.5 text-right font-semibold text-amber-300 text-xs">
+                              Subtotal Belum Dirilis (Pending):
+                            </td>
+                            <td className="px-4 py-1.5 text-right font-bold text-amber-300 text-xs">
+                              Rp {(req.pendingCost || 0).toLocaleString('id-ID')}
+                            </td>
+                          </tr>
                         </tfoot>
                       </table>
                     </div>
@@ -1247,10 +1280,8 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                             <Loader2 className="w-4 h-4 animate-spin" />
                           ) : isOverBudget ? (
                             <AlertTriangle className="w-4 h-4 text-white" />
-                          ) : (
-                            <Check className="w-4 h-4" />
-                          )}
-                          Approve Semua
+                          ) : null}
+                          ✓ Approve Semua yang Tersisa
                         </button>
                         <button
                           onClick={() => handleRequestReject(req)}
@@ -1258,8 +1289,8 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                           className="flex-1 lg:flex-none flex items-center justify-center gap-2 bg-surface hover:bg-status-danger/10 text-status-danger border border-border hover:border-status-danger/30 px-3.5 py-2 rounded transition disabled:opacity-50 text-xs sm:text-sm"
                           title={pendingItemsCount === 0 ? 'Semua item telah diproses' : 'Tolak Seluruh Sisa Material Pending'}
                         >
-                          {processingId === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
-                          Tolak Semua
+                          {processingId === req.id ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                          ✕ Reject Semua
                         </button>
                       </div>
                     );
