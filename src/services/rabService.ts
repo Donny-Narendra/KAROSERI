@@ -304,7 +304,7 @@ export class RabService {
         item_total: itemTotal,
         subtotal: itemTotal,
         package_id: item.packageId || null,
-        material_id: itemType === 'MATERIAL' && item.materialId ? item.materialId : null,
+        material_id: item.materialId || null,
         is_locked: false
       };
     });
@@ -494,7 +494,7 @@ export class RabService {
           item_total: itemTotal,
           subtotal: itemTotal,
           package_id: item.packageId || null,
-          material_id: itemType === 'MATERIAL' && item.materialId ? item.materialId : null,
+          material_id: item.materialId || null,
           is_locked: false
         };
       });

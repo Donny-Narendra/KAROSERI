@@ -546,10 +546,16 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     return Number(item.qty) * Number(item.unitPrice || 0);
   };
 
+  const calculateItemModalCost = (item: RabItem) => {
+    const cost = item.costPrice !== undefined ? Number(item.costPrice) : Number(item.unitPrice || 0);
+    return Number(item.qty) * cost;
+  };
+
   const totalMaterialCost = items.filter(i => i.type === 'material').reduce((sum, i) => sum + calculateItemTotal(i), 0);
   const totalLaborCost = items.filter(i => i.type === 'labor').reduce((sum, i) => sum + calculateItemTotal(i), 0);
   const totalOverheadCost = items.filter(i => i.type === 'overhead').reduce((sum, i) => sum + calculateItemTotal(i), 0);
   const totalCost = totalMaterialCost + totalLaborCost + totalOverheadCost;
+  const totalEstimatedModalCost = items.reduce((sum, i) => sum + calculateItemModalCost(i), 0);
 
   const handleSaveEstimation = async (silent = false) => {
     if (!spkId) {
@@ -1227,8 +1233,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                 <div className="mt-2 p-2 rounded bg-slate-900/60 border border-slate-800 flex items-center justify-between text-xs">
                   <span className="text-slate-400">Proyeksi Margin Jasa:</span>
                   <span className={`font-mono font-bold ${laborUnitPrice >= laborCostPrice ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    Rp {(laborUnitPrice - laborCostPrice).toLocaleString('id-ID')} 
-                    {laborUnitPrice > 0 && ` (${Math.round(((laborUnitPrice - laborCostPrice) / laborUnitPrice) * 100)}%)`}
+                    {laborUnitPrice >= laborCostPrice ? '+ ' : '- '}Rp {Math.abs(laborUnitPrice - laborCostPrice).toLocaleString('id-ID')} ({Math.round(((laborUnitPrice - laborCostPrice) / laborUnitPrice) * 100)}%)
                   </span>
                 </div>
               )}
@@ -1511,7 +1516,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                           Rp {item.unitPrice.toLocaleString('id-ID')}
                         </td>
                         <td className="px-3 py-3 text-right font-mono text-text-muted">
-                          Rp {(item.costPrice || 0).toLocaleString('id-ID')}
+                          Rp {(item.costPrice !== undefined ? item.costPrice : item.unitPrice).toLocaleString('id-ID')}
                         </td>
                         <td className="px-3 py-3 text-right font-mono font-medium text-primary">
                           Rp {calculateItemTotal(item).toLocaleString('id-ID')}
@@ -1600,7 +1605,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                  <div className="flex items-center gap-2">
                    <span className="text-xl font-bold text-text-muted">Rp</span>
                    <span className="text-2xl font-bold font-mono text-text-muted">
-                     {totalCost.toLocaleString('id-ID')}
+                     {totalEstimatedModalCost.toLocaleString('id-ID')}
                    </span>
                  </div>
                </div>
@@ -1649,7 +1654,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                         let packagePrice = 0;
                         uniquePackages.forEach(p => packagePrice += Number(p));
                         const totalJual = packagePrice + nonPackageCost;
-                        return (totalJual - totalCost).toLocaleString('id-ID');
+                        return (totalJual - totalEstimatedModalCost).toLocaleString('id-ID');
                      })()}
                    </span>
                  </div>
