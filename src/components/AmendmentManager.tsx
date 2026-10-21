@@ -9,6 +9,8 @@ import { spkService } from '../services/spkService';
 import { inventoryService } from '../services/inventoryService';
 import type { Material } from '../services/inventoryService';
 import { ConfirmationModal } from './ConfirmationModal';
+import { LaborSearchAutocomplete } from './LaborSearchAutocomplete';
+import { isLaborKeyword } from '../utils/itemClassification';
 import type { ChangeOrderRecord, ChangeOrderItemRecord, ChangeOrderItemType } from '../types/database';
 
 interface AmendmentManagerProps {
@@ -45,6 +47,18 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
   const [masterMaterials, setMasterMaterials] = useState<Material[]>([]);
   const [expandedCoIds, setExpandedCoIds] = useState<Record<string, boolean>>({});
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
+
+  // Filter master inventory items specifically for labor / jasa
+  const laborMaterials = useMemo(() => {
+    return masterMaterials.filter(m => 
+      m.category?.toLowerCase().includes('labor') || 
+      m.category?.toLowerCase().includes('jasa') ||
+      m.name.toLowerCase().startsWith('tukang') ||
+      m.name.toLowerCase().includes('jasa') ||
+      isLaborKeyword(m.category) ||
+      isLaborKeyword(m.name)
+    );
+  }, [masterMaterials]);
 
   // Form State
   const [showForm, setShowForm] = useState(false);
@@ -167,6 +181,38 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
     }));
   };
 
+  // Select labor material from inventory with auto-populated selling and cost prices
+  const handleSelectLaborItem = (itemId: string, material: Material) => {
+    const standardRate = Number(material.selling_price || material.unit_price || 0);
+    const costRate = material.cost_price !== undefined && Number(material.cost_price) > 0
+      ? Number(material.cost_price)
+      : Math.round(standardRate * 0.8);
+
+    setDraftItems(prev => prev.map(item => {
+      if (item.id !== itemId) return item;
+      return {
+        ...item,
+        material_id: material.id,
+        item_name: material.name,
+        unit: material.unit || item.unit || 'jam',
+        unit_price: standardRate,
+        cost_price: costRate,
+      };
+    }));
+  };
+
+  // Custom non-inventory labor name fallback with material_id: null
+  const handleCustomLaborName = (itemId: string, name: string) => {
+    setDraftItems(prev => prev.map(item => {
+      if (item.id !== itemId) return item;
+      return {
+        ...item,
+        material_id: null,
+        item_name: name,
+      };
+    }));
+  };
+
   // Calculated totals for the draft form
   const draftSummary = useMemo(() => {
     let totalSelling = 0;
@@ -230,7 +276,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
         items: draftItems.map(item => ({
           wbs_stage: item.wbs_stage,
           item_type: item.item_type,
-          material_id: item.material_id,
+          material_id: item.material_id || null,
           item_name: item.item_name,
           quantity: Number(item.quantity),
           unit: item.unit,
@@ -504,11 +550,21 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                                 </option>
                               ))}
                             </select>
+                          ) : item.item_type === 'LABOR' ? (
+                            <LaborSearchAutocomplete
+                              laborMaterials={laborMaterials}
+                              value={item.item_name}
+                              materialId={item.material_id}
+                              onSelectLabor={(mat) => handleSelectLaborItem(item.id, mat)}
+                              onCustomLabor={(name) => handleCustomLaborName(item.id, name)}
+                              placeholder="Misal: Jasa las struktur tambahan"
+                              required
+                            />
                           ) : (
                             <input
                               type="text"
                               required
-                              placeholder={item.item_type === 'OVERHEAD' ? "Misal: Sewa alat derek / oven lembur" : "Misal: Jasa las struktur tambahan"}
+                              placeholder="Misal: Sewa alat derek / oven lembur"
                               className="w-full bg-surface border border-border rounded px-2.5 py-1.5 text-text focus:border-primary transition"
                               value={item.item_name}
                               onChange={(e) => handleItemChange(item.id, 'item_name', e.target.value)}

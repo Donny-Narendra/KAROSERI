@@ -50,6 +50,27 @@ vi.mock('../../services/inventoryService', () => ({
         selling_price: 250000,
         cost_price: 200000,
         current_stock: 10,
+        category: 'RAW_MATERIAL',
+      },
+      {
+        id: 'mat-labor-1',
+        name: 'TUKANG LAS STRUKTUR SASIS',
+        unit: 'jam',
+        unit_price: 150000,
+        selling_price: 150000,
+        cost_price: 120000,
+        current_stock: 99,
+        category: 'jasa',
+      },
+      {
+        id: 'mat-labor-2',
+        name: 'TUKANG CAT FINISHING POLISH',
+        unit: 'jam',
+        unit_price: 200000,
+        selling_price: 200000,
+        cost_price: 160000,
+        current_stock: 99,
+        category: 'labor',
       },
     ]),
   },
@@ -222,5 +243,135 @@ describe('Component: AmendmentManager (3-Element Costing & Overhead Support)', (
     expect(overheadItem?.unit_price).toBe(800000);
     expect(overheadItem?.cost_price).toBe(600000);
     expect(overheadItem?.unit).toBe('hari');
+  });
+
+  it('Verification 1: Autosearches and selects labor item from inventory, auto-populates prices, and saves material_id', async () => {
+    vi.mocked(spkService.getChangeOrders).mockResolvedValue([]);
+    vi.mocked(spkService.createChangeOrder).mockResolvedValue({ id: 'co-labor-1' } as any);
+
+    render(<AmendmentManager spkId="spk-test-1" spkNo="SPK-2026-001" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Buat Change Order Baru')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Buat Change Order Baru'));
+
+    // Fill general CO description
+    const descTextarea = screen.getByPlaceholderText(/Contoh: Penambahan lapisan/i);
+    fireEvent.change(descTextarea, { target: { value: 'Penambahan pekerjaan las sasis' } });
+
+    // Remove default empty material item
+    const removeButtons = screen.getAllByTitle('Hapus baris ini');
+    fireEvent.click(removeButtons[0]);
+
+    // Click "+ Item Jasa / Mandor" button
+    const addLaborBtn = screen.getByRole('button', { name: /\+ Item Jasa \/ Mandor/i });
+    fireEvent.click(addLaborBtn);
+
+    // Expect labor badge and labor autocomplete input
+    expect(screen.getByText('Uraian Jasa / Pekerjaan *')).toBeInTheDocument();
+    const laborInput = screen.getByPlaceholderText('Misal: Jasa las struktur tambahan');
+
+    // Type "las" into labor autocomplete
+    fireEvent.change(laborInput, { target: { value: 'las' } });
+
+    // Wait for dropdown to show matching inventory item
+    await waitFor(() => {
+      expect(screen.getByTestId('labor-suggestions-dropdown')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('TUKANG LAS STRUKTUR SASIS')).toBeInTheDocument();
+    expect(screen.getByText('Rp 150.000')).toBeInTheDocument();
+    expect(screen.getByText('HPP: Rp 120.000')).toBeInTheDocument();
+
+    // Select the item by clicking on it
+    const laborOption = screen.getByTestId('labor-item-option-mat-labor-1');
+    fireEvent.mouseDown(laborOption);
+
+    // Verify input value and Master badge
+    expect(laborInput).toHaveValue('TUKANG LAS STRUKTUR SASIS');
+    expect(screen.getByTestId('badge-master-labor')).toHaveTextContent('Master');
+
+    // Verify auto-populated prices
+    // spinbutton 0: qty (default 1)
+    // spinbutton 1: unit_price (selling price: 150000)
+    // spinbutton 2: cost_price (HPP: 120000)
+    const spinbuttons = screen.getAllByRole('spinbutton');
+    expect(spinbuttons[1]).toHaveValue(150000);
+    expect(spinbuttons[2]).toHaveValue(120000);
+
+    // Submit form
+    const submitBtn = screen.getByRole('button', { name: /Ajukan Change Order/i });
+    fireEvent.submit(submitBtn.closest('form')!);
+
+    await waitFor(() => {
+      expect(spkService.createChangeOrder).toHaveBeenCalledTimes(1);
+    });
+
+    const createPayload = vi.mocked(spkService.createChangeOrder).mock.calls[0][0];
+    const laborItem = createPayload.items.find((i: any) => i.item_type === 'LABOR');
+    expect(laborItem).toBeDefined();
+    expect(laborItem?.item_name).toBe('TUKANG LAS STRUKTUR SASIS');
+    expect(laborItem?.material_id).toBe('mat-labor-1');
+    expect(laborItem?.unit_price).toBe(150000);
+    expect(laborItem?.cost_price).toBe(120000);
+    expect(laborItem?.quantity).toBe(1);
+  });
+
+  it('Verification 2: Accepts custom non-inventory labor name via Enter, sets material_id: null, and allows manual price entry', async () => {
+    vi.mocked(spkService.getChangeOrders).mockResolvedValue([]);
+    vi.mocked(spkService.createChangeOrder).mockResolvedValue({ id: 'co-labor-2' } as any);
+
+    render(<AmendmentManager spkId="spk-test-1" spkNo="SPK-2026-001" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Buat Change Order Baru')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Buat Change Order Baru'));
+
+    // Fill general CO description
+    const descTextarea = screen.getByPlaceholderText(/Contoh: Penambahan lapisan/i);
+    fireEvent.change(descTextarea, { target: { value: 'Bongkar darurat tangki customer' } });
+
+    // Remove default empty material item
+    const removeButtons = screen.getAllByTitle('Hapus baris ini');
+    fireEvent.click(removeButtons[0]);
+
+    // Click "+ Item Jasa / Mandor" button
+    const addLaborBtn = screen.getByRole('button', { name: /\+ Item Jasa \/ Mandor/i });
+    fireEvent.click(addLaborBtn);
+
+    const laborInput = screen.getByPlaceholderText('Misal: Jasa las struktur tambahan');
+
+    // Type custom freeform name not in master inventory
+    fireEvent.change(laborInput, { target: { value: 'jasa borong bongkar tangki darurat' } });
+    // Press Enter to commit custom name
+    fireEvent.keyDown(laborInput, { key: 'Enter' });
+
+    expect(laborInput).toHaveValue('jasa borong bongkar tangki darurat');
+    expect(screen.getByTestId('badge-custom-labor')).toHaveTextContent('Kustom');
+
+    // Manually fill selling price (250000) and cost price (150000)
+    const spinbuttons = screen.getAllByRole('spinbutton');
+    fireEvent.change(spinbuttons[1], { target: { value: '250000' } });
+    fireEvent.change(spinbuttons[2], { target: { value: '150000' } });
+
+    // Submit form
+    const submitBtn = screen.getByRole('button', { name: /Ajukan Change Order/i });
+    fireEvent.submit(submitBtn.closest('form')!);
+
+    await waitFor(() => {
+      expect(spkService.createChangeOrder).toHaveBeenCalledTimes(1);
+    });
+
+    const createPayload = vi.mocked(spkService.createChangeOrder).mock.calls[0][0];
+    const laborItem = createPayload.items.find((i: any) => i.item_type === 'LABOR');
+    expect(laborItem).toBeDefined();
+    expect(laborItem?.item_name).toBe('jasa borong bongkar tangki darurat');
+    expect(laborItem?.material_id).toBeNull();
+    expect(laborItem?.unit_price).toBe(250000);
+    expect(laborItem?.cost_price).toBe(150000);
   });
 });
