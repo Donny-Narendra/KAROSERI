@@ -56,7 +56,7 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 - [`LoginPage.tsx`](file:///c:/KAROSERI/src/pages/LoginPage.tsx): Authentication portal with role switcher and Supabase Auth credentials.
 - [`InventoryPage.tsx`](file:///c:/KAROSERI/src/pages/InventoryPage.tsx): Dedicated inventory management view wrapper.
 
-### Operational Components (58 components in `src/components/`)
+### Operational Components (59 components in `src/components/`)
 - **SPK & Estimates:**
   - [`SpkForm.tsx`](file:///c:/KAROSERI/src/components/SpkForm.tsx): SPK registration with Cloudinary vehicle inspection photo upload, vehicle model & brand inputs.
   - [`RabCalculator.tsx`](file:///c:/KAROSERI/src/components/RabCalculator.tsx): Comprehensive 3-element RAB estimator (materials, labor, overhead, profit margin, package breakdown) with debounced auto-save, decimal precision, dual pricing inputs for custom non-inventory labor (HPP upah tukang vs selling price with live margin indicator), and first-class overhead item support (`item_type: 'OVERHEAD'`). Waste factor is permanently eliminated.
@@ -64,7 +64,7 @@ KAROSERI is an enterprise auto body repair and modification management system (*
   - [`SpkCredentialSection.tsx`](file:///c:/KAROSERI/src/components/SpkCredentialSection.tsx): Editable vehicle model, chassis/VIN, engine number, customer phone, target date, and sub-tasks list.
   - [`CancelSpkModal.tsx`](file:///c:/KAROSERI/src/components/CancelSpkModal.tsx): Guarded SPK cancellation workflow (allowed only before DP / material issuance).
   - [`CancelledSpkAuditLog.tsx`](file:///c:/KAROSERI/src/components/CancelledSpkAuditLog.tsx): Dedicated audit monitoring module for voided/cancelled SPKs with executor attribution, timestamped reasons, lost revenue KPI cards, search, and CSV export.
-  - [`AmendmentManager.tsx`](file:///c:/KAROSERI/src/components/AmendmentManager.tsx): Itemized change orders management with 3-element costing support (Materials, Labor, Overhead FOH), approval workflow, and budget recalculation.
+  - [`AmendmentManager.tsx`](file:///c:/KAROSERI/src/components/AmendmentManager.tsx): Itemized change orders management with 3-element costing support (Materials, Labor, Overhead FOH), autocomplete labor item search from inventory catalog via [`LaborSearchAutocomplete.tsx`](file:///c:/KAROSERI/src/components/LaborSearchAutocomplete.tsx), approval workflow, and budget recalculation.
   - [`PackageAllocationModal.tsx`](file:///c:/KAROSERI/src/components/PackageAllocationModal.tsx) & [`PackageManager.tsx`](file:///c:/KAROSERI/src/components/PackageManager.tsx): Predefined package bundling and automatic WBS stage mapping with proper `item_type` propagation.
   - [`SpkFilterListBox.tsx`](file:///c:/KAROSERI/src/components/SpkFilterListBox.tsx) & [`SpkSelector.tsx`](file:///c:/KAROSERI/src/components/SpkSelector.tsx): Standardized SPK selector widgets with search.
 - **Production, QC & Floor Terminal:**
@@ -85,7 +85,7 @@ KAROSERI is an enterprise auto body repair and modification management system (*
   - [`MaterialAuditModal.tsx`](file:///c:/KAROSERI/src/components/MaterialAuditModal.tsx) & [`AuditDiffTable.tsx`](file:///c:/KAROSERI/src/components/AuditDiffTable.tsx): Detailed visual diff viewer for stock and price alterations.
   - [`RecentMaterialIssues.tsx`](file:///c:/KAROSERI/src/components/RecentMaterialIssues.tsx): Transaction audit table with stock reversal (void issue) and unit price adjustments.
   - [`ImportInventoryModal.tsx`](file:///c:/KAROSERI/src/components/ImportInventoryModal.tsx): Bulk catalog import from Excel/CSV with item type preservation.
-  - Autocomplete widgets: [`MaterialAutocomplete.tsx`](file:///c:/KAROSERI/src/components/MaterialAutocomplete.tsx), [`MaterialSearchAutocomplete.tsx`](file:///c:/KAROSERI/src/components/MaterialSearchAutocomplete.tsx), [`IssuedMaterialAutocomplete.tsx`](file:///c:/KAROSERI/src/components/IssuedMaterialAutocomplete.tsx).
+  - Autocomplete widgets: [`MaterialAutocomplete.tsx`](file:///c:/KAROSERI/src/components/MaterialAutocomplete.tsx), [`MaterialSearchAutocomplete.tsx`](file:///c:/KAROSERI/src/components/MaterialSearchAutocomplete.tsx), [`IssuedMaterialAutocomplete.tsx`](file:///c:/KAROSERI/src/components/IssuedMaterialAutocomplete.tsx), [`LaborSearchAutocomplete.tsx`](file:///c:/KAROSERI/src/components/LaborSearchAutocomplete.tsx) (real-time debounce-free catalog filtering, ArrowUp/ArrowDown/Enter keyboard navigation, freeform custom name fallback, status badges [Master, Kustom, Katalog], auto-population of `unit_price` / `cost_price`, and `material_id` persistence).
 - **Billing & Handover:**
   - [`DownPaymentModal.tsx`](file:///c:/KAROSERI/src/components/DownPaymentModal.tsx): DP receipt creation with payment methods (Transfer, Cash, EDC).
   - [`DpHistoryList.tsx`](file:///c:/KAROSERI/src/components/DpHistoryList.tsx): Dedicated sub-tab and audit list for down payment receipts.
@@ -152,7 +152,7 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 - [`pdfExportUtils.ts`](file:///c:/KAROSERI/src/utils/pdfExportUtils.ts): Client utilities for PDF rendering and DOM sanitization.
 - [`terbilang.ts`](file:///c:/KAROSERI/src/utils/terbilang.ts): Converts numeric amounts into Indonesian spelled words for formal receipts.
 
-### Automated Test Suites (38 test suites, 248 tests passing 100%):
+### Automated Test Suites (39 test suites, 257 tests passing 100%):
 - [`src/components/finance/tabs/__tests__/JobProfitabilityTab.test.tsx`](file:///c:/KAROSERI/src/components/finance/tabs/__tests__/JobProfitabilityTab.test.tsx) (3 tests)
 - [`src/services/__tests__/financialReportsService.test.ts`](file:///c:/KAROSERI/src/services/__tests__/financialReportsService.test.ts) (1 test)
 - [`src/components/finance/tabs/__tests__/WbsCostVarianceTab.test.tsx`](file:///c:/KAROSERI/src/components/finance/tabs/__tests__/WbsCostVarianceTab.test.tsx) (4 tests)
@@ -165,7 +165,8 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 - [`src/components/__tests__/SpkOverheadModal.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/SpkOverheadModal.test.tsx) (7 tests)
 - [`src/components/__tests__/InventoryManagerItemType.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/InventoryManagerItemType.test.tsx) (3 tests)
 - [`src/components/__tests__/PackageAllocationModal.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/PackageAllocationModal.test.tsx) (3 tests)
-- [`src/components/__tests__/AmendmentManager.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/AmendmentManager.test.tsx) (3 tests)
+- [`src/components/__tests__/LaborSearchAutocomplete.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/LaborSearchAutocomplete.test.tsx) (7 tests)
+- [`src/components/__tests__/AmendmentManager.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/AmendmentManager.test.tsx) (5 tests)
 - [`src/components/__tests__/CancelledSpkAuditLog.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/CancelledSpkAuditLog.test.tsx) (6 tests)
 - [`src/components/__tests__/ConfirmationModal.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/ConfirmationModal.test.tsx) (8 tests)
 - [`src/components/__tests__/LanguageSwitcher.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/LanguageSwitcher.test.tsx) (5 tests)
@@ -222,7 +223,7 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 | Supabase Auth | BaaS API | Authentication, session persistence, role-based access | [`src/context/AuthContext.tsx`](file:///c:/KAROSERI/src/context/AuthContext.tsx) |
 | Supabase PostgreSQL | BaaS API | Relational database (86 migrations), RLS policies, Views, RPCs, Completion Triggers | [`src/lib/supabaseClient.ts`](file:///c:/KAROSERI/src/lib/supabaseClient.ts) |
 | Cloudinary | REST API / CDN | Vehicle damage intake photos and production milestone evidence | [`src/lib/cloudinary.ts`](file:///c:/KAROSERI/src/lib/cloudinary.ts), [`src/components/ui/CloudinaryUploader.tsx`](file:///c:/KAROSERI/src/components/ui/CloudinaryUploader.tsx) |
-| Vitest & RTL | Test Runner & Library | Automated unit and component testing with jsdom (38 suites, 248 tests) | `package.json`, [`src/utils/__tests__/`](file:///c:/KAROSERI/src/utils/__tests__/), [`src/components/**/__tests__/`](file:///c:/KAROSERI/src/components/) |
+| Vitest & RTL | Test Runner & Library | Automated unit and component testing with jsdom (39 suites, 257 tests) | `package.json`, [`src/utils/__tests__/`](file:///c:/KAROSERI/src/utils/__tests__/), [`src/components/**/__tests__/`](file:///c:/KAROSERI/src/components/) |
 | jsPDF / html2canvas | Client Library | BAST and invoice PDF rendering and export | [`src/components/BastModal.tsx`](file:///c:/KAROSERI/src/components/BastModal.tsx), [`src/utils/rabExport.ts`](file:///c:/KAROSERI/src/utils/rabExport.ts) |
 | XLSX (SheetJS) | Client Library | Inventory master data and financial reports Excel export | [`src/utils/excelExport.ts`](file:///c:/KAROSERI/src/utils/excelExport.ts), [`src/utils/exportFinancialReports.ts`](file:///c:/KAROSERI/src/utils/exportFinancialReports.ts) |
 
@@ -292,7 +293,8 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 
 ## Technical Debt & Audit Status
 
-### Fully Resolved (Sprints 43–61)
+### Fully Resolved (Sprints 43–62)
+- [x] **Labor Search Autocomplete from Materials Inventory (Sprint 62):** Implemented [LaborSearchAutocomplete.tsx](file:///c:/KAROSERI/src/components/LaborSearchAutocomplete.tsx) featuring real-time debounce-free catalog filtering, ArrowUp/ArrowDown/Enter keyboard navigation, freeform custom name fallback, status badges (Master, Kustom, Katalog), auto-population of `unit_price` / `cost_price`, and `material_id` persistence in [AmendmentManager.tsx](file:///c:/KAROSERI/src/components/AmendmentManager.tsx). Verified by 7 dedicated component tests in [`LaborSearchAutocomplete.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/LaborSearchAutocomplete.test.tsx).
 - [x] **Custom Non-Inventory Labor Dual Pricing & Margin Indicator (Sprint 61):** Added dedicated dual inputs in `RabCalculator.tsx` for custom labor (`laborCostPrice` HPP upah tukang vs `laborUnitPrice` tarif tagih), autocomplete selection handler auto-populating standard prices from inventory, dynamic Live Margin Indicator (+ Rp / %), `material_id = null` persistence, and aligned right-hand RAB table + footer modal cost calculation.
 - [x] **Vehicle Model & Brand Ingestion (Sprint 60):** Added `vehicle_model` and `vehicle_brand` to `public.spk`, `SpkRecord`, `SpkForm.tsx`, `SpkCredentialSection.tsx`, `KasirDashboard.tsx`, `BastModal.tsx`, `ServiceAdvisorDashboard.tsx`, and `rabExport.ts`.
 - [x] **Down Payment History & Printable Receipt (Sprints 58-59):** Added sub-tab `Riwayat DP` in Kasir Dashboard with search, printable DP receipt modal (`DpReceiptPrintModal.tsx`), and formal `terbilang` Indonesian words.
