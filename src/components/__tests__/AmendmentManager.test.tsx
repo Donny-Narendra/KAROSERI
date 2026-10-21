@@ -76,6 +76,57 @@ vi.mock('../../services/inventoryService', () => ({
   },
 }));
 
+// Mock packageService
+vi.mock('../../services/packageService', () => ({
+  packageService: {
+    getPackages: vi.fn().mockResolvedValue([
+      {
+        id: 'pkg-1',
+        name: 'HPP DUDUKAN SLEBOR',
+        selling_price: 3500000,
+        items: [
+          {
+            id: 'pi-1',
+            item_type: 'MATERIAL',
+            material_id: 'mat-1',
+            labor_name: null,
+            quantity: 2,
+            cost_per_unit: 450000,
+            material: {
+              id: 'mat-1',
+              name: 'Plat Besi 2mm',
+              unit: 'lembar',
+              unit_price: 600000,
+              selling_price: 600000,
+              cost_price: 450000,
+              current_stock: 10,
+              category: 'RAW_MATERIAL',
+            },
+          },
+          {
+            id: 'pi-2',
+            item_type: 'LABOR',
+            material_id: 'mat-labor-1',
+            labor_name: 'TUKANG LAS STRUKTUR SASIS',
+            quantity: 4,
+            cost_per_unit: 125000,
+            material: {
+              id: 'mat-labor-1',
+              name: 'TUKANG LAS STRUKTUR SASIS',
+              unit: 'jam',
+              unit_price: 150000,
+              selling_price: 150000,
+              cost_price: 125000,
+              current_stock: 99,
+              category: 'labor',
+            },
+          },
+        ],
+      },
+    ]),
+  },
+}));
+
 describe('Component: AmendmentManager (3-Element Costing & Overhead Support)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -178,6 +229,7 @@ describe('Component: AmendmentManager (3-Element Costing & Overhead Support)', (
     expect(screen.getByRole('button', { name: /\+ Item Material/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /\+ Item Jasa \/ Mandor/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /\+ Item Overhead \(FOH\)/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /\+ Paket Barang Jadi/i })).toBeInTheDocument();
   });
 
   it('creates an Overhead change order item, computes live margins, and submits payload', async () => {
@@ -373,5 +425,71 @@ describe('Component: AmendmentManager (3-Element Costing & Overhead Support)', (
     expect(laborItem?.material_id).toBeNull();
     expect(laborItem?.unit_price).toBe(250000);
     expect(laborItem?.cost_price).toBe(150000);
+  });
+
+  it('opens package selector modal and explodes assembly list into Change Order items', async () => {
+    vi.mocked(spkService.getChangeOrders).mockResolvedValue([]);
+    vi.mocked(spkService.createChangeOrder).mockResolvedValue({ id: 'new-co-pkg' } as any);
+
+    render(<AmendmentManager spkId="spk-test-1" spkNo="SPK-2026-001" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Buat Change Order Baru')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Buat Change Order Baru'));
+
+    // Remove initial empty draft item
+    const removeButtons = screen.getAllByTitle('Hapus baris ini');
+    fireEvent.click(removeButtons[0]);
+
+    // Click "+ Paket Barang Jadi" button
+    const addPackageBtn = screen.getByRole('button', { name: /\+ Paket Barang Jadi/i });
+    expect(addPackageBtn).toBeInTheDocument();
+    fireEvent.click(addPackageBtn);
+
+    // Verify modal is displayed
+    await waitFor(() => {
+      expect(screen.getByText('Tambah Paket Barang Jadi (Assembly List)')).toBeInTheDocument();
+    });
+
+    // Verify package is loaded and previewed
+    expect(screen.getAllByText(/HPP DUDUKAN SLEBOR/).length).toBeGreaterThanOrEqual(1);
+
+    // Click "Terapkan ke Change Order"
+    const applyBtn = screen.getByRole('button', { name: /Terapkan.*ke Change Order/i });
+    fireEvent.click(applyBtn);
+
+    // Modal should close and items should be exploded in the main form
+    await waitFor(() => {
+      expect(screen.queryByText('Tambah Paket Barang Jadi (Assembly List)')).not.toBeInTheDocument();
+    });
+
+    // Check exploded items in the form
+    expect(screen.getByDisplayValue(/Plat Besi 2mm/)).toBeInTheDocument();
+    expect(screen.getByDisplayValue('TUKANG LAS STRUKTUR SASIS')).toBeInTheDocument();
+
+    // Check notes contains [Paket: HPP DUDUKAN SLEBOR]
+    expect(screen.getAllByDisplayValue(/\[Paket: HPP DUDUKAN SLEBOR\]/).length).toBe(2);
+
+    // Fill description and submit
+    const descTextarea = screen.getByPlaceholderText(/Contoh: Penambahan lapisan/i);
+    fireEvent.change(descTextarea, { target: { value: 'Penambahan paket dudukan slebor komplit' } });
+
+    const submitBtn = screen.getByRole('button', { name: /Ajukan Change Order/i });
+    fireEvent.submit(submitBtn.closest('form')!);
+
+    await waitFor(() => {
+      expect(spkService.createChangeOrder).toHaveBeenCalledTimes(1);
+    });
+
+    const payload = vi.mocked(spkService.createChangeOrder).mock.calls[0][0];
+    expect(payload.items).toHaveLength(2);
+    expect(payload.items[0].item_name).toBe('Plat Besi 2mm');
+    expect(payload.items[0].item_type).toBe('MATERIAL');
+    expect(payload.items[0].quantity).toBe(2);
+    expect(payload.items[1].item_name).toBe('TUKANG LAS STRUKTUR SASIS');
+    expect(payload.items[1].item_type).toBe('LABOR');
+    expect(payload.items[1].quantity).toBe(4);
   });
 });

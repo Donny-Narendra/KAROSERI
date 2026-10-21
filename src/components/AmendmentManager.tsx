@@ -12,6 +12,8 @@ import { ConfirmationModal } from './ConfirmationModal';
 import { LaborSearchAutocomplete } from './LaborSearchAutocomplete';
 import { isLaborKeyword } from '../utils/itemClassification';
 import type { ChangeOrderRecord, ChangeOrderItemRecord, ChangeOrderItemType } from '../types/database';
+import { ChangeOrderPackageModal } from './ChangeOrderPackageModal';
+import type { ExplodedChangeOrderItem } from '../utils/packageExplosion';
 
 interface AmendmentManagerProps {
   spkId: string;
@@ -64,6 +66,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
   const [showForm, setShowForm] = useState(false);
   const [description, setDescription] = useState('');
   const [draftItems, setDraftItems] = useState<DraftItem[]>([]);
+  const [isPackageSelectorOpen, setIsPackageSelectorOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -139,6 +142,11 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
       notes: ''
     };
     setDraftItems(prev => [...prev, newItem]);
+  };
+
+  // Handle applying exploded product package items
+  const handleApplyPackage = (items: ExplodedChangeOrderItem[]) => {
+    setDraftItems(prev => [...prev, ...items]);
   };
 
   // Handle removing a line item
@@ -451,6 +459,14 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                 >
                   <Clock className="w-3.5 h-3.5 text-purple-400" />
                   + Item Overhead (FOH)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPackageSelectorOpen(true)}
+                  className="px-3 py-1.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                >
+                  <span>📦</span>
+                  <span>+ Paket Barang Jadi</span>
                 </button>
               </div>
             </div>
@@ -948,6 +964,13 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
           </div>
         )}
       </ConfirmationModal>
+
+      {/* Modal Pemilih Paket Barang Jadi (Assembly List) */}
+      <ChangeOrderPackageModal
+        isOpen={isPackageSelectorOpen}
+        onClose={() => setIsPackageSelectorOpen(false)}
+        onApply={handleApplyPackage}
+      />
     </div>
   );
 };
