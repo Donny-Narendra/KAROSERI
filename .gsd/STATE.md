@@ -1,6 +1,6 @@
 ## Current Position
-- **Sprint**: Sprint 66 — Implement 7-Day Post-BAST Expiration for Public Progress Tracking Page (Completed)
-- **Status**: Sprint 66 Completed / Production Ready
+- **Sprint**: Sprint 67 — Dynamic Expense Categories Management for Company OPEX Logging
+- **Status**: Sprint in progress
 - **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness
 
 ## Last Session Summary
@@ -20,7 +20,12 @@ Sprint 66 complete:
 None.
 
 ## Next Up
-- `/plan` — create execution plans with full architectural context.
+- Sprint 67 Execution:
+  1. Task 1: Create SQL migration `20261029010000_create_expense_categories_table.sql`.
+  2. Task 2: Update types & service layer in `operatingExpenseService.ts`.
+  3. Task 3: Create `ExpenseCategoryManagerModal.tsx`.
+  4. Task 4: Integrate category management into OPEX logging modal.
+  5. Task 5: Component & Unit Testing + empirical verification.
 
 ## Blockers
 None.
