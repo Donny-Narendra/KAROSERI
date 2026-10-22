@@ -396,4 +396,157 @@ describe('Component: RecentMaterialIssues', () => {
       expect(screen.getByText('SA (Backup)')).toBeInTheDocument();
     });
   });
+
+  it('renders WBS column in table header and displays formatted WBS badge per row', async () => {
+    const transactionsWithWbs = [
+      {
+        id: 'tx-wbs-1',
+        spk_id: 'spk-uuid-7080',
+        material_id: 'mat-1',
+        quantity_issued: 10,
+        custom_unit_price: 50000,
+        issued_at: '2026-10-22T08:00:00Z',
+        issued_by_name: 'Budi Gudang',
+        issued_by_role: 'petugas_gudang',
+        material_requisitions: { id: 'req-1', wbs_category: 'Pembongkaran' },
+        material_requisition_items: { id: 'req-item-1', wbs_stage: 'WBS 1: Pembongkaran' },
+        spk: { id: 'spk-uuid-7080', spk_no: 'SPK-7080' },
+        materials: { name: 'Mata Gerinda', unit: 'PCS', unit_price: 50000 },
+      },
+    ];
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === 'inventory_transactions') {
+        const queryObj: any = {};
+        queryObj.select = vi.fn().mockReturnValue(queryObj);
+        queryObj.eq = vi.fn().mockReturnValue(queryObj);
+        queryObj.gt = vi.fn().mockReturnValue(queryObj);
+        queryObj.limit = vi.fn().mockReturnValue(queryObj);
+        queryObj.order = vi.fn().mockResolvedValue({
+          data: transactionsWithWbs,
+          error: null,
+        });
+        return queryObj;
+      }
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { id: 'spk-uuid-7080', spk_no: 'SPK-7080' },
+              error: null,
+            }),
+          }),
+        }),
+      } as any;
+    });
+
+    render(<RecentMaterialIssues selectedSpk="SPK-7080" refreshKey={0} />);
+
+    await waitFor(() => {
+      // 1. Table Header contains WBS column
+      expect(screen.getByRole('columnheader', { name: 'WBS' })).toBeInTheDocument();
+      // 2. Row displays formatted WBS badge
+      expect(screen.getByText('WBS 1: Pembongkaran')).toBeInTheDocument();
+      expect(screen.getByText('Mata Gerinda')).toBeInTheDocument();
+    });
+  });
+
+  it('sorts issues strictly in ascending WBS stage order (WBS 1 -> WBS 2 -> WBS 3 -> WBS 4 -> WBS 5)', async () => {
+    const unsortedTransactions = [
+      {
+        id: 'tx-stage-4',
+        spk_id: 'spk-uuid-7080',
+        material_id: 'mat-cat',
+        quantity_issued: 2,
+        custom_unit_price: 100000,
+        issued_at: '2026-10-22T10:00:00Z',
+        wbs_stage: 'WBS 4: Pengecatan',
+        spk: { id: 'spk-uuid-7080', spk_no: 'SPK-7080' },
+        materials: { name: 'Cat Finishing Gloss', unit: 'Kaleng', unit_price: 100000 },
+      },
+      {
+        id: 'tx-stage-1',
+        spk_id: 'spk-uuid-7080',
+        material_id: 'mat-bongkar',
+        quantity_issued: 4,
+        custom_unit_price: 25000,
+        issued_at: '2026-10-22T08:00:00Z',
+        wbs_stage: 'Pembongkaran',
+        spk: { id: 'spk-uuid-7080', spk_no: 'SPK-7080' },
+        materials: { name: 'Mata Potong Besi', unit: 'PCS', unit_price: 25000 },
+      },
+      {
+        id: 'tx-stage-3',
+        spk_id: 'spk-uuid-7080',
+        material_id: 'mat-dinding',
+        quantity_issued: 1,
+        custom_unit_price: 800000,
+        issued_at: '2026-10-22T09:30:00Z',
+        wbs_stage: 'WBS 3: Dinding/Fabrikasi',
+        spk: { id: 'spk-uuid-7080', spk_no: 'SPK-7080' },
+        materials: { name: 'Plat Galvanil 2mm', unit: 'Lembar', unit_price: 800000 },
+      },
+      {
+        id: 'tx-stage-2',
+        spk_id: 'spk-uuid-7080',
+        material_id: 'mat-sasis',
+        quantity_issued: 6,
+        custom_unit_price: 150000,
+        issued_at: '2026-10-22T09:00:00Z',
+        wbs_stage: 'Sasis/Rangka',
+        spk: { id: 'spk-uuid-7080', spk_no: 'SPK-7080' },
+        materials: { name: 'Besi UNP 100', unit: 'Batang', unit_price: 150000 },
+      },
+    ];
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === 'inventory_transactions') {
+        const queryObj: any = {};
+        queryObj.select = vi.fn().mockReturnValue(queryObj);
+        queryObj.eq = vi.fn().mockReturnValue(queryObj);
+        queryObj.gt = vi.fn().mockReturnValue(queryObj);
+        queryObj.limit = vi.fn().mockReturnValue(queryObj);
+        queryObj.order = vi.fn().mockResolvedValue({
+          data: unsortedTransactions,
+          error: null,
+        });
+        return queryObj;
+      }
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { id: 'spk-uuid-7080', spk_no: 'SPK-7080' },
+              error: null,
+            }),
+          }),
+        }),
+      } as any;
+    });
+
+    render(<RecentMaterialIssues selectedSpk="SPK-7080" refreshKey={0} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Mata Potong Besi')).toBeInTheDocument();
+      expect(screen.getByText('Besi UNP 100')).toBeInTheDocument();
+      expect(screen.getByText('Plat Galvanil 2mm')).toBeInTheDocument();
+      expect(screen.getByText('Cat Finishing Gloss')).toBeInTheDocument();
+    });
+
+    // Verify rows are strictly rendered in ascending WBS sequence (WBS 1 -> WBS 2 -> WBS 3 -> WBS 4)
+    const rows = screen.getAllByRole('row');
+    // Index 0 is the table header row
+    expect(rows[1]).toHaveTextContent('WBS 1: Pembongkaran');
+    expect(rows[1]).toHaveTextContent('Mata Potong Besi');
+
+    expect(rows[2]).toHaveTextContent('WBS 2: Sasis/Rangka');
+    expect(rows[2]).toHaveTextContent('Besi UNP 100');
+
+    expect(rows[3]).toHaveTextContent('WBS 3: Dinding/Fabrikasi');
+    expect(rows[3]).toHaveTextContent('Plat Galvanil 2mm');
+
+    expect(rows[4]).toHaveTextContent('WBS 4: Pengecatan');
+    expect(rows[4]).toHaveTextContent('Cat Finishing Gloss');
+  });
 });
+

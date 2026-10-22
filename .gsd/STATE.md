@@ -1,31 +1,33 @@
 ## Current Position
 - **Sprint**: Sprint 74 — Add WBS Column and Ascending WBS Sorting to Mandor Requests and Recent Material Issues Tables
-- **Status**: Sprint in progress
-- **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness (paused for sprint)
+- **Status**: Sprint completed
+- **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness (ready to resume)
 
 ## Last Session Summary
-Sprint 73 (2026-10-22):
-- **Diagnosed Empty Table Root Causes**:
-  1. `inventory_transactions` select query requested `created_at` which does not exist on the database table (table uses `issued_at`), causing PostgREST to respond with 400 Bad Request error and resetting the results array to empty.
-  2. Joined `spk` relation and lookup queries requested `spk_number` which is not present in standard schema (only `spk_no` exists).
-  3. Prop passing and resolution between UUID (`spk.id`) and string (`spk_no`) was brittle, and `ServiceAdvisorDashboard.tsx` did not pass `selectedSpkId`.
+Sprint 74 (2026-10-22):
+- **Created WBS Sorting & Formatting Utilities**:
+  - Created [`wbsSort.ts`](file:///c:/KAROSERI/src/utils/wbsSort.ts) implementing canonical weighting (1 to 5), badge formatting (`WBS 1: Pembongkaran`, `WBS 2: Sasis/Rangka`, `WBS 3: Dinding/Fabrikasi`, `WBS 4: Pengecatan`, `WBS 5: Kelistrikan/Hidrolik`), distinct badge styling classes, and pure comparator `compareWbsAsc`.
 - **Refactored `RecentMaterialIssues.tsx`**:
-  - Implemented tolerant multi-format SPK input extraction supporting objects (`{ id, spk_no, spk_number, spkId, spkNo }`) or strings (`selectedSpkFilter`, `selectedSpkId`, `selectedSpkNumber`).
-  - Added dual resolution: auto-resolves `spk_id` UUID by querying `spk(id, spk_no)` if only SPK number was passed, and retrieves `spk_no` for display badge if only UUID was passed.
-  - Removed invalid columns (`created_at` and `spk_number`) from the `inventory_transactions` query.
-  - Implemented 2-stage resilient fallback: primary with full audit fields, fallback to basic fields, and secondary fallback to `material_issues` view/table.
-  - In-memory fallback filtering by SPK number if database SPK record was not found by UUID.
-- **Synchronized Dashboard Consumers**:
-  - Updated [`ServiceAdvisorDashboard.tsx`](file:///c:/KAROSERI/src/pages/ServiceAdvisorDashboard.tsx) to compute `selectedWarehouseSpkId` and pass both `selectedSpk` and `selectedSpkId`.
-  - Updated [`WarehouseDashboard.tsx`](file:///c:/KAROSERI/src/pages/WarehouseDashboard.tsx) to pass `selectedSpk` alongside `selectedSpkFilter` and `selectedSpkId`.
+  - Updated PostgREST queries to join `material_requisitions:requisition_id ( id, wbs_category )` and `material_requisition_items:requisition_item_id ( id, wbs_stage )`, and included `wbs_stage` in fallback `material_issues` query.
+  - Implemented `extractIssueWbs(issue)` resolver.
+  - Added `WBS` column to table header between `SPK No.` and `Material`, updating `colSpan` to 9.
+  - Rendered WBS badge in table rows with color coding.
+  - Enforced ascending WBS sorting in `displayedIssues` memo with tie-break by timestamp descending.
+- **Refactored `RequisitionApproval.tsx`**:
+  - Added `WBS` column to table header in Pending Requisitions: `MATERIAL`, `WBS`, `JUMLAH DIMINTA`, `ESTIMASI HARGA (RP)`, `SUBTOTAL (RP)`, `AKSI / STATUS`.
+  - Rendered WBS badge per requested item in table rows.
+  - Enforced ascending WBS sorting for items within each requisition.
+  - Enforced ascending WBS sorting for parent requisition tickets.
 - **Testing & Verification**:
-  - Expanded [`RecentMaterialIssues.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/RecentMaterialIssues.test.tsx) from 4 to 8 tests covering object tolerance, SPK number lookup resolution, fallback to `material_issues`, and SPK-7080 data rendering (Mata Gerinda Potong 4 pcs, Amplas 150 1 lbr, Amplas 100 0.75 mtr).
-  - All 55 test files (354 tests) passing.
+  - Created [`wbsSort.test.ts`](file:///c:/KAROSERI/src/utils/__tests__/wbsSort.test.ts) (7 tests).
+  - Expanded [`RecentMaterialIssues.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/RecentMaterialIssues.test.tsx) to 10 tests (verifying WBS header and strict ascending WBS sorting).
+  - Created [`RequisitionApprovalWbsSort.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/RequisitionApprovalWbsSort.test.tsx) (3 tests verifying header, item badges, within-ticket sorting, and multi-ticket sorting).
+  - All 57 test files (366 tests) passing.
 
 ## Quality & Verification Status
-- **Linter (Oxlint):** 0 errors, 0 warnings across 194 files with 113 rules.
-- **TypeScript Static Analysis:** Clean compilation with 0 errors (`tsc -b` & `tsc --noEmit`).
-- **Production Build:** Clean bundle generated in 513ms (`npm run build`).
+- **TypeScript Static Analysis:** Clean compilation with 0 errors (`tsc --noEmit` & `tsc -b`).
+- **Production Build:** Clean bundle generated in 510ms (`npm run build`).
+- **Automated Tests:** 57 test suites, 366 tests passing (0 failures).
 
 ## Technical Debt Backlog
 None. (Zero outstanding technical debt).

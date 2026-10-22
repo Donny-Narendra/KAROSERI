@@ -13,6 +13,7 @@ import {
   type DirectIssueGate2,
   type Gate2EvaluationResult
 } from '../utils/gate2BudgetValidation';
+import { formatWbsBadge, getWbsBadgeClass, compareWbsAsc } from '../utils/wbsSort';
 
 export interface SpkSummaryItem {
   spkId: string;
@@ -99,16 +100,23 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
     onSpkSummaryChange?.(spkSummary);
   }, [spkSummary, onSpkSummaryChange]);
 
-  // Saring daftar antrean yang di-render berdasarkan nomor SPK yang dipilih
+  // Saring daftar antrean yang di-render berdasarkan nomor SPK yang dipilih, diurutkan ascending berdasarkan WBS
   const filteredRequisitions = useMemo(() => {
-    if (!selectedSpkFilter || selectedSpkFilter === 'ALL') {
-      return requisitions;
+    let result = requisitions;
+    if (selectedSpkFilter && selectedSpkFilter !== 'ALL') {
+      result = requisitions.filter(req => 
+        (req.spk?.spk_no || req.spk?.spk_number || 'Tanpa SPK') === selectedSpkFilter ||
+        req.spk?.id === selectedSpkFilter ||
+        req.spk_id === selectedSpkFilter
+      );
     }
-    return requisitions.filter(req => 
-      (req.spk?.spk_no || req.spk?.spk_number || 'Tanpa SPK') === selectedSpkFilter ||
-      req.spk?.id === selectedSpkFilter ||
-      req.spk_id === selectedSpkFilter
-    );
+    return [...result].sort((a, b) => {
+      const wbsA = a.wbs_category || a.material_requisition_items?.[0]?.wbs_stage;
+      const wbsB = b.wbs_category || b.material_requisition_items?.[0]?.wbs_stage;
+      const diff = compareWbsAsc(wbsA, wbsB);
+      if (diff !== 0) return diff;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
   }, [requisitions, selectedSpkFilter]);
 
   // State Paginasi (Client-side)
@@ -388,6 +396,15 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
           };
         });
 
+        // Urutkan item requisition secara ascending berdasarkan urutan tahapan WBS (WBS 1 -> WBS 2 -> ...)
+        items.sort((a: any, b: any) => {
+          const wbsA = a.wbs_stage || req.wbs_category;
+          const wbsB = b.wbs_stage || req.wbs_category;
+          const diff = compareWbsAsc(wbsA, wbsB);
+          if (diff !== 0) return diff;
+          return (a.material_name || '').localeCompare(b.material_name || '');
+        });
+
         const pendingItems = items.filter((it: any) => it.status === 'PENDING' || !it.status);
         const pendingCost = pendingItems.reduce((sum: number, it: any) => sum + (Number(it.subtotal) || 0), 0);
         const approvedItems = items.filter((it: any) => it.status === 'APPROVED');
@@ -420,6 +437,15 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
       const activePendingRequisitions = normalizedData.filter(
         (req: any) => (req.pendingItems || []).length > 0
       );
+
+      // Urutkan tiket requisition induk secara ascending berdasarkan tahapan WBS (WBS 1 -> WBS 2 -> ...)
+      activePendingRequisitions.sort((a: any, b: any) => {
+        const wbsA = a.wbs_category || a.material_requisition_items?.[0]?.wbs_stage;
+        const wbsB = b.wbs_category || b.material_requisition_items?.[0]?.wbs_stage;
+        const diff = compareWbsAsc(wbsA, wbsB);
+        if (diff !== 0) return diff;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
 
       setRequisitions(activePendingRequisitions);
     } catch (err) {
@@ -1074,6 +1100,7 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                         <thead className="bg-surface-hover text-text-muted font-mono text-xs uppercase border-b border-border">
                           <tr>
                             <th className="px-4 py-2.5 font-semibold text-left">MATERIAL</th>
+                            <th className="px-4 py-2.5 font-semibold text-center">WBS</th>
                             <th className="px-4 py-2.5 font-semibold text-center">JUMLAH DIMINTA</th>
                             <th className="px-4 py-2.5 font-semibold text-right">ESTIMASI HARGA (RP)</th>
                             <th className="px-4 py-2.5 font-semibold text-right">SUBTOTAL (RP)</th>
@@ -1108,6 +1135,11 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                                         </span>
                                       )}
                                     </div>
+                                  </td>
+                                  <td className="px-4 py-2.5 text-center">
+                                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-mono font-medium ${getWbsBadgeClass(item.wbs_stage || req.wbs_category)}`}>
+                                      {formatWbsBadge(item.wbs_stage || req.wbs_category)}
+                                    </span>
                                   </td>
                                   <td className="px-4 py-2.5 text-center font-mono font-medium text-text">
                                     {item.quantity} {matUnit}

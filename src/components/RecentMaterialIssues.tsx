@@ -3,6 +3,24 @@ import { ClipboardList, Search, Loader2, Trash2, Edit2, AlertCircle } from 'luci
 import { supabase } from '../lib/supabaseClient';
 import { inventoryService } from '../services/inventoryService';
 import { ConfirmationModal } from './ConfirmationModal';
+import { formatWbsBadge, getWbsBadgeClass, compareWbsAsc } from '../utils/wbsSort';
+
+export function extractIssueWbs(issue: any): string | null {
+  if (!issue) return null;
+  if (issue.wbs_stage) return issue.wbs_stage;
+  const mrItem = Array.isArray(issue.material_requisition_items)
+    ? issue.material_requisition_items[0]
+    : issue.material_requisition_items;
+  if (mrItem?.wbs_stage) return mrItem.wbs_stage;
+
+  const mr = Array.isArray(issue.material_requisitions)
+    ? issue.material_requisitions[0]
+    : issue.material_requisitions;
+  if (mr?.wbs_category) return mr.wbs_category;
+
+  if (issue.wbs_category) return issue.wbs_category;
+  return null;
+}
 
 interface RecentMaterialIssuesProps {
   selectedSpk?: any;
@@ -145,8 +163,12 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
             audit_notes,
             stock_before,
             stock_after,
+            requisition_id,
+            requisition_item_id,
             spk:spk_id ( id, spk_no ),
-            materials ( name, unit, unit_price )
+            materials ( name, unit, unit_price ),
+            material_requisitions:requisition_id ( id, wbs_category ),
+            material_requisition_items:requisition_item_id ( id, wbs_stage )
           `);
 
         if (resolvedSpkId && resolvedSpkId !== 'ALL') {
@@ -218,6 +240,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
               material_id,
               quantity,
               unit_price,
+              wbs_stage,
               created_at,
               issued_by_name,
               issued_by_role,
@@ -243,6 +266,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
               quantity_issued: row.quantity,
               unit_price: row.unit_price,
               custom_unit_price: row.unit_price,
+              wbs_stage: row.wbs_stage,
               created_at: row.created_at,
               issued_at: row.created_at,
               issued_by_name: row.issued_by_name,
@@ -314,15 +338,32 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
   }, [fetchIssues, targetSpkId, targetSpkNo, refreshKey, internalRefresh]);
 
   const displayedIssues = React.useMemo(() => {
-    if (!searchQuery.trim()) {
-      return recentIssues;
+    let list = recentIssues;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(issue => {
+        const wbs = extractIssueWbs(issue) || '';
+        return (
+          (issue.materials?.name || issue.material_name || '').toLowerCase().includes(q) ||
+          (issue.materials?.unit || issue.unit || '').toLowerCase().includes(q) ||
+          (issue.spk?.spk_no || issue.spk_no || '').toLowerCase().includes(q) ||
+          wbs.toLowerCase().includes(q) ||
+          formatWbsBadge(wbs).toLowerCase().includes(q)
+        );
+      });
     }
-    const q = searchQuery.toLowerCase().trim();
-    return recentIssues.filter(issue =>
-      (issue.materials?.name || issue.material_name || '').toLowerCase().includes(q) ||
-      (issue.materials?.unit || issue.unit || '').toLowerCase().includes(q) ||
-      (issue.spk?.spk_no || issue.spk_no || '').toLowerCase().includes(q)
-    );
+
+    return [...list].sort((a, b) => {
+      const wbsA = extractIssueWbs(a);
+      const wbsB = extractIssueWbs(b);
+      const diff = compareWbsAsc(wbsA, wbsB);
+      if (diff !== 0) return diff;
+
+      // Secondary sort: chronological descending
+      const timeA = new Date(a.issued_at || a.created_at || 0).getTime();
+      const timeB = new Date(b.issued_at || b.created_at || 0).getTime();
+      return timeB - timeA;
+    });
   }, [recentIssues, searchQuery]);
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -496,6 +537,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
               </th>
               <th className="px-5 py-3">Time</th>
               <th className="px-5 py-3">SPK No.</th>
+              <th className="px-5 py-3">WBS</th>
               <th className="px-5 py-3">Material</th>
               <th className="px-5 py-3">Qty</th>
               <th className="px-5 py-3 text-right">Harga (Rp)</th>
@@ -506,14 +548,14 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
           <tbody className="divide-y divide-border">
             {loading ? (
               <tr>
-                <td colSpan={8} className="px-5 py-12 text-center text-text-muted">
+                <td colSpan={9} className="px-5 py-12 text-center text-text-muted">
                   <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-primary" />
                   <p className="text-sm">Memuat riwayat pengeluaran material...</p>
                 </td>
               </tr>
             ) : displayedIssues.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-5 py-10 text-center text-text-muted">
+                <td colSpan={9} className="px-5 py-10 text-center text-text-muted">
                   <div className="max-w-md mx-auto space-y-1">
                     <p className="text-sm text-text font-medium">
                       {searchQuery.trim() 
@@ -548,6 +590,9 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
                       ? issue.unit_price 
                       : (issue.materials?.unit_price || 0));
                 const executor = issue.issued_by_name || 'Petugas Gudang';
+                const wbsRaw = extractIssueWbs(issue);
+                const wbsBadgeText = formatWbsBadge(wbsRaw);
+                const wbsBadgeClass = getWbsBadgeClass(wbsRaw);
 
                 return (
                   <tr key={issue.id} className="hover:bg-surface-hover/50 transition">
@@ -564,6 +609,11 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
                     </td>
                     <td className="px-5 py-3 font-mono text-primary font-medium">
                       {spkNo}
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-mono font-medium ${wbsBadgeClass}`}>
+                        {wbsBadgeText}
+                      </span>
                     </td>
                     <td className="px-5 py-3 font-medium">
                       {materialName}
