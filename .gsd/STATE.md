@@ -1,7 +1,7 @@
 ## Current Position
-- **Sprint**: Sprint 73 — Fix Empty Recent Material Issues Table in Warehouse and Service Advisor
-- **Status**: Sprint completed
-- **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness (ready to resume)
+- **Sprint**: Sprint 74 — Add WBS Column and Ascending WBS Sorting to Mandor Requests and Recent Material Issues Tables
+- **Status**: Sprint in progress
+- **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness (paused for sprint)
 
 ## Last Session Summary
 Sprint 73 (2026-10-22):
