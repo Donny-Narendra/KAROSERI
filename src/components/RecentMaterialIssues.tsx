@@ -3,8 +3,8 @@ import { ClipboardList, Search, Loader2, Trash2, Edit2, AlertCircle } from 'luci
 import { supabase } from '../lib/supabaseClient';
 import { inventoryService } from '../services/inventoryService';
 import { ConfirmationModal } from './ConfirmationModal';
-import { formatWbsBadge, getWbsOrderWeight } from '../utils/wbsSort';
-import { extractIssueSource } from '../utils/sourceOrigin';
+import { formatWbsBadge, getWbsWeight } from '../utils/wbsSort';
+import { resolveDetailedSource } from '../utils/sourceOrigin';
 
 function extractIssueWbs(issue: any): string | null {
   if (!issue) return null;
@@ -160,6 +160,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
             quantity_issued,
             custom_unit_price,
             issued_at,
+            created_at,
             issued_by_name,
             issued_by_role,
             audit_notes,
@@ -203,12 +204,42 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
               : r.material_requisitions;
             const itemWbs = mrItem?.wbs_stage;
             const reqWbs = mr?.wbs_category;
+
+            const resolvedPackageName =
+              r.package_name ||
+              mrItem?.package_name ||
+              mrItem?.product_packages?.name ||
+              mrItem?.rab_items?.product_packages?.name ||
+              mr?.package_name ||
+              null;
+
+            const coItem = Array.isArray(mrItem?.change_order_items)
+              ? mrItem?.change_order_items[0]
+              : mrItem?.change_order_items;
+
+            const resolvedChangeOrderId =
+              r.change_order_id ||
+              mrItem?.change_order_id ||
+              mrItem?.change_order_item_id ||
+              coItem?.change_order_id ||
+              null;
+
+            const resolvedSourceType =
+              r.source_type ||
+              mrItem?.source_type ||
+              (resolvedChangeOrderId ? 'CHANGE_ORDER' : (resolvedPackageName ? 'PACKAGE' : 'RAB'));
+
             return {
               ...r,
+              source_type: resolvedSourceType,
+              change_order_id: resolvedChangeOrderId,
+              package_name: resolvedPackageName,
               wbs_stage: r.wbs_stage || itemWbs || reqWbs || null,
               wbs_category: r.wbs_category || reqWbs || null,
               material_requisition_items: mrItem || null,
               material_requisitions: mr || null,
+              rab_items: mrItem?.rab_items || r.rab_items,
+              change_order_items: coItem || mrItem?.change_order_items || r.change_order_items,
             };
           });
         } else if (error) {
@@ -249,6 +280,9 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
           if (!giError && giData && giData.length > 0) {
             records = giData.map((row: any) => ({
               ...row,
+              source_type: row.source_type || 'RAB',
+              change_order_id: row.change_order_id || null,
+              package_name: row.package_name || null,
               wbs_stage: row.wbs_stage || row.wbs_id || null,
               wbs_category: row.wbs_category || null,
             }));
@@ -295,6 +329,9 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
               quantity_issued: row.quantity,
               unit_price: row.unit_price,
               custom_unit_price: row.unit_price,
+              source_type: row.source_type || 'RAB',
+              change_order_id: row.change_order_id || null,
+              package_name: row.package_name || null,
               wbs_stage: row.wbs_stage,
               wbs_category: row.wbs_category || row.wbs_stage,
               created_at: row.created_at,
@@ -340,6 +377,9 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
           if (!baseError && baseData && baseData.length > 0) {
             records = baseData.map((row: any) => ({
               ...row,
+              source_type: row.source_type || 'RAB',
+              change_order_id: row.change_order_id || null,
+              package_name: row.package_name || null,
               wbs_stage: row.wbs_stage || null,
               wbs_category: row.wbs_category || null,
             }));
@@ -376,13 +416,14 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
     const q = searchQuery.toLowerCase().trim();
     return recentIssues.filter(issue => {
       const wbs = issue.wbs_stage || issue.wbs_category || extractIssueWbs(issue) || '';
-      const src = extractIssueSource(issue);
+      const src = resolveDetailedSource(issue);
       return (
         (issue.materials?.name || issue.material_name || '').toLowerCase().includes(q) ||
         (issue.materials?.unit || issue.unit || '').toLowerCase().includes(q) ||
         (issue.spk?.spk_no || issue.spk_no || '').toLowerCase().includes(q) ||
-        src.label.toLowerCase().includes(q) ||
-        (src.packageName || '').toLowerCase().includes(q) ||
+        src.fullLabel.toLowerCase().includes(q) ||
+        src.origin.toLowerCase().includes(q) ||
+        src.typeLabel.toLowerCase().includes(q) ||
         wbs.toLowerCase().includes(q) ||
         formatWbsBadge(wbs).toLowerCase().includes(q)
       );
@@ -391,10 +432,9 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
 
   const sortedIssues = React.useMemo(() => {
     return [...filteredRecentIssues].sort((a, b) => {
-      const weightA = getWbsOrderWeight(a.wbs_stage || a.wbs_category);
-      const weightB = getWbsOrderWeight(b.wbs_stage || b.wbs_category);
-      if (weightA !== weightB) return weightA - weightB;
-      // Secondary sort: waktu transaksi terbaru
+      const diff = getWbsWeight(a.wbs_stage || a.wbs_category) - getWbsWeight(b.wbs_stage || b.wbs_category);
+      if (diff !== 0) return diff;
+      // Secondary sort: created_at descending (dengan fallback issued_at)
       return new Date(b.created_at || b.issued_at || 0).getTime() - new Date(a.created_at || a.issued_at || 0).getTime();
     });
   }, [filteredRecentIssues]);
@@ -572,10 +612,10 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
                 />
               </th>
               <th className="py-1 px-3">WBS</th>
+              <th className="py-1 px-3">SUMBER / PAKET</th>
               <th className="py-1 px-3">TIME</th>
               <th className="py-1 px-3">SPK NO.</th>
               <th className="py-1 px-3">MATERIAL</th>
-              <th className="py-1 px-3">SUMBER / PAKET</th>
               <th className="py-1 px-3 text-right">QTY</th>
               <th className="py-1 px-3 text-right">HARGA (RP)</th>
               <th className="py-1 px-3">EKSEKUTOR / AUDIT</th>
@@ -617,7 +657,6 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
                   : '-';
                 const spkNo = issue.spk?.spk_no || issue.spk?.spk_number || issue.spk_no || targetSpkNo || 'SPK-7080';
                 const materialName = issue.material_name || issue.materials?.name || 'Material';
-                const sourceInfo = extractIssueSource(issue);
                 const qty = issue.quantity !== undefined && issue.quantity !== null
                   ? issue.quantity
                   : (issue.quantity_issued !== undefined && issue.quantity_issued !== null ? issue.quantity_issued : 0);
@@ -644,6 +683,19 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
                         {formatWbsBadge(issue.wbs_stage || issue.wbs_category)}
                       </span>
                     </td>
+                    <td className="py-1.5 px-3">
+                      {(() => {
+                        const source = resolveDetailedSource(issue);
+                        return (
+                          <span
+                            className={`text-[9px] font-semibold px-1.5 py-0.5 rounded whitespace-nowrap inline-flex items-center ${source.badgeClass}`}
+                            title={source.fullLabel}
+                          >
+                            {source.fullLabel}
+                          </span>
+                        );
+                      })()}
+                    </td>
                     <td className="py-1.5 px-3 text-text-muted">
                       {formattedTime}
                     </td>
@@ -652,14 +704,6 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
                     </td>
                     <td className="py-1.5 px-3 font-medium">
                       {materialName}
-                    </td>
-                    <td className="py-1.5 px-3">
-                      <span
-                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap ${sourceInfo.badgeClass}`}
-                        title={sourceInfo.label}
-                      >
-                        {sourceInfo.label}
-                      </span>
                     </td>
                     <td className="py-1.5 px-3">
                       <span className={Number(qty) < 0 ? 'text-status-warning font-semibold' : ''}>

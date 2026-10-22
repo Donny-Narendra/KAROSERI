@@ -14,7 +14,7 @@ import {
   type Gate2EvaluationResult
 } from '../utils/gate2BudgetValidation';
 import { formatWbsBadge, getWbsWeight } from '../utils/wbsSort';
-import { resolveItemSource, extractPackageFromNotes } from '../utils/sourceOrigin';
+import { resolveDetailedSource, extractPackageFromNotes } from '../utils/sourceOrigin';
 
 export interface SpkSummaryItem {
   spkId: string;
@@ -1141,10 +1141,13 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                                   </td>
                                   <td className="py-2 px-3">
                                     {(() => {
-                                      const source = resolveItemSource(item, req);
+                                      const source = resolveDetailedSource(item, req);
                                       return (
-                                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded whitespace-nowrap ${source.badgeClass}`}>
-                                          {source.label}
+                                        <span
+                                          className={`text-[10px] font-semibold px-2 py-0.5 rounded whitespace-nowrap inline-flex items-center ${source.badgeClass}`}
+                                          title={source.fullLabel}
+                                        >
+                                          {source.fullLabel}
                                         </span>
                                       );
                                     })()}

@@ -1,3 +1,10 @@
+export interface SourceOriginResult {
+  origin: 'RAB' | 'Change Order';
+  typeLabel: string;
+  fullLabel: string;
+  badgeClass: string;
+}
+
 export interface ItemSourceInfo {
   sourceType: 'RAB' | 'CHANGE_ORDER' | 'DIRECT' | 'PACKAGE';
   packageName?: string | null;
@@ -21,10 +28,12 @@ export function cleanPackageName(name?: string | null): string | null {
   // Extract from format: [Paket: XYZ] or Paket: XYZ
   const match = trimmed.match(/^(?:\[\s*)?Paket:\s*([^\]]+?)(?:\s*\])?$/i);
   if (match && match[1]) {
-    return match[1].trim();
+    const cleaned = match[1].trim();
+    return cleaned || null;
   }
 
-  return trimmed.replace(/^\[+|\]+$/g, '').trim();
+  const stripped = trimmed.replace(/^\[+|\]+$/g, '').trim();
+  return stripped || null;
 }
 
 /**
@@ -40,54 +49,11 @@ export function extractPackageFromNotes(notes?: string | null): string | null {
 }
 
 /**
- * Resolves source origin (RAB, Change Order, Package, or Direct)
- * and returns formatted display label and CSS badge classes.
+ * Resolves detailed source origin with explicit document origin prefix ("RAB" or "Change Order")
+ * and entry type ("Paket: <Name>" or "Granular" for non-packaged/loose items).
  */
-export function resolveItemSource(item: any, req?: any): ResolvedItemSource {
-  if (!item && !req) {
-    return {
-      label: '📋 RAB',
-      badgeClass: 'bg-blue-500/15 text-blue-400 border border-blue-500/30',
-      sourceType: 'RAB',
-      packageName: null,
-    };
-  }
-
-  // 1. Cek apakah item berasal dari paket barang jadi (BOM / Assembly List)
-  const directPackage =
-    item?.package_name ||
-    item?.package_source_name ||
-    item?.product_packages?.name ||
-    item?.product_package?.name ||
-    item?.rab_items?.product_packages?.name ||
-    item?.rab_items?.product_package?.name ||
-    req?.package_name ||
-    req?.product_packages?.name;
-
-  let packageName = cleanPackageName(directPackage);
-
-  // Jika belum ketemu dari field objek, periksa field catatan (notes)
-  if (!packageName) {
-    const notePackage =
-      extractPackageFromNotes(item?.notes) ||
-      extractPackageFromNotes(item?.rab_items?.notes) ||
-      extractPackageFromNotes(item?.change_order_items?.notes) ||
-      extractPackageFromNotes(req?.notes);
-    if (notePackage) {
-      packageName = cleanPackageName(notePackage);
-    }
-  }
-
-  if (packageName) {
-    return {
-      label: `📦 Paket: ${packageName}`,
-      badgeClass: 'bg-orange-500/15 text-orange-400 border border-orange-500/30',
-      sourceType: 'PACKAGE',
-      packageName,
-    };
-  }
-
-  // 2. Cek apakah berasal dari Change Order (Adendum)
+export function resolveDetailedSource(item: any, req?: any): SourceOriginResult {
+  // 1. Tentukan Asal Dokumen: Change Order vs RAB
   const isChangeOrder = Boolean(
     item?.change_order_id ||
     item?.change_order_item_id ||
@@ -98,39 +64,66 @@ export function resolveItemSource(item: any, req?: any): ResolvedItemSource {
     req?.is_change_order ||
     req?.change_order_id
   );
+  const origin: 'RAB' | 'Change Order' = isChangeOrder ? 'Change Order' : 'RAB';
 
-  if (isChangeOrder) {
-    return {
-      label: '🔄 Change Order',
-      badgeClass: 'bg-purple-500/15 text-purple-400 border border-purple-500/30',
-      sourceType: 'CHANGE_ORDER',
-      packageName: null,
-    };
+  // 2. Tentukan Apakah Paket atau Granular
+  const rawPackageName =
+    item?.package_name ||
+    item?.product_packages?.name ||
+    item?.package_source_name ||
+    item?.product_package?.name ||
+    item?.rab_items?.product_packages?.name ||
+    item?.rab_items?.product_package?.name ||
+    req?.package_name ||
+    req?.product_packages?.name ||
+    extractPackageFromNotes(item?.notes) ||
+    extractPackageFromNotes(item?.rab_items?.notes) ||
+    extractPackageFromNotes(item?.change_order_items?.notes) ||
+    extractPackageFromNotes(req?.notes);
+
+  // Bersihkan teks "Paket: " jika sudah ada sebelumnya agar tidak dobel
+  let cleanName: string | null = null;
+  if (rawPackageName && typeof rawPackageName === 'string') {
+    cleanName = cleanPackageName(rawPackageName);
+    if (cleanName) {
+      cleanName = cleanName.replace(/^Paket:\s*/i, '').trim();
+    }
   }
 
-  // 3. Cek apakah pengeluaran/permintaan langsung (Direct / Manual)
-  const isDirect = Boolean(
-    item?.source_type === 'DIRECT' ||
-    item?.sourceType === 'DIRECT' ||
-    item?.is_manual ||
-    item?.isManual
-  );
+  if (cleanName) {
+    const typeLabel = `Paket: ${cleanName}`;
+    const fullLabel = `${origin} • ${typeLabel}`;
+    const badgeClass = isChangeOrder
+      ? 'bg-purple-950/70 text-purple-300 border border-purple-600/50'
+      : 'bg-amber-950/70 text-amber-300 border border-amber-600/50';
 
-  if (isDirect) {
-    return {
-      label: '⚡ Langsung',
-      badgeClass: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
-      sourceType: 'DIRECT',
-      packageName: null,
-    };
+    return { origin, typeLabel, fullLabel, badgeClass };
   }
 
-  // 4. Default: Dari estimasi RAB awal
+  // Jika tidak memakai paket (lepas / manual / granular)
+  const typeLabel = 'Granular';
+  const fullLabel = `${origin} • Granular`;
+  const badgeClass = isChangeOrder
+    ? 'bg-indigo-950/70 text-indigo-300 border border-indigo-600/50'
+    : 'bg-blue-950/70 text-blue-300 border border-blue-600/50';
+
+  return { origin, typeLabel, fullLabel, badgeClass };
+}
+
+/**
+ * Resolves source origin and returns formatted display label and CSS badge classes.
+ * Preserves compatibility with existing components by providing both `label` and `fullLabel`.
+ */
+export function resolveItemSource(item: any, req?: any): ResolvedItemSource & SourceOriginResult {
+  const detailed = resolveDetailedSource(item, req);
+  const isPackage = detailed.typeLabel.startsWith('Paket:');
+  const packageName = isPackage ? detailed.typeLabel.replace(/^Paket:\s*/i, '').trim() : null;
+
   return {
-    label: '📋 RAB',
-    badgeClass: 'bg-blue-500/15 text-blue-400 border border-blue-500/30',
-    sourceType: 'RAB',
-    packageName: null,
+    ...detailed,
+    label: detailed.fullLabel,
+    sourceType: detailed.origin === 'Change Order' ? 'CHANGE_ORDER' : (isPackage ? 'PACKAGE' : 'RAB'),
+    packageName,
   };
 }
 
@@ -138,7 +131,7 @@ export function resolveItemSource(item: any, req?: any): ResolvedItemSource {
  * Resolves source origin specifically from a material issue record (which may have
  * nested material_requisition_items, material_requisitions, spk, or audit_notes).
  */
-export function extractIssueSource(issue: any): ResolvedItemSource {
+export function extractIssueSource(issue: any): SourceOriginResult & ResolvedItemSource {
   if (!issue) return resolveItemSource(null);
   const mrItem = Array.isArray(issue.material_requisition_items)
     ? issue.material_requisition_items[0]
@@ -157,4 +150,3 @@ export function extractIssueSource(issue: any): ResolvedItemSource {
   };
   return resolveItemSource(mergedItem, mr || issue.spk);
 }
-

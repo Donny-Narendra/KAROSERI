@@ -409,19 +409,22 @@ describe('Component: RequisitionApproval (WBS Column & Ascending Sorting)', () =
       expect(screen.getByText('Baut 12mm')).toBeInTheDocument();
     });
 
-    // 1. Verify Package Badge with orange styling
-    const pkgBadge = screen.getByText('📦 Paket: HPP DUDUKAN SLEBOR');
+    // 1. Verify RAB Package Badge with amber styling
+    const pkgBadge = screen.getByText('RAB • Paket: HPP DUDUKAN SLEBOR');
     expect(pkgBadge).toBeInTheDocument();
-    expect(pkgBadge.className).toContain('text-orange-400');
+    expect(pkgBadge.className).toContain('text-amber-300');
+    expect(pkgBadge.className).toContain('bg-amber-950/70');
 
-    // 2. Verify Change Order Badge with purple styling
-    const coBadge = screen.getByText('🔄 Change Order');
+    // 2. Verify Change Order Granular Badge with indigo styling
+    const coBadge = screen.getByText('Change Order • Granular');
     expect(coBadge).toBeInTheDocument();
-    expect(coBadge.className).toContain('text-purple-400');
+    expect(coBadge.className).toContain('text-indigo-300');
+    expect(coBadge.className).toContain('bg-indigo-950/70');
 
-    // 3. Verify standard RAB Badge with blue styling
-    const rabBadge = screen.getByText('📋 RAB');
+    // 3. Verify standard RAB Granular Badge with blue styling
+    const rabBadge = screen.getByText('RAB • Granular');
     expect(rabBadge).toBeInTheDocument();
-    expect(rabBadge.className).toContain('text-blue-400');
+    expect(rabBadge.className).toContain('text-blue-300');
+    expect(rabBadge.className).toContain('bg-blue-950/70');
   });
 });

@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   cleanPackageName,
   extractPackageFromNotes,
+  resolveDetailedSource,
   resolveItemSource,
+  extractIssueSource,
 } from '../sourceOrigin';
 
 describe('sourceOrigin utility', () => {
@@ -36,92 +38,151 @@ describe('sourceOrigin utility', () => {
     });
   });
 
-  describe('resolveItemSource', () => {
-    it('resolves direct package_name with orange badge', () => {
-      const item = { package_name: 'HPP DUDUKAN SLEBOR' };
-      const res = resolveItemSource(item);
-      expect(res.sourceType).toBe('PACKAGE');
-      expect(res.packageName).toBe('HPP DUDUKAN SLEBOR');
-      expect(res.label).toBe('📦 Paket: HPP DUDUKAN SLEBOR');
-      expect(res.badgeClass).toContain('text-orange-400');
+  describe('resolveDetailedSource', () => {
+    it('resolves RAB with package name and returns amber badge', () => {
+      const item = { package_name: 'SLEBOR BELAKANG' };
+      const res = resolveDetailedSource(item);
+      expect(res.origin).toBe('RAB');
+      expect(res.typeLabel).toBe('Paket: SLEBOR BELAKANG');
+      expect(res.fullLabel).toBe('RAB • Paket: SLEBOR BELAKANG');
+      expect(res.badgeClass).toBe('bg-amber-950/70 text-amber-300 border border-amber-600/50');
     });
 
-    it('resolves joined product_packages.name', () => {
-      const item = { product_packages: { name: 'BAK DAN FULL VARIASI' } };
-      const res = resolveItemSource(item);
-      expect(res.sourceType).toBe('PACKAGE');
-      expect(res.packageName).toBe('BAK DAN FULL VARIASI');
-      expect(res.label).toBe('📦 Paket: BAK DAN FULL VARIASI');
+    it('cleans duplicate Paket: prefix if already present in package_name', () => {
+      const item = { package_name: 'Paket: SLEBOR BELAKANG' };
+      const res = resolveDetailedSource(item);
+      expect(res.origin).toBe('RAB');
+      expect(res.typeLabel).toBe('Paket: SLEBOR BELAKANG');
+      expect(res.fullLabel).toBe('RAB • Paket: SLEBOR BELAKANG');
     });
 
-    it('resolves nested rab_items.product_packages.name', () => {
+    it('resolves Change Order with package name and returns purple badge', () => {
       const item = {
-        rab_items: {
-          id: 'rab-1',
-          product_packages: { name: 'PINTU BELAKANG LIPAT' },
-        },
+        change_order_id: 'co-123',
+        product_packages: { name: 'DUDUKAN LAMPU' },
       };
-      const res = resolveItemSource(item);
-      expect(res.sourceType).toBe('PACKAGE');
-      expect(res.packageName).toBe('PINTU BELAKANG LIPAT');
-      expect(res.label).toBe('📦 Paket: PINTU BELAKANG LIPAT');
+      const res = resolveDetailedSource(item);
+      expect(res.origin).toBe('Change Order');
+      expect(res.typeLabel).toBe('Paket: DUDUKAN LAMPU');
+      expect(res.fullLabel).toBe('Change Order • Paket: DUDUKAN LAMPU');
+      expect(res.badgeClass).toBe('bg-purple-950/70 text-purple-300 border border-purple-600/50');
     });
 
-    it('resolves package extracted from item notes', () => {
+    it('resolves Change Order from source_type === "CHANGE_ORDER"', () => {
       const item = {
-        notes: '[Paket: HIDROLIK DUMP TRUCK]',
+        source_type: 'CHANGE_ORDER',
+        package_name: 'BAK DUMP TRUCK',
       };
-      const res = resolveItemSource(item);
-      expect(res.sourceType).toBe('PACKAGE');
-      expect(res.packageName).toBe('HIDROLIK DUMP TRUCK');
-      expect(res.label).toBe('📦 Paket: HIDROLIK DUMP TRUCK');
+      const res = resolveDetailedSource(item);
+      expect(res.origin).toBe('Change Order');
+      expect(res.fullLabel).toBe('Change Order • Paket: BAK DUMP TRUCK');
+    });
+
+    it('resolves Change Order from req.is_change_order or req.change_order_id', () => {
+      const item = { package_name: 'KABIN DEPAN' };
+      const req = { is_change_order: true };
+      const res = resolveDetailedSource(item, req);
+      expect(res.origin).toBe('Change Order');
+      expect(res.fullLabel).toBe('Change Order • Paket: KABIN DEPAN');
+    });
+
+    it('resolves RAB Granular fallback when no package is attached', () => {
+      const item = { material_id: 'mat-1', quantity: 10 };
+      const res = resolveDetailedSource(item);
+      expect(res.origin).toBe('RAB');
+      expect(res.typeLabel).toBe('Granular');
+      expect(res.fullLabel).toBe('RAB • Granular');
+      expect(res.badgeClass).toBe('bg-blue-950/70 text-blue-300 border border-blue-600/50');
+    });
+
+    it('resolves Change Order Granular fallback when no package is attached', () => {
+      const item = {
+        change_order_id: 'co-456',
+        material_name: 'Pipa Seamless 2 inch',
+      };
+      const res = resolveDetailedSource(item);
+      expect(res.origin).toBe('Change Order');
+      expect(res.typeLabel).toBe('Granular');
+      expect(res.fullLabel).toBe('Change Order • Granular');
+      expect(res.badgeClass).toBe('bg-indigo-950/70 text-indigo-300 border border-indigo-600/50');
+    });
+
+    it('resolves package from notes if field package_name is absent', () => {
+      const item = { notes: '[Paket: HIDROLIK DUMP]' };
+      const res = resolveDetailedSource(item);
+      expect(res.origin).toBe('RAB');
+      expect(res.typeLabel).toBe('Paket: HIDROLIK DUMP');
+      expect(res.fullLabel).toBe('RAB • Paket: HIDROLIK DUMP');
     });
 
     it('resolves package from req.package_name if item has no package info', () => {
       const item = { id: 'it-1' };
       const req = { package_name: 'SUB-ASSEMBLY CANTER' };
-      const res = resolveItemSource(item, req);
+      const res = resolveDetailedSource(item, req);
+      expect(res.origin).toBe('RAB');
+      expect(res.typeLabel).toBe('Paket: SUB-ASSEMBLY CANTER');
+      expect(res.fullLabel).toBe('RAB • Paket: SUB-ASSEMBLY CANTER');
+    });
+  });
+
+  describe('resolveItemSource compatibility wrapper', () => {
+    it('provides label identical to fullLabel with appropriate sourceType', () => {
+      const item = { package_name: 'PINTU BELAKANG' };
+      const res = resolveItemSource(item);
+      expect(res.label).toBe('RAB • Paket: PINTU BELAKANG');
+      expect(res.fullLabel).toBe('RAB • Paket: PINTU BELAKANG');
       expect(res.sourceType).toBe('PACKAGE');
-      expect(res.packageName).toBe('SUB-ASSEMBLY CANTER');
-      expect(res.label).toBe('📦 Paket: SUB-ASSEMBLY CANTER');
+      expect(res.packageName).toBe('PINTU BELAKANG');
+      expect(res.origin).toBe('RAB');
     });
 
-    it('resolves Change Order with purple badge when change_order_item_id exists', () => {
-      const item = { change_order_item_id: 'co-item-123' };
+    it('provides label for Granular items with appropriate sourceType', () => {
+      const item = { id: 'it-loose' };
       const res = resolveItemSource(item);
-      expect(res.sourceType).toBe('CHANGE_ORDER');
+      expect(res.label).toBe('RAB • Granular');
+      expect(res.fullLabel).toBe('RAB • Granular');
+      expect(res.sourceType).toBe('RAB');
       expect(res.packageName).toBeNull();
-      expect(res.label).toBe('🔄 Change Order');
-      expect(res.badgeClass).toContain('text-purple-400');
+      expect(res.typeLabel).toBe('Granular');
     });
 
-    it('resolves Change Order when sourceType is CHANGE_ORDER', () => {
-      const item = { sourceType: 'CHANGE_ORDER' };
-      const res = resolveItemSource(item);
-      expect(res.sourceType).toBe('CHANGE_ORDER');
-      expect(res.label).toBe('🔄 Change Order');
+    it('handles empty or null item gracefully', () => {
+      const res = resolveItemSource(null);
+      expect(res.origin).toBe('RAB');
+      expect(res.typeLabel).toBe('Granular');
+      expect(res.label).toBe('RAB • Granular');
+      expect(res.fullLabel).toBe('RAB • Granular');
+    });
+  });
+
+  describe('extractIssueSource', () => {
+    it('extracts source from issue with nested requisition items', () => {
+      const issue = {
+        material_requisition_items: [
+          {
+            change_order_id: 'co-issue-9',
+            package_name: 'TANGKI SOLAR',
+          },
+        ],
+      };
+      const res = extractIssueSource(issue);
+      expect(res.origin).toBe('Change Order');
+      expect(res.typeLabel).toBe('Paket: TANGKI SOLAR');
+      expect(res.fullLabel).toBe('Change Order • Paket: TANGKI SOLAR');
+      expect(res.badgeClass).toBe('bg-purple-950/70 text-purple-300 border border-purple-600/50');
     });
 
-    it('resolves Direct when is_manual is true', () => {
-      const item = { is_manual: true };
-      const res = resolveItemSource(item);
-      expect(res.sourceType).toBe('DIRECT');
-      expect(res.label).toBe('⚡ Langsung');
-      expect(res.badgeClass).toContain('text-emerald-400');
-    });
-
-    it('defaults to RAB with blue badge when no other source is present', () => {
-      const item = { rab_item_id: 'rab-abc-123' };
-      const res = resolveItemSource(item);
-      expect(res.sourceType).toBe('RAB');
-      expect(res.label).toBe('📋 RAB');
-      expect(res.badgeClass).toContain('text-blue-400');
-    });
-
-    it('defaults to RAB when empty object passed', () => {
-      const res = resolveItemSource({});
-      expect(res.sourceType).toBe('RAB');
-      expect(res.label).toBe('📋 RAB');
+    it('extracts Granular source from issue without package', () => {
+      const issue = {
+        material_requisition_items: {
+          wbs_stage: 'WBS 1: Pembongkaran',
+        },
+      };
+      const res = extractIssueSource(issue);
+      expect(res.origin).toBe('RAB');
+      expect(res.typeLabel).toBe('Granular');
+      expect(res.fullLabel).toBe('RAB • Granular');
+      expect(res.badgeClass).toBe('bg-blue-950/70 text-blue-300 border border-blue-600/50');
     });
   });
 });

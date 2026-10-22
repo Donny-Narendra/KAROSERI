@@ -622,10 +622,10 @@ describe('Component: RecentMaterialIssues', () => {
     expect(headerCells).toHaveLength(10);
     expect(headerCells[0]).toHaveTextContent(''); // Checkbox
     expect(headerCells[1]).toHaveTextContent('WBS');
-    expect(headerCells[2]).toHaveTextContent('TIME');
-    expect(headerCells[3]).toHaveTextContent('SPK NO.');
-    expect(headerCells[4]).toHaveTextContent('MATERIAL');
-    expect(headerCells[5]).toHaveTextContent('SUMBER / PAKET');
+    expect(headerCells[2]).toHaveTextContent('SUMBER / PAKET');
+    expect(headerCells[3]).toHaveTextContent('TIME');
+    expect(headerCells[4]).toHaveTextContent('SPK NO.');
+    expect(headerCells[5]).toHaveTextContent('MATERIAL');
     expect(headerCells[6]).toHaveTextContent('QTY');
     expect(headerCells[7]).toHaveTextContent('HARGA (RP)');
     expect(headerCells[8]).toHaveTextContent('EKSEKUTOR / AUDIT');
@@ -734,19 +734,87 @@ describe('Component: RecentMaterialIssues', () => {
     });
 
     // Verify package badge
-    const pkgBadge = screen.getByText('📦 Paket: HPP DUDUKAN SLEBOR');
+    const pkgBadge = screen.getByText('RAB • Paket: HPP DUDUKAN SLEBOR');
     expect(pkgBadge).toBeInTheDocument();
-    expect(pkgBadge.className).toContain('text-orange-400');
+    expect(pkgBadge.className).toContain('text-amber-300');
+    expect(pkgBadge.className).toContain('bg-amber-950/70');
 
     // Verify change order badge
-    const coBadge = screen.getByText('🔄 Change Order');
+    const coBadge = screen.getByText('Change Order • Granular');
     expect(coBadge).toBeInTheDocument();
-    expect(coBadge.className).toContain('text-purple-400');
+    expect(coBadge.className).toContain('text-indigo-300');
+    expect(coBadge.className).toContain('bg-indigo-950/70');
 
     // Verify RAB badge
-    const rabBadge = screen.getByText('📋 RAB');
+    const rabBadge = screen.getByText('RAB • Granular');
     expect(rabBadge).toBeInTheDocument();
-    expect(rabBadge.className).toContain('text-blue-400');
+    expect(rabBadge.className).toContain('text-blue-300');
+    expect(rabBadge.className).toContain('bg-blue-950/70');
+  });
+
+  it('renders direct source_type, change_order_id, and package_name at table cell index 2', async () => {
+    const directFieldTransactions = [
+      {
+        id: 'tx-direct-fields',
+        spk_id: 'spk-uuid-7080',
+        material_id: 'mat-pkg-direct',
+        quantity_issued: 2,
+        custom_unit_price: 350000,
+        source_type: 'PACKAGE',
+        package_name: 'BAK DUMP TRUCK',
+        change_order_id: null,
+        issued_at: '2026-10-22T08:00:00Z',
+        wbs_stage: 'WBS 3: Dinding/Fabrikasi',
+        spk: { id: 'spk-uuid-7080', spk_no: 'SPK-7080' },
+        materials: { name: 'Dinding Samping Bak', unit: 'Set', unit_price: 350000 },
+      },
+    ];
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === 'inventory_transactions') {
+        const queryObj: any = {};
+        queryObj.select = vi.fn().mockReturnValue(queryObj);
+        queryObj.eq = vi.fn().mockReturnValue(queryObj);
+        queryObj.gt = vi.fn().mockReturnValue(queryObj);
+        queryObj.limit = vi.fn().mockReturnValue(queryObj);
+        queryObj.order = vi.fn().mockResolvedValue({
+          data: directFieldTransactions,
+          error: null,
+        });
+        return queryObj;
+      }
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { id: 'spk-uuid-7080', spk_no: 'SPK-7080' },
+              error: null,
+            }),
+          }),
+        }),
+      } as any;
+    });
+
+    render(<RecentMaterialIssues selectedSpk="SPK-7080" refreshKey={0} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Dinding Samping Bak')).toBeInTheDocument();
+    });
+
+    const rows = screen.getAllByRole('row');
+    const dataRow = rows[1];
+    const cells = dataRow.querySelectorAll('td');
+
+    // Index 0: Checkbox
+    // Index 1: WBS badge
+    expect(cells[1]).toHaveTextContent('WBS 3: Dinding/Fabrikasi');
+    // Index 2: SUMBER / PAKET badge
+    expect(cells[2]).toHaveTextContent('RAB • Paket: BAK DUMP TRUCK');
+    // Index 3: TIME
+    // Index 4: SPK NO.
+    expect(cells[4]).toHaveTextContent('SPK-7080');
+    // Index 5: MATERIAL
+    expect(cells[5]).toHaveTextContent('Dinding Samping Bak');
   });
 });
 
