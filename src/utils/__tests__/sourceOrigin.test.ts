@@ -123,6 +123,55 @@ describe('sourceOrigin utility', () => {
       expect(res.typeLabel).toBe('Paket: SUB-ASSEMBLY CANTER');
       expect(res.fullLabel).toBe('RAB • Paket: SUB-ASSEMBLY CANTER');
     });
+
+    it('resolves package from spkPackageMap when package_name is absent on item', () => {
+      const item = { material_id: 'mat-winglet-1', wbs_stage: 'WBS 1: Pembongkaran' };
+      const packageMap = new Map<string, string>();
+      packageMap.set('mat-winglet-1', 'BOM WINGLET ASSY');
+
+      const res = resolveDetailedSource(item, null, packageMap);
+      expect(res.origin).toBe('RAB');
+      expect(res.typeLabel).toBe('Paket: BOM WINGLET ASSY');
+      expect(res.fullLabel).toBe('RAB • Paket: BOM WINGLET ASSY');
+      expect(res.badgeClass).toBe('bg-amber-950/70 text-amber-300 border border-amber-600/50');
+    });
+
+    it('prioritizes direct package_name over spkPackageMap (Priority 1 > Priority 3)', () => {
+      const item = {
+        material_id: 'mat-1',
+        package_name: 'DIRECT PACKAGE',
+      };
+      const packageMap = new Map<string, string>();
+      packageMap.set('mat-1', 'MAP PACKAGE');
+
+      const res = resolveDetailedSource(item, null, packageMap);
+      expect(res.fullLabel).toBe('RAB • Paket: DIRECT PACKAGE');
+    });
+
+    it('prioritizes material_requisition_items.package_name over spkPackageMap (Priority 2 > Priority 3)', () => {
+      const item = {
+        material_id: 'mat-2',
+        material_requisition_items: {
+          package_name: 'REQUISITION PACKAGE',
+        },
+      };
+      const packageMap = new Map<string, string>();
+      packageMap.set('mat-2', 'MAP PACKAGE');
+
+      const res = resolveDetailedSource(item, null, packageMap);
+      expect(res.fullLabel).toBe('RAB • Paket: REQUISITION PACKAGE');
+    });
+
+    it('supports object/record based spkPackageMap and WBS-stage keying', () => {
+      const item = { material_id: 'mat-stoplamp', wbs_stage: 'WBS 1: Pembongkaran' };
+      const packageMap = {
+        'mat-stoplamp_WBS 1: Pembongkaran': 'PAKET DUDUKAN STOPLAMP',
+        'mat-stoplamp': 'GENERIC STOPLAMP',
+      };
+
+      const res = resolveDetailedSource(item, null, packageMap);
+      expect(res.fullLabel).toBe('RAB • Paket: PAKET DUDUKAN STOPLAMP');
+    });
   });
 
   describe('resolveItemSource compatibility wrapper', () => {
@@ -183,6 +232,20 @@ describe('sourceOrigin utility', () => {
       expect(res.typeLabel).toBe('Granular');
       expect(res.fullLabel).toBe('RAB • Granular');
       expect(res.badgeClass).toBe('bg-blue-950/70 text-blue-300 border border-blue-600/50');
+    });
+
+    it('extracts package from spkPackageMap passed to extractIssueSource', () => {
+      const issue = {
+        material_id: 'mat-gerinda',
+        material_requisition_items: {
+          wbs_stage: 'WBS 1: Pembongkaran',
+        },
+      };
+      const packageMap = new Map<string, string>();
+      packageMap.set('mat-gerinda', 'PAKET PERAKITAN CHASSIS');
+
+      const res = extractIssueSource(issue, packageMap);
+      expect(res.fullLabel).toBe('RAB • Paket: PAKET PERAKITAN CHASSIS');
     });
   });
 });

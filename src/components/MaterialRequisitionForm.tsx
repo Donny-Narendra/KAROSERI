@@ -35,9 +35,13 @@ interface RabSourceItem {
   subtotal: number;
   currentStock: number;
   item_type?: string | null;
-  sourceType?: 'RAB' | 'CHANGE_ORDER';
+  sourceType?: 'RAB' | 'CHANGE_ORDER' | 'PACKAGE';
   changeOrderItemId?: string | null;
   rabItemId?: string | null;
+  package_name?: string | null;
+  packageName?: string | null;
+  product_packages?: { id?: string; name?: string } | null;
+  rab_items?: any;
 }
 
 interface RequisitionItem {
@@ -47,8 +51,8 @@ interface RequisitionItem {
   changeOrderItemId?: string | null; // reference to change_order_items id if from CO
   change_order_item_id?: string | null;
   is_change_order?: boolean;
-  sourceType?: 'RAB' | 'CHANGE_ORDER' | 'MANUAL';
-  source_type?: 'RAB' | 'CHANGE_ORDER' | 'MANUAL';
+  sourceType?: 'RAB' | 'CHANGE_ORDER' | 'MANUAL' | 'PACKAGE';
+  source_type?: 'RAB' | 'CHANGE_ORDER' | 'MANUAL' | 'PACKAGE';
   materialId?: string | null;
   material_id?: string | null;
   id?: string;
@@ -69,6 +73,10 @@ interface RequisitionItem {
   dbRequisitionItemId?: string; // id in material_requisition_items
   dbRequisitionId?: string; // id in material_requisitions
   status?: string; // 'PENDING' | 'APPROVED' | 'REJECTED'
+  package_name?: string | null;
+  packageName?: string | null;
+  product_packages?: { id?: string; name?: string } | null;
+  rab_items?: any;
 }
 
 interface ActiveSpkBorongan {
@@ -181,6 +189,8 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
             item_total,
             material_id,
             item_type,
+            package_id,
+            product_packages:package_id ( id, name ),
             materials (
               id,
               name,
@@ -240,6 +250,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
             }
 
             const calculatedSubtotal = item.item_total ? Number(item.item_total) : (qty * unitPrice);
+            const packageName = item.product_packages?.name || null;
 
             return {
               id: item.id,
@@ -251,9 +262,12 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
               subtotal: calculatedSubtotal,
               currentStock: matchedMat ? Number(matchedMat.current_stock || 0) : 0,
               item_type: 'MATERIAL',
-              sourceType: 'RAB' as const,
+              sourceType: (packageName ? 'PACKAGE' : 'RAB') as 'PACKAGE' | 'RAB',
               rabItemId: item.id,
-              changeOrderItemId: null
+              changeOrderItemId: null,
+              package_name: packageName,
+              packageName: packageName,
+              product_packages: item.product_packages || null
             };
           });
         }
@@ -371,6 +385,8 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
               rab_item_id,
               change_order_item_id,
               material_name,
+              package_name,
+              source_type,
               quantity,
               unit,
               unit_price,
@@ -455,6 +471,8 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                   }
                 }
 
+                const resolvedPackage = item.package_name || matchedSource?.package_name || null;
+
                 persistedItems.push({
                   tempId: `persisted-${item.id}`,
                   sourceRabId,
@@ -462,12 +480,15 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                   changeOrderItemId,
                   change_order_item_id: changeOrderItemId,
                   is_change_order: isFromCO,
-                  sourceType: isFromCO ? 'CHANGE_ORDER' : (isFromRab ? 'RAB' : 'MANUAL'),
-                  source_type: isFromCO ? 'CHANGE_ORDER' : (isFromRab ? 'RAB' : 'MANUAL'),
+                  sourceType: isFromCO ? 'CHANGE_ORDER' : (resolvedPackage ? 'PACKAGE' : (isFromRab ? 'RAB' : 'MANUAL')),
+                  source_type: isFromCO ? 'CHANGE_ORDER' : (resolvedPackage ? 'PACKAGE' : (isFromRab ? 'RAB' : 'MANUAL')),
                   materialId,
                   material_id: materialId,
                   name,
                   material_name: name,
+                  package_name: resolvedPackage,
+                  packageName: resolvedPackage,
+                  product_packages: matchedSource?.product_packages || null,
                   unit,
                   unitPrice,
                   unit_price: unitPrice,
@@ -546,6 +567,8 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
       (sourceItem as any).source_type === 'CHANGE_ORDER'
     );
 
+    const resolvedPkg = sourceItem.package_name || sourceItem.packageName || sourceItem.product_packages?.name || null;
+
     // Add to left list (selectedItems)
     const newRequisitionItem: RequisitionItem = {
       tempId: `req-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
@@ -554,12 +577,15 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
       changeOrderItemId: isChangeOrder ? (sourceItem.changeOrderItemId || sourceItem.id) : null,
       change_order_item_id: isChangeOrder ? (sourceItem.changeOrderItemId || sourceItem.id) : null,
       is_change_order: isChangeOrder,
-      sourceType: isChangeOrder ? 'CHANGE_ORDER' : 'RAB',
-      source_type: isChangeOrder ? 'CHANGE_ORDER' : 'RAB',
+      sourceType: isChangeOrder ? 'CHANGE_ORDER' : (resolvedPkg ? 'PACKAGE' : 'RAB'),
+      source_type: isChangeOrder ? 'CHANGE_ORDER' : (resolvedPkg ? 'PACKAGE' : 'RAB'),
       materialId: sourceItem.materialId || null,
       material_id: sourceItem.materialId || null,
       name: sourceItem.name,
       material_name: sourceItem.name,
+      package_name: resolvedPkg,
+      packageName: resolvedPkg,
+      product_packages: sourceItem.product_packages || null,
       unit: sourceItem.unit,
       unitPrice: sourceItem.unitPrice,
       unit_price: sourceItem.unitPrice,
@@ -837,6 +863,14 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
           item.source_type === 'CHANGE_ORDER'
         );
 
+        const resolvedPackageName =
+          item.package_name ||
+          item.packageName ||
+          item.product_packages?.name ||
+          item.rab_items?.product_packages?.name ||
+          null;
+        const resolvedSourceType = isChangeOrder ? 'CHANGE_ORDER' : (resolvedPackageName ? 'PACKAGE' : 'RAB');
+
         return {
           requisition_id: reqData.id,
           material_id: resolvedMaterialId,
@@ -844,6 +878,8 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
           rab_item_id: isChangeOrder ? null : (item.rab_item_id || item.sourceRabId || item.id || null),
           change_order_item_id: isChangeOrder ? (item.change_order_item_id || item.changeOrderItemId || item.id || item.sourceRabId || null) : null,
           material_name: itemName,
+          package_name: resolvedPackageName,
+          source_type: resolvedSourceType,
           quantity,
           unit: item.unit || 'pcs',
           unit_price: unitPrice,

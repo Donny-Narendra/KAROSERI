@@ -63,6 +63,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
   
   // Refetch when parent says so or internally requested
   const [internalRefresh, setInternalRefresh] = useState(0);
+  const [spkPackageMap, setSpkPackageMap] = useState<Map<string, string>>(new Map());
 
   // Helper: Detect standard UUID format
   const isUuid = (val?: string | null): boolean => {
@@ -144,6 +145,87 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
         (resolvedSpkNo && resolvedSpkNo !== 'ALL')
       );
 
+      // Ambil data referensi paket SPK dari rab_items aktif sebagai fallback penelusuran nama paket di memori klien
+      const newPackageMap = new Map<string, string>();
+      if (resolvedSpkId && resolvedSpkId !== 'ALL') {
+        try {
+          let rabItemsQuery = supabase
+            .from('rab_items')
+            .select(`
+              material_id,
+              wbs_stage,
+              wbs_category,
+              package_id,
+              product_packages:package_id ( id, name )
+            `);
+
+          if (typeof rabItemsQuery.eq === 'function') {
+            rabItemsQuery = rabItemsQuery.eq('spk_id', resolvedSpkId);
+          }
+          if (typeof rabItemsQuery.not === 'function') {
+            rabItemsQuery = rabItemsQuery.not('package_id', 'is', null);
+          }
+
+          const { data: rabItemsData } = await rabItemsQuery;
+          if (rabItemsData && Array.isArray(rabItemsData) && rabItemsData.length > 0) {
+            rabItemsData.forEach((ri: any) => {
+              const pkgName = ri.product_packages?.name || ri.product_package?.name;
+              if (pkgName && ri.material_id) {
+                if (ri.wbs_stage) newPackageMap.set(`${ri.material_id}_${ri.wbs_stage}`, pkgName);
+                if (ri.wbs_category) newPackageMap.set(`${ri.material_id}_${ri.wbs_category}`, pkgName);
+                if (!newPackageMap.has(ri.material_id)) {
+                  newPackageMap.set(ri.material_id, pkgName);
+                }
+              }
+            });
+          }
+
+          // Fallback via rab_estimations jika rab_items terikat ke rab_estimation_id
+          let estQuery = supabase
+            .from('rab_estimations')
+            .select('id');
+          if (typeof estQuery.eq === 'function') {
+            estQuery = estQuery.eq('spk_id', resolvedSpkId);
+          }
+          const { data: estData } = await estQuery;
+
+          const estIds = (estData || []).map((e: any) => e.id).filter(Boolean);
+          if (estIds.length > 0) {
+            let estRabQuery = supabase
+              .from('rab_items')
+              .select(`
+                material_id,
+                wbs_stage,
+                wbs_category,
+                package_id,
+                product_packages:package_id ( id, name )
+              `);
+            if (typeof estRabQuery.in === 'function') {
+              estRabQuery = estRabQuery.in('rab_estimation_id', estIds);
+            }
+            if (typeof estRabQuery.not === 'function') {
+              estRabQuery = estRabQuery.not('package_id', 'is', null);
+            }
+            const { data: estRabItems } = await estRabQuery;
+            if (estRabItems && Array.isArray(estRabItems) && estRabItems.length > 0) {
+              estRabItems.forEach((ri: any) => {
+                const pkgName = ri.product_packages?.name || ri.product_package?.name;
+                if (pkgName && ri.material_id) {
+                  if (ri.wbs_stage) newPackageMap.set(`${ri.material_id}_${ri.wbs_stage}`, pkgName);
+                  if (ri.wbs_category) newPackageMap.set(`${ri.material_id}_${ri.wbs_category}`, pkgName);
+                  if (!newPackageMap.has(ri.material_id)) {
+                    newPackageMap.set(ri.material_id, pkgName);
+                  }
+                }
+              });
+            }
+          }
+        } catch (err) {
+          console.warn('Could not fetch rab_items package mapping:', err);
+        }
+      }
+      setSpkPackageMap(newPackageMap);
+
       // Primary & Fallback Queries:
       // Supports inventory_transactions (with quantity_issued > 0 as requested),
       // goods_issues, and material_issues.
@@ -168,12 +250,17 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
             stock_after,
             requisition_id,
             requisition_item_id,
+            package_name,
+            source_type,
+            change_order_id,
             spk:spk_id ( id, spk_no ),
             materials ( name, unit, unit_price ),
             material_requisitions:requisition_id ( id, wbs_category ),
             material_requisition_items:requisition_item_id (
               id,
               wbs_stage,
+              package_name,
+              source_type,
               rab_item_id,
               change_order_item_id,
               rab_items ( id, notes, package_id, product_packages:package_id ( id, name ) ),
@@ -204,12 +291,15 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
               : r.material_requisitions;
             const itemWbs = mrItem?.wbs_stage;
             const reqWbs = mr?.wbs_category;
+            const currentWbs = r.wbs_stage || itemWbs || reqWbs;
 
             const resolvedPackageName =
               r.package_name ||
               mrItem?.package_name ||
               mrItem?.product_packages?.name ||
               mrItem?.rab_items?.product_packages?.name ||
+              (currentWbs ? newPackageMap.get(`${r.material_id}_${currentWbs}`) : null) ||
+              newPackageMap.get(r.material_id) ||
               mr?.package_name ||
               null;
 
@@ -234,7 +324,8 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
               source_type: resolvedSourceType,
               change_order_id: resolvedChangeOrderId,
               package_name: resolvedPackageName,
-              wbs_stage: r.wbs_stage || itemWbs || reqWbs || null,
+              spkPackageMap: newPackageMap,
+              wbs_stage: currentWbs || null,
               wbs_category: r.wbs_category || reqWbs || null,
               material_requisition_items: mrItem || null,
               material_requisitions: mr || null,
@@ -265,6 +356,9 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
               total_cost,
               issued_at,
               created_at,
+              package_name,
+              source_type,
+              change_order_id,
               materials ( name, unit ),
               spk:spk_id ( id, spk_no )
             `);
@@ -278,14 +372,22 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
           giQuery = giQuery.order('created_at', { ascending: false });
           const { data: giData, error: giError } = await giQuery;
           if (!giError && giData && giData.length > 0) {
-            records = giData.map((row: any) => ({
-              ...row,
-              source_type: row.source_type || 'RAB',
-              change_order_id: row.change_order_id || null,
-              package_name: row.package_name || null,
-              wbs_stage: row.wbs_stage || row.wbs_id || null,
-              wbs_category: row.wbs_category || null,
-            }));
+            records = giData.map((row: any) => {
+              const currentWbs = row.wbs_stage || row.wbs_id || null;
+              const pkgName = row.package_name ||
+                (currentWbs ? newPackageMap.get(`${row.material_id}_${currentWbs}`) : null) ||
+                newPackageMap.get(row.material_id) ||
+                null;
+              return {
+                ...row,
+                source_type: row.source_type || (pkgName ? 'PACKAGE' : 'RAB'),
+                change_order_id: row.change_order_id || null,
+                package_name: pkgName,
+                spkPackageMap: newPackageMap,
+                wbs_stage: currentWbs,
+                wbs_category: row.wbs_category || null,
+              };
+            });
           }
         } catch {
           // Table goods_issues may not exist
@@ -308,6 +410,9 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
               issued_by_name,
               issued_by_role,
               audit_notes,
+              package_name,
+              source_type,
+              change_order_id,
               spk:spk_id ( id, spk_no ),
               materials ( name, unit, unit_price )
             `);
@@ -321,27 +426,35 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
           miQuery = miQuery.order('created_at', { ascending: false });
           const { data: miData, error: miError } = await miQuery;
           if (!miError && miData && miData.length > 0) {
-            records = miData.map((row: any) => ({
-              id: row.id,
-              spk_id: row.spk_id,
-              material_id: row.material_id,
-              quantity: row.quantity,
-              quantity_issued: row.quantity,
-              unit_price: row.unit_price,
-              custom_unit_price: row.unit_price,
-              source_type: row.source_type || 'RAB',
-              change_order_id: row.change_order_id || null,
-              package_name: row.package_name || null,
-              wbs_stage: row.wbs_stage,
-              wbs_category: row.wbs_category || row.wbs_stage,
-              created_at: row.created_at,
-              issued_at: row.created_at,
-              issued_by_name: row.issued_by_name,
-              issued_by_role: row.issued_by_role,
-              audit_notes: row.audit_notes,
-              spk: row.spk,
-              materials: row.materials
-            }));
+            records = miData.map((row: any) => {
+              const currentWbs = row.wbs_stage;
+              const pkgName = row.package_name ||
+                (currentWbs ? newPackageMap.get(`${row.material_id}_${currentWbs}`) : null) ||
+                newPackageMap.get(row.material_id) ||
+                null;
+              return {
+                id: row.id,
+                spk_id: row.spk_id,
+                material_id: row.material_id,
+                quantity: row.quantity,
+                quantity_issued: row.quantity,
+                unit_price: row.unit_price,
+                custom_unit_price: row.unit_price,
+                source_type: row.source_type || (pkgName ? 'PACKAGE' : 'RAB'),
+                change_order_id: row.change_order_id || null,
+                package_name: pkgName,
+                spkPackageMap: newPackageMap,
+                wbs_stage: currentWbs,
+                wbs_category: row.wbs_category || row.wbs_stage,
+                created_at: row.created_at,
+                issued_at: row.created_at,
+                issued_by_name: row.issued_by_name,
+                issued_by_role: row.issued_by_role,
+                audit_notes: row.audit_notes,
+                spk: row.spk,
+                materials: row.materials
+              };
+            });
           }
         } catch {
           // Table material_issues may not exist
@@ -359,6 +472,9 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
               material_id,
               quantity_issued,
               issued_at,
+              package_name,
+              source_type,
+              change_order_id,
               spk:spk_id ( id, spk_no ),
               materials ( name, unit, unit_price )
             `);
@@ -375,14 +491,22 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
           baseQuery = baseQuery.order('issued_at', { ascending: false });
           const { data: baseData, error: baseError } = await baseQuery;
           if (!baseError && baseData && baseData.length > 0) {
-            records = baseData.map((row: any) => ({
-              ...row,
-              source_type: row.source_type || 'RAB',
-              change_order_id: row.change_order_id || null,
-              package_name: row.package_name || null,
-              wbs_stage: row.wbs_stage || null,
-              wbs_category: row.wbs_category || null,
-            }));
+            records = baseData.map((row: any) => {
+              const currentWbs = row.wbs_stage || null;
+              const pkgName = row.package_name ||
+                (currentWbs ? newPackageMap.get(`${row.material_id}_${currentWbs}`) : null) ||
+                newPackageMap.get(row.material_id) ||
+                null;
+              return {
+                ...row,
+                source_type: row.source_type || (pkgName ? 'PACKAGE' : 'RAB'),
+                change_order_id: row.change_order_id || null,
+                package_name: pkgName,
+                spkPackageMap: newPackageMap,
+                wbs_stage: currentWbs,
+                wbs_category: row.wbs_category || null,
+              };
+            });
           }
         } catch {
           // Ignore
@@ -416,7 +540,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
     const q = searchQuery.toLowerCase().trim();
     return recentIssues.filter(issue => {
       const wbs = issue.wbs_stage || issue.wbs_category || extractIssueWbs(issue) || '';
-      const src = resolveDetailedSource(issue);
+      const src = resolveDetailedSource(issue, null, issue.spkPackageMap || spkPackageMap);
       return (
         (issue.materials?.name || issue.material_name || '').toLowerCase().includes(q) ||
         (issue.materials?.unit || issue.unit || '').toLowerCase().includes(q) ||
@@ -428,7 +552,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
         formatWbsBadge(wbs).toLowerCase().includes(q)
       );
     });
-  }, [recentIssues, searchQuery]);
+  }, [recentIssues, searchQuery, spkPackageMap]);
 
   const sortedIssues = React.useMemo(() => {
     return [...filteredRecentIssues].sort((a, b) => {
@@ -685,7 +809,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
                     </td>
                     <td className="py-1.5 px-3">
                       {(() => {
-                        const source = resolveDetailedSource(issue);
+                        const source = resolveDetailedSource(issue, null, issue.spkPackageMap || spkPackageMap);
                         return (
                           <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded whitespace-nowrap inline-flex items-center gap-1 ${source.badgeClass}`}>
                             <span>{source.origin === 'Change Order' ? '🔄' : '📋'}</span>

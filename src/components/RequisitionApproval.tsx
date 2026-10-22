@@ -195,6 +195,8 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
             unit_price,
             subtotal,
             wbs_stage,
+            package_name,
+            source_type,
             materials ( id, name, unit, unit_price ),
             rab_items ( id, item_total, quantity, description, notes, package_id, product_packages:package_id ( id, name ) ),
             change_order_items ( id, item_name, unit_price, quantity, notes, change_order_id )
@@ -644,10 +646,16 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
             .eq('id', item.id);
 
           // Siapkan transaksi pengeluaran fisik
+          const resolvedPkgName = item.package_name || item.product_packages?.name || item.rab_items?.product_packages?.name || null;
+          const resolvedSrcType = item.source_type || (item.change_order_item_id ? 'CHANGE_ORDER' : (resolvedPkgName ? 'PACKAGE' : 'RAB'));
+
           const tx = {
             spk_id: requisition.spk?.id || requisition.spk_id,
             material_id: item.material_id,
             quantity_issued: item.quantity,
+            package_name: resolvedPkgName,
+            source_type: resolvedSrcType,
+            change_order_id: item.change_order_items?.change_order_id || null,
             issued_by: user.id,
             issued_by_user_id: user.id,
             issued_by_name: approverName,
@@ -845,10 +853,16 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
         // 2. Siapkan transaksi pengeluaran material
         const transactions = itemsWithMat.map((item: any) => {
           const snap = stockSnapshots[item.material_id];
+          const resolvedPkgName = item.package_name || item.product_packages?.name || item.rab_items?.product_packages?.name || null;
+          const resolvedSrcType = item.source_type || (item.change_order_item_id ? 'CHANGE_ORDER' : (resolvedPkgName ? 'PACKAGE' : 'RAB'));
+
           return {
             spk_id: requisition.spk?.id || requisition.spk_id,
             material_id: item.material_id,
             quantity_issued: item.quantity,
+            package_name: resolvedPkgName,
+            source_type: resolvedSrcType,
+            change_order_id: item.change_order_items?.change_order_id || null,
             issued_by: user.id,
             issued_by_user_id: user.id,
             issued_by_name: approverName,

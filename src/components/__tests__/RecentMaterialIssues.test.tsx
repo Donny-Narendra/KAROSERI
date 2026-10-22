@@ -819,5 +819,115 @@ describe('Component: RecentMaterialIssues', () => {
     // Index 5: MATERIAL
     expect(cells[5]).toHaveTextContent('Dinding Samping Bak');
   });
+
+  it('resolves package name from SPK active rab_items fallback when transaction package_name is NULL (SPK-7080 WBS 1 bug fix)', async () => {
+    const issuesWithoutPackageField = [
+      {
+        id: 'tx-pkg-fallback',
+        spk_id: 'spk-uuid-7080',
+        material_id: 'mat-winglet-1',
+        quantity_issued: 2,
+        custom_unit_price: 250000,
+        package_name: null,
+        source_type: null,
+        issued_at: '2026-10-22T08:00:00Z',
+        wbs_stage: 'WBS 1: Pembongkaran',
+        spk: { id: 'spk-uuid-7080', spk_no: 'SPK-7080' },
+        materials: { name: 'WINGLET DEPAN', unit: 'Set', unit_price: 250000 },
+        material_requisition_items: {
+          id: 'mri-winglet',
+          wbs_stage: 'WBS 1: Pembongkaran',
+          package_name: null,
+          rab_item_id: null,
+        },
+      },
+      {
+        id: 'tx-truly-granular',
+        spk_id: 'spk-uuid-7080',
+        material_id: 'mat-loose-screw',
+        quantity_issued: 10,
+        custom_unit_price: 1500,
+        package_name: null,
+        source_type: null,
+        issued_at: '2026-10-22T08:15:00Z',
+        wbs_stage: 'WBS 1: Pembongkaran',
+        spk: { id: 'spk-uuid-7080', spk_no: 'SPK-7080' },
+        materials: { name: 'Sekrup Lepas 5mm', unit: 'PCS', unit_price: 1500 },
+        material_requisition_items: {
+          id: 'mri-screw',
+          wbs_stage: 'WBS 1: Pembongkaran',
+          package_name: null,
+          rab_item_id: null,
+        },
+      },
+    ];
+
+    const mockRabItemsWithPackage = [
+      {
+        material_id: 'mat-winglet-1',
+        wbs_stage: 'WBS 1: Pembongkaran',
+        wbs_category: 'Pembongkaran',
+        package_id: 'pkg-winglet-assy',
+        product_packages: { id: 'pkg-winglet-assy', name: 'PAKET PERAKITAN WINGLET' },
+      },
+    ];
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === 'inventory_transactions') {
+        const queryObj: any = {};
+        queryObj.select = vi.fn().mockReturnValue(queryObj);
+        queryObj.eq = vi.fn().mockReturnValue(queryObj);
+        queryObj.gt = vi.fn().mockReturnValue(queryObj);
+        queryObj.limit = vi.fn().mockReturnValue(queryObj);
+        queryObj.order = vi.fn().mockResolvedValue({
+          data: issuesWithoutPackageField,
+          error: null,
+        });
+        return queryObj;
+      }
+      if (table === 'rab_items') {
+        const queryObj: any = {};
+        queryObj.select = vi.fn().mockReturnValue(queryObj);
+        queryObj.eq = vi.fn().mockReturnValue(queryObj);
+        queryObj.not = vi.fn().mockResolvedValue({
+          data: mockRabItemsWithPackage,
+          error: null,
+        });
+        return queryObj;
+      }
+      if (table === 'rab_estimations') {
+        const queryObj: any = {};
+        queryObj.select = vi.fn().mockReturnValue(queryObj);
+        queryObj.eq = vi.fn().mockResolvedValue({
+          data: [{ id: 'est-7080' }],
+          error: null,
+        });
+        return queryObj;
+      }
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { id: 'spk-uuid-7080', spk_no: 'SPK-7080' },
+              error: null,
+            }),
+          }),
+        }),
+      } as any;
+    });
+
+    render(<RecentMaterialIssues selectedSpk="SPK-7080" refreshKey={0} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('WINGLET DEPAN')).toBeInTheDocument();
+      expect(screen.getByText('Sekrup Lepas 5mm')).toBeInTheDocument();
+    });
+
+    // 1. WINGLET DEPAN must resolve to package name from rab_items, NOT Granular
+    expect(screen.getByText('RAB • Paket: PAKET PERAKITAN WINGLET')).toBeInTheDocument();
+
+    // 2. Sekrup Lepas 5mm (truly loose) must fallback to Granular
+    expect(screen.getByText('RAB • Granular')).toBeInTheDocument();
+  });
 });
 

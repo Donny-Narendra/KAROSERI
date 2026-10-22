@@ -52,7 +52,11 @@ export function extractPackageFromNotes(notes?: string | null): string | null {
  * Resolves detailed source origin with explicit document origin prefix ("RAB" or "Change Order")
  * and entry type ("Paket: <Name>" or "Granular" for non-packaged/loose items).
  */
-export function resolveDetailedSource(item: any, req?: any): SourceOriginResult {
+export function resolveDetailedSource(
+  item: any,
+  req?: any,
+  spkPackageMap?: Map<string, string> | Record<string, string> | null
+): SourceOriginResult {
   // 1. Tentukan Asal Dokumen: Change Order vs RAB
   const isChangeOrder = Boolean(
     item?.change_order_id ||
@@ -66,19 +70,64 @@ export function resolveDetailedSource(item: any, req?: any): SourceOriginResult 
   );
   const origin: 'RAB' | 'Change Order' = isChangeOrder ? 'Change Order' : 'RAB';
 
+  // Helper untuk lookup paket dari spkPackageMap (baik jika Map atau Record)
+  const lookupPackage = (matId?: string | null, wbs?: string | null): string | null => {
+    if (!matId) return null;
+    const mapObj = spkPackageMap || item?.spkPackageMap || req?.spkPackageMap;
+    if (!mapObj) return null;
+
+    if (mapObj instanceof Map) {
+      if (wbs && mapObj.has(`${matId}_${wbs}`)) {
+        return mapObj.get(`${matId}_${wbs}`) || null;
+      }
+      return mapObj.get(matId) || null;
+    }
+    if (typeof mapObj === 'object') {
+      const rec = mapObj as Record<string, string>;
+      if (wbs && rec[`${matId}_${wbs}`]) {
+        return rec[`${matId}_${wbs}`] || null;
+      }
+      return rec[matId] || null;
+    }
+    return null;
+  };
+
+  const mrItem = Array.isArray(item?.material_requisition_items)
+    ? item.material_requisition_items[0]
+    : item?.material_requisition_items;
+
+  const matId = item?.material_id || mrItem?.material_id || req?.material_id;
+  const wbsStage = item?.wbs_stage || item?.wbs_category || mrItem?.wbs_stage || req?.wbs_category || req?.wbs_stage;
+  const packageFromLookup = lookupPackage(matId, wbsStage);
+
   // 2. Tentukan Apakah Paket atau Granular
+  // Penelusuran Nama Paket (Package Origin Resolver):
+  // a. Prioritas 1: Baca langsung kolom package_name pada record transaksi
+  // b. Prioritas 2: Baca material_requisition_items.package_name melalui relasi requisition_item_id
+  // c. Prioritas 3: Cari kecocokan di rab_items milik SPK dan WBS tersebut di mana material_id sama dan package_id IS NOT NULL,
+  //    atau ambil dari lookup spkPackageMap
+  // d. Fallback: Jika benar-benar tidak terikat dengan paket manapun di RAB, barulah beri label Granular
   const rawPackageName =
     item?.package_name ||
+    mrItem?.package_name ||
     item?.product_packages?.name ||
+    mrItem?.product_packages?.name ||
     item?.package_source_name ||
     item?.product_package?.name ||
+    mrItem?.product_package?.name ||
     item?.rab_items?.product_packages?.name ||
     item?.rab_items?.product_package?.name ||
+    mrItem?.rab_items?.product_packages?.name ||
+    mrItem?.rab_items?.product_package?.name ||
+    packageFromLookup ||
     req?.package_name ||
     req?.product_packages?.name ||
     extractPackageFromNotes(item?.notes) ||
+    extractPackageFromNotes(mrItem?.notes) ||
     extractPackageFromNotes(item?.rab_items?.notes) ||
+    extractPackageFromNotes(mrItem?.rab_items?.notes) ||
     extractPackageFromNotes(item?.change_order_items?.notes) ||
+    extractPackageFromNotes(mrItem?.change_order_items?.notes) ||
     extractPackageFromNotes(req?.notes);
 
   // Bersihkan teks "Paket: " jika sudah ada sebelumnya agar tidak dobel
@@ -114,8 +163,12 @@ export function resolveDetailedSource(item: any, req?: any): SourceOriginResult 
  * Resolves source origin and returns formatted display label and CSS badge classes.
  * Preserves compatibility with existing components by providing both `label` and `fullLabel`.
  */
-export function resolveItemSource(item: any, req?: any): ResolvedItemSource & SourceOriginResult {
-  const detailed = resolveDetailedSource(item, req);
+export function resolveItemSource(
+  item: any,
+  req?: any,
+  spkPackageMap?: Map<string, string> | Record<string, string> | null
+): ResolvedItemSource & SourceOriginResult {
+  const detailed = resolveDetailedSource(item, req, spkPackageMap);
   const isPackage = detailed.typeLabel.startsWith('Paket:');
   const packageName = isPackage ? detailed.typeLabel.replace(/^Paket:\s*/i, '').trim() : null;
 
@@ -131,7 +184,10 @@ export function resolveItemSource(item: any, req?: any): ResolvedItemSource & So
  * Resolves source origin specifically from a material issue record (which may have
  * nested material_requisition_items, material_requisitions, spk, or audit_notes).
  */
-export function extractIssueSource(issue: any): SourceOriginResult & ResolvedItemSource {
+export function extractIssueSource(
+  issue: any,
+  spkPackageMap?: Map<string, string> | Record<string, string> | null
+): SourceOriginResult & ResolvedItemSource {
   if (!issue) return resolveItemSource(null);
   const mrItem = Array.isArray(issue.material_requisition_items)
     ? issue.material_requisition_items[0]
@@ -148,5 +204,5 @@ export function extractIssueSource(issue: any): SourceOriginResult & ResolvedIte
     product_packages: mrItem?.product_packages || issue.product_packages,
     notes: mrItem?.notes || issue.audit_notes || issue.notes,
   };
-  return resolveItemSource(mergedItem, mr || issue.spk);
+  return resolveItemSource(mergedItem, mr || issue.spk, spkPackageMap || issue.spkPackageMap);
 }
