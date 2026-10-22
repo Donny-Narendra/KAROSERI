@@ -1,6 +1,6 @@
 ## Current Position
-- **Sprint**: Post-Sprint 70 / Owner Security Reset Simulation Transactions — System Architecture & Codebase Map Synchronized
-- **Status**: Codebase Mapped ✅ / Ready for `/plan`
+- **Sprint**: Sprint 71 — Fix Partially Issued Requisitions Disappearing from Warehouse Dashboard
+- **Status**: Sprint in progress
 - **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness
 
 ## Last Session Summary
