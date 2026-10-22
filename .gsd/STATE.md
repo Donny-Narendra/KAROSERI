@@ -1,6 +1,6 @@
 ## Current Position
-- **Sprint**: Post-Sprint 71 / Fix Partially Issued Requisitions Disappearing from Warehouse Dashboard
-- **Status**: Sprint 71 Completed ✅ / Ready for Next Sprint or Milestone Planning
+- **Sprint**: None (Sprint 71 closed)
+- **Status**: Sprint 71 Closed & Archived ✅ / Codebase clean
 - **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness
 
 ## Last Session Summary
