@@ -410,20 +410,23 @@ describe('Component: RequisitionApproval (WBS Column & Ascending Sorting)', () =
     });
 
     // 1. Verify RAB Package Badge with amber styling
-    const pkgBadge = screen.getByText('RAB • Paket: HPP DUDUKAN SLEBOR');
-    expect(pkgBadge).toBeInTheDocument();
+    const pkgText = screen.getByText('RAB • Paket: HPP DUDUKAN SLEBOR');
+    const pkgBadge = pkgText.closest('span[class*="rounded"]') || pkgText;
+    expect(pkgText).toBeInTheDocument();
     expect(pkgBadge.className).toContain('text-amber-300');
     expect(pkgBadge.className).toContain('bg-amber-950/70');
 
     // 2. Verify Change Order Granular Badge with indigo styling
-    const coBadge = screen.getByText('Change Order • Granular');
-    expect(coBadge).toBeInTheDocument();
+    const coText = screen.getByText('Change Order • Granular');
+    const coBadge = coText.closest('span[class*="rounded"]') || coText;
+    expect(coText).toBeInTheDocument();
     expect(coBadge.className).toContain('text-indigo-300');
     expect(coBadge.className).toContain('bg-indigo-950/70');
 
     // 3. Verify standard RAB Granular Badge with blue styling
-    const rabBadge = screen.getByText('RAB • Granular');
-    expect(rabBadge).toBeInTheDocument();
+    const rabText = screen.getByText('RAB • Granular');
+    const rabBadge = rabText.closest('span[class*="rounded"]') || rabText;
+    expect(rabText).toBeInTheDocument();
     expect(rabBadge.className).toContain('text-blue-300');
     expect(rabBadge.className).toContain('bg-blue-950/70');
   });

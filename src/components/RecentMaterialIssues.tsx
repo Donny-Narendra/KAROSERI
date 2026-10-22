@@ -687,11 +687,9 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
                       {(() => {
                         const source = resolveDetailedSource(issue);
                         return (
-                          <span
-                            className={`text-[9px] font-semibold px-1.5 py-0.5 rounded whitespace-nowrap inline-flex items-center ${source.badgeClass}`}
-                            title={source.fullLabel}
-                          >
-                            {source.fullLabel}
+                          <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded whitespace-nowrap inline-flex items-center gap-1 ${source.badgeClass}`}>
+                            <span>{source.origin === 'Change Order' ? '🔄' : '📋'}</span>
+                            <span>{source.fullLabel}</span>
                           </span>
                         );
                       })()}

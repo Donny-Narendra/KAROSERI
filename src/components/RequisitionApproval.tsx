@@ -1143,11 +1143,9 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                                     {(() => {
                                       const source = resolveDetailedSource(item, req);
                                       return (
-                                        <span
-                                          className={`text-[10px] font-semibold px-2 py-0.5 rounded whitespace-nowrap inline-flex items-center ${source.badgeClass}`}
-                                          title={source.fullLabel}
-                                        >
-                                          {source.fullLabel}
+                                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded whitespace-nowrap inline-flex items-center gap-1 ${source.badgeClass}`}>
+                                          <span>{source.origin === 'Change Order' ? '🔄' : '📋'}</span>
+                                          <span>{source.fullLabel}</span>
                                         </span>
                                       );
                                     })()}
