@@ -44,10 +44,13 @@ export const ResetSimulationModal: React.FC<ResetSimulationModalProps> = ({
       const { data, error } = await supabase.rpc('reset_all_simulation_transactions');
 
       if (error) {
-        throw new Error(error.message || 'Terjadi kesalahan saat memanggil RPC reset transaksi.');
+        console.error('[ResetSimulationModal] Supabase RPC returned error:', error);
+        const detailedErr = error.message || error.details || error.hint || 'Terjadi kesalahan saat memanggil RPC reset transaksi.';
+        throw new Error(detailedErr);
       }
 
       if (data && data.success === false) {
+        console.error('[ResetSimulationModal] RPC logic returned failure:', data.error);
         throw new Error(data.error || 'Gagal mereset transaksi simulasi.');
       }
 
@@ -62,8 +65,9 @@ export const ResetSimulationModal: React.FC<ResetSimulationModalProps> = ({
         }
       }, 1200);
     } catch (err: any) {
-      console.error('Reset simulation transactions failed:', err);
-      setErrorMsg(err.message || 'Gagal mengeksekusi reset database simulasi.');
+      const msg = err?.message || (typeof err === 'string' ? err : JSON.stringify(err)) || 'Gagal mengeksekusi reset database simulasi.';
+      console.error(`[ResetSimulationModal] Reset simulation transactions failed: ${msg}`);
+      setErrorMsg(msg);
       setLoading(false);
     }
   };

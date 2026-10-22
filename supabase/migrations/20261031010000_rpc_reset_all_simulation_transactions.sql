@@ -157,14 +157,14 @@ BEGIN
   END IF;
 
   -- 7. Reset kuantitas stok material di gudang ke 100 agar langsung siap untuk simulasi baru
-  UPDATE public.materials SET current_stock = 100 WHERE current_stock IS NOT NULL;
+  UPDATE public.materials SET current_stock = 100 WHERE id IS NOT NULL;
 
   -- 8. Buka kunci saldo awal jika ada
   IF EXISTS (
     SELECT 1 FROM information_schema.tables 
     WHERE table_schema = 'public' AND table_name = 'initial_balances' AND table_type = 'BASE TABLE'
   ) THEN
-    EXECUTE 'UPDATE public.initial_balances SET is_locked = false';
+    EXECUTE 'UPDATE public.initial_balances SET is_locked = false WHERE id IS NOT NULL';
   END IF;
 
   -- Reload schema cache PostgREST

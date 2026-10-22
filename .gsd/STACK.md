@@ -60,7 +60,7 @@
 
 | Service | Provider | Purpose |
 |---------|----------|---------|
-| Database & Auth | Supabase (PostgreSQL 15+) | Managed PostgreSQL (91 migrations), Row Level Security, Auth sessions, Views, RPCs, Hard-gate Triggers |
+| Database & Auth | Supabase (PostgreSQL 15+) | Managed PostgreSQL (92 migrations), Row Level Security, Auth sessions, Views, RPCs, Hard-gate Triggers |
 | Media Storage & CDN | Cloudinary | Unsigned image uploads for vehicle intake and progress gallery |
 
 ## Configuration
