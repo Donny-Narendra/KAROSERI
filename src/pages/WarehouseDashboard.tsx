@@ -22,6 +22,8 @@ export const WarehouseDashboard: React.FC = () => {
 
   const handleSpkSummaryChange = useCallback((summary: SpkFilterItem[]) => {
     setSpkFilterList(summary);
+    const totalPendingItems = summary.reduce((acc, curr) => acc + (curr.count || 0), 0);
+    setPendingReqCount(totalPendingItems);
   }, []);
 
   const handleApprovalRecorded = useCallback((newAudits: StockAuditItem[]) => {
@@ -30,28 +32,49 @@ export const WarehouseDashboard: React.FC = () => {
 
   const fetchPendingReqCount = async () => {
     try {
-      const { data, count, error } = await supabase
+      const { data, error } = await supabase
         .from('material_requisitions')
         .select(`
           id,
-          spk ( id, spk_no, customer_name, vehicle_plate, sub_tasks )
-        `, { count: 'exact' })
-        .in('status', ['PENDING', 'PARTIALLY_ISSUED']);
+          spk_id,
+          status,
+          wbs_category,
+          spk:spk_id ( id, spk_no, spk_number, customer_name, vehicle_plate, sub_tasks ),
+          material_requisition_items (
+            id,
+            status,
+            quantity,
+            material_id,
+            material_name,
+            materials ( id, name, unit, unit_price )
+          )
+        `)
+        .in('status', ['PENDING', 'PARTIALLY_ISSUED'])
+        .order('created_at', { ascending: false });
       
       if (!error && data) {
-        setPendingReqCount(count ?? data.length);
+        let totalPendingItemsCount = 0;
         const map = new Map<string, SpkFilterItem>();
+
         data.forEach((req: any) => {
-          const spk = Array.isArray(req.spk) ? req.spk[0] : req.spk;
-          const spkId = spk?.id;
-          const spkNo = spk?.spk_no || 'Tanpa SPK';
-          const customerName = spk?.customer_name || 'Umum';
-          const vehiclePlate = spk?.vehicle_plate || '';
-          const subTasks = spk?.sub_tasks || [];
+          const items = req.material_requisition_items || req.items || [];
+          const pendingItems = items.filter((it: any) => it.status === 'PENDING' || !it.status);
+          
+          // Lewati jika seluruh item pada dokumen requisition sudah disetujui / ditolak
+          if (pendingItems.length === 0) return;
+
+          totalPendingItemsCount += pendingItems.length;
+
+          const rawSpk = Array.isArray(req.spk) ? req.spk[0] : req.spk;
+          const spkId = rawSpk?.id || req.spk_id;
+          const spkNo = rawSpk?.spk_no || rawSpk?.spk_number || 'Tanpa SPK';
+          const customerName = rawSpk?.customer_name || 'Umum';
+          const vehiclePlate = rawSpk?.vehicle_plate || '';
+          const subTasks = rawSpk?.sub_tasks || [];
           
           if (map.has(spkNo)) {
             const current = map.get(spkNo)!;
-            current.count += 1;
+            current.count += pendingItems.length;
             if (!current.vehiclePlate && vehiclePlate) current.vehiclePlate = vehiclePlate;
             const hasExistingSubTasks = Array.isArray(current.subTasks) ? current.subTasks.length > 0 : Boolean(current.subTasks);
             const hasNewSubTasks = Array.isArray(subTasks) ? subTasks.length > 0 : Boolean(subTasks);
@@ -63,10 +86,12 @@ export const WarehouseDashboard: React.FC = () => {
               customerName,
               vehiclePlate,
               subTasks,
-              count: 1
+              count: pendingItems.length
             });
           }
         });
+
+        setPendingReqCount(totalPendingItemsCount);
         setSpkFilterList(Array.from(map.values()).sort((a, b) => a.spkNo.localeCompare(b.spkNo)));
       }
     } catch (error) {

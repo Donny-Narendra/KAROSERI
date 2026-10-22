@@ -62,6 +62,11 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
   const spkSummary = useMemo(() => {
     const map = new Map<string, SpkSummaryItem>();
     requisitions.forEach(req => {
+      const pendingItems = (req.material_requisition_items || req.items || []).filter(
+        (it: any) => it.status === 'PENDING' || !it.status
+      );
+      if (pendingItems.length === 0) return;
+
       const spk = Array.isArray(req.spk) ? req.spk[0] : req.spk;
       const spkNo = spk?.spk_no || spk?.spk_number || 'Tanpa SPK';
       const spkId = spk?.id || req.spk_id || '';
@@ -71,7 +76,7 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
 
       const existing = map.get(spkNo);
       if (existing) {
-        existing.count += 1;
+        existing.count += pendingItems.length;
         if (!existing.vehiclePlate && vehiclePlate) existing.vehiclePlate = vehiclePlate;
         const hasExistingSubTasks = Array.isArray(existing.subTasks) ? existing.subTasks.length > 0 : Boolean(existing.subTasks);
         const hasNewSubTasks = Array.isArray(subTasks) ? subTasks.length > 0 : Boolean(subTasks);
@@ -83,7 +88,7 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
           customerName,
           vehiclePlate,
           subTasks,
-          count: 1
+          count: pendingItems.length
         });
       }
     });
@@ -411,7 +416,12 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
         };
       });
 
-      setRequisitions(normalizedData);
+      // Filter: Hanya simpan requisition yang masih memiliki item PENDING (jika 0 otomatis sembunyikan)
+      const activePendingRequisitions = normalizedData.filter(
+        (req: any) => (req.pendingItems || []).length > 0
+      );
+
+      setRequisitions(activePendingRequisitions);
     } catch (err) {
       console.error('Error fetching requisitions:', err);
     } finally {
@@ -1037,10 +1047,10 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                       <span className="bg-background border border-border px-2 py-0.5 rounded text-xs font-medium">
                         {req.wbs_category}
                       </span>
-                      {req.status === 'PARTIALLY_ISSUED' ? (
-                        <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded text-xs font-semibold flex items-center gap-1.5">
+                      {req.status === 'PARTIALLY_ISSUED' || (req.approvedItems?.length > 0 && req.pendingItems?.length > 0) ? (
+                        <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2.5 py-0.5 rounded text-xs font-semibold flex items-center gap-1.5 shadow-xs">
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-                          Sebagian Dirilis (Partially Issued)
+                          PARSIAL (Sisa {req.pendingItems?.length || 0} Item Belum Disetujui)
                         </span>
                       ) : (
                         <span className="bg-primary/10 text-primary border border-primary/30 px-2 py-0.5 rounded text-xs font-medium">

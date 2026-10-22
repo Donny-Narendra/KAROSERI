@@ -369,8 +369,8 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
       expect(screen.getByText('SPK-2668')).toBeInTheDocument();
     });
 
-    // Card header should display PARTIALLY_ISSUED badge
-    expect(screen.getByText(/Sebagian Dirilis \(Partially Issued\)/i)).toBeInTheDocument();
+    // Card header should display PARTIALLY_ISSUED badge with remaining pending items count
+    expect(screen.getByText(/PARSIAL \(Sisa 1 Item Belum Disetujui\)/i)).toBeInTheDocument();
 
     // Approved item row should render "✓ Dirilis" badge
     expect(screen.getByText(/✓ Dirilis/i)).toBeInTheDocument();
