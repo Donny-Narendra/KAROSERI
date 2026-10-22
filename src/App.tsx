@@ -15,6 +15,7 @@ const MandorDashboard = lazy(() => import('./pages/MandorDashboard').then(m => (
 const KasirDashboard = lazy(() => import('./pages/KasirDashboard').then(m => ({ default: m.KasirDashboard })));
 const PublicProgressTracking = lazy(() => import('./pages/PublicProgressTracking').then(m => ({ default: m.PublicProgressTracking })));
 const FinancialReportsPage = lazy(() => import('./pages/FinancialReportsPage').then(m => ({ default: m.FinancialReportsPage })));
+const GeneralLedgerPage = lazy(() => import('./pages/GeneralLedgerPage').then(m => ({ default: m.GeneralLedgerPage })));
 
 const PageLoadingFallback: React.FC = () => (
   <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
@@ -113,6 +114,8 @@ function App() {
             {/* Protected Routes for Financial Reports (Owner & Kasir) */}
             <Route element={<ProtectedRoute allowedRoles={['owner', 'kasir']} />}>
               <Route path="/finance-reports" element={<FinancialReportsPage />} />
+              <Route path="/buku-besar" element={<GeneralLedgerPage />} />
+              <Route path="/ledger" element={<Navigate to="/buku-besar" replace />} />
             </Route>
             
             {/* Catch all */}

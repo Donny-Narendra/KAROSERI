@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
   BarChart3, AlertTriangle, ShieldCheck, Factory, LogOut, Package,
-  Settings, Bell, Check, X, Search, RotateCcw, FileSpreadsheet, Ban, TrendingUp 
+  Settings, Bell, Check, X, Search, RotateCcw, FileSpreadsheet, Ban, TrendingUp, BookOpen 
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { PackageManager } from '../components/PackageManager';
@@ -12,6 +12,7 @@ import { ConfirmationModal, type ConfirmationModalVariant } from '../components/
 import { CancelledSpkAuditLog } from '../components/CancelledSpkAuditLog';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { dashboardService, type DashboardSpkItem } from '../services/dashboardService';
+import { ResetSimulationModal } from '../components/owner/ResetSimulationModal';
 
 export const AdminDashboardPage: React.FC = () => {
   const { t } = useTranslation();
@@ -36,6 +37,7 @@ export const AdminDashboardPage: React.FC = () => {
 
   // Modal State untuk Ekspor Laporan
   const [showExportModal, setShowExportModal] = useState(false);
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
 
   // Modal Feedback / Notifikasi Umum
   const [feedbackModal, setFeedbackModal] = useState<{
@@ -290,6 +292,14 @@ export const AdminDashboardPage: React.FC = () => {
             {t('finance.title', 'Laporan Keuangan')}
           </button>
           <button 
+            onClick={() => window.location.href = '/buku-besar'}
+            className="flex items-center gap-2 text-sm bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 px-3 py-1.5 rounded transition font-medium"
+            title="Buka Buku Besar & Kas (Akuntansi Model T)"
+          >
+            <BookOpen className="w-4 h-4" />
+            {t('ledger.title', 'Buku Besar & Kas')}
+          </button>
+          <button 
             onClick={() => window.location.href = '/kasir'}
             className="flex items-center gap-2 text-sm bg-surface-hover hover:bg-surface-active px-3 py-1.5 rounded transition text-text"
           >
@@ -341,8 +351,20 @@ export const AdminDashboardPage: React.FC = () => {
               )}
             </button>
           </div>
-          <div className="bg-primary/20 text-primary text-xs font-mono px-2 py-1 rounded shrink-0">
-            {t('admin.live_telemetry')}
+          <div className="flex items-center gap-2.5 shrink-0">
+            {profile?.role === 'owner' && (
+              <button
+                onClick={() => setIsResetModalOpen(true)}
+                className="px-3 py-1.5 bg-rose-950/80 hover:bg-rose-900 border border-rose-700/60 text-rose-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                title="Khusus Owner: Reset data transaksi untuk mengulang simulasi"
+              >
+                <span>⚠️</span>
+                <span>Reset Simulasi Transaksi</span>
+              </button>
+            )}
+            <div className="bg-primary/20 text-primary text-xs font-mono px-2 py-1 rounded">
+              {t('admin.live_telemetry')}
+            </div>
           </div>
         </div>
 
@@ -908,6 +930,13 @@ export const AdminDashboardPage: React.FC = () => {
           onCancel={() => setFeedbackModal(null)}
         />
       )}
+
+      {/* Modal Reset Simulasi Transaksi (Khusus Owner) */}
+      <ResetSimulationModal
+        isOpen={isResetModalOpen}
+        onClose={() => setIsResetModalOpen(false)}
+        onSuccess={() => window.location.reload()}
+      />
     </div>
   );
 };

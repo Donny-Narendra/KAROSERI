@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { AlertCircle, FileText, CheckCircle, Calculator, Lock, Receipt, TrendingUp, ChevronDown, ChevronUp, Printer } from 'lucide-react';
+import { AlertCircle, FileText, CheckCircle, Calculator, Lock, Receipt, TrendingUp, ChevronDown, ChevronUp, Printer, BookOpen } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { DownPaymentModal } from '../components/DownPaymentModal';
 import { DpHistoryList } from '../components/DpHistoryList';
@@ -723,6 +723,14 @@ export const KasirDashboard: React.FC = () => {
             >
               <TrendingUp className="w-3.5 h-3.5" />
               Laporan Keuangan
+            </button>
+            <button
+              onClick={() => window.location.href = '/buku-besar'}
+              className="text-xs bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 px-3 py-1.5 rounded transition-colors flex items-center gap-1.5 font-medium"
+              title="Buka Buku Besar & Kas (Akuntansi Model T)"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              Buku Besar & Kas
             </button>
             {profile?.role !== 'kasir' && (
               <button

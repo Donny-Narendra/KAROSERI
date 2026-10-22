@@ -190,5 +190,14 @@
     "margin": "Gross Margin (%)",
     "receivables": "Outstanding Receivables",
     "sanity_audit": "Data Integrity & Sanity Audit"
+  },
+  "ledger": {
+    "title": "General Ledger & Cash",
+    "model_t": "T-Account Model",
+    "aktiva": "Assets",
+    "pasiva": "Liabilities & Equity",
+    "initial_balance": "Setup Initial Balance",
+    "cash_in": "Cash In",
+    "cash_out": "Cash Out"
   }
 }

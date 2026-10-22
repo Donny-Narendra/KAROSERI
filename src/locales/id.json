@@ -190,5 +190,14 @@
     "margin": "Margin Laba (%)",
     "receivables": "Piutang & Unit Tertahan",
     "sanity_audit": "Audit Integritas Data & Sanity Check"
+  },
+  "ledger": {
+    "title": "Buku Besar & Kas",
+    "model_t": "Akuntansi Model T",
+    "aktiva": "Aktiva (Aset)",
+    "pasiva": "Pasiva (Kewajiban & Modal)",
+    "initial_balance": "Setup Saldo Awal",
+    "cash_in": "Kas Masuk",
+    "cash_out": "Kas Keluar"
   }
 }

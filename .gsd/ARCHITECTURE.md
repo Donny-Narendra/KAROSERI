@@ -4,12 +4,12 @@
 
 ## Overview
 
-KAROSERI is an enterprise auto body repair and modification management system (*Bengkel Karoseri & Perbaikan Bodi*). It coordinates end-to-end workshop operations from intake estimation to 3-element job order costing, production, quality control, warehouse inventory control, billing, periodic operational expenses (OPEX) with dynamic category management, and executive corporate financial intelligence across six core roles:
-- **Owner / Administrator** (Executive oversight, 6-card KPI analytics, active SPK real-time financial metrics monitoring table [Total HPP, Total Tagihan, Realisasi Biaya Aktual & Varian Pagu], corporate P&L, CVP sales target solver, financial sanity audits, master settings, dynamic expense categories, audit trails, backup/restore)
+KAROSERI is an enterprise auto body repair and modification management system (*Bengkel Karoseri & Perbaikan Bodi*). It coordinates end-to-end workshop operations from intake estimation to 3-element job order costing, production, quality control, warehouse inventory control, billing, periodic operational expenses (OPEX) with dynamic category management, executive corporate financial intelligence, and comprehensive double-entry accounting (*Buku Besar & Kas Akuntansi Model T*) across six core roles:
+- **Owner / Administrator** (Executive oversight, 6-card KPI analytics, active SPK real-time financial metrics monitoring table [Total HPP, Total Tagihan, Realisasi Biaya Aktual & Varian Pagu], Buku Besar & Kas Akuntansi Model T [Aktiva vs Pasiva], corporate P&L, CVP sales target solver, financial sanity audits, master settings, dynamic expense categories, audit trails, backup/restore)
 - **Service Advisor (SA)** (Vehicle intake with photo inspection & vehicle model tracking, SPK creation, 3-element RAB estimation, itemized change order / amendment management with assembly packages insertion, material requisitions)
 - **Foreman / Mandor** (7-stage WBS tracking, borongan worker assignments with completion deadlines from RAB & Change Orders, photo uploads, floor terminal actual overhead logging with presets, pending material inspection)
 - **Warehouse Officer / Petugas Gudang** (Granular item-level material requisition approvals with Gate 2 Material-Only budget guard, goods issue against RAB quota limits, stock rollback, restock audit logging)
-- **Cashier / Kasir** (Down payment recording with receipt print & history, final invoice settlement with itemized Change Order breakdown, handover billing clearance gate, BAST handover with automated vehicle release timestamping)
+- **Cashier / Kasir** (Down payment recording with receipt print & history, final invoice settlement with itemized Change Order breakdown, Buku Besar & Kas non-SPK logging, handover billing clearance gate, BAST handover with automated vehicle release timestamping)
 - **Customer (Public)** (Read-only real-time SPK progress timeline via `/tracking/:spk_no` protected by a 7-day post-BAST expiration boundary transitioning into a branded customer appreciation card)
 
 ```
@@ -21,11 +21,12 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 ├────────────────────────────────────────────────────────────────────────┤
 │                         [Role Dashboards & Pages]                      │
 │   Admin | Service Advisor | Mandor | Gudang | Kasir | Finance Reports  │
-│          + Public Vehicle Tracker (with 7-Day Expiration)              │
+│        + Buku Besar & Kas (Model T) | Public Vehicle Tracker           │
 ├────────────────────────────────────────────────────────────────────────┤
 │                            [Services Layer]                            │
 │  dashboardService | spkService | inventoryService | billingService     │
 │   packageService | rabService | financialReportsService | opexService  │
+│                     + generalLedgerService                             │
 ├────────────────────────────────────┬───────────────────────────────────┤
 │       [Supabase Cloud BaaS]        │      [Cloudinary Media API]       │
 │ PostgreSQL 15+, Auth, RLS, Views,  │    Vehicle intake inspection &    │
@@ -36,6 +37,7 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 │  Non-Draft Excluded Financial Views│                                   │
 │  Corporate Monthly P&L View & OPEX │                                   │
 │  Master Dynamic Expense Categories │                                   │
+│  Initial Balances & Cash Ledger    │                                   │
 └────────────────────────────────────┴───────────────────────────────────┘
 ```
 
@@ -43,22 +45,28 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 
 ### Core & Routing (`src/`)
 - **Auth Provider & Session Guards:** [`src/context/AuthContext.tsx`](file:///c:/KAROSERI/src/context/AuthContext.tsx), [`src/components/ProtectedRoute.tsx`](file:///c:/KAROSERI/src/components/ProtectedRoute.tsx), [`src/components/GuestRoute.tsx`](file:///c:/KAROSERI/src/components/GuestRoute.tsx), [`src/hooks/useIdleTimer.ts`](file:///c:/KAROSERI/src/hooks/useIdleTimer.ts)
-- **Root Router:** [`src/App.tsx`](file:///c:/KAROSERI/src/App.tsx) routes authenticated users based on active profile (`owner`, `service_advisor`, `mandor`, `petugas_gudang`, `kasir`) or public repair tracking.
+- **Root Router:** [`src/App.tsx`](file:///c:/KAROSERI/src/App.tsx) routes authenticated users based on active profile (`owner`, `service_advisor`, `mandor`, `petugas_gudang`, `kasir`), specialized modules (`/buku-besar`, `/ledger`, `/finance-reports`), or public repair tracking.
 - **Internationalization:** [`src/i18n.ts`](file:///c:/KAROSERI/src/i18n.ts) with symmetric catalogs [`src/locales/id.json`](file:///c:/KAROSERI/src/locales/id.json) & [`src/locales/en.json`](file:///c:/KAROSERI/src/locales/en.json).
 
-### Role Dashboards & Pages (10 pages in `src/pages/`)
-- [`AdminDashboardPage.tsx`](file:///c:/KAROSERI/src/pages/AdminDashboardPage.tsx): Executive dashboard showing workshop KPIs, active SPK real-time financial table ([`ActiveSpkTable.tsx`](file:///c:/KAROSERI/src/components/ActiveSpkTable.tsx)), material expense summaries, and quick navigations.
+### Role Dashboards & Pages (11 pages in `src/pages/`)
+- [`AdminDashboardPage.tsx`](file:///c:/KAROSERI/src/pages/AdminDashboardPage.tsx): Executive dashboard showing workshop KPIs, active SPK real-time financial table ([`ActiveSpkTable.tsx`](file:///c:/KAROSERI/src/components/ActiveSpkTable.tsx)), material expense summaries, and quick navigations (Laporan Keuangan, Buku Besar & Kas, Kasir, Settings).
 - [`AdminSettingsPage.tsx`](file:///c:/KAROSERI/src/pages/AdminSettingsPage.tsx): System configuration, workshop identity, user account management, audit trails, and backup/restore.
+- [`GeneralLedgerPage.tsx`](file:///c:/KAROSERI/src/pages/GeneralLedgerPage.tsx): Dedicated T-Model accounting dashboard for Owner & Kasir (`/buku-besar` and `/ledger`) providing interactive T-Account Board (Left: AKTIVA vs Right: PASIVA), balance status indicator badge, real-time cash reconciliation strip, non-SPK cash ledger mutation table, and modals for initial balance setup and cash transactions.
 - [`FinancialReportsPage.tsx`](file:///c:/KAROSERI/src/pages/FinancialReportsPage.tsx): Enterprise financial intelligence suite containing 5 analytical reporting tabs, 6-card Executive KPI summary, Sanity Audit panel, and printable PDF/Excel export engine. Strictly excludes DRAFT & PENDING_DP status SPKs.
 - [`ServiceAdvisorDashboard.tsx`](file:///c:/KAROSERI/src/pages/ServiceAdvisorDashboard.tsx): Intake queue, new SPK wizard, vehicle model tracking, RAB cost estimation, package allocation, change orders, and material requisition requests.
 - [`MandorDashboard.tsx`](file:///c:/KAROSERI/src/pages/MandorDashboard.tsx): Production tracking, 7-stage WBS progression, borongan task assignments with completion deadlines from RAB and Change Orders, stage photo documentation, floor terminal actual overhead logging, and pending material checks.
 - [`WarehouseDashboard.tsx`](file:///c:/KAROSERI/src/pages/WarehouseDashboard.tsx): Inventory control, granular item-level material requisition approvals with Gate 2 budget validation, goods issue against RAB limits, goods return, incoming restock with audit logging, and issue rollback.
-- [`KasirDashboard.tsx`](file:///c:/KAROSERI/src/pages/KasirDashboard.tsx): Down payment receipts & history modal, final invoice calculation with itemized Change Order breakdown accordion, handover billing clearance verification, mark as paid, vehicle release stamping, and BAST generation with tracking link expiration indicators.
+- [`KasirDashboard.tsx`](file:///c:/KAROSERI/src/pages/KasirDashboard.tsx): Down payment receipts & history modal, final invoice calculation with itemized Change Order breakdown accordion, handover billing clearance verification, mark as paid, vehicle release stamping, Buku Besar & Kas access, and BAST generation with tracking link expiration indicators.
 - [`PublicProgressTracking.tsx`](file:///c:/KAROSERI/src/pages/PublicProgressTracking.tsx): Public vehicle repair status tracker with live photo gallery, WBS progression, and automated 7-day post-BAST expiration transition to official Thank You appreciation card.
 - [`LoginPage.tsx`](file:///c:/KAROSERI/src/pages/LoginPage.tsx): Authentication portal with role switcher and Supabase Auth credentials.
 - [`InventoryPage.tsx`](file:///c:/KAROSERI/src/pages/InventoryPage.tsx): Dedicated inventory management view wrapper.
 
-### Operational Components (64 components in `src/components/`)
+### Operational Components (67 components in `src/components/`)
+- **Accounting & General Ledger Components (`src/components/accounting/`):**
+  - [`InitialBalanceModal.tsx`](file:///c:/KAROSERI/src/components/accounting/InitialBalanceModal.tsx): Workshop initial balance configuration modal (Cash & Bank, Inventory, Equipment, Supplies, Payables) with real-time equity preview and lock protection.
+  - [`CashTransactionModal.tsx`](file:///c:/KAROSERI/src/components/accounting/CashTransactionModal.tsx): Non-SPK cash flow entry modal with dual tabs (Kas Masuk vs Kas Keluar), accounting categories (`CAPITAL_INJECTION`, `DEBT_RECEIVED`, `OTHER_INCOME`, `EQUIPMENT_PURCHASE`, `SUPPLIES_PURCHASE`, `PRIVE_WITHDRAWAL`, `DEBT_REPAYMENT`), validation, and accounting impact hints.
+- **Layout Components (`src/components/layout/`):**
+  - [`Navbar.tsx`](file:///c:/KAROSERI/src/components/layout/Navbar.tsx): Reusable top navigation header bar with quick links to Financial Reports, General Ledger, Cashier, Settings, Language Switcher, and profile badges.
 - **SPK & Estimates:**
   - [`ActiveSpkTable.tsx`](file:///c:/KAROSERI/src/components/ActiveSpkTable.tsx): Modular executive monitoring table for Active SPKs replacing operational phase tags with three core financial metrics (`TOTAL HPP`, `TOTAL TAGIHAN`, `REALISASI BIAYA AKTUAL`), live variance calculations (Overbudget vs Sisa Pagu), search filter, and CSV data export.
   - [`SpkForm.tsx`](file:///c:/KAROSERI/src/components/SpkForm.tsx): SPK registration with Cloudinary vehicle inspection photo upload, vehicle model & brand inputs.
@@ -116,7 +124,8 @@ KAROSERI is an enterprise auto body repair and modification management system (*
   - [`LanguageSwitcher.tsx`](file:///c:/KAROSERI/src/components/LanguageSwitcher.tsx): Persistent language selector component.
   - [`BackupRestoreCard.tsx`](file:///c:/KAROSERI/src/components/BackupRestoreCard.tsx): Administrative data backup and restoration utility.
 
-### Services Layer (8 services in `src/services/`)
+### Services Layer (9 services in `src/services/`)
+- [`generalLedgerService.ts`](file:///c:/KAROSERI/src/services/generalLedgerService.ts): Aggregates live T-Model accounting data, enforces the mathematical double-entry balance identity (`Total Aktiva == Total Pasiva`), manages workshop initial balances (`initial_balances`), non-SPK cash inflows/outflows (`cash_ledger_transactions`), and cash flow reconciliations.
 - [`dashboardService.ts`](file:///c:/KAROSERI/src/services/dashboardService.ts): Fetches active SPKs and aggregates real-time financial metrics: Total HPP (initial RAB cost + approved Change Order cost), Total Tagihan (contract revenue + approved CO revenue), and Realisasi Biaya Aktual (material issues, borongan labor assignments, and floor overhead logs), computing real-time budget variance and sisa pagu with fallback guards.
 - [`spkService.ts`](file:///c:/KAROSERI/src/services/spkService.ts): Cancellation validation, itemized change orders management, SPK credential updates (`vehicle_model`, `vehicle_brand`), vehicle release timestamping, and cancelled SPK audit logs.
 - [`inventoryService.ts`](file:///c:/KAROSERI/src/services/inventoryService.ts): Stock management with audit logs, restock, issue reversal/void rollback, and bulk catalog import/delete.
@@ -168,7 +177,11 @@ KAROSERI is an enterprise auto body repair and modification management system (*
    - **Quality Control:** QC Officer conducts final inspection ([`QcInspectionForm.tsx`](file:///c:/KAROSERI/src/components/QcInspectionForm.tsx)) to set `PASS` status.
    - **Settlement & Handover Gate:** Kasir reviews balance with itemized Change Order breakdowns in [`KasirDashboard.tsx`](file:///c:/KAROSERI/src/pages/KasirDashboard.tsx). Handover gate blocks BAST generation until invoice status is strictly `LUNAS`. Database trigger `trg_enforce_handover_billing_lock` rolls back any query attempting to mark SPK `COMPLETED` if unpaid. Once paid, signed BAST is issued ([`BastModal.tsx`](file:///c:/KAROSERI/src/components/BastModal.tsx)), stamping `released_at = NOW()`.
    - **Public Tracking & Privacy Expiration:** Vehicle owner tracks progress in real-time via `/tracking/:spk_no`. After 7 days post-BAST, technical WBS and fabrication photos are masked and replaced by an official branded customer appreciation card with post-handover warranty guidance.
-3. **Financial Reporting & Corporate Intelligence:**
+3. **General Ledger & T-Model Balance Sheet (Buku Besar & Kas):**
+   - Initial workshop balances configured via [`InitialBalanceModal.tsx`](file:///c:/KAROSERI/src/components/accounting/InitialBalanceModal.tsx) persist to `public.initial_balances` with generated stored equity.
+   - Non-SPK transactions (capital injections, debt, equipment/supplies purchases, prive) are logged in `public.cash_ledger_transactions` via [`CashTransactionModal.tsx`](file:///c:/KAROSERI/src/components/accounting/CashTransactionModal.tsx).
+   - [`generalLedgerService.ts`](file:///c:/KAROSERI/src/services/generalLedgerService.ts) reconciles Aktiva (Cash, Receivables, Warehouse Inventory, WIP, Supplies, Equipment) against Pasiva (Payables, Initial Equity, Capital Injections, Net Profit, Prive, New Equity), proving the double-entry accounting identity `Total Aktiva == Total Pasiva` on [`GeneralLedgerPage.tsx`](file:///c:/KAROSERI/src/pages/GeneralLedgerPage.tsx).
+4. **Financial Reporting & Corporate Intelligence:**
    - Database views aggregate live job profitability (`view_spk_job_profitability`), WBS cost variances (`view_wbs_cost_variance`), inventory valuation (`view_inventory_valuation`), aging receivables (`view_project_receivables`), and corporate monthly P&L (`view_corporate_monthly_pnl`).
    - Dynamic OPEX categories table `public.expense_categories` feeds modal logging with in-place category management (`ManageExpenseCategoriesModal.tsx`).
    - All financial views and executive RPC summaries strictly exclude unapproved / preliminary SPKs (`DRAFT` and `PENDING_DP`).
@@ -182,15 +195,15 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 | Service | Type | Purpose | Location |
 |---------|------|---------|----------|
 | Supabase Auth | BaaS API | Authentication, session persistence, role-based access | [`src/context/AuthContext.tsx`](file:///c:/KAROSERI/src/context/AuthContext.tsx) |
-| Supabase PostgreSQL | BaaS API | Relational database (90 migrations), RLS policies, Views, RPCs, Completion Triggers | [`src/lib/supabaseClient.ts`](file:///c:/KAROSERI/src/lib/supabaseClient.ts) |
+| Supabase PostgreSQL | BaaS API | Relational database (91 migrations), RLS policies, Views, RPCs, Completion Triggers | [`src/lib/supabaseClient.ts`](file:///c:/KAROSERI/src/lib/supabaseClient.ts) |
 | Cloudinary | REST API / CDN | Vehicle damage intake photos and production milestone evidence | [`src/lib/cloudinary.ts`](file:///c:/KAROSERI/src/lib/cloudinary.ts), [`src/components/ui/CloudinaryUploader.tsx`](file:///c:/KAROSERI/src/components/ui/CloudinaryUploader.tsx) |
-| Vitest & RTL | Test Runner & Library | Automated unit and component testing with jsdom (50 suites, 327 tests) | `package.json`, [`src/utils/__tests__/`](file:///c:/KAROSERI/src/utils/__tests__/), [`src/components/**/__tests__/`](file:///c:/KAROSERI/src/components/), [`src/services/__tests__/`](file:///c:/KAROSERI/src/services/__tests__/) |
+| Vitest & RTL | Test Runner & Library | Automated unit and component testing with jsdom (51 suites, 333 tests) | `package.json`, [`src/utils/__tests__/`](file:///c:/KAROSERI/src/utils/__tests__/), [`src/components/**/__tests__/`](file:///c:/KAROSERI/src/components/), [`src/services/__tests__/`](file:///c:/KAROSERI/src/services/__tests__/) |
 | jsPDF / html2canvas | Client Library | BAST and invoice PDF rendering and export | [`src/components/BastModal.tsx`](file:///c:/KAROSERI/src/components/BastModal.tsx), [`src/utils/rabExport.ts`](file:///c:/KAROSERI/src/utils/rabExport.ts) |
 | XLSX (SheetJS) | Client Library | Inventory master data and financial reports Excel export | [`src/utils/excelExport.ts`](file:///c:/KAROSERI/src/utils/excelExport.ts), [`src/utils/exportFinancialReports.ts`](file:///c:/KAROSERI/src/utils/exportFinancialReports.ts) |
 
 ## Database Schema & Architecture
 
-### Tables (29 tables in `public` schema)
+### Tables (31 tables in `public` schema)
 1. `profiles`: User accounts linked with Supabase Auth (`user_id`, `role`, `full_name`).
 2. `spk`: Core job orders (`id`, `spk_no`, `customer_name`, `license_plate`, `vehicle_model`, `vehicle_brand`, `chassis_no`, `engine_no`, `status`, `released_at`, etc.).
 3. `spk_assets`: Intake and damage photo gallery records with Cloudinary URLs.
@@ -220,6 +233,8 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 27. `operating_expense_categories`: Legacy master OPEX categories.
 28. `operating_expenses`: Periodic operational expense ledger entries with `category_id` FK.
 29. `expense_categories`: Dynamic master OPEX categories (`id`, `name UNIQUE`, `description`, `is_active`, timestamps).
+30. `initial_balances`: Starting financial baseline for workshop double-entry accounting (`cash_bank`, `inventory_value`, `equipment_value`, `supplies_value`, `payables`, generated stored `initial_equity`, `is_locked`).
+31. `cash_ledger_transactions`: Non-SPK cash book for capital injections, loans, equipment purchases, consumables, prive withdrawals, and debt repayments.
 
 ### Views (8 views)
 - `view_spk_job_profitability`: Live 3-element job order costing and profit margin analysis (excludes DRAFT/PENDING_DP).
@@ -257,7 +272,8 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 
 ## Technical Debt & Audit Status
 
-### Fully Resolved (Sprints 43–68)
+### Fully Resolved (Sprints 43–68 & General Ledger Ingestion)
+- [x] **General Ledger & Cash - T-Model Accounting (Sprint 69 / Latest):** Implemented dedicated General Ledger & Cash module. Created SQL migration `20261030010000_general_ledger_t_model.sql` with `initial_balances` and `cash_ledger_transactions`. Built `generalLedgerService.ts` establishing the double-entry accounting identity `Total Aktiva == Total Pasiva` (`isBalanced`). Created `InitialBalanceModal.tsx` for baseline equity setup, `CashTransactionModal.tsx` for non-SPK cash inflows/outflows, `GeneralLedgerPage.tsx` with interactive T-Account Board, cash reconciliation strip, and history table, plus shared `Navbar.tsx` and protected routes `/buku-besar` & `/ledger`. Verified by 6 dedicated unit tests.
 - [x] **Financial Metrics Monitoring Table on Admin/Owner Dashboard (Sprint 68):** Replaced legacy operational columns (`WBS PHASE`, `DP STATUS`, `MATERIAL GATE`) on the Active SPK Table with financial metrics: `TOTAL HPP` (initial RAB modal + approved Change Order modal), `TOTAL TAGIHAN` (contract revenue + approved CO revenue), and `REALISASI BIAYA AKTUAL` (material issued + borongan labor + overhead logged) with real-time variance badges (Overbudget vs Sisa Pagu). Extracted [`ActiveSpkTable.tsx`](file:///c:/KAROSERI/src/components/ActiveSpkTable.tsx), created [`dashboardService.ts`](file:///c:/KAROSERI/src/services/dashboardService.ts), added CSV export, and created 12 unit/component tests.
 - [x] **Dynamic Expense Categories Management (Sprint 67):** Created `public.expense_categories` table, initial 6 categories seeding, `category_id` references with `ON DELETE SET NULL`, dynamic dropdown with `+ Tambah Kategori Baru...`, `ManageExpenseCategoriesModal.tsx` for adding/editing/deactivating pos akun with OPEX usage protection, and unified `OpexLoggingModal.tsx`. Verified by 17 unit and component tests.
 - [x] **7-Day Post-BAST Expiration for Public Progress Tracking (Sprint 66):** Added `released_at` timestamping upon vehicle handover in Kasir, calculated 7-day expiration boundary via `trackingExpiration.ts`, masked technical WBS & photos for expired orders with branded Thank You card, and updated Kasir tracking link badges. Verified by 19 tests.
@@ -290,3 +306,4 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 - **Styling:** Tailwind CSS v4 utility classes paired with custom design tokens in `index.css`.
 - **Database Access:** Supabase client with PostgreSQL Row Level Security (RLS) enforcement, database triggers, and specialized database views for heavy analytics.
 - **Job Order Costing:** 3-element costing convention (Direct Material, Direct Labor / Borongan, Factory Overhead / FOH) with periodic OPEX reconciliation.
+- **Double-Entry Accounting:** Model T Balance Sheet convention (Left: Aktiva vs Right: Pasiva) with `Total Aktiva == Total Pasiva` mathematical balance validation.
