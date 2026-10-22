@@ -46,6 +46,9 @@ export const WarehouseDashboard: React.FC = () => {
             quantity,
             material_id,
             material_name,
+            wbs_stage,
+            rab_item_id,
+            change_order_item_id,
             materials ( id, name, unit, unit_price )
           )
         `)

@@ -92,13 +92,15 @@ describe('Component: RequisitionApproval (WBS Column & Ascending Sorting)', () =
       // 1. Check table header contains WBS
       const headers = screen.getAllByRole('columnheader');
       const headerTexts = headers.map(h => h.textContent?.trim());
-      expect(headerTexts).toContain('WBS');
-      expect(headerTexts).toContain('MATERIAL');
-      expect(headerTexts).toContain('SUMBER / PAKET');
-      expect(headerTexts).toContain('JUMLAH DIMINTA');
-      expect(headerTexts).toContain('ESTIMASI HARGA (RP)');
-      expect(headerTexts).toContain('SUBTOTAL (RP)');
-      expect(headerTexts).toContain('AKSI / STATUS');
+      expect(headerTexts).toEqual([
+        'WBS',
+        'SUMBER / PAKET',
+        'MATERIAL',
+        'JUMLAH DIMINTA',
+        'ESTIMASI HARGA (RP)',
+        'SUBTOTAL (RP)',
+        'AKSI / STATUS'
+      ]);
 
       // 2. Check item row displays formatted WBS badge
       expect(screen.getByText('WBS 1: Pembongkaran')).toBeInTheDocument();

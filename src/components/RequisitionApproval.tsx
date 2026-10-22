@@ -13,8 +13,8 @@ import {
   type DirectIssueGate2,
   type Gate2EvaluationResult
 } from '../utils/gate2BudgetValidation';
-import { formatWbsBadge, compareWbsAsc, getWbsOrderWeight } from '../utils/wbsSort';
-import { resolveItemSource } from '../utils/sourceOrigin';
+import { formatWbsBadge, getWbsWeight } from '../utils/wbsSort';
+import { resolveItemSource, extractPackageFromNotes } from '../utils/sourceOrigin';
 
 export interface SpkSummaryItem {
   spkId: string;
@@ -116,8 +116,8 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
   // Urutkan data secara ascending berdasarkan bobot WBS sebelum dirender
   const sortedRequisitions = useMemo(() => {
     return [...filteredRequisitions].sort((a, b) => {
-      const weightA = getWbsOrderWeight(a.wbs_stage || a.wbs_id || a.wbs_category);
-      const weightB = getWbsOrderWeight(b.wbs_stage || b.wbs_id || b.wbs_category);
+      const weightA = getWbsWeight(a.wbs_id || a.wbs_stage || a.wbs_category);
+      const weightB = getWbsWeight(b.wbs_id || b.wbs_stage || b.wbs_category);
       if (weightA !== weightB) {
         return weightA - weightB;
       }
@@ -385,10 +385,18 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
           const resolvedMaterialId = item.material_id || mat?.id || matchedMaster?.id || null;
 
           const itemStatus = item.status || 'PENDING';
+          const pkgName = item.package_name || item.product_packages?.name || rab?.product_packages?.name || (item.notes ? extractPackageFromNotes(item.notes) : null) || (rab?.notes ? extractPackageFromNotes(rab.notes) : null) || (coItem?.notes ? extractPackageFromNotes(coItem.notes) : null) || null;
+          const coId = item.change_order_id || item.change_order_item_id || coItem?.change_order_id || null;
+          const pkgId = item.package_id || rab?.package_id || null;
+          const srcType = item.source_type || (coId ? 'CHANGE_ORDER' : (pkgName ? 'PACKAGE' : 'RAB'));
 
           return {
             ...item,
             status: itemStatus,
+            package_name: pkgName,
+            package_id: pkgId,
+            change_order_id: coId,
+            source_type: srcType,
             material_id: resolvedMaterialId,
             material: mat || (resolvedMaterialId ? { id: resolvedMaterialId, name, unit, unit_price: unitPrice } : null),
             materials: mat || (resolvedMaterialId ? { id: resolvedMaterialId, name, unit, unit_price: unitPrice } : null),
@@ -404,9 +412,9 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
 
         // Urutkan item requisition secara ascending berdasarkan urutan tahapan WBS (WBS 1 -> WBS 2 -> ...)
         items.sort((a: any, b: any) => {
-          const wbsA = a.wbs_stage || req.wbs_category;
-          const wbsB = b.wbs_stage || req.wbs_category;
-          const diff = compareWbsAsc(wbsA, wbsB);
+          const wbsA = a.wbs_id || a.wbs_stage || req.wbs_id || req.wbs_category;
+          const wbsB = b.wbs_id || b.wbs_stage || req.wbs_id || req.wbs_category;
+          const diff = getWbsWeight(wbsA) - getWbsWeight(wbsB);
           if (diff !== 0) return diff;
           return (a.material_name || '').localeCompare(b.material_name || '');
         });
@@ -446,9 +454,9 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
 
       // Urutkan tiket requisition induk secara ascending berdasarkan tahapan WBS (WBS 1 -> WBS 2 -> ...)
       activePendingRequisitions.sort((a: any, b: any) => {
-        const wbsA = a.wbs_category || a.material_requisition_items?.[0]?.wbs_stage;
-        const wbsB = b.wbs_category || b.material_requisition_items?.[0]?.wbs_stage;
-        const diff = compareWbsAsc(wbsA, wbsB);
+        const wbsA = a.wbs_id || a.wbs_stage || a.wbs_category || a.material_requisition_items?.[0]?.wbs_stage;
+        const wbsB = b.wbs_id || b.wbs_stage || b.wbs_category || b.material_requisition_items?.[0]?.wbs_stage;
+        const diff = getWbsWeight(wbsA) - getWbsWeight(wbsB);
         if (diff !== 0) return diff;
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
@@ -1106,8 +1114,8 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                         <thead className="bg-surface-hover text-text-muted font-mono text-xs uppercase border-b border-border">
                           <tr>
                             <th className="py-2 px-3 font-semibold text-left">WBS</th>
-                            <th className="py-2 px-3 font-semibold text-left">MATERIAL</th>
                             <th className="py-2 px-3 font-semibold text-left">SUMBER / PAKET</th>
+                            <th className="py-2 px-3 font-semibold text-left">MATERIAL</th>
                             <th className="py-2 px-3 font-semibold text-center">JUMLAH DIMINTA</th>
                             <th className="py-2 px-3 font-semibold text-right">ESTIMASI HARGA (RP)</th>
                             <th className="py-2 px-3 font-semibold text-right">SUBTOTAL (RP)</th>
@@ -1123,7 +1131,6 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                               const subtotal = item.subtotal !== undefined && Number(item.subtotal) > 0 
                                 ? Number(item.subtotal) 
                                 : ((Number(item.quantity) || 0) * unitPrice);
-                              const sourceInfo = resolveItemSource(item, req);
 
                               return (
                                 <tr key={item.id} className="hover:bg-surface-hover/40 transition">
@@ -1131,6 +1138,16 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                                     <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-800 text-amber-300 border border-amber-500/30 whitespace-nowrap">
                                       {formatWbsBadge(item.wbs_stage || req.wbs_stage || req.wbs_id || req.wbs_category)}
                                     </span>
+                                  </td>
+                                  <td className="py-2 px-3">
+                                    {(() => {
+                                      const source = resolveItemSource(item, req);
+                                      return (
+                                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded whitespace-nowrap ${source.badgeClass}`}>
+                                          {source.label}
+                                        </span>
+                                      );
+                                    })()}
                                   </td>
                                   <td className="py-2 px-3">
                                     <span className="font-bold text-text text-sm block">
@@ -1143,14 +1160,6 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                                         </span>
                                       )}
                                     </div>
-                                  </td>
-                                  <td className="py-2 px-3">
-                                    <span
-                                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap ${sourceInfo.badgeClass}`}
-                                      title={sourceInfo.label}
-                                    >
-                                      {sourceInfo.label}
-                                    </span>
                                   </td>
                                   <td className="py-2 px-3 text-center font-mono font-medium text-text">
                                     {item.quantity} {matUnit}
