@@ -1,6 +1,6 @@
 ## Current Position
-- **Sprint**: Sprint 74 — Add WBS Column and Ascending WBS Sorting to Mandor Requests and Recent Material Issues Tables
-- **Status**: Sprint completed
+- **Sprint**: Sprint 75 — Add Source Origin Column and Package Name with Ascending WBS Sorting in Warehouse Requisitions and Recent Issues
+- **Status**: Sprint in progress
 - **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness (ready to resume)
 
 ## Last Session Summary
