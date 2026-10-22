@@ -13,7 +13,7 @@ import {
   type DirectIssueGate2,
   type Gate2EvaluationResult
 } from '../utils/gate2BudgetValidation';
-import { formatWbsBadge, getWbsBadgeClass, compareWbsAsc } from '../utils/wbsSort';
+import { formatWbsBadge, compareWbsAsc, getWbsOrderWeight } from '../utils/wbsSort';
 
 export interface SpkSummaryItem {
   spkId: string;
@@ -100,24 +100,29 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
     onSpkSummaryChange?.(spkSummary);
   }, [spkSummary, onSpkSummaryChange]);
 
-  // Saring daftar antrean yang di-render berdasarkan nomor SPK yang dipilih, diurutkan ascending berdasarkan WBS
+  // Saring daftar antrean yang di-render berdasarkan nomor SPK yang dipilih
   const filteredRequisitions = useMemo(() => {
-    let result = requisitions;
-    if (selectedSpkFilter && selectedSpkFilter !== 'ALL') {
-      result = requisitions.filter(req => 
-        (req.spk?.spk_no || req.spk?.spk_number || 'Tanpa SPK') === selectedSpkFilter ||
-        req.spk?.id === selectedSpkFilter ||
-        req.spk_id === selectedSpkFilter
-      );
+    if (!selectedSpkFilter || selectedSpkFilter === 'ALL') {
+      return requisitions;
     }
-    return [...result].sort((a, b) => {
-      const wbsA = a.wbs_category || a.material_requisition_items?.[0]?.wbs_stage;
-      const wbsB = b.wbs_category || b.material_requisition_items?.[0]?.wbs_stage;
-      const diff = compareWbsAsc(wbsA, wbsB);
-      if (diff !== 0) return diff;
+    return requisitions.filter(req => 
+      (req.spk?.spk_no || req.spk?.spk_number || 'Tanpa SPK') === selectedSpkFilter ||
+      req.spk?.id === selectedSpkFilter ||
+      req.spk_id === selectedSpkFilter
+    );
+  }, [requisitions, selectedSpkFilter]);
+
+  // Urutkan data secara ascending berdasarkan bobot WBS sebelum dirender
+  const sortedRequisitions = useMemo(() => {
+    return [...filteredRequisitions].sort((a, b) => {
+      const weightA = getWbsOrderWeight(a.wbs_stage || a.wbs_id || a.wbs_category);
+      const weightB = getWbsOrderWeight(b.wbs_stage || b.wbs_id || b.wbs_category);
+      if (weightA !== weightB) {
+        return weightA - weightB;
+      }
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
-  }, [requisitions, selectedSpkFilter]);
+  }, [filteredRequisitions]);
 
   // State Paginasi (Client-side)
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -128,7 +133,7 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
     setCurrentPage(1);
   }, [selectedSpkFilter]);
 
-  const totalItems = filteredRequisitions.length;
+  const totalItems = sortedRequisitions.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
 
   // Sesuaikan currentPage jika data berkurang akibat approval/reject
@@ -140,8 +145,8 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
 
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedRequisitions = useMemo(() => {
-    return filteredRequisitions.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredRequisitions, startIndex, itemsPerPage]);
+    return sortedRequisitions.slice(startIndex, startIndex + itemsPerPage);
+  }, [sortedRequisitions, startIndex, itemsPerPage]);
 
   // Dialog State
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -1099,12 +1104,12 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                       <table className="w-full text-left text-xs sm:text-sm text-text">
                         <thead className="bg-surface-hover text-text-muted font-mono text-xs uppercase border-b border-border">
                           <tr>
-                            <th className="px-4 py-2.5 font-semibold text-left">MATERIAL</th>
-                            <th className="px-4 py-2.5 font-semibold text-center">WBS</th>
-                            <th className="px-4 py-2.5 font-semibold text-center">JUMLAH DIMINTA</th>
-                            <th className="px-4 py-2.5 font-semibold text-right">ESTIMASI HARGA (RP)</th>
-                            <th className="px-4 py-2.5 font-semibold text-right">SUBTOTAL (RP)</th>
-                            <th className="px-4 py-2.5 font-semibold text-center w-[180px]">AKSI / STATUS</th>
+                            <th className="py-2 px-3 font-semibold text-left">WBS</th>
+                            <th className="py-2 px-3 font-semibold text-left">MATERIAL</th>
+                            <th className="py-2 px-3 font-semibold text-center">JUMLAH DIMINTA</th>
+                            <th className="py-2 px-3 font-semibold text-right">ESTIMASI HARGA (RP)</th>
+                            <th className="py-2 px-3 font-semibold text-right">SUBTOTAL (RP)</th>
+                            <th className="py-2 px-3 font-semibold text-center w-[180px]">AKSI / STATUS</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
@@ -1119,7 +1124,12 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
 
                               return (
                                 <tr key={item.id} className="hover:bg-surface-hover/40 transition">
-                                  <td className="px-4 py-2.5">
+                                  <td className="py-2 px-3">
+                                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-800 text-amber-300 border border-amber-500/30 whitespace-nowrap">
+                                      {formatWbsBadge(item.wbs_stage || req.wbs_stage || req.wbs_id || req.wbs_category)}
+                                    </span>
+                                  </td>
+                                  <td className="py-2 px-3">
                                     <span className="font-bold text-text text-sm block">
                                       {matName}
                                     </span>
@@ -1136,21 +1146,16 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                                       )}
                                     </div>
                                   </td>
-                                  <td className="px-4 py-2.5 text-center">
-                                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-mono font-medium ${getWbsBadgeClass(item.wbs_stage || req.wbs_category)}`}>
-                                      {formatWbsBadge(item.wbs_stage || req.wbs_category)}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-2.5 text-center font-mono font-medium text-text">
+                                  <td className="py-2 px-3 text-center font-mono font-medium text-text">
                                     {item.quantity} {matUnit}
                                   </td>
-                                  <td className="px-4 py-2.5 text-right font-mono text-text-muted">
+                                  <td className="py-2 px-3 text-right font-mono text-text-muted">
                                     Rp {unitPrice.toLocaleString('id-ID')}
                                   </td>
-                                  <td className="px-4 py-2.5 text-right font-mono font-bold text-text">
+                                  <td className="py-2 px-3 text-right font-mono font-bold text-text">
                                     Rp {subtotal.toLocaleString('id-ID')}
                                   </td>
-                                  <td className="px-4 py-2.5 text-center">
+                                  <td className="py-2 px-3 text-center">
                                     {item.status === 'APPROVED' ? (
                                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                                         ✓ Dirilis

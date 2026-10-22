@@ -4,9 +4,9 @@
  * and badge formatting for Warehouse and Service Advisor tables.
  */
 
-export function getWbsOrderWeight(wbsString: string | null | undefined): number {
-  if (!wbsString) return 99;
-  const str = wbsString.toLowerCase();
+export function getWbsOrderWeight(wbsString: string | number | null | undefined): number {
+  if (wbsString === null || wbsString === undefined || wbsString === '') return 99;
+  const str = String(wbsString).toLowerCase();
   if (str.includes('1') || str.includes('pembongkaran')) return 1;
   if (str.includes('2') || str.includes('sasis') || str.includes('rangka')) return 2;
   if (str.includes('3') || str.includes('dinding') || str.includes('fabrikasi')) return 3;
@@ -15,8 +15,8 @@ export function getWbsOrderWeight(wbsString: string | null | undefined): number 
   return 99;
 }
 
-export function formatWbsBadge(wbsString: string | null | undefined): string {
-  if (!wbsString) return '-';
+export function formatWbsBadge(wbsString: string | number | null | undefined): string {
+  if (wbsString === null || wbsString === undefined || wbsString === '') return '-';
   const weight = getWbsOrderWeight(wbsString);
   if (weight >= 1 && weight <= 5) {
     const titles = [
@@ -28,7 +28,7 @@ export function formatWbsBadge(wbsString: string | null | undefined): string {
     ];
     return titles[weight - 1];
   }
-  return wbsString;
+  return String(wbsString);
 }
 
 export function getWbsBadgeClass(wbsString: string | null | undefined): string {
