@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  getWbsWeight,
   getWbsOrderWeight,
   formatWbsBadge,
   getWbsBadgeClass,
@@ -7,12 +8,13 @@ import {
 } from '../wbsSort';
 
 describe('wbsSort Utilities', () => {
-  describe('getWbsOrderWeight', () => {
+  describe('getWbsWeight and getWbsOrderWeight', () => {
     it('correctly maps WBS stages 1 through 5 by number or keyword', () => {
       // Stage 1
+      expect(getWbsWeight('WBS 1: Pembongkaran')).toBe(1);
+      expect(getWbsWeight('Pembongkaran')).toBe(1);
+      expect(getWbsWeight('wbs 1')).toBe(1);
       expect(getWbsOrderWeight('WBS 1: Pembongkaran')).toBe(1);
-      expect(getWbsOrderWeight('Pembongkaran')).toBe(1);
-      expect(getWbsOrderWeight('wbs 1')).toBe(1);
 
       // Stage 2
       expect(getWbsOrderWeight('WBS 2: Sasis/Rangka')).toBe(2);

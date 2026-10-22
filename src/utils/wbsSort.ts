@@ -4,16 +4,18 @@
  * and badge formatting for Warehouse and Service Advisor tables.
  */
 
-export function getWbsOrderWeight(wbsString: string | number | null | undefined): number {
-  if (wbsString === null || wbsString === undefined || wbsString === '') return 99;
-  const str = String(wbsString).toLowerCase();
-  if (str.includes('1') || str.includes('pembongkaran')) return 1;
-  if (str.includes('2') || str.includes('sasis') || str.includes('rangka')) return 2;
-  if (str.includes('3') || str.includes('dinding') || str.includes('fabrikasi')) return 3;
-  if (str.includes('4') || str.includes('cat') || str.includes('pengecatan') || str.includes('finishing')) return 4;
-  if (str.includes('5') || str.includes('kelistrikan') || str.includes('hidrolik')) return 5;
+export function getWbsWeight(wbs: string | number | null | undefined): number {
+  if (!wbs) return 99;
+  const s = String(wbs).toLowerCase();
+  if (s.includes('1') || s.includes('pembongkaran')) return 1;
+  if (s.includes('2') || s.includes('sasis') || s.includes('rangka')) return 2;
+  if (s.includes('3') || s.includes('dinding') || s.includes('fabrikasi')) return 3;
+  if (s.includes('4') || s.includes('cat') || s.includes('pengecatan') || s.includes('finishing')) return 4;
+  if (s.includes('5') || s.includes('kelistrikan') || s.includes('hidrolik')) return 5;
   return 99;
 }
+
+export const getWbsOrderWeight = getWbsWeight;
 
 export function formatWbsBadge(wbsString: string | number | null | undefined): string {
   if (wbsString === null || wbsString === undefined || wbsString === '') return '-';
