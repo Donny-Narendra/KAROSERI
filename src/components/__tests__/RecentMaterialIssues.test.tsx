@@ -638,8 +638,9 @@ describe('Component: RecentMaterialIssues', () => {
     expect(rows[3]).toHaveTextContent('Besi UNP Lama'); // WBS 2 (older)
 
     // 3. Verify badge styling classes on WBS cell
-    const wbsBadge = rows[1].querySelector('span.bg-slate-800.text-slate-300.border-slate-700');
+    const wbsBadge = rows[1].querySelector('span.bg-slate-800');
     expect(wbsBadge).toBeInTheDocument();
+    expect(wbsBadge?.className).toContain('text-amber-300');
     expect(wbsBadge).toHaveTextContent('WBS 1: Pembongkaran');
   });
 

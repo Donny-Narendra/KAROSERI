@@ -656,6 +656,7 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
             package_name: resolvedPkgName,
             source_type: resolvedSrcType,
             change_order_id: item.change_order_items?.change_order_id || null,
+            wbs_stage: item.wbs_stage || requisition.wbs_category || requisition.wbs_id || null,
             issued_by: user.id,
             issued_by_user_id: user.id,
             issued_by_name: approverName,

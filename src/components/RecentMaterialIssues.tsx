@@ -6,7 +6,7 @@ import { ConfirmationModal } from './ConfirmationModal';
 import { formatWbsBadge, getWbsWeight } from '../utils/wbsSort';
 import { resolveDetailedSource } from '../utils/sourceOrigin';
 
-function extractIssueWbs(issue: any): string | null {
+function extractIssueWbs(issue: any, fallbackMap?: Map<string, string>): string | null {
   if (!issue) return null;
   if (issue.wbs_stage) return issue.wbs_stage;
   const mrItem = Array.isArray(issue.material_requisition_items)
@@ -14,10 +14,20 @@ function extractIssueWbs(issue: any): string | null {
     : issue.material_requisition_items;
   if (mrItem?.wbs_stage) return mrItem.wbs_stage;
 
-  const mr = Array.isArray(issue.material_requisitions)
-    ? issue.material_requisitions[0]
-    : issue.material_requisitions;
+  const req = mrItem?.requisition || issue.material_requisitions;
+  const mr = Array.isArray(req) ? req[0] : req;
+  if (mr?.wbs_id) return mr.wbs_id;
   if (mr?.wbs_category) return mr.wbs_category;
+  if (mr?.wbs_stage) return mr.wbs_stage;
+
+  const rabItem = mrItem?.rab_items || issue.rab_items;
+  if (rabItem?.wbs_category) return rabItem.wbs_category;
+  if (rabItem?.wbs_stage) return rabItem.wbs_stage;
+
+  const map = fallbackMap || issue.spkWbsMap;
+  if (map && issue.material_id && map.has(issue.material_id)) {
+    return map.get(issue.material_id);
+  }
 
   if (issue.wbs_category) return issue.wbs_category;
   return null;
@@ -64,6 +74,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
   // Refetch when parent says so or internally requested
   const [internalRefresh, setInternalRefresh] = useState(0);
   const [spkPackageMap, setSpkPackageMap] = useState<Map<string, string>>(new Map());
+  const [spkWbsMap, setSpkWbsMap] = useState<Map<string, string>>(new Map());
 
   // Helper: Detect standard UUID format
   const isUuid = (val?: string | null): boolean => {
@@ -145,8 +156,9 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
         (resolvedSpkNo && resolvedSpkNo !== 'ALL')
       );
 
-      // Ambil data referensi paket SPK dari rab_items aktif sebagai fallback penelusuran nama paket di memori klien
+      // Ambil data referensi paket SPK dan WBS dari rab_items aktif sebagai fallback penelusuran nama paket dan WBS di memori klien
       const newPackageMap = new Map<string, string>();
+      const newWbsMap = new Map<string, string>();
       if (resolvedSpkId && resolvedSpkId !== 'ALL') {
         try {
           let rabItemsQuery = supabase
@@ -176,6 +188,10 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
                 if (!newPackageMap.has(ri.material_id)) {
                   newPackageMap.set(ri.material_id, pkgName);
                 }
+              }
+              const wbsVal = ri.wbs_stage || ri.wbs_category;
+              if (wbsVal && ri.material_id && !newWbsMap.has(ri.material_id)) {
+                newWbsMap.set(ri.material_id, wbsVal);
               }
             });
           }
@@ -217,14 +233,19 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
                     newPackageMap.set(ri.material_id, pkgName);
                   }
                 }
+                const wbsVal = ri.wbs_stage || ri.wbs_category;
+                if (wbsVal && ri.material_id && !newWbsMap.has(ri.material_id)) {
+                  newWbsMap.set(ri.material_id, wbsVal);
+                }
               });
             }
           }
         } catch (err) {
-          console.warn('Could not fetch rab_items package mapping:', err);
+          console.warn('Could not fetch rab_items package/wbs mapping:', err);
         }
       }
       setSpkPackageMap(newPackageMap);
+      setSpkWbsMap(newWbsMap);
 
       // Primary & Fallback Queries:
       // Supports inventory_transactions (with quantity_issued > 0 as requested),
@@ -242,7 +263,6 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
             quantity_issued,
             custom_unit_price,
             issued_at,
-            created_at,
             issued_by_name,
             issued_by_role,
             audit_notes,
@@ -253,6 +273,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
             package_name,
             source_type,
             change_order_id,
+            wbs_stage,
             spk:spk_id ( id, spk_no ),
             materials ( name, unit, unit_price ),
             material_requisitions:requisition_id ( id, wbs_category ),
@@ -263,7 +284,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
               source_type,
               rab_item_id,
               change_order_item_id,
-              rab_items ( id, notes, package_id, product_packages:package_id ( id, name ) ),
+              rab_items ( id, notes, package_id, wbs_stage, wbs_category, product_packages:package_id ( id, name ) ),
               change_order_items ( id, notes, change_order_id )
             )
           `);
@@ -289,9 +310,14 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
             const mr = Array.isArray(r.material_requisitions)
               ? r.material_requisitions[0]
               : r.material_requisitions;
+            const mrItemReq = Array.isArray(mrItem?.requisition)
+              ? mrItem.requisition[0]
+              : mrItem?.requisition;
+
             const itemWbs = mrItem?.wbs_stage;
-            const reqWbs = mr?.wbs_category;
-            const currentWbs = r.wbs_stage || itemWbs || reqWbs;
+            const reqWbs = mrItemReq?.wbs_id || mrItemReq?.wbs_category || mrItemReq?.wbs_stage || mr?.wbs_id || mr?.wbs_category || mr?.wbs_stage;
+            const rabWbs = mrItem?.rab_items?.wbs_stage || mrItem?.rab_items?.wbs_category || newWbsMap.get(r.material_id);
+            const currentWbs = r.wbs_stage || itemWbs || reqWbs || rabWbs || r.wbs_category || null;
 
             const resolvedPackageName =
               r.package_name ||
@@ -321,12 +347,15 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
 
             return {
               ...r,
+              created_at: r.created_at || r.issued_at,
+              issued_at: r.issued_at,
               source_type: resolvedSourceType,
               change_order_id: resolvedChangeOrderId,
               package_name: resolvedPackageName,
               spkPackageMap: newPackageMap,
+              spkWbsMap: newWbsMap,
               wbs_stage: currentWbs || null,
-              wbs_category: r.wbs_category || reqWbs || null,
+              wbs_category: r.wbs_category || reqWbs || rabWbs || null,
               material_requisition_items: mrItem || null,
               material_requisitions: mr || null,
               rab_items: mrItem?.rab_items || r.rab_items,
@@ -373,7 +402,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
           const { data: giData, error: giError } = await giQuery;
           if (!giError && giData && giData.length > 0) {
             records = giData.map((row: any) => {
-              const currentWbs = row.wbs_stage || row.wbs_id || null;
+              const currentWbs = row.wbs_stage || row.wbs_id || newWbsMap.get(row.material_id) || null;
               const pkgName = row.package_name ||
                 (currentWbs ? newPackageMap.get(`${row.material_id}_${currentWbs}`) : null) ||
                 newPackageMap.get(row.material_id) ||
@@ -384,6 +413,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
                 change_order_id: row.change_order_id || null,
                 package_name: pkgName,
                 spkPackageMap: newPackageMap,
+                spkWbsMap: newWbsMap,
                 wbs_stage: currentWbs,
                 wbs_category: row.wbs_category || null,
               };
@@ -427,7 +457,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
           const { data: miData, error: miError } = await miQuery;
           if (!miError && miData && miData.length > 0) {
             records = miData.map((row: any) => {
-              const currentWbs = row.wbs_stage;
+              const currentWbs = row.wbs_stage || newWbsMap.get(row.material_id) || null;
               const pkgName = row.package_name ||
                 (currentWbs ? newPackageMap.get(`${row.material_id}_${currentWbs}`) : null) ||
                 newPackageMap.get(row.material_id) ||
@@ -444,6 +474,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
                 change_order_id: row.change_order_id || null,
                 package_name: pkgName,
                 spkPackageMap: newPackageMap,
+                spkWbsMap: newWbsMap,
                 wbs_stage: currentWbs,
                 wbs_category: row.wbs_category || row.wbs_stage,
                 created_at: row.created_at,
@@ -475,6 +506,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
               package_name,
               source_type,
               change_order_id,
+              wbs_stage,
               spk:spk_id ( id, spk_no ),
               materials ( name, unit, unit_price )
             `);
@@ -492,7 +524,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
           const { data: baseData, error: baseError } = await baseQuery;
           if (!baseError && baseData && baseData.length > 0) {
             records = baseData.map((row: any) => {
-              const currentWbs = row.wbs_stage || null;
+              const currentWbs = row.wbs_stage || newWbsMap.get(row.material_id) || null;
               const pkgName = row.package_name ||
                 (currentWbs ? newPackageMap.get(`${row.material_id}_${currentWbs}`) : null) ||
                 newPackageMap.get(row.material_id) ||
@@ -503,6 +535,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
                 change_order_id: row.change_order_id || null,
                 package_name: pkgName,
                 spkPackageMap: newPackageMap,
+                spkWbsMap: newWbsMap,
                 wbs_stage: currentWbs,
                 wbs_category: row.wbs_category || null,
               };
@@ -539,7 +572,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
     if (!searchQuery.trim()) return recentIssues;
     const q = searchQuery.toLowerCase().trim();
     return recentIssues.filter(issue => {
-      const wbs = issue.wbs_stage || issue.wbs_category || extractIssueWbs(issue) || '';
+      const wbs = issue.wbs_stage || issue.material_requisition_items?.requisition?.wbs_id || issue.wbs_category || extractIssueWbs(issue, issue.spkWbsMap || spkWbsMap) || '';
       const src = resolveDetailedSource(issue, null, issue.spkPackageMap || spkPackageMap);
       return (
         (issue.materials?.name || issue.material_name || '').toLowerCase().includes(q) ||
@@ -552,16 +585,17 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
         formatWbsBadge(wbs).toLowerCase().includes(q)
       );
     });
-  }, [recentIssues, searchQuery, spkPackageMap]);
+  }, [recentIssues, searchQuery, spkPackageMap, spkWbsMap]);
 
   const sortedIssues = React.useMemo(() => {
     return [...filteredRecentIssues].sort((a, b) => {
-      const diff = getWbsWeight(a.wbs_stage || a.wbs_category) - getWbsWeight(b.wbs_stage || b.wbs_category);
-      if (diff !== 0) return diff;
+      const weightA = getWbsWeight(a.wbs_stage || a.material_requisition_items?.requisition?.wbs_id || extractIssueWbs(a, a.spkWbsMap || spkWbsMap));
+      const weightB = getWbsWeight(b.wbs_stage || b.material_requisition_items?.requisition?.wbs_id || extractIssueWbs(b, b.spkWbsMap || spkWbsMap));
+      if (weightA !== weightB) return weightA - weightB;
       // Secondary sort: created_at descending (dengan fallback issued_at)
       return new Date(b.created_at || b.issued_at || 0).getTime() - new Date(a.created_at || a.issued_at || 0).getTime();
     });
-  }, [filteredRecentIssues]);
+  }, [filteredRecentIssues, spkWbsMap]);
 
   const displayedIssues = sortedIssues;
 
@@ -803,8 +837,8 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
                       />
                     </td>
                     <td className="py-1.5 px-3">
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 whitespace-nowrap">
-                        {formatWbsBadge(issue.wbs_stage || issue.wbs_category)}
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-800 text-amber-300 border border-amber-500/30 whitespace-nowrap">
+                        {formatWbsBadge(issue.wbs_stage || issue.material_requisition_items?.requisition?.wbs_id || extractIssueWbs(issue, issue.spkWbsMap || spkWbsMap))}
                       </span>
                     </td>
                     <td className="py-1.5 px-3">
