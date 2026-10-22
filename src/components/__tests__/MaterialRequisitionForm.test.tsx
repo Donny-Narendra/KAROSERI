@@ -674,4 +674,55 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
     expect(within(rightPanelHeader!).getByText('0')).toBeInTheDocument();
     expect(screen.getByText('Semua material telah dipindahkan')).toBeInTheDocument();
   });
+
+  it('excludes REJECTED requisition items from left panel and restores them to right panel (Alokasi RAB)', async () => {
+    const sampleExistingRequisitionsWithRejected = [
+      {
+        id: 'req-existing-uuid-1',
+        wbs_category: 'Pembongkaran',
+        status: 'PARTIALLY_ISSUED',
+        notes: 'Permintaan sebagian ditolak',
+        material_requisition_items: [
+          {
+            id: 'mri-rejected-1',
+            status: 'REJECTED',
+            material_id: 'mat-1',
+            rab_item_id: 'rab-item-mat-1',
+            change_order_item_id: null,
+            material_name: 'AMPLAS 100',
+            quantity: 10,
+            unit: 'lembar',
+            unit_price: 5000,
+            subtotal: 50000,
+            wbs_stage: 'Pembongkaran',
+            materials: { id: 'mat-1', name: 'AMPLAS 100', unit: 'lembar', unit_price: 5000, current_stock: 50 },
+          },
+        ],
+      },
+    ];
+
+    setupSupabaseMock(
+      sampleMixedRabItems,
+      sampleMasterMaterials,
+      sampleExistingRequisitionsWithRejected
+    );
+
+    render(
+      <MaterialRequisitionForm
+        spkId={mockSpkId}
+        wbsCategory={mockWbsCategory}
+        onClose={mockOnClose}
+      />
+    );
+
+    // Left panel: Empty because the item was REJECTED
+    await waitFor(() => {
+      expect(screen.getByText('Belum ada material yang diminta')).toBeInTheDocument();
+    });
+
+    // Right panel: The rejected item 'AMPLAS 100' is restored and available in Alokasi RAB
+    expect(screen.getByText('AMPLAS 100')).toBeInTheDocument();
+    const leftPanelHeader = screen.getByText('Daftar Permintaan Material').closest('div');
+    expect(within(leftPanelHeader!).getByText('0')).toBeInTheDocument();
+  });
 });

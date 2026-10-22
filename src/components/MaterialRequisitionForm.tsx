@@ -366,6 +366,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
             created_at,
             material_requisition_items (
               id,
+              status,
               material_id,
               rab_item_id,
               change_order_item_id,
@@ -402,6 +403,14 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
 
             if (isMatchingWbs && req.material_requisition_items) {
               req.material_requisition_items.forEach((item: any) => {
+                // Sesuai aturan bisnis: HANYA proses item yang aktif diajukan (PENDING atau APPROVED).
+                // Item yang berstatus REJECTED atau CANCELLED dilewati agar tidak muncul di Kotak Kiri
+                // dan otomatis dikembalikan ke Kotak Kanan ("Alokasi RAB WBS Terkait").
+                const itemStatus = (item.status || '').toUpperCase();
+                if (itemStatus === 'REJECTED' || itemStatus === 'CANCELLED') {
+                  return;
+                }
+
                 const cleanItemName = (item.material_name || item.materials?.name || '').trim();
                 const normItemName = normalizeText(cleanItemName);
 
@@ -470,7 +479,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                   isPersisted: true,
                   dbRequisitionItemId: item.id,
                   dbRequisitionId: req.id,
-                  status: req.status || 'PENDING'
+                  status: item.status || req.status || 'PENDING'
                 });
               });
             }

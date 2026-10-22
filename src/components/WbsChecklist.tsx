@@ -113,6 +113,7 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
           status,
           material_requisition_items (
             id,
+            status,
             material_id,
             rab_item_id,
             material_name,

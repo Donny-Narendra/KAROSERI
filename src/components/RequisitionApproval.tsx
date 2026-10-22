@@ -685,7 +685,8 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
         try {
           const { data: rpcData, error: rpcError } = await supabase.rpc('reject_single_requisition_item', {
             p_requisition_item_id: item.id,
-            p_rejected_by: user.id
+            p_rejected_by: user.id,
+            p_reason: rejectNotes
           });
           if (!rpcError && rpcData?.success) {
             rpcSuccess = true;
@@ -709,7 +710,7 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
           let parentStatus = requisition.status;
           if (remainingPending === 0) {
             parentStatus = approvedCount > 0 ? 'COMPLETED' : 'REJECTED';
-          } else if (approvedCount > 0) {
+          } else {
             parentStatus = 'PARTIALLY_ISSUED';
           }
 

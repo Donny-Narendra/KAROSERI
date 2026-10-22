@@ -186,6 +186,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
           id,
           status,
           material_requisition_items (
+            status,
             material_id,
             rab_item_id,
             change_order_item_id,

@@ -942,3 +942,17 @@
 - [x] Penambahan footer ringkasan tabel: **"Total Estimasi Biaya Requisition: Rp X.XXX.XXX"** dengan highlight aksen oranye RobelKaroseri.
 - [x] Penyesuaian kotak catatan peringatan Gate 2 dengan nominal riil: *"Total Permintaan: Rp X.XXX.XXX. Pastikan jumlah ini sesuai dengan alokasi RAB sebelum menyetujui."*
 - [x] Memastikan kepatuhan terhadap batasan eksekusi: tanpa auto-verify, tanpa auto-commit, dan tanpa eksekusi langsung migrasi Supabase.
+
+---
+
+### Phase 76: Gap Closure (Perbaikan Bug Requisition Reject/Hold: Otomatis Mengembalikan Material yang Ditolak Gudang ke Panel "Alokasi RAB" di /mandor)
+**Status**: ⬜ Ready for Review
+**Objective**: Address gaps from operational feedback (Perbaikan penanganan item requisition yang di-Reject/Hold petugas gudang agar otomatis dikeluarkan dari panel kiri "Daftar Permintaan Material" dan langsung dipulihkan ke panel kanan "Alokasi RAB (WBS Terkait)" di modal Minta Material Mandor)
+
+**Gaps to Close:**
+- [x] Pembuatan skrip migrasi database `supabase/migrations/20261022020000_handle_reject_requisition_item.sql` mendefinisikan RPC `reject_single_requisition_item(UUID, UUID, TEXT)` dengan re-evaluasi status header requisition otomatis (REJECTED, COMPLETED, atau PARTIALLY_ISSUED).
+- [x] Penyesuaian `src/components/RequisitionApproval.tsx` untuk menyalurkan parameter `p_reason` pada RPC penolakan item dan menyelaraskan logika status fallback dokumen induk.
+- [x] Perbaikan query hydration dan pemisahan panel di `src/components/MaterialRequisitionForm.tsx`: menyeleksi kolom `status`, memfilter keluar item `REJECTED` dan `CANCELLED` dari Kotak Kiri (`persistedItems`), serta memulihkannya ke Kotak Kanan (`initialAvailable`) dengan badge counter reaktif.
+- [x] Pembaruan evaluasi alokasi di `src/utils/rabItemAllocation.ts`: memeriksa `subItem.status` sehingga item berstatus `REJECTED` atau `CANCELLED` tidak lagi dianggap teralokasi.
+- [x] Penambahan seleksi kolom `status` pada kueri `material_requisition_items` di `src/components/WbsChecklist.tsx` dan `src/components/SpkBoronganPanel.tsx`.
+- [x] Memastikan kepatuhan terhadap batasan eksekusi: tanpa auto-verify, tanpa auto-commit, dan tanpa eksekusi langsung migrasi Supabase.

@@ -125,6 +125,9 @@ export function isRabItemAllocated(
         // If requisition object contains nested items (material_requisition_items)
         if (Array.isArray(req.material_requisition_items) && req.material_requisition_items.length > 0) {
           return req.material_requisition_items.some((subItem) => {
+            const subStatus = (subItem.status || '').toUpperCase();
+            if (subStatus === 'CANCELLED' || subStatus === 'REJECTED') return false;
+
             const subMat = Array.isArray(subItem.materials) ? subItem.materials[0] : subItem.materials;
             const subMatId = subMat?.id || subItem.material_id;
             const subRabId = subItem.rab_item_id;
@@ -167,6 +170,9 @@ export function isRabItemAllocated(
   if (localRequisitions && Array.isArray(localRequisitions)) {
     const matchInLocal = localRequisitions.some((req) => {
       if (!req) return false;
+      const localStatus = (req.status || '').toUpperCase();
+      if (localStatus === 'CANCELLED' || localStatus === 'REJECTED') return false;
+
       const reqMat = Array.isArray(req.materials) ? req.materials[0] : req.materials;
       const reqRabId = req.sourceRabId || req.tempId || req.id;
 

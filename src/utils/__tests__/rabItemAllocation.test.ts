@@ -87,4 +87,32 @@ describe('Util: rabItemAllocation (Multi-element 3-Pillar Allocation Matching)',
 
     expect(isRabItemAllocated(coItem, requisitions, null, null, null)).toBe(true);
   });
+
+  it('treats REJECTED and CANCELLED items in requisitions as unallocated (returns false)', () => {
+    const rabItem = { id: 'rab-mat-rejected', material_id: 'mat-rej-1', description: 'Baut Hex 12mm' };
+    const requisitions = [
+      {
+        id: 'req-partially-issued',
+        status: 'PARTIALLY_ISSUED',
+        material_requisition_items: [
+          { rab_item_id: 'rab-mat-rejected', material_name: 'Baut Hex 12mm', status: 'REJECTED' }
+        ]
+      }
+    ];
+
+    // Must return false so the item is available again in Alokasi RAB
+    expect(isRabItemAllocated(rabItem, requisitions, null, null, null)).toBe(false);
+
+    // Cancelled item also returns false
+    const requisitionsCancelled = [
+      {
+        id: 'req-partially-issued',
+        status: 'PARTIALLY_ISSUED',
+        material_requisition_items: [
+          { rab_item_id: 'rab-mat-rejected', material_name: 'Baut Hex 12mm', status: 'CANCELLED' }
+        ]
+      }
+    ];
+    expect(isRabItemAllocated(rabItem, requisitionsCancelled, null, null, null)).toBe(false);
+  });
 });
