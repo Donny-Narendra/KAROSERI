@@ -4,33 +4,20 @@
 - **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness (ready to resume)
 
 ## Last Session Summary
-Sprint 74 (2026-10-22):
-- **Created WBS Sorting & Formatting Utilities**:
-  - Created [`wbsSort.ts`](file:///c:/KAROSERI/src/utils/wbsSort.ts) implementing canonical weighting (1 to 5), badge formatting (`WBS 1: Pembongkaran`, `WBS 2: Sasis/Rangka`, `WBS 3: Dinding/Fabrikasi`, `WBS 4: Pengecatan`, `WBS 5: Kelistrikan/Hidrolik`), distinct badge styling classes, and pure comparator `compareWbsAsc`.
-- **Refactored `RecentMaterialIssues.tsx`**:
-  - Updated PostgREST queries to join `material_requisitions:requisition_id ( id, wbs_category )` and `material_requisition_items:requisition_item_id ( id, wbs_stage )`, and included `wbs_stage` in fallback `material_issues` query.
-  - Implemented `extractIssueWbs(issue)` resolver.
-  - Added `WBS` column to table header between `SPK No.` and `Material`, updating `colSpan` to 9.
-  - Rendered WBS badge in table rows with color coding.
-  - Enforced ascending WBS sorting in `displayedIssues` memo with tie-break by timestamp descending.
-- **Refactored `RequisitionApproval.tsx`**:
-  - Added `WBS` column to table header in Pending Requisitions: `MATERIAL`, `WBS`, `JUMLAH DIMINTA`, `ESTIMASI HARGA (RP)`, `SUBTOTAL (RP)`, `AKSI / STATUS`.
-  - Rendered WBS badge per requested item in table rows.
-  - Enforced ascending WBS sorting for items within each requisition.
-  - Enforced ascending WBS sorting for parent requisition tickets.
-- **Task 3: Refactored `RecentMaterialIssues.tsx`**:
-  - Reordered table headers to: `[checkbox]`, `WBS`, `TIME`, `SPK NO.`, `MATERIAL`, `QTY`, `HARGA (RP)`, `EKSEKUTOR / AUDIT`, `AKSI`.
-  - Reordered body cells so WBS is in column 2, formatted with badge `bg-slate-800 text-slate-300 border border-slate-700`.
-  - Added primary ascending sort by WBS weight with secondary newest-first timestamp sort using `getWbsOrderWeight(a.wbs_stage || a.wbs_category)`.
-  - Normalized `wbs_stage` and `wbs_category` on fetched records.
-- **Testing & Verification**:
-  - Created [`wbsSort.test.ts`](file:///c:/KAROSERI/src/utils/__tests__/wbsSort.test.ts) (7 tests).
-  - Expanded [`RecentMaterialIssues.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/RecentMaterialIssues.test.tsx) to 11 tests (verifying header sequence, badge styles, and secondary timestamp sorting).
-  - Created [`RequisitionApprovalWbsSort.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/RequisitionApprovalWbsSort.test.tsx) (3 tests verifying header, item badges, within-ticket sorting, and multi-ticket sorting).
-  - All 57 test files (367 tests) passing.
+Codebase mapping complete (`/map` workflow):
+- **68 components** identified across role dashboards, general ledger, owner security, and finance reports
+- **11 top-level pages** and **9 services** mapped
+- **19 utilities** documented (including new [`wbsSort.ts`](file:///c:/KAROSERI/src/utils/wbsSort.ts))
+- **35 dependencies** analyzed (16 production, 19 development; 8 outdated packages flagged)
+- **0 technical debt items** found (0 code smells, 0 TODO/FIXME/HACK/XXX markers)
+- **0 lint warnings / 0 errors** across 197 files ([`oxlint`](file:///c:/KAROSERI/package.json#L43))
+- **57 test suites, 367 automated tests** passing (`npm test`)
+- Updated architecture in [ARCHITECTURE.md](file:///c:/KAROSERI/.gsd/ARCHITECTURE.md)
+- Updated technology stack in [STACK.md](file:///c:/KAROSERI/.gsd/STACK.md)
 
 ## Quality & Verification Status
 - **TypeScript Static Analysis:** Clean compilation with 0 errors (`tsc --noEmit` & `tsc -b`).
+- **Linter Status:** 0 errors, 0 warnings across 197 files (`oxlint`).
 - **Production Build:** Clean bundle generated in 489ms (`npm run build`).
 - **Automated Tests:** 57 test suites, 367 tests passing (0 failures).
 
@@ -38,4 +25,4 @@ Sprint 74 (2026-10-22):
 None. (Zero outstanding technical debt).
 
 ## Next Up
-- Resume milestone work or start new sprint upon user direction.
+- Resume milestone work or plan new features (`/plan`).

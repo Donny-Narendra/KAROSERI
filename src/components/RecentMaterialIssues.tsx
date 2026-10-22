@@ -5,7 +5,7 @@ import { inventoryService } from '../services/inventoryService';
 import { ConfirmationModal } from './ConfirmationModal';
 import { formatWbsBadge, getWbsOrderWeight } from '../utils/wbsSort';
 
-export function extractIssueWbs(issue: any): string | null {
+function extractIssueWbs(issue: any): string | null {
   if (!issue) return null;
   if (issue.wbs_stage) return issue.wbs_stage;
   const mrItem = Array.isArray(issue.material_requisition_items)
