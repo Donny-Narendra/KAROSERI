@@ -14,6 +14,7 @@ import {
   type Gate2EvaluationResult
 } from '../utils/gate2BudgetValidation';
 import { formatWbsBadge, compareWbsAsc, getWbsOrderWeight } from '../utils/wbsSort';
+import { resolveItemSource } from '../utils/sourceOrigin';
 
 export interface SpkSummaryItem {
   spkId: string;
@@ -195,8 +196,8 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
             subtotal,
             wbs_stage,
             materials ( id, name, unit, unit_price ),
-            rab_items ( id, item_total, quantity, description ),
-            change_order_items ( id, item_name, unit_price, quantity )
+            rab_items ( id, item_total, quantity, description, notes, package_id, product_packages:package_id ( id, name ) ),
+            change_order_items ( id, item_name, unit_price, quantity, notes, change_order_id )
           )
         `)
         .in('status', ['PENDING', 'PARTIALLY_ISSUED'])
@@ -1106,6 +1107,7 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                           <tr>
                             <th className="py-2 px-3 font-semibold text-left">WBS</th>
                             <th className="py-2 px-3 font-semibold text-left">MATERIAL</th>
+                            <th className="py-2 px-3 font-semibold text-left">SUMBER / PAKET</th>
                             <th className="py-2 px-3 font-semibold text-center">JUMLAH DIMINTA</th>
                             <th className="py-2 px-3 font-semibold text-right">ESTIMASI HARGA (RP)</th>
                             <th className="py-2 px-3 font-semibold text-right">SUBTOTAL (RP)</th>
@@ -1121,6 +1123,7 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                               const subtotal = item.subtotal !== undefined && Number(item.subtotal) > 0 
                                 ? Number(item.subtotal) 
                                 : ((Number(item.quantity) || 0) * unitPrice);
+                              const sourceInfo = resolveItemSource(item, req);
 
                               return (
                                 <tr key={item.id} className="hover:bg-surface-hover/40 transition">
@@ -1139,12 +1142,15 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                                           ID: {item.material_id.substring(0, 8)}...
                                         </span>
                                       )}
-                                      {item.change_order_item_id && (
-                                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 font-semibold border border-purple-500/30">
-                                          Change Order
-                                        </span>
-                                      )}
                                     </div>
+                                  </td>
+                                  <td className="py-2 px-3">
+                                    <span
+                                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap ${sourceInfo.badgeClass}`}
+                                      title={sourceInfo.label}
+                                    >
+                                      {sourceInfo.label}
+                                    </span>
                                   </td>
                                   <td className="py-2 px-3 text-center font-mono font-medium text-text">
                                     {item.quantity} {matUnit}
@@ -1216,7 +1222,7 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                             })
                           ) : (
                             <tr>
-                              <td colSpan={5} className="px-4 py-4 text-center text-text-muted text-xs italic">
+                              <td colSpan={7} className="px-4 py-4 text-center text-text-muted text-xs italic">
                                 Tidak ada rincian material pada permintaan ini.
                               </td>
                             </tr>
@@ -1224,28 +1230,31 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                         </tbody>
                         <tfoot className="bg-surface-hover/80 border-t border-border font-mono text-xs">
                           <tr>
-                            <td colSpan={4} className="px-4 py-2.5 text-right font-bold text-text uppercase">
+                            <td colSpan={5} className="px-4 py-2.5 text-right font-bold text-text uppercase">
                               Total Keseluruhan Pengajuan:
                             </td>
                             <td className="px-4 py-2.5 text-right font-bold text-primary text-sm">
                               Rp {(req.totalRequisitionCost || 0).toLocaleString('id-ID')}
                             </td>
+                            <td className="py-2 px-3"></td>
                           </tr>
                           <tr>
-                            <td colSpan={4} className="px-4 py-1.5 text-right font-semibold text-emerald-400 text-xs">
+                            <td colSpan={5} className="px-4 py-1.5 text-right font-semibold text-emerald-400 text-xs">
                               Subtotal yang Sudah Dirilis:
                             </td>
                             <td className="px-4 py-1.5 text-right font-bold text-emerald-400 text-xs">
                               Rp {(req.approvedCost || 0).toLocaleString('id-ID')}
                             </td>
+                            <td className="py-2 px-3"></td>
                           </tr>
                           <tr>
-                            <td colSpan={4} className="px-4 py-1.5 text-right font-semibold text-amber-300 text-xs">
+                            <td colSpan={5} className="px-4 py-1.5 text-right font-semibold text-amber-300 text-xs">
                               Subtotal Belum Dirilis (Pending):
                             </td>
                             <td className="px-4 py-1.5 text-right font-bold text-amber-300 text-xs">
                               Rp {(req.pendingCost || 0).toLocaleString('id-ID')}
                             </td>
+                            <td className="py-2 px-3"></td>
                           </tr>
                         </tfoot>
                       </table>

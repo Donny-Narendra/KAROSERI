@@ -94,6 +94,7 @@ describe('Component: RequisitionApproval (WBS Column & Ascending Sorting)', () =
       const headerTexts = headers.map(h => h.textContent?.trim());
       expect(headerTexts).toContain('WBS');
       expect(headerTexts).toContain('MATERIAL');
+      expect(headerTexts).toContain('SUMBER / PAKET');
       expect(headerTexts).toContain('JUMLAH DIMINTA');
       expect(headerTexts).toContain('ESTIMASI HARGA (RP)');
       expect(headerTexts).toContain('SUBTOTAL (RP)');
@@ -313,5 +314,112 @@ describe('Component: RequisitionApproval (WBS Column & Ascending Sorting)', () =
     expect(spkBadges[0]).toHaveTextContent('SPK-9001'); // WBS 1
     expect(spkBadges[1]).toHaveTextContent('SPK-9002'); // WBS 2
     expect(spkBadges[2]).toHaveTextContent('SPK-9004'); // WBS 4
+  });
+
+  it('renders SUMBER / PAKET badges correctly for Package, Change Order, and initial RAB items', async () => {
+    const mockRequisition = [
+      {
+        id: 'req-sources-test',
+        spk_id: 'spk-source-1',
+        wbs_category: 'Sasis/Rangka',
+        status: 'PENDING',
+        notes: 'Uji sumber item',
+        created_at: '2026-10-22T08:00:00Z',
+        spk: {
+          id: 'spk-source-1',
+          spk_no: 'SPK-9005',
+          customer_name: 'PT Karoseri Sumber',
+        },
+        profiles: { full_name: 'Mandor Anto' },
+        material_requisition_items: [
+          {
+            id: 'item-pkg',
+            material_id: 'mat-pkg',
+            quantity: 2,
+            status: 'PENDING',
+            material_name: 'Dudukan Slebor',
+            unit: 'Set',
+            unit_price: 350000,
+            subtotal: 700000,
+            wbs_stage: 'WBS 2: Sasis/Rangka',
+            package_name: 'HPP DUDUKAN SLEBOR',
+            rab_items: {
+              id: 'rab-pkg',
+              product_packages: { name: 'HPP DUDUKAN SLEBOR' },
+            },
+          },
+          {
+            id: 'item-co',
+            material_id: 'mat-co',
+            quantity: 1,
+            status: 'PENDING',
+            material_name: 'Plat Adendum',
+            unit: 'Lembar',
+            unit_price: 250000,
+            subtotal: 250000,
+            wbs_stage: 'WBS 3: Dinding/Fabrikasi',
+            change_order_item_id: 'co-item-1',
+            change_order_items: { id: 'co-item-1', item_name: 'Plat Adendum' },
+          },
+          {
+            id: 'item-rab',
+            material_id: 'mat-rab',
+            quantity: 10,
+            status: 'PENDING',
+            material_name: 'Baut 12mm',
+            unit: 'Pcs',
+            unit_price: 5000,
+            subtotal: 50000,
+            wbs_stage: 'WBS 1: Pembongkaran',
+            rab_item_id: 'rab-item-std',
+          },
+        ],
+      },
+    ];
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === 'material_requisitions') {
+        const queryObj: any = {};
+        queryObj.select = vi.fn().mockReturnValue(queryObj);
+        queryObj.in = vi.fn().mockReturnValue(queryObj);
+        queryObj.order = vi.fn().mockResolvedValue({
+          data: mockRequisition,
+          error: null,
+        });
+        return queryObj;
+      }
+      return {
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+            in: vi.fn().mockResolvedValue({ data: [], error: null }),
+            is: vi.fn().mockResolvedValue({ data: [], error: null }),
+          }),
+        }),
+      } as any;
+    });
+
+    render(<RequisitionApproval />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Dudukan Slebor')).toBeInTheDocument();
+      expect(screen.getByText('Plat Adendum')).toBeInTheDocument();
+      expect(screen.getByText('Baut 12mm')).toBeInTheDocument();
+    });
+
+    // 1. Verify Package Badge with orange styling
+    const pkgBadge = screen.getByText('📦 Paket: HPP DUDUKAN SLEBOR');
+    expect(pkgBadge).toBeInTheDocument();
+    expect(pkgBadge.className).toContain('text-orange-400');
+
+    // 2. Verify Change Order Badge with purple styling
+    const coBadge = screen.getByText('🔄 Change Order');
+    expect(coBadge).toBeInTheDocument();
+    expect(coBadge.className).toContain('text-purple-400');
+
+    // 3. Verify standard RAB Badge with blue styling
+    const rabBadge = screen.getByText('📋 RAB');
+    expect(rabBadge).toBeInTheDocument();
+    expect(rabBadge.className).toContain('text-blue-400');
   });
 });

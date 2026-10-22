@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import { inventoryService } from '../services/inventoryService';
 import { ConfirmationModal } from './ConfirmationModal';
 import { formatWbsBadge, getWbsOrderWeight } from '../utils/wbsSort';
+import { extractIssueSource } from '../utils/sourceOrigin';
 
 function extractIssueWbs(issue: any): string | null {
   if (!issue) return null;
@@ -21,6 +22,7 @@ function extractIssueWbs(issue: any): string | null {
   if (issue.wbs_category) return issue.wbs_category;
   return null;
 }
+
 
 interface RecentMaterialIssuesProps {
   selectedSpk?: any;
@@ -168,7 +170,14 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
             spk:spk_id ( id, spk_no ),
             materials ( name, unit, unit_price ),
             material_requisitions:requisition_id ( id, wbs_category ),
-            material_requisition_items:requisition_item_id ( id, wbs_stage )
+            material_requisition_items:requisition_item_id (
+              id,
+              wbs_stage,
+              rab_item_id,
+              change_order_item_id,
+              rab_items ( id, notes, package_id, product_packages:package_id ( id, name ) ),
+              change_order_items ( id, notes, change_order_id )
+            )
           `);
 
         if (resolvedSpkId && resolvedSpkId !== 'ALL') {
@@ -186,16 +195,20 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
         const { data, error } = await query;
         if (!error && data && data.length > 0) {
           records = data.map((r: any) => {
-            const itemWbs = Array.isArray(r.material_requisition_items)
-              ? r.material_requisition_items[0]?.wbs_stage
-              : r.material_requisition_items?.wbs_stage;
-            const reqWbs = Array.isArray(r.material_requisitions)
-              ? r.material_requisitions[0]?.wbs_category
-              : r.material_requisitions?.wbs_category;
+            const mrItem = Array.isArray(r.material_requisition_items)
+              ? r.material_requisition_items[0]
+              : r.material_requisition_items;
+            const mr = Array.isArray(r.material_requisitions)
+              ? r.material_requisitions[0]
+              : r.material_requisitions;
+            const itemWbs = mrItem?.wbs_stage;
+            const reqWbs = mr?.wbs_category;
             return {
               ...r,
               wbs_stage: r.wbs_stage || itemWbs || reqWbs || null,
               wbs_category: r.wbs_category || reqWbs || null,
+              material_requisition_items: mrItem || null,
+              material_requisitions: mr || null,
             };
           });
         } else if (error) {
@@ -363,10 +376,13 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
     const q = searchQuery.toLowerCase().trim();
     return recentIssues.filter(issue => {
       const wbs = issue.wbs_stage || issue.wbs_category || extractIssueWbs(issue) || '';
+      const src = extractIssueSource(issue);
       return (
         (issue.materials?.name || issue.material_name || '').toLowerCase().includes(q) ||
         (issue.materials?.unit || issue.unit || '').toLowerCase().includes(q) ||
         (issue.spk?.spk_no || issue.spk_no || '').toLowerCase().includes(q) ||
+        src.label.toLowerCase().includes(q) ||
+        (src.packageName || '').toLowerCase().includes(q) ||
         wbs.toLowerCase().includes(q) ||
         formatWbsBadge(wbs).toLowerCase().includes(q)
       );
@@ -559,6 +575,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
               <th className="py-1 px-3">TIME</th>
               <th className="py-1 px-3">SPK NO.</th>
               <th className="py-1 px-3">MATERIAL</th>
+              <th className="py-1 px-3">SUMBER / PAKET</th>
               <th className="py-1 px-3 text-right">QTY</th>
               <th className="py-1 px-3 text-right">HARGA (RP)</th>
               <th className="py-1 px-3">EKSEKUTOR / AUDIT</th>
@@ -568,14 +585,14 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
           <tbody className="divide-y divide-border">
             {loading ? (
               <tr>
-                <td colSpan={9} className="px-5 py-12 text-center text-text-muted">
+                <td colSpan={10} className="px-5 py-12 text-center text-text-muted">
                   <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-primary" />
                   <p className="text-sm">Memuat riwayat pengeluaran material...</p>
                 </td>
               </tr>
             ) : displayedIssues.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-5 py-10 text-center text-text-muted">
+                <td colSpan={10} className="px-5 py-10 text-center text-text-muted">
                   <div className="max-w-md mx-auto space-y-1">
                     <p className="text-sm text-text font-medium">
                       {searchQuery.trim() 
@@ -600,6 +617,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
                   : '-';
                 const spkNo = issue.spk?.spk_no || issue.spk?.spk_number || issue.spk_no || targetSpkNo || 'SPK-7080';
                 const materialName = issue.material_name || issue.materials?.name || 'Material';
+                const sourceInfo = extractIssueSource(issue);
                 const qty = issue.quantity !== undefined && issue.quantity !== null
                   ? issue.quantity
                   : (issue.quantity_issued !== undefined && issue.quantity_issued !== null ? issue.quantity_issued : 0);
@@ -634,6 +652,14 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
                     </td>
                     <td className="py-1.5 px-3 font-medium">
                       {materialName}
+                    </td>
+                    <td className="py-1.5 px-3">
+                      <span
+                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap ${sourceInfo.badgeClass}`}
+                        title={sourceInfo.label}
+                      >
+                        {sourceInfo.label}
+                      </span>
                     </td>
                     <td className="py-1.5 px-3">
                       <span className={Number(qty) < 0 ? 'text-status-warning font-semibold' : ''}>

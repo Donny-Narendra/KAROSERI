@@ -619,16 +619,17 @@ describe('Component: RecentMaterialIssues', () => {
     // 1. Verify table header columns order
     const tableHeader = screen.getAllByRole('row')[0];
     const headerCells = tableHeader.querySelectorAll('th');
-    expect(headerCells).toHaveLength(9);
+    expect(headerCells).toHaveLength(10);
     expect(headerCells[0]).toHaveTextContent(''); // Checkbox
     expect(headerCells[1]).toHaveTextContent('WBS');
     expect(headerCells[2]).toHaveTextContent('TIME');
     expect(headerCells[3]).toHaveTextContent('SPK NO.');
     expect(headerCells[4]).toHaveTextContent('MATERIAL');
-    expect(headerCells[5]).toHaveTextContent('QTY');
-    expect(headerCells[6]).toHaveTextContent('HARGA (RP)');
-    expect(headerCells[7]).toHaveTextContent('EKSEKUTOR / AUDIT');
-    expect(headerCells[8]).toHaveTextContent('AKSI');
+    expect(headerCells[5]).toHaveTextContent('SUMBER / PAKET');
+    expect(headerCells[6]).toHaveTextContent('QTY');
+    expect(headerCells[7]).toHaveTextContent('HARGA (RP)');
+    expect(headerCells[8]).toHaveTextContent('EKSEKUTOR / AUDIT');
+    expect(headerCells[9]).toHaveTextContent('AKSI');
 
     // 2. Verify sorted rows: WBS 1 first, then WBS 2 (newer timestamp 10:00 before older timestamp 08:00)
     const rows = screen.getAllByRole('row');
@@ -640,6 +641,112 @@ describe('Component: RecentMaterialIssues', () => {
     const wbsBadge = rows[1].querySelector('span.bg-slate-800.text-slate-300.border-slate-700');
     expect(wbsBadge).toBeInTheDocument();
     expect(wbsBadge).toHaveTextContent('WBS 1: Pembongkaran');
+  });
+
+  it('renders correct source origin badges for Package, Change Order, and RAB items in Recent Material Issues', async () => {
+    const issuesWithSources = [
+      {
+        id: 'tx-pkg',
+        spk_id: 'spk-uuid-7080',
+        material_id: 'mat-pkg',
+        quantity_issued: 2,
+        custom_unit_price: 350000,
+        issued_at: '2026-10-22T08:00:00Z',
+        wbs_stage: 'WBS 2: Sasis/Rangka',
+        spk: { id: 'spk-uuid-7080', spk_no: 'SPK-7080' },
+        materials: { name: 'Dudukan Slebor Besi', unit: 'Set', unit_price: 350000 },
+        material_requisition_items: {
+          id: 'mri-pkg',
+          wbs_stage: 'WBS 2: Sasis/Rangka',
+          package_name: 'HPP DUDUKAN SLEBOR',
+          rab_items: {
+            id: 'rab-pkg',
+            product_packages: { name: 'HPP DUDUKAN SLEBOR' },
+          },
+        },
+      },
+      {
+        id: 'tx-co',
+        spk_id: 'spk-uuid-7080',
+        material_id: 'mat-co',
+        quantity_issued: 1,
+        custom_unit_price: 150000,
+        issued_at: '2026-10-22T08:30:00Z',
+        wbs_stage: 'WBS 3: Dinding/Fabrikasi',
+        spk: { id: 'spk-uuid-7080', spk_no: 'SPK-7080' },
+        materials: { name: 'Plat Adendum Tambahan', unit: 'Lembar', unit_price: 150000 },
+        material_requisition_items: {
+          id: 'mri-co',
+          wbs_stage: 'WBS 3: Dinding/Fabrikasi',
+          change_order_item_id: 'co-item-1',
+          change_order_items: { id: 'co-item-1', item_name: 'Plat Adendum Tambahan' },
+        },
+      },
+      {
+        id: 'tx-rab',
+        spk_id: 'spk-uuid-7080',
+        material_id: 'mat-rab',
+        quantity_issued: 4,
+        custom_unit_price: 25000,
+        issued_at: '2026-10-22T09:00:00Z',
+        wbs_stage: 'WBS 1: Pembongkaran',
+        spk: { id: 'spk-uuid-7080', spk_no: 'SPK-7080' },
+        materials: { name: 'Mata Gerinda Pemotong', unit: 'PCS', unit_price: 25000 },
+        material_requisition_items: {
+          id: 'mri-rab',
+          wbs_stage: 'WBS 1: Pembongkaran',
+          rab_item_id: 'rab-item-1',
+        },
+      },
+    ];
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === 'inventory_transactions') {
+        const queryObj: any = {};
+        queryObj.select = vi.fn().mockReturnValue(queryObj);
+        queryObj.eq = vi.fn().mockReturnValue(queryObj);
+        queryObj.gt = vi.fn().mockReturnValue(queryObj);
+        queryObj.limit = vi.fn().mockReturnValue(queryObj);
+        queryObj.order = vi.fn().mockResolvedValue({
+          data: issuesWithSources,
+          error: null,
+        });
+        return queryObj;
+      }
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { id: 'spk-uuid-7080', spk_no: 'SPK-7080' },
+              error: null,
+            }),
+          }),
+        }),
+      } as any;
+    });
+
+    render(<RecentMaterialIssues selectedSpk="SPK-7080" refreshKey={0} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Dudukan Slebor Besi')).toBeInTheDocument();
+      expect(screen.getByText('Plat Adendum Tambahan')).toBeInTheDocument();
+      expect(screen.getByText('Mata Gerinda Pemotong')).toBeInTheDocument();
+    });
+
+    // Verify package badge
+    const pkgBadge = screen.getByText('📦 Paket: HPP DUDUKAN SLEBOR');
+    expect(pkgBadge).toBeInTheDocument();
+    expect(pkgBadge.className).toContain('text-orange-400');
+
+    // Verify change order badge
+    const coBadge = screen.getByText('🔄 Change Order');
+    expect(coBadge).toBeInTheDocument();
+    expect(coBadge.className).toContain('text-purple-400');
+
+    // Verify RAB badge
+    const rabBadge = screen.getByText('📋 RAB');
+    expect(rabBadge).toBeInTheDocument();
+    expect(rabBadge.className).toContain('text-blue-400');
   });
 });
 
