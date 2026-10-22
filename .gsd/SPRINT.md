@@ -67,3 +67,10 @@ Add WBS stage information column and enforce ascending WBS sorting (WBS 1 Pembon
   - Vitest: All 57 test files passed, 366 tests passed (0 failures).
   - TypeScript Compilation: `tsc --noEmit` and `tsc -b` completed with 0 errors.
   - Production Build: `npm run build` generated production bundle cleanly in 510ms.
+- Applied Task 3 enhancements to `RecentMaterialIssues.tsx`:
+  - Ensured `fetchIssues` normalizes `wbs_stage` and `wbs_category` across `inventory_transactions`, `material_issues`, `goods_issues`, and base fallback.
+  - Implemented `filteredRecentIssues` and `sortedIssues` memo with primary ascending WBS weight sort and secondary newest-first timestamp sort.
+  - Reordered table header to: `[checkbox]`, `WBS`, `TIME`, `SPK NO.`, `MATERIAL`, `QTY`, `HARGA (RP)`, `EKSEKUTOR / AUDIT`, `AKSI`.
+  - Reordered body cells so WBS is in column 2 styled with `bg-slate-800 text-slate-300 border border-slate-700`.
+  - Added test in `RecentMaterialIssues.test.tsx` verifying exact header order, cell styling, and secondary timestamp sort (all 11 tests pass).
+  - All 57 test files (367 tests) pass, production build succeeds cleanly in ~489ms.

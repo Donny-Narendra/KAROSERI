@@ -548,5 +548,98 @@ describe('Component: RecentMaterialIssues', () => {
     expect(rows[4]).toHaveTextContent('WBS 4: Pengecatan');
     expect(rows[4]).toHaveTextContent('Cat Finishing Gloss');
   });
+
+  it('renders exact Task 3 table header columns and badge styling with secondary timestamp sorting', async () => {
+    const multiIssuesWithSameWbs = [
+      {
+        id: 'tx-wbs2-older',
+        spk_id: 'spk-uuid-7080',
+        material_id: 'mat-old',
+        quantity_issued: 3,
+        issued_at: '2026-10-22T08:00:00Z',
+        wbs_stage: 'WBS 2: Sasis/Rangka',
+        spk: { id: 'spk-uuid-7080', spk_no: 'SPK-7080' },
+        materials: { name: 'Besi UNP Lama', unit: 'Batang', unit_price: 100000 },
+      },
+      {
+        id: 'tx-wbs1',
+        spk_id: 'spk-uuid-7080',
+        material_id: 'mat-wbs1',
+        quantity_issued: 2,
+        issued_at: '2026-10-22T08:30:00Z',
+        wbs_stage: 'Pembongkaran',
+        spk: { id: 'spk-uuid-7080', spk_no: 'SPK-7080' },
+        materials: { name: 'Mata Gerinda', unit: 'PCS', unit_price: 20000 },
+      },
+      {
+        id: 'tx-wbs2-newer',
+        spk_id: 'spk-uuid-7080',
+        material_id: 'mat-new',
+        quantity_issued: 5,
+        issued_at: '2026-10-22T10:00:00Z',
+        wbs_stage: 'WBS 2: Sasis/Rangka',
+        spk: { id: 'spk-uuid-7080', spk_no: 'SPK-7080' },
+        materials: { name: 'Besi UNP Baru', unit: 'Batang', unit_price: 120000 },
+      },
+    ];
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === 'inventory_transactions') {
+        const queryObj: any = {};
+        queryObj.select = vi.fn().mockReturnValue(queryObj);
+        queryObj.eq = vi.fn().mockReturnValue(queryObj);
+        queryObj.gt = vi.fn().mockReturnValue(queryObj);
+        queryObj.limit = vi.fn().mockReturnValue(queryObj);
+        queryObj.order = vi.fn().mockResolvedValue({
+          data: multiIssuesWithSameWbs,
+          error: null,
+        });
+        return queryObj;
+      }
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { id: 'spk-uuid-7080', spk_no: 'SPK-7080' },
+              error: null,
+            }),
+          }),
+        }),
+      } as any;
+    });
+
+    render(<RecentMaterialIssues selectedSpk="SPK-7080" refreshKey={0} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Mata Gerinda')).toBeInTheDocument();
+      expect(screen.getByText('Besi UNP Baru')).toBeInTheDocument();
+      expect(screen.getByText('Besi UNP Lama')).toBeInTheDocument();
+    });
+
+    // 1. Verify table header columns order
+    const tableHeader = screen.getAllByRole('row')[0];
+    const headerCells = tableHeader.querySelectorAll('th');
+    expect(headerCells).toHaveLength(9);
+    expect(headerCells[0]).toHaveTextContent(''); // Checkbox
+    expect(headerCells[1]).toHaveTextContent('WBS');
+    expect(headerCells[2]).toHaveTextContent('TIME');
+    expect(headerCells[3]).toHaveTextContent('SPK NO.');
+    expect(headerCells[4]).toHaveTextContent('MATERIAL');
+    expect(headerCells[5]).toHaveTextContent('QTY');
+    expect(headerCells[6]).toHaveTextContent('HARGA (RP)');
+    expect(headerCells[7]).toHaveTextContent('EKSEKUTOR / AUDIT');
+    expect(headerCells[8]).toHaveTextContent('AKSI');
+
+    // 2. Verify sorted rows: WBS 1 first, then WBS 2 (newer timestamp 10:00 before older timestamp 08:00)
+    const rows = screen.getAllByRole('row');
+    expect(rows[1]).toHaveTextContent('Mata Gerinda'); // WBS 1
+    expect(rows[2]).toHaveTextContent('Besi UNP Baru'); // WBS 2 (newer)
+    expect(rows[3]).toHaveTextContent('Besi UNP Lama'); // WBS 2 (older)
+
+    // 3. Verify badge styling classes on WBS cell
+    const wbsBadge = rows[1].querySelector('span.bg-slate-800.text-slate-300.border-slate-700');
+    expect(wbsBadge).toBeInTheDocument();
+    expect(wbsBadge).toHaveTextContent('WBS 1: Pembongkaran');
+  });
 });
 

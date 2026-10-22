@@ -18,16 +18,21 @@ Sprint 74 (2026-10-22):
   - Rendered WBS badge per requested item in table rows.
   - Enforced ascending WBS sorting for items within each requisition.
   - Enforced ascending WBS sorting for parent requisition tickets.
+- **Task 3: Refactored `RecentMaterialIssues.tsx`**:
+  - Reordered table headers to: `[checkbox]`, `WBS`, `TIME`, `SPK NO.`, `MATERIAL`, `QTY`, `HARGA (RP)`, `EKSEKUTOR / AUDIT`, `AKSI`.
+  - Reordered body cells so WBS is in column 2, formatted with badge `bg-slate-800 text-slate-300 border border-slate-700`.
+  - Added primary ascending sort by WBS weight with secondary newest-first timestamp sort using `getWbsOrderWeight(a.wbs_stage || a.wbs_category)`.
+  - Normalized `wbs_stage` and `wbs_category` on fetched records.
 - **Testing & Verification**:
   - Created [`wbsSort.test.ts`](file:///c:/KAROSERI/src/utils/__tests__/wbsSort.test.ts) (7 tests).
-  - Expanded [`RecentMaterialIssues.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/RecentMaterialIssues.test.tsx) to 10 tests (verifying WBS header and strict ascending WBS sorting).
+  - Expanded [`RecentMaterialIssues.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/RecentMaterialIssues.test.tsx) to 11 tests (verifying header sequence, badge styles, and secondary timestamp sorting).
   - Created [`RequisitionApprovalWbsSort.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/RequisitionApprovalWbsSort.test.tsx) (3 tests verifying header, item badges, within-ticket sorting, and multi-ticket sorting).
-  - All 57 test files (366 tests) passing.
+  - All 57 test files (367 tests) passing.
 
 ## Quality & Verification Status
 - **TypeScript Static Analysis:** Clean compilation with 0 errors (`tsc --noEmit` & `tsc -b`).
-- **Production Build:** Clean bundle generated in 510ms (`npm run build`).
-- **Automated Tests:** 57 test suites, 366 tests passing (0 failures).
+- **Production Build:** Clean bundle generated in 489ms (`npm run build`).
+- **Automated Tests:** 57 test suites, 367 tests passing (0 failures).
 
 ## Technical Debt Backlog
 None. (Zero outstanding technical debt).

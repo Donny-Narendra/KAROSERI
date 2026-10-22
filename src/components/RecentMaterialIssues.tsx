@@ -3,7 +3,7 @@ import { ClipboardList, Search, Loader2, Trash2, Edit2, AlertCircle } from 'luci
 import { supabase } from '../lib/supabaseClient';
 import { inventoryService } from '../services/inventoryService';
 import { ConfirmationModal } from './ConfirmationModal';
-import { formatWbsBadge, getWbsBadgeClass, compareWbsAsc } from '../utils/wbsSort';
+import { formatWbsBadge, getWbsOrderWeight } from '../utils/wbsSort';
 
 export function extractIssueWbs(issue: any): string | null {
   if (!issue) return null;
@@ -185,7 +185,19 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
 
         const { data, error } = await query;
         if (!error && data && data.length > 0) {
-          records = data;
+          records = data.map((r: any) => {
+            const itemWbs = Array.isArray(r.material_requisition_items)
+              ? r.material_requisition_items[0]?.wbs_stage
+              : r.material_requisition_items?.wbs_stage;
+            const reqWbs = Array.isArray(r.material_requisitions)
+              ? r.material_requisitions[0]?.wbs_category
+              : r.material_requisitions?.wbs_category;
+            return {
+              ...r,
+              wbs_stage: r.wbs_stage || itemWbs || reqWbs || null,
+              wbs_category: r.wbs_category || reqWbs || null,
+            };
+          });
         } else if (error) {
           console.warn('Primary inventory_transactions query note:', error);
         }
@@ -222,7 +234,11 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
           giQuery = giQuery.order('created_at', { ascending: false });
           const { data: giData, error: giError } = await giQuery;
           if (!giError && giData && giData.length > 0) {
-            records = giData;
+            records = giData.map((row: any) => ({
+              ...row,
+              wbs_stage: row.wbs_stage || row.wbs_id || null,
+              wbs_category: row.wbs_category || null,
+            }));
           }
         } catch {
           // Table goods_issues may not exist
@@ -267,6 +283,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
               unit_price: row.unit_price,
               custom_unit_price: row.unit_price,
               wbs_stage: row.wbs_stage,
+              wbs_category: row.wbs_category || row.wbs_stage,
               created_at: row.created_at,
               issued_at: row.created_at,
               issued_by_name: row.issued_by_name,
@@ -308,7 +325,11 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
           baseQuery = baseQuery.order('issued_at', { ascending: false });
           const { data: baseData, error: baseError } = await baseQuery;
           if (!baseError && baseData && baseData.length > 0) {
-            records = baseData;
+            records = baseData.map((row: any) => ({
+              ...row,
+              wbs_stage: row.wbs_stage || null,
+              wbs_category: row.wbs_category || null,
+            }));
           }
         } catch {
           // Ignore
@@ -337,34 +358,32 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
     setSearchQuery('');
   }, [fetchIssues, targetSpkId, targetSpkNo, refreshKey, internalRefresh]);
 
-  const displayedIssues = React.useMemo(() => {
-    let list = recentIssues;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      list = list.filter(issue => {
-        const wbs = extractIssueWbs(issue) || '';
-        return (
-          (issue.materials?.name || issue.material_name || '').toLowerCase().includes(q) ||
-          (issue.materials?.unit || issue.unit || '').toLowerCase().includes(q) ||
-          (issue.spk?.spk_no || issue.spk_no || '').toLowerCase().includes(q) ||
-          wbs.toLowerCase().includes(q) ||
-          formatWbsBadge(wbs).toLowerCase().includes(q)
-        );
-      });
-    }
-
-    return [...list].sort((a, b) => {
-      const wbsA = extractIssueWbs(a);
-      const wbsB = extractIssueWbs(b);
-      const diff = compareWbsAsc(wbsA, wbsB);
-      if (diff !== 0) return diff;
-
-      // Secondary sort: chronological descending
-      const timeA = new Date(a.issued_at || a.created_at || 0).getTime();
-      const timeB = new Date(b.issued_at || b.created_at || 0).getTime();
-      return timeB - timeA;
+  const filteredRecentIssues = React.useMemo(() => {
+    if (!searchQuery.trim()) return recentIssues;
+    const q = searchQuery.toLowerCase().trim();
+    return recentIssues.filter(issue => {
+      const wbs = issue.wbs_stage || issue.wbs_category || extractIssueWbs(issue) || '';
+      return (
+        (issue.materials?.name || issue.material_name || '').toLowerCase().includes(q) ||
+        (issue.materials?.unit || issue.unit || '').toLowerCase().includes(q) ||
+        (issue.spk?.spk_no || issue.spk_no || '').toLowerCase().includes(q) ||
+        wbs.toLowerCase().includes(q) ||
+        formatWbsBadge(wbs).toLowerCase().includes(q)
+      );
     });
   }, [recentIssues, searchQuery]);
+
+  const sortedIssues = React.useMemo(() => {
+    return [...filteredRecentIssues].sort((a, b) => {
+      const weightA = getWbsOrderWeight(a.wbs_stage || a.wbs_category);
+      const weightB = getWbsOrderWeight(b.wbs_stage || b.wbs_category);
+      if (weightA !== weightB) return weightA - weightB;
+      // Secondary sort: waktu transaksi terbaru
+      return new Date(b.created_at || b.issued_at || 0).getTime() - new Date(a.created_at || a.issued_at || 0).getTime();
+    });
+  }, [filteredRecentIssues]);
+
+  const displayedIssues = sortedIssues;
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
@@ -526,23 +545,24 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
         <table className="w-full text-left text-sm text-text whitespace-nowrap">
           <thead className="bg-background text-text-muted font-mono text-xs uppercase border-b border-border">
             <tr>
-              <th className="px-5 py-3 w-10">
+              <th className="py-1 px-3 w-6">
                 <input 
                   type="checkbox" 
                   checked={selectedIds.length === displayedIssues.length && displayedIssues.length > 0}
                   onChange={handleSelectAll}
                   disabled={displayedIssues.length === 0}
+                  aria-label="Pilih semua baris pengeluaran"
                   className="rounded border-border text-primary focus:ring-primary disabled:opacity-40"
                 />
               </th>
-              <th className="px-5 py-3">Time</th>
-              <th className="px-5 py-3">SPK No.</th>
-              <th className="px-5 py-3">WBS</th>
-              <th className="px-5 py-3">Material</th>
-              <th className="px-5 py-3">Qty</th>
-              <th className="px-5 py-3 text-right">Harga (Rp)</th>
-              <th className="px-5 py-3">Eksekutor / Audit</th>
-              <th className="px-5 py-3 text-center">Aksi</th>
+              <th className="py-1 px-3">WBS</th>
+              <th className="py-1 px-3">TIME</th>
+              <th className="py-1 px-3">SPK NO.</th>
+              <th className="py-1 px-3">MATERIAL</th>
+              <th className="py-1 px-3 text-right">QTY</th>
+              <th className="py-1 px-3 text-right">HARGA (RP)</th>
+              <th className="py-1 px-3">EKSEKUTOR / AUDIT</th>
+              <th className="py-1 px-3 text-center">AKSI</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -590,13 +610,10 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
                       ? issue.unit_price 
                       : (issue.materials?.unit_price || 0));
                 const executor = issue.issued_by_name || 'Petugas Gudang';
-                const wbsRaw = extractIssueWbs(issue);
-                const wbsBadgeText = formatWbsBadge(wbsRaw);
-                const wbsBadgeClass = getWbsBadgeClass(wbsRaw);
 
                 return (
                   <tr key={issue.id} className="hover:bg-surface-hover/50 transition">
-                    <td className="px-5 py-3">
+                    <td className="py-1.5 px-3">
                       <input 
                         type="checkbox" 
                         checked={selectedIds.includes(issue.id)}
@@ -604,29 +621,29 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
                         className="rounded border-border text-primary focus:ring-primary"
                       />
                     </td>
-                    <td className="px-5 py-3 text-text-muted">
-                      {formattedTime}
-                    </td>
-                    <td className="px-5 py-3 font-mono text-primary font-medium">
-                      {spkNo}
-                    </td>
-                    <td className="px-5 py-3">
-                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-mono font-medium ${wbsBadgeClass}`}>
-                        {wbsBadgeText}
+                    <td className="py-1.5 px-3">
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 whitespace-nowrap">
+                        {formatWbsBadge(issue.wbs_stage || issue.wbs_category)}
                       </span>
                     </td>
-                    <td className="px-5 py-3 font-medium">
+                    <td className="py-1.5 px-3 text-text-muted">
+                      {formattedTime}
+                    </td>
+                    <td className="py-1.5 px-3 font-mono text-primary font-medium">
+                      {spkNo}
+                    </td>
+                    <td className="py-1.5 px-3 font-medium">
                       {materialName}
                     </td>
-                    <td className="px-5 py-3">
+                    <td className="py-1.5 px-3">
                       <span className={Number(qty) < 0 ? 'text-status-warning font-semibold' : ''}>
                         {qty} {unit}
                       </span>
                     </td>
-                    <td className="px-5 py-3 text-right font-mono">
+                    <td className="py-1.5 px-3 text-right font-mono">
                       {price ? Number(price).toLocaleString() : '0'}
                     </td>
-                    <td className="px-5 py-3">
+                    <td className="py-1.5 px-3">
                       <div className="flex flex-col">
                         <div className="flex items-center gap-1.5">
                           <span className="font-medium text-xs text-text">
@@ -649,7 +666,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
                         )}
                       </div>
                     </td>
-                    <td className="px-5 py-3 text-center">
+                    <td className="py-1.5 px-3 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <button 
                           onClick={() => openEditModal(issue)}
