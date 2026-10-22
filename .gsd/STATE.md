@@ -1,22 +1,34 @@
 ## Current Position
-- **Sprint**: None
-- **Status**: Gap Closure Completed (Phase 76 Ready for Review)
-- **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness
+- **Sprint**: Sprint 73 — Fix Empty Recent Material Issues Table in Warehouse and Service Advisor
+- **Status**: Sprint completed
+- **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness (ready to resume)
 
 ## Last Session Summary
-Phase 76 Gap Closure (2026-10-22):
-- **Warehouse Rejection Handling & Migration**: Created SQL migration [`20261022020000_handle_reject_requisition_item.sql`](file:///c:/KAROSERI/supabase/migrations/20261022020000_handle_reject_requisition_item.sql) defining RPC `reject_single_requisition_item` with automatic header status reconciliation (`REJECTED`, `COMPLETED`, or `PARTIALLY_ISSUED`). Updated [`RequisitionApproval.tsx`](file:///c:/KAROSERI/src/components/RequisitionApproval.tsx) to supply `p_reason` and align fallback status calculation.
-- **Mandor Requisition Modal Reconciliation**: Updated [`MaterialRequisitionForm.tsx`](file:///c:/KAROSERI/src/components/MaterialRequisitionForm.tsx) to select `status` from `material_requisition_items`, strictly filter out `REJECTED` and `CANCELLED` items from Kotak Kiri (`persistedItems`), and restore them to Kotak Kanan (`initialAvailable`) with reactive counter badges.
-- **Allocation Rule Hardening**: Updated [`rabItemAllocation.ts`](file:///c:/KAROSERI/src/utils/rabItemAllocation.ts) (`isRabItemAllocated`) to treat `subItem.status === 'REJECTED'` or `'CANCELLED'` as unallocated (`false`), and added `status` selection to [`WbsChecklist.tsx`](file:///c:/KAROSERI/src/components/WbsChecklist.tsx) and [`SpkBoronganPanel.tsx`](file:///c:/KAROSERI/src/components/SpkBoronganPanel.tsx).
-- **Execution Constraints Followed**: 0 auto-verify executions, 0 auto-commits, and 0 automatic Supabase migrations executed (saved to migration file for manual execution by user).
+Sprint 73 (2026-10-22):
+- **Diagnosed Empty Table Root Causes**:
+  1. `inventory_transactions` select query requested `created_at` which does not exist on the database table (table uses `issued_at`), causing PostgREST to respond with 400 Bad Request error and resetting the results array to empty.
+  2. Joined `spk` relation and lookup queries requested `spk_number` which is not present in standard schema (only `spk_no` exists).
+  3. Prop passing and resolution between UUID (`spk.id`) and string (`spk_no`) was brittle, and `ServiceAdvisorDashboard.tsx` did not pass `selectedSpkId`.
+- **Refactored `RecentMaterialIssues.tsx`**:
+  - Implemented tolerant multi-format SPK input extraction supporting objects (`{ id, spk_no, spk_number, spkId, spkNo }`) or strings (`selectedSpkFilter`, `selectedSpkId`, `selectedSpkNumber`).
+  - Added dual resolution: auto-resolves `spk_id` UUID by querying `spk(id, spk_no)` if only SPK number was passed, and retrieves `spk_no` for display badge if only UUID was passed.
+  - Removed invalid columns (`created_at` and `spk_number`) from the `inventory_transactions` query.
+  - Implemented 2-stage resilient fallback: primary with full audit fields, fallback to basic fields, and secondary fallback to `material_issues` view/table.
+  - In-memory fallback filtering by SPK number if database SPK record was not found by UUID.
+- **Synchronized Dashboard Consumers**:
+  - Updated [`ServiceAdvisorDashboard.tsx`](file:///c:/KAROSERI/src/pages/ServiceAdvisorDashboard.tsx) to compute `selectedWarehouseSpkId` and pass both `selectedSpk` and `selectedSpkId`.
+  - Updated [`WarehouseDashboard.tsx`](file:///c:/KAROSERI/src/pages/WarehouseDashboard.tsx) to pass `selectedSpk` alongside `selectedSpkFilter` and `selectedSpkId`.
+- **Testing & Verification**:
+  - Expanded [`RecentMaterialIssues.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/RecentMaterialIssues.test.tsx) from 4 to 8 tests covering object tolerance, SPK number lookup resolution, fallback to `material_issues`, and SPK-7080 data rendering (Mata Gerinda Potong 4 pcs, Amplas 150 1 lbr, Amplas 100 0.75 mtr).
+  - All 55 test files (354 tests) passing.
 
 ## Quality & Verification Status
-- **Linter (Oxlint):** 0 errors, 0 warnings across 193 files with 113 rules.
-- **TypeScript Static Analysis:** Clean compilation with 0 errors (`tsc --noEmit`).
-- **Production Build:** Clean bundle generated in ~654ms (`npm run build`).
+- **Linter (Oxlint):** 0 errors, 0 warnings across 194 files with 113 rules.
+- **TypeScript Static Analysis:** Clean compilation with 0 errors (`tsc -b` & `tsc --noEmit`).
+- **Production Build:** Clean bundle generated in 513ms (`npm run build`).
 
 ## Technical Debt Backlog
 None. (Zero outstanding technical debt).
 
 ## Next Up
-- Manual review and migration execution in Supabase SQL editor by the user.
+- Resume milestone work or start new sprint upon user direction.

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { WarehouseDashboard } from '../WarehouseDashboard';
 import { supabase } from '../../lib/supabaseClient';
 
@@ -36,7 +36,9 @@ vi.mock('../../components/PackageManager', () => ({
 }));
 
 vi.mock('../../components/RecentMaterialIssues', () => ({
-  RecentMaterialIssues: () => <div data-testid="recent-material-issues">RecentMaterialIssues</div>,
+  RecentMaterialIssues: ({ selectedSpkFilter }: { selectedSpkFilter?: string }) => (
+    <div data-testid="recent-material-issues">RecentMaterialIssues: {selectedSpkFilter}</div>
+  ),
 }));
 
 vi.mock('../../components/RecentApprovedMaterials', () => ({
@@ -175,5 +177,31 @@ describe('Page: WarehouseDashboard (Requisition Query & Sidebar Counter Integrat
 
     // Sidebar "Semua SPK" should display total 3 pending items
     expect(screen.getByText('3 Pending')).toBeInTheDocument();
+  });
+
+  it('renders RecentMaterialIssues in the right sidebar between SpkFilterListBox and RecentApprovedMaterials, reactively updating on SPK selection', async () => {
+    render(<WarehouseDashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText('SPK-7080')).toBeInTheDocument();
+    });
+
+    const recentIssuesEl = screen.getByTestId('recent-material-issues');
+    const recentApprovedEl = screen.getByTestId('recent-approved-materials');
+    expect(recentIssuesEl).toBeInTheDocument();
+    expect(recentApprovedEl).toBeInTheDocument();
+
+    // Verify ordering in sidebar DOM container: RecentMaterialIssues must precede RecentApprovedMaterials
+    expect(recentIssuesEl.compareDocumentPosition(recentApprovedEl)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+
+    // Initial filter should be ALL
+    expect(recentIssuesEl).toHaveTextContent('RecentMaterialIssues: ALL');
+
+    // Click SPK-7080 in SpkFilterListBox
+    const spkCard = screen.getByText('SPK-7080');
+    fireEvent.click(spkCard);
+
+    // RecentMaterialIssues should reactively receive SPK-7080
+    expect(screen.getByTestId('recent-material-issues')).toHaveTextContent('RecentMaterialIssues: SPK-7080');
   });
 });

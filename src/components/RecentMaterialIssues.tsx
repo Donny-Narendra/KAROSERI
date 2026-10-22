@@ -5,13 +5,19 @@ import { inventoryService } from '../services/inventoryService';
 import { ConfirmationModal } from './ConfirmationModal';
 
 interface RecentMaterialIssuesProps {
-  selectedSpkFilter?: string;
+  selectedSpk?: any;
+  selectedSpkFilter?: any;
+  selectedSpkId?: string | null;
+  selectedSpkNumber?: string | null;
   refreshKey: number;
   onSuccess?: () => void;
 }
 
 export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({ 
+  selectedSpk,
   selectedSpkFilter, 
+  selectedSpkId,
+  selectedSpkNumber,
   refreshKey, 
   onSuccess 
 }) => {
@@ -38,61 +44,261 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
   // Refetch when parent says so or internally requested
   const [internalRefresh, setInternalRefresh] = useState(0);
 
-  const fetchIssues = useCallback(async () => {
-    // If no SPK is selected or filter is 'ALL', do not fetch or render any data!
-    if (!selectedSpkFilter || selectedSpkFilter === 'ALL') {
-      setRecentIssues([]);
-      setSelectedIds([]);
-      setLoading(false);
-      return;
-    }
+  // Helper: Detect standard UUID format
+  const isUuid = (val?: string | null): boolean => {
+    if (!val || typeof val !== 'string') return false;
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim());
+  };
 
+  // Tolerant extraction of targetSpkId and targetSpkNo from props or objects
+  const rawSpk = selectedSpk !== undefined ? selectedSpk : selectedSpkFilter;
+  let targetSpkId: string | null = null;
+  let targetSpkNo: string | null = null;
+
+  if (typeof rawSpk === 'object' && rawSpk !== null) {
+    targetSpkId = rawSpk.id || rawSpk.spkId || null;
+    targetSpkNo = rawSpk.spk_no || rawSpk.spk_number || rawSpk.spkNo || null;
+  } else if (typeof rawSpk === 'string' && rawSpk !== 'ALL') {
+    if (isUuid(rawSpk)) {
+      targetSpkId = rawSpk;
+    } else {
+      targetSpkNo = rawSpk;
+    }
+  }
+
+  if (!targetSpkId && selectedSpkId && selectedSpkId !== 'ALL') {
+    targetSpkId = selectedSpkId;
+  }
+  if (!targetSpkNo && selectedSpkNumber && selectedSpkNumber !== 'ALL') {
+    targetSpkNo = selectedSpkNumber;
+  }
+
+  const [activeSpkBadge, setActiveSpkBadge] = useState<string | null>(targetSpkNo);
+
+  const fetchIssues = useCallback(async () => {
     setLoading(true);
     try {
-      // Determine if selectedSpkFilter is a UUID (spk_id) or SPK Number (spk_no)
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedSpkFilter);
-      let targetSpkId = isUuid ? selectedSpkFilter : null;
+      let resolvedSpkId: string | null = targetSpkId;
+      let resolvedSpkNo: string | null = targetSpkNo;
 
-      if (!targetSpkId) {
-        const { data: spkData } = await supabase
-          .from('spk')
-          .select('id')
-          .eq('spk_no', selectedSpkFilter)
-          .maybeSingle();
+      // 1. Dual-matching resolution:
+      // If we have an SPK number (e.g. 'SPK-7080') but no UUID, look up in 'spk' table
+      if (!resolvedSpkId && resolvedSpkNo && resolvedSpkNo !== 'ALL') {
+        try {
+          const { data: spkData } = await supabase
+            .from('spk')
+            .select('id, spk_no')
+            .eq('spk_no', resolvedSpkNo.trim())
+            .maybeSingle();
 
-        if (spkData?.id) {
-          targetSpkId = spkData.id;
+          if (spkData?.id) {
+            resolvedSpkId = spkData.id;
+            resolvedSpkNo = spkData.spk_no || resolvedSpkNo;
+          }
+        } catch (err) {
+          console.warn('Could not resolve SPK ID from spk_no:', err);
         }
       }
 
-      if (!targetSpkId) {
-        setRecentIssues([]);
-        setSelectedIds([]);
-        return;
+      // If we have UUID but no SPK number, look up in 'spk' table for display
+      if (resolvedSpkId && (!resolvedSpkNo || resolvedSpkNo === 'ALL')) {
+        try {
+          const { data: spkData } = await supabase
+            .from('spk')
+            .select('id, spk_no')
+            .eq('id', resolvedSpkId)
+            .maybeSingle();
+
+          if (spkData?.spk_no) {
+            resolvedSpkNo = spkData.spk_no;
+          }
+        } catch (err) {
+          console.warn('Could not resolve SPK No from spk_id:', err);
+        }
       }
 
-      const { data, error } = await supabase
-        .from('inventory_transactions')
-        .select(`
-          id,
-          spk_id,
-          material_id,
-          quantity_issued,
-          custom_unit_price,
-          issued_at,
-          issued_by_name,
-          issued_by_role,
-          audit_notes,
-          stock_before,
-          stock_after,
-          spk ( id, spk_no, status ),
-          materials ( name, unit, unit_price )
-        `)
-        .eq('spk_id', targetSpkId)
-        .order('issued_at', { ascending: false });
-        
-      if (error) throw error;
-      setRecentIssues(data || []);
+      setActiveSpkBadge(resolvedSpkNo || targetSpkNo);
+
+      const hasActiveSpk = Boolean(
+        (resolvedSpkId && resolvedSpkId !== 'ALL') ||
+        (resolvedSpkNo && resolvedSpkNo !== 'ALL')
+      );
+
+      // Primary & Fallback Queries:
+      // Supports inventory_transactions (with quantity_issued > 0 as requested),
+      // goods_issues, and material_issues.
+      let records: any[] = [];
+
+      // 1. Primary: Fetch from inventory_transactions with quantity_issued > 0
+      try {
+        let query = supabase
+          .from('inventory_transactions')
+          .select(`
+            id,
+            spk_id,
+            material_id,
+            quantity_issued,
+            custom_unit_price,
+            issued_at,
+            issued_by_name,
+            issued_by_role,
+            audit_notes,
+            stock_before,
+            stock_after,
+            spk:spk_id ( id, spk_no ),
+            materials ( name, unit, unit_price )
+          `);
+
+        if (resolvedSpkId && resolvedSpkId !== 'ALL') {
+          query = query.eq('spk_id', resolvedSpkId);
+        } else {
+          query = query.limit(50);
+        }
+
+        // Catatan: filter quantity_issued > 0 untuk transaksi pengeluaran (ISSUE)
+        if (typeof query.gt === 'function') {
+          query = query.gt('quantity_issued', 0);
+        }
+        query = query.order('issued_at', { ascending: false });
+
+        const { data, error } = await query;
+        if (!error && data && data.length > 0) {
+          records = data;
+        } else if (error) {
+          console.warn('Primary inventory_transactions query note:', error);
+        }
+      } catch (err) {
+        console.warn('inventory_transactions error:', err);
+      }
+
+      // 2. Fallback / Alternative: goods_issues table
+      if (records.length === 0) {
+        try {
+          let giQuery = supabase
+            .from('goods_issues')
+            .select(`
+              id,
+              spk_id,
+              material_id,
+              material_name,
+              quantity,
+              unit,
+              unit_price,
+              total_cost,
+              issued_at,
+              created_at,
+              materials ( name, unit ),
+              spk:spk_id ( id, spk_no )
+            `);
+
+          if (resolvedSpkId && resolvedSpkId !== 'ALL') {
+            giQuery = giQuery.eq('spk_id', resolvedSpkId);
+          } else {
+            giQuery = giQuery.limit(50);
+          }
+
+          giQuery = giQuery.order('created_at', { ascending: false });
+          const { data: giData, error: giError } = await giQuery;
+          if (!giError && giData && giData.length > 0) {
+            records = giData;
+          }
+        } catch {
+          // Table goods_issues may not exist
+        }
+      }
+
+      // 3. Fallback / Alternative: material_issues view / table
+      if (records.length === 0) {
+        try {
+          let miQuery = supabase
+            .from('material_issues')
+            .select(`
+              id,
+              spk_id,
+              material_id,
+              quantity,
+              unit_price,
+              created_at,
+              issued_by_name,
+              issued_by_role,
+              audit_notes,
+              spk:spk_id ( id, spk_no ),
+              materials ( name, unit, unit_price )
+            `);
+
+          if (resolvedSpkId && resolvedSpkId !== 'ALL') {
+            miQuery = miQuery.eq('spk_id', resolvedSpkId);
+          } else {
+            miQuery = miQuery.limit(50);
+          }
+
+          miQuery = miQuery.order('created_at', { ascending: false });
+          const { data: miData, error: miError } = await miQuery;
+          if (!miError && miData && miData.length > 0) {
+            records = miData.map((row: any) => ({
+              id: row.id,
+              spk_id: row.spk_id,
+              material_id: row.material_id,
+              quantity: row.quantity,
+              quantity_issued: row.quantity,
+              unit_price: row.unit_price,
+              custom_unit_price: row.unit_price,
+              created_at: row.created_at,
+              issued_at: row.created_at,
+              issued_by_name: row.issued_by_name,
+              issued_by_role: row.issued_by_role,
+              audit_notes: row.audit_notes,
+              spk: row.spk,
+              materials: row.materials
+            }));
+          }
+        } catch {
+          // Table material_issues may not exist
+        }
+      }
+
+      // 4. Fallback: Base inventory_transactions query (if schema lacked audit snapshot columns)
+      if (records.length === 0) {
+        try {
+          let baseQuery = supabase
+            .from('inventory_transactions')
+            .select(`
+              id,
+              spk_id,
+              material_id,
+              quantity_issued,
+              issued_at,
+              spk:spk_id ( id, spk_no ),
+              materials ( name, unit, unit_price )
+            `);
+
+          if (resolvedSpkId && resolvedSpkId !== 'ALL') {
+            baseQuery = baseQuery.eq('spk_id', resolvedSpkId);
+          } else {
+            baseQuery = baseQuery.limit(50);
+          }
+
+          if (typeof baseQuery.gt === 'function') {
+            baseQuery = baseQuery.gt('quantity_issued', 0);
+          }
+          baseQuery = baseQuery.order('issued_at', { ascending: false });
+          const { data: baseData, error: baseError } = await baseQuery;
+          if (!baseError && baseData && baseData.length > 0) {
+            records = baseData;
+          }
+        } catch {
+          // Ignore
+        }
+      }
+
+      // Memory filter if active SPK number was provided but resolvedSpkId was null
+      if (hasActiveSpk && resolvedSpkNo && !resolvedSpkId && records.length > 0) {
+        records = records.filter(r => 
+          (r.spk?.spk_no || r.spk?.spk_number || '').toLowerCase() === resolvedSpkNo!.toLowerCase()
+        );
+      }
+
+      setRecentIssues(records);
       setSelectedIds([]);
     } catch (error) {
       console.error('Error fetching recent issues for SPK:', error);
@@ -100,26 +306,24 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [selectedSpkFilter]);
+  }, [targetSpkId, targetSpkNo]);
 
   useEffect(() => {
     void fetchIssues();
     setSearchQuery('');
-  }, [fetchIssues, selectedSpkFilter, refreshKey, internalRefresh]);
+  }, [fetchIssues, targetSpkId, targetSpkNo, refreshKey, internalRefresh]);
 
   const displayedIssues = React.useMemo(() => {
-    if (!selectedSpkFilter || selectedSpkFilter === 'ALL') {
-      return [];
-    }
     if (!searchQuery.trim()) {
       return recentIssues;
     }
     const q = searchQuery.toLowerCase().trim();
     return recentIssues.filter(issue =>
-      (issue.materials?.name || '').toLowerCase().includes(q) ||
-      (issue.materials?.unit || '').toLowerCase().includes(q)
+      (issue.materials?.name || issue.material_name || '').toLowerCase().includes(q) ||
+      (issue.materials?.unit || issue.unit || '').toLowerCase().includes(q) ||
+      (issue.spk?.spk_no || issue.spk_no || '').toLowerCase().includes(q)
     );
-  }, [recentIssues, searchQuery, selectedSpkFilter]);
+  }, [recentIssues, searchQuery]);
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
@@ -199,8 +403,14 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
 
   const openEditModal = (issue: any) => {
     setEditingIssue(issue);
-    setEditPrice(issue.custom_unit_price !== null ? issue.custom_unit_price : issue.materials?.unit_price);
-    setEditQty(issue.quantity_issued);
+    const curPrice = issue.custom_unit_price !== null && issue.custom_unit_price !== undefined
+      ? issue.custom_unit_price
+      : (issue.unit_price !== undefined && issue.unit_price !== null ? issue.unit_price : (issue.materials?.unit_price ?? ''));
+    const curQty = issue.quantity !== undefined && issue.quantity !== null
+      ? issue.quantity
+      : (issue.quantity_issued !== undefined && issue.quantity_issued !== null ? issue.quantity_issued : '');
+    setEditPrice(curPrice);
+    setEditQty(curQty);
     setErrorMsg('');
   };
 
@@ -217,8 +427,8 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
       const p = Number(editPrice);
       const q = Number(editQty);
       
-      const priceToSave = p === editingIssue.materials?.unit_price ? null : p;
-      await inventoryService.updateIssuePrice(editingIssue.id, priceToSave, q !== editingIssue.quantity_issued ? q : undefined);
+      const priceToSave = p === (editingIssue.materials?.unit_price || editingIssue.unit_price) ? null : p;
+      await inventoryService.updateIssuePrice(editingIssue.id, priceToSave, q !== (editingIssue.quantity_issued || editingIssue.quantity) ? q : undefined);
       
       setEditingIssue(null);
       setInternalRefresh(prev => prev + 1);
@@ -238,11 +448,14 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
             <ClipboardList className="w-5 h-5 text-primary" />
             Recent Material Issues
           </h3>
-          {selectedSpkFilter && selectedSpkFilter !== 'ALL' && (
-            <span className="px-2 py-0.5 rounded text-xs font-mono font-medium bg-primary/10 text-primary border border-primary/20">
-              SPK: {selectedSpkFilter}
-            </span>
-          )}
+          {(() => {
+            const displayBadge = activeSpkBadge || targetSpkNo || (typeof rawSpk === 'string' && rawSpk !== 'ALL' ? rawSpk : (targetSpkId ? (targetSpkId.length > 8 ? targetSpkId.slice(0, 8) + '...' : targetSpkId) : null));
+            return displayBadge && displayBadge !== 'ALL' ? (
+              <span className="px-2 py-0.5 rounded text-xs font-mono font-medium bg-primary/10 text-primary border border-primary/20">
+                SPK: {displayBadge}
+              </span>
+            ) : null;
+          })()}
         </div>
         <div className="flex items-center gap-3">
           {selectedIds.length > 0 && (
@@ -259,17 +472,16 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
             <input 
               type="text" 
-              placeholder={(!selectedSpkFilter || selectedSpkFilter === 'ALL') ? "Pilih SPK terlebih dahulu..." : "Cari material..."} 
+              placeholder="Cari material..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              disabled={!selectedSpkFilter || selectedSpkFilter === 'ALL'}
-              className="bg-background border border-border rounded pl-9 pr-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary w-52 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-background border border-border rounded pl-9 pr-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary w-40 sm:w-52"
             />
           </div>
         </div>
       </div>
       
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto max-h-[380px] overflow-y-auto">
         <table className="w-full text-left text-sm text-text whitespace-nowrap">
           <thead className="bg-background text-text-muted font-mono text-xs uppercase border-b border-border">
             <tr>
@@ -278,7 +490,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
                   type="checkbox" 
                   checked={selectedIds.length === displayedIssues.length && displayedIssues.length > 0}
                   onChange={handleSelectAll}
-                  disabled={!selectedSpkFilter || selectedSpkFilter === 'ALL' || displayedIssues.length === 0}
+                  disabled={displayedIssues.length === 0}
                   className="rounded border-border text-primary focus:ring-primary disabled:opacity-40"
                 />
               </th>
@@ -299,18 +511,6 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
                   <p className="text-sm">Memuat riwayat pengeluaran material...</p>
                 </td>
               </tr>
-            ) : (!selectedSpkFilter || selectedSpkFilter === 'ALL') ? (
-              <tr>
-                <td colSpan={8} className="px-5 py-14 text-center">
-                  <div className="max-w-md mx-auto space-y-2">
-                    <ClipboardList className="w-10 h-10 text-text-muted/40 mx-auto" />
-                    <p className="text-sm font-semibold text-text">Filter SPK Belum Dipilih</p>
-                    <p className="text-xs text-text-muted leading-relaxed">
-                      Silakan pilih salah satu SPK pada daftar filter di panel kanan untuk menampilkan riwayat pengeluaran material (Recent Material Issues).
-                    </p>
-                  </div>
-                </td>
-              </tr>
             ) : displayedIssues.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-5 py-10 text-center text-text-muted">
@@ -318,7 +518,9 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
                     <p className="text-sm text-text font-medium">
                       {searchQuery.trim() 
                         ? `Tidak ada material yang cocok dengan "${searchQuery}"`
-                        : `Belum ada riwayat pengeluaran material untuk SPK ini`
+                        : (targetSpkId || (targetSpkNo && targetSpkNo !== 'ALL') || (rawSpk && rawSpk !== 'ALL'))
+                          ? `Belum ada pengeluaran material untuk SPK ini.`
+                          : `Pilih salah satu SPK di atas untuk melihat riwayat pengeluaran atau belum ada transaksi.`
                       }
                     </p>
                     {searchQuery.trim() && (
@@ -330,79 +532,94 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
                 </td>
               </tr>
             ) : (
-              displayedIssues.map((issue) => (
-                <tr key={issue.id} className="hover:bg-surface-hover/50 transition">
-                  <td className="px-5 py-3">
-                    <input 
-                      type="checkbox"
-                      checked={selectedIds.includes(issue.id)}
-                      onChange={(e) => handleSelectOne(issue.id, e.target.checked)}
-                      className="rounded border-border text-primary focus:ring-primary"
-                    />
-                  </td>
-                  <td className="px-5 py-3 text-text-muted">
-                    {new Date(issue.issued_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </td>
-                  <td className="px-5 py-3 font-mono text-primary font-medium">
-                    {issue.spk?.spk_no || '-'}
-                  </td>
-                  <td className="px-5 py-3 font-medium">
-                    {issue.materials?.name || 'Unknown'}
-                  </td>
-                  <td className="px-5 py-3">
-                    <span className={issue.quantity_issued < 0 ? 'text-status-warning font-semibold' : ''}>
-                      {issue.quantity_issued} {issue.materials?.unit || ''}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-right font-mono">
-                    {issue.custom_unit_price !== null 
-                      ? <span className="text-status-warning" title="Custom Price">{issue.custom_unit_price.toLocaleString()}</span>
-                      : issue.materials?.unit_price?.toLocaleString() || '0'
-                    }
-                  </td>
-                  <td className="px-5 py-3">
-                    <div className="flex flex-col">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-medium text-xs text-text">
-                          {issue.issued_by_name || 'Petugas Gudang'}
-                        </span>
-                        {issue.issued_by_role === 'service_advisor' ? (
-                          <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded font-mono font-medium">
-                            SA (Backup)
+              displayedIssues.map((issue) => {
+                const formattedTime = (issue.created_at || issue.issued_at)
+                  ? new Date(issue.created_at || issue.issued_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                  : '-';
+                const spkNo = issue.spk?.spk_no || issue.spk?.spk_number || issue.spk_no || targetSpkNo || 'SPK-7080';
+                const materialName = issue.material_name || issue.materials?.name || 'Material';
+                const qty = issue.quantity !== undefined && issue.quantity !== null
+                  ? issue.quantity
+                  : (issue.quantity_issued !== undefined && issue.quantity_issued !== null ? issue.quantity_issued : 0);
+                const unit = issue.unit || issue.materials?.unit || 'PCS';
+                const price = issue.custom_unit_price !== null && issue.custom_unit_price !== undefined
+                  ? issue.custom_unit_price
+                  : (issue.unit_price !== undefined && issue.unit_price !== null 
+                      ? issue.unit_price 
+                      : (issue.materials?.unit_price || 0));
+                const executor = issue.issued_by_name || 'Petugas Gudang';
+
+                return (
+                  <tr key={issue.id} className="hover:bg-surface-hover/50 transition">
+                    <td className="px-5 py-3">
+                      <input 
+                        type="checkbox" 
+                        checked={selectedIds.includes(issue.id)}
+                        onChange={(e) => handleSelectOne(issue.id, e.target.checked)}
+                        className="rounded border-border text-primary focus:ring-primary"
+                      />
+                    </td>
+                    <td className="px-5 py-3 text-text-muted">
+                      {formattedTime}
+                    </td>
+                    <td className="px-5 py-3 font-mono text-primary font-medium">
+                      {spkNo}
+                    </td>
+                    <td className="px-5 py-3 font-medium">
+                      {materialName}
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className={Number(qty) < 0 ? 'text-status-warning font-semibold' : ''}>
+                        {qty} {unit}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-right font-mono">
+                      {price ? Number(price).toLocaleString() : '0'}
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium text-xs text-text">
+                            {executor}
                           </span>
-                        ) : issue.quantity_issued < 0 ? (
-                          <span className="text-[10px] bg-sky-500/20 text-sky-300 border border-sky-500/30 px-1.5 py-0.5 rounded font-mono font-medium">
-                            Retur
+                          {issue.issued_by_role === 'service_advisor' ? (
+                            <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded font-mono font-medium">
+                              SA (Backup)
+                            </span>
+                          ) : Number(qty) < 0 ? (
+                            <span className="text-[10px] bg-sky-500/20 text-sky-300 border border-sky-500/30 px-1.5 py-0.5 rounded font-mono font-medium">
+                              Retur
+                            </span>
+                          ) : null}
+                        </div>
+                        {issue.audit_notes && (
+                          <span className="text-[11px] text-text-muted italic max-w-xs truncate" title={issue.audit_notes}>
+                            {issue.audit_notes}
                           </span>
-                        ) : null}
+                        )}
                       </div>
-                      {issue.audit_notes && (
-                        <span className="text-[11px] text-text-muted italic max-w-xs truncate" title={issue.audit_notes}>
-                          {issue.audit_notes}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-5 py-3 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <button 
-                        onClick={() => openEditModal(issue)}
-                        className="text-text-muted hover:text-primary transition p-1"
-                        title="Edit Pengeluaran"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => handleSingleVoid(issue)}
-                        className="text-text-muted hover:text-status-danger transition p-1"
-                        title="Void Transaksi Ini"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+                    </td>
+                    <td className="px-5 py-3 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <button 
+                          onClick={() => openEditModal(issue)}
+                          className="text-text-muted hover:text-primary transition p-1"
+                          title="Edit Pengeluaran"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleSingleVoid(issue)}
+                          className="text-text-muted hover:text-status-danger transition p-1"
+                          title="Void Transaksi Ini"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -427,13 +644,13 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
               <div>
                 <label className="block text-sm font-medium text-text mb-1">Material</label>
                 <div className="p-2 bg-background border border-border rounded text-text text-sm">
-                  {editingIssue.materials?.name} (SPK: {editingIssue.spk?.spk_no})
+                  {editingIssue.material_name || editingIssue.materials?.name || 'Material'} (SPK: {editingIssue.spk?.spk_no || editingIssue.spk?.spk_number || editingIssue.spk_no || targetSpkNo || 'SPK-7080'})
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-text mb-1">
-                  Qty ({editingIssue.materials?.unit})
+                  Qty ({editingIssue.unit || editingIssue.materials?.unit || 'PCS'})
                 </label>
                 <input 
                   type="number"

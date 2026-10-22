@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { LogOut, FileText, Plus, ClipboardList, Camera, Pencil, ShieldAlert } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
@@ -55,6 +55,12 @@ export const ServiceAdvisorDashboard: React.FC = () => {
   const handleApprovalRecorded = useCallback((newAudits: StockAuditItem[]) => {
     setRecentApprovals(prev => [...newAudits, ...prev].slice(0, 15));
   }, []);
+
+  const selectedWarehouseSpkId = useMemo(() => {
+    if (!selectedSpkFilter || selectedSpkFilter === 'ALL') return null;
+    const item = spkFilterList.find(s => s.spkNo === selectedSpkFilter || s.spkId === selectedSpkFilter);
+    return item?.spkId || (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedSpkFilter) ? selectedSpkFilter : null);
+  }, [selectedSpkFilter, spkFilterList]);
 
   const fetchPendingReqCount = async () => {
     try {
@@ -307,7 +313,9 @@ export const ServiceAdvisorDashboard: React.FC = () => {
                   onSelectSpk={setSelectedSpkFilter}
                 />
                 <RecentMaterialIssues
+                  selectedSpk={selectedSpkFilter}
                   selectedSpkFilter={selectedSpkFilter}
+                  selectedSpkId={selectedWarehouseSpkId}
                   refreshKey={warehouseRefreshKey}
                   onSuccess={() => setWarehouseRefreshKey(k => k + 1)}
                 />

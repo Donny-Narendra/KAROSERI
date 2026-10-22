@@ -107,6 +107,12 @@ export const WarehouseDashboard: React.FC = () => {
     setRefreshKey(prev => prev + 1);
   };
 
+  const selectedSpkId = React.useMemo(() => {
+    if (!selectedSpkFilter || selectedSpkFilter === 'ALL') return null;
+    const item = spkFilterList.find(s => s.spkNo === selectedSpkFilter || s.spkId === selectedSpkFilter);
+    return item?.spkId || (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selectedSpkFilter) ? selectedSpkFilter : null);
+  }, [selectedSpkFilter, spkFilterList]);
+
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
       {/* Top Navbar */}
@@ -192,13 +198,6 @@ export const WarehouseDashboard: React.FC = () => {
             ) : (
               <InventoryManager />
             )}
-            
-            {/* Recent Issues Table */}
-            <RecentMaterialIssues 
-              selectedSpkFilter={selectedSpkFilter} 
-              refreshKey={refreshKey} 
-              onSuccess={handleIssueSuccess} 
-            />
           </div>
           
           <div className="space-y-6">
@@ -209,6 +208,17 @@ export const WarehouseDashboard: React.FC = () => {
                 totalPendingCount={pendingReqCount}
                 selectedSpk={selectedSpkFilter}
                 onSelectSpk={setSelectedSpkFilter}
+              />
+            )}
+
+            {/* Recent Issues Table (Shown when Mandor Requests or Issue Material tab is active) */}
+            {(activeTab === 'requisition' || activeTab === 'issue') && (
+              <RecentMaterialIssues 
+                selectedSpk={selectedSpkFilter}
+                selectedSpkFilter={selectedSpkFilter} 
+                selectedSpkId={selectedSpkId}
+                refreshKey={refreshKey} 
+                onSuccess={handleIssueSuccess} 
               />
             )}
 

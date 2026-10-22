@@ -1,0 +1,399 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { RecentMaterialIssues } from '../RecentMaterialIssues';
+import { supabase } from '../../lib/supabaseClient';
+
+vi.mock('../../lib/supabaseClient', () => ({
+  supabase: {
+    from: vi.fn(),
+    rpc: vi.fn(),
+  },
+}));
+
+vi.mock('../../services/inventoryService', () => ({
+  inventoryService: {
+    voidMaterialIssue: vi.fn(),
+    updateMaterialIssue: vi.fn(),
+  },
+}));
+
+describe('Component: RecentMaterialIssues', () => {
+  const mockTransactions = [
+    {
+      id: 'tx-1',
+      spk_id: 'spk-uuid-7080',
+      material_id: 'mat-1',
+      quantity_issued: 5,
+      custom_unit_price: null,
+      issued_at: '2026-10-22T08:30:00Z',
+      issued_by_name: 'Budi Gudang',
+      issued_by_role: 'petugas_gudang',
+      audit_notes: 'Pengeluaran plat dasar',
+      stock_before: 50,
+      stock_after: 45,
+      spk: { id: 'spk-uuid-7080', spk_no: 'SPK-7080', spk_number: 'SPK-7080', status: 'IN_PROGRESS' },
+      materials: { name: 'Plat Besi 3mm', unit: 'Lembar', unit_price: 450000 },
+    },
+    {
+      id: 'tx-2',
+      spk_id: 'spk-uuid-7080',
+      material_id: 'mat-2',
+      quantity_issued: 20,
+      custom_unit_price: 15000,
+      issued_at: '2026-10-22T09:15:00Z',
+      issued_by_name: 'Donny SA',
+      issued_by_role: 'service_advisor',
+      audit_notes: 'Baut tambahan',
+      stock_before: 200,
+      stock_after: 180,
+      spk: { id: 'spk-uuid-7080', spk_no: 'SPK-7080', spk_number: 'SPK-7080', status: 'IN_PROGRESS' },
+      materials: { name: 'Baut Baja 12mm', unit: 'PCS', unit_price: 12000 },
+    },
+  ];
+
+  let lastQueryOrderCol: string | null = null;
+  let lastQueryOrderAsc: boolean | null = null;
+  let lastFilteredSpkId: string | null = null;
+  let lastQueryLimit: number | null = null;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    lastQueryOrderCol = null;
+    lastQueryOrderAsc = null;
+    lastFilteredSpkId = null;
+    lastQueryLimit = null;
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === 'spk') {
+        return {
+          select: vi.fn().mockReturnValue({
+            or: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: { id: 'spk-uuid-7080', spk_no: 'SPK-7080', spk_number: 'SPK-7080' },
+                error: null,
+              }),
+            }),
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: { id: 'spk-uuid-7080', spk_no: 'SPK-7080', spk_number: 'SPK-7080' },
+                error: null,
+              }),
+            }),
+            ilike: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: { id: 'spk-uuid-7080', spk_no: 'SPK-7080', spk_number: 'SPK-7080' },
+                error: null,
+              }),
+            }),
+          }),
+        } as any;
+      }
+
+      if (table === 'inventory_transactions') {
+        const queryObj: any = {};
+        queryObj.select = vi.fn().mockImplementation(() => queryObj);
+        queryObj.eq = vi.fn().mockImplementation((col: string, val: string) => {
+          if (col === 'spk_id') {
+            lastFilteredSpkId = val;
+          }
+          return queryObj;
+        });
+        queryObj.gt = vi.fn().mockImplementation(() => queryObj);
+        queryObj.limit = vi.fn().mockImplementation((n: number) => {
+          lastQueryLimit = n;
+          return queryObj;
+        });
+        queryObj.order = vi.fn().mockImplementation((col: string, opts: { ascending: boolean }) => {
+          lastQueryOrderCol = col;
+          lastQueryOrderAsc = opts.ascending;
+          return Promise.resolve({
+            data: mockTransactions,
+            error: null,
+          });
+        });
+        return queryObj as any;
+      }
+
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+        }),
+      } as any;
+    });
+  });
+
+  it('fetches latest transactions ordered descending by issued_at when no active SPK is selected', async () => {
+    render(<RecentMaterialIssues selectedSpkFilter="ALL" refreshKey={0} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Plat Besi 3mm')).toBeInTheDocument();
+      expect(screen.getByText('Baut Baja 12mm')).toBeInTheDocument();
+    });
+
+    expect(lastQueryOrderCol).toBe('issued_at');
+    expect(lastQueryOrderAsc).toBe(false);
+    expect(lastFilteredSpkId).toBeNull();
+    expect(lastQueryLimit).toBe(50);
+
+    const searchInput = screen.getByPlaceholderText('Cari material...');
+    expect(searchInput).not.toBeDisabled();
+  });
+
+  it('filters by spk_id === selectedSpkId and orders descending by issued_at when SPK is selected', async () => {
+    render(<RecentMaterialIssues selectedSpkFilter="SPK-7080" selectedSpkId="spk-uuid-7080" refreshKey={0} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('SPK: SPK-7080')).toBeInTheDocument();
+      expect(screen.getByText('Plat Besi 3mm')).toBeInTheDocument();
+      expect(screen.getByText('Baut Baja 12mm')).toBeInTheDocument();
+    });
+
+    expect(lastFilteredSpkId).toBe('spk-uuid-7080');
+    expect(lastQueryOrderCol).toBe('issued_at');
+    expect(lastQueryOrderAsc).toBe(false);
+
+    expect(screen.getByText('5 Lembar')).toBeInTheDocument();
+    expect(screen.getByText('20 PCS')).toBeInTheDocument();
+    expect(screen.getByText('SA (Backup)')).toBeInTheDocument();
+  });
+
+  it('filters material rows reactively when typing in the search box', async () => {
+    render(<RecentMaterialIssues selectedSpkFilter="SPK-7080" selectedSpkId="spk-uuid-7080" refreshKey={0} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Plat Besi 3mm')).toBeInTheDocument();
+      expect(screen.getByText('Baut Baja 12mm')).toBeInTheDocument();
+    });
+
+    const searchInput = screen.getByPlaceholderText('Cari material...');
+    fireEvent.change(searchInput, { target: { value: 'Baut' } });
+
+    expect(screen.queryByText('Plat Besi 3mm')).not.toBeInTheDocument();
+    expect(screen.getByText('Baut Baja 12mm')).toBeInTheDocument();
+
+    // Query non-matching
+    fireEvent.change(searchInput, { target: { value: 'Cat Epoxy' } });
+    expect(screen.getByText(/Tidak ada material yang cocok dengan "Cat Epoxy"/i)).toBeInTheDocument();
+  });
+
+  it('renders "Belum ada pengeluaran material untuk SPK ini" when selected SPK has 0 issues', async () => {
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === 'inventory_transactions') {
+        const queryObj: any = {};
+        queryObj.select = vi.fn().mockReturnValue(queryObj);
+        queryObj.eq = vi.fn().mockReturnValue(queryObj);
+        queryObj.gt = vi.fn().mockReturnValue(queryObj);
+        queryObj.limit = vi.fn().mockReturnValue(queryObj);
+        queryObj.order = vi.fn().mockResolvedValue({ data: [], error: null });
+        return queryObj;
+      }
+      return {
+        select: vi.fn().mockReturnValue({
+          ilike: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { id: 'spk-uuid-empty', spk_no: 'SPK-EMPTY' },
+              error: null,
+            }),
+          }),
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { id: 'spk-uuid-empty', spk_no: 'SPK-EMPTY' },
+              error: null,
+            }),
+          }),
+        }),
+      } as any;
+    });
+
+    render(<RecentMaterialIssues selectedSpkFilter="SPK-EMPTY" selectedSpkId="spk-uuid-empty" refreshKey={0} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Belum ada pengeluaran material untuk SPK ini.')).toBeInTheDocument();
+    });
+  });
+
+  it('tolerates object SPK prop { id: "spk-uuid-7080", spk_no: "SPK-7080" } directly', async () => {
+    render(
+      <RecentMaterialIssues 
+        selectedSpk={{ id: 'spk-uuid-7080', spk_no: 'SPK-7080' }} 
+        refreshKey={0} 
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('SPK: SPK-7080')).toBeInTheDocument();
+      expect(screen.getByText('Plat Besi 3mm')).toBeInTheDocument();
+      expect(screen.getByText('Baut Baja 12mm')).toBeInTheDocument();
+    });
+
+    expect(lastFilteredSpkId).toBe('spk-uuid-7080');
+  });
+
+  it('resolves targetSpkId from spk table when only SPK number string is passed (no UUID passed)', async () => {
+    // Only pass selectedSpkFilter="SPK-7080", no selectedSpkId
+    render(<RecentMaterialIssues selectedSpkFilter="SPK-7080" refreshKey={0} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('SPK: SPK-7080')).toBeInTheDocument();
+      expect(screen.getByText('Plat Besi 3mm')).toBeInTheDocument();
+      expect(screen.getByText('Baut Baja 12mm')).toBeInTheDocument();
+    });
+
+    // Verify it looked up the SPK table by spk_no and queried inventory_transactions with spk-uuid-7080
+    expect(lastFilteredSpkId).toBe('spk-uuid-7080');
+  });
+
+  it('correctly displays material issues for SPK-7080 including Mata Gerinda Potong and Amplas', async () => {
+    const spk7080Transactions = [
+      {
+        id: 'tx-7080-1',
+        spk_id: 'spk-uuid-7080',
+        material_id: 'mat-gerinda',
+        quantity_issued: 4,
+        custom_unit_price: 15000,
+        issued_at: '2026-10-22T08:00:00Z',
+        issued_by_name: 'Pak Gudang',
+        issued_by_role: 'petugas_gudang',
+        audit_notes: 'Rilis pemotongan chasis',
+        spk: { id: 'spk-uuid-7080', spk_no: 'SPK-7080', status: 'IN_PROGRESS' },
+        materials: { name: 'Mata Gerinda Potong', unit: 'pcs', unit_price: 15000 },
+      },
+      {
+        id: 'tx-7080-2',
+        spk_id: 'spk-uuid-7080',
+        material_id: 'mat-amplas150',
+        quantity_issued: 1,
+        custom_unit_price: 8000,
+        issued_at: '2026-10-22T08:15:00Z',
+        issued_by_name: 'Pak Gudang',
+        issued_by_role: 'petugas_gudang',
+        audit_notes: 'Rilis amplas halus',
+        spk: { id: 'spk-uuid-7080', spk_no: 'SPK-7080', status: 'IN_PROGRESS' },
+        materials: { name: 'Amplas 150', unit: 'lbr', unit_price: 8000 },
+      },
+      {
+        id: 'tx-7080-3',
+        spk_id: 'spk-uuid-7080',
+        material_id: 'mat-amplas100',
+        quantity_issued: 0.75,
+        custom_unit_price: 12000,
+        issued_at: '2026-10-22T08:30:00Z',
+        issued_by_name: 'Pak Gudang',
+        issued_by_role: 'petugas_gudang',
+        audit_notes: 'Rilis amplas kasar',
+        spk: { id: 'spk-uuid-7080', spk_no: 'SPK-7080', status: 'IN_PROGRESS' },
+        materials: { name: 'Amplas 100', unit: 'mtr', unit_price: 12000 },
+      },
+    ];
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === 'inventory_transactions') {
+        const queryObj: any = {};
+        queryObj.select = vi.fn().mockReturnValue(queryObj);
+        queryObj.eq = vi.fn().mockReturnValue(queryObj);
+        queryObj.gt = vi.fn().mockReturnValue(queryObj);
+        queryObj.limit = vi.fn().mockReturnValue(queryObj);
+        queryObj.order = vi.fn().mockResolvedValue({
+          data: spk7080Transactions,
+          error: null,
+        });
+        return queryObj;
+      }
+      return {
+        select: vi.fn().mockReturnValue({
+          ilike: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { id: 'spk-uuid-7080', spk_no: 'SPK-7080' },
+              error: null,
+            }),
+          }),
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { id: 'spk-uuid-7080', spk_no: 'SPK-7080' },
+              error: null,
+            }),
+          }),
+        }),
+      } as any;
+    });
+
+    render(<RecentMaterialIssues selectedSpkFilter="SPK-7080" selectedSpkId="spk-uuid-7080" refreshKey={0} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Mata Gerinda Potong')).toBeInTheDocument();
+      expect(screen.getByText('4 pcs')).toBeInTheDocument();
+      expect(screen.getByText('Amplas 150')).toBeInTheDocument();
+      expect(screen.getByText('1 lbr')).toBeInTheDocument();
+      expect(screen.getByText('Amplas 100')).toBeInTheDocument();
+      expect(screen.getByText('0.75 mtr')).toBeInTheDocument();
+    });
+  });
+
+  it('falls back gracefully to material_issues if inventory_transactions fails completely', async () => {
+    const fallbackIssues = [
+      {
+        id: 'mi-1',
+        spk_id: 'spk-uuid-7080',
+        material_id: 'mat-cat',
+        quantity: 2,
+        unit_price: 75000,
+        created_at: '2026-10-22T10:00:00Z',
+        issued_by_name: 'Donny SA',
+        issued_by_role: 'service_advisor',
+        audit_notes: 'Cat Dasar Epoxy',
+        spk: { id: 'spk-uuid-7080', spk_no: 'SPK-7080' },
+        materials: { name: 'Cat Epoxy Primer', unit: 'Kaleng', unit_price: 75000 },
+      },
+    ];
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === 'inventory_transactions') {
+        const queryObj: any = {};
+        queryObj.select = vi.fn().mockReturnValue(queryObj);
+        queryObj.eq = vi.fn().mockReturnValue(queryObj);
+        queryObj.gt = vi.fn().mockReturnValue(queryObj);
+        queryObj.limit = vi.fn().mockReturnValue(queryObj);
+        queryObj.order = vi.fn().mockResolvedValue({
+          data: null,
+          error: { message: 'Column not found or schema mismatch' },
+        });
+        return queryObj;
+      }
+      if (table === 'material_issues') {
+        const queryObj: any = {};
+        queryObj.select = vi.fn().mockReturnValue(queryObj);
+        queryObj.eq = vi.fn().mockReturnValue(queryObj);
+        queryObj.limit = vi.fn().mockReturnValue(queryObj);
+        queryObj.order = vi.fn().mockResolvedValue({
+          data: fallbackIssues,
+          error: null,
+        });
+        return queryObj;
+      }
+      return {
+        select: vi.fn().mockReturnValue({
+          ilike: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { id: 'spk-uuid-7080', spk_no: 'SPK-7080' },
+              error: null,
+            }),
+          }),
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { id: 'spk-uuid-7080', spk_no: 'SPK-7080' },
+              error: null,
+            }),
+          }),
+        }),
+      } as any;
+    });
+
+    render(<RecentMaterialIssues selectedSpkFilter="SPK-7080" selectedSpkId="spk-uuid-7080" refreshKey={0} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Cat Epoxy Primer')).toBeInTheDocument();
+      expect(screen.getByText('2 Kaleng')).toBeInTheDocument();
+      expect(screen.getByText('SA (Backup)')).toBeInTheDocument();
+    });
+  });
+});
