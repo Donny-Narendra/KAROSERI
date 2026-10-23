@@ -1,71 +1,57 @@
-# Sprint 80 — Add Source Package / Granular Origin Column to RAB Calculator Table
+# Sprint 81 — Allow Multi-Instance Package Selection in Change Orders with Strict Duplicate Prevention
 
 > **Duration**: 2026-10-23 to 2026-10-24
-> **Status**: Completed
+> **Status**: In Progress
 
 ## Goal
-Add a dedicated "SUMBER / PAKET" origin column to the RAB Calculator table in `/service-advisor` to clearly distinguish items generated from product assembly packages (`[ 📦 Paket: Nama Paket ]`) from items entered manually/granularly (`[ 📋 Granular ]`), ensuring package metadata persistence and syncing origin information to XLSX export and PDF quotation views.
+Enable users to select and add the same finished goods product assembly package (BOM) multiple times to a Change Order without restriction from initial RAB locks, assigning a unique `package_instance_id` per application session, and enforcing strict UI double-submit guards (state locking + debounce) on both the modal apply button and final Change Order submission.
 
 ## Scope
 
 ### Included
-- **Task 1: Package Metadata Persistence in RAB Items**
-  - Updated `PackageAllocationModal.tsx` (`RabItemPayload` interface and `handleApply` payload generation) to include `package_name: packageData.name` and `package_id: packageData.id`.
-  - Updated `RabCalculator.tsx`:
-    - In `handleApplyPackageAllocation`, recorded `package_name: selectedPackage.name`, `packageName: selectedPackage.name`, `packageId: pkgId`, and notes fallback `Paket: ${selectedPackage.name}` on each item.
-    - In `handleAddLaborItem` and `handleAddItem`, ensured granular items explicitly set `package_name: null`, `packageName: null`, `packageId: undefined`.
-  - Updated `rabService.ts`:
-    - Extended `DbRabItemRecord` and `RabItem` with `package_name?: string | null` and `packageName?: string | null`.
-    - In `loadRabItems`, mapped and resolved `package_name` (from `dbItem.package_name`, `product_packages.name`, or `notes`).
-    - In `insertRabItems` and `saveFullRabEstimation`, accept and persist `package_name` with defensive PostgreSQL 42703 column fallback retry.
-  - Added database migration `20261023030000_add_package_name_to_rab_items.sql` with column addition and backfill from `product_packages`.
-- **Task 2: UI Table Header & Row Origin Column in `RabCalculator.tsx`**
-  - Added table header `<th className="px-3 py-3 text-left">Sumber / Paket</th>` positioned immediately between `Description` and `Type`.
-  - Rendered row cell for each item displaying:
-    - `[ 📦 Paket: Nama Paket ]` (amber badge `bg-amber-950/70 text-amber-400 border border-amber-800/80`) if the item originates from an assembly package (via direct `package_name`, `packageName`, `packageId` relational lookup, or `notes` fallback).
-    - `[ 📋 Granular ]` (slate/neutral badge `bg-slate-800/80 text-slate-300 border border-slate-700/80`) for loose/granular items.
-- **Task 3: Export Helpers Synchronization (XLSX & PDF) in `rabExport.ts`**
-  - Extended `RabExportItem` interface with `package_name?: string | null`, `packageName?: string | null`, `packageId?: string | null`, `notes?: string | null`.
-  - Created `getRabItemSourceOrigin` helper with case-insensitive package and notes resolution.
-  - Updated `exportRabToExcel`: included "Sumber / Paket" column between "Deskripsi" and "Tipe" in worksheet header and row data, correctly offsetting summary totals.
-  - Updated `printRabQuotation`: displayed package origin badge or subtle subtext (`📦 Paket: ...` or `📋 Granular`) in the component description cell.
-- **Task 4: Testing & Quality Gate**
-  - Added component tests in `src/components/__tests__/RabCalculatorOrigin.test.tsx` verifying column rendering, package badges, and granular badges.
-  - Added unit tests in `src/utils/__tests__/rabExport.test.ts` verifying Excel worksheet columns and PDF quotation rendering.
-  - Passed full verification: Vitest test suite (60 test suites, 415 tests passing), `tsc -b`, and `npm run build`.
+- **Task 1: Unlocked Package Selection in Change Order Form**
+  - Ensure product package dropdowns in `AmendmentManager.tsx` and `ChangeOrderPackageModal.tsx` remain 100% unlocked and selectable, regardless of whether a package is already allocated in the initial RAB or existing draft items.
+- **Task 2: Unique Package Instance Identifier (`package_instance_id`)**
+  - Update `packageExplosion.ts` (`ExplodedChangeOrderItem`) and `AmendmentManager.tsx` (`DraftItem`) to support `package_instance_id`.
+  - In `ChangeOrderPackageModal.tsx`, generate `instanceId = crypto.randomUUID()` whenever a package is exploded and applied, assigning this unique `package_instance_id` to all component breakdown items of that session.
+  - In `AmendmentManager.tsx`, persist `package_instance_id` on draft items and when submitting to backend, ensuring subsequent additions of the same package remain distinctly identifiable.
+- **Task 3: Strict Double-Submit Prevention (UI Loading Guard & Debounce)**
+  - In `ChangeOrderPackageModal.tsx`:
+    - Implement `isApplying` guard state and debounce timeout.
+    - Set apply button `disabled={isApplying || ...}` and display `Memproses...` when applying.
+    - Prevent double-click execution from adding duplicate sets of items.
+  - In `AmendmentManager.tsx`:
+    - Add re-entrancy guard in `handleSubmitFinalChangeOrder` (`if (submitting) return;`).
+    - Keep final submit button disabled with loading indicator (`submitting ? 'Menyimpan Change Order...' : 'Ajukan Change Order'`) until backend response completes.
+- **Task 4: Database Migration & Service Layer Support**
+  - Add PostgreSQL migration for `package_instance_id`, `package_source_id`, and `package_name` on `change_order_items`.
+  - Update `spkService.ts` (`createChangeOrder`) with defensive column fallback (PostgreSQL 42703 error handling).
+- **Task 5: Comprehensive Testing & Quality Verification**
+  - Add unit and component test suites in `ChangeOrderPackageModal.test.tsx` and `AmendmentManager.test.tsx` testing:
+    - Multiple selections of the same package with distinct `package_instance_id`.
+    - Double-click prevention on "Terapkan Item ke Change Order" (ensuring only 1 set is added).
+    - Double-submit prevention on "Ajukan Change Order".
+    - Financial recalculation when the same package is added twice.
+  - Pass full quality gate: Vitest test suite, Oxlint linter, TypeScript compiler (`tsc --noEmit`), and production build (`npm run build`).
 
 ### Explicitly Excluded
-- Modifying warehouse requisitions or cashier billing workflows (already implemented in prior sprints).
-- Altering existing WBS stage allocation calculations.
+- Changing RAB Calculator's initial package locking behavior (RAB initial allocation remains locked to protect the baseline contract).
+- Modifying warehouse requisition approval matrix beyond supporting new item columns.
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| 1. Ensure package metadata persistence in `PackageAllocationModal.tsx`, `RabCalculator.tsx`, `rabService.ts`, and SQL migration | Antigravity | ✅ Completed | 0.5h |
-| 2. Add "SUMBER / PAKET" column and badges to `RabCalculator.tsx` | Antigravity | ✅ Completed | 0.5h |
-| 3. Synchronize package origin to Excel export and PDF quotation in `rabExport.ts` | Antigravity | ✅ Completed | 0.5h |
-| 4. Write automated tests and verify complete quality gate (Vitest, Oxlint, TSC, Build) | Antigravity | ✅ Completed | 0.5h |
+| 1. Ensure package selection is fully enabled in `AmendmentManager.tsx` and `ChangeOrderPackageModal.tsx` | Antigravity | ⏳ In Progress | 0.5h |
+| 2. Implement `package_instance_id` in `packageExplosion.ts`, `ChangeOrderPackageModal.tsx`, and `AmendmentManager.tsx` | Antigravity | ⬜ Todo | 0.5h |
+| 3. Add double-submit UI guards & debounce on modal apply and form submit buttons | Antigravity | ⬜ Todo | 0.5h |
+| 4. Add database migration & `spkService.ts` persistence with defensive fallback | Antigravity | ⬜ Todo | 0.5h |
+| 5. Update automated tests and run full quality gates | Antigravity | ⬜ Todo | 0.5h |
 
 ## Daily Log
 
 ### 2026-10-23
-- Archived Sprint 79 into `.gsd/sprints/sprint-79-fix-false-required-field-validation-on-change-order-submission.md`.
-- Initialized Sprint 80 for adding Source Package / Granular Origin column to RAB Calculator table.
-- Task 1 completed:
-  - Created SQL migration `20261023030000_add_package_name_to_rab_items.sql` with column addition and backfill from `product_packages`.
-  - Updated `PackageAllocationModal.tsx` to include `package_name` and `package_id` in `RabItemPayload` and payload emission.
-  - Updated `rabService.ts` to support `package_name` and `packageName` on `DbRabItemRecord` and `RabItem`, resolved origin in `loadRabItems`, and added defensive 42703 fallback in `insertRabItems` and `saveFullRabEstimation`.
-  - Updated `RabCalculator.tsx` to persist package metadata on package items and null on granular items.
-- Task 2 completed:
-  - Added `SUMBER / PAKET` column header between `DESCRIPTION` and `TYPE` in the estimation table.
-  - Rendered `[ 📦 Paket: <Nama Paket> ]` (amber badge) and `[ 📋 Granular ]` (slate badge) on table rows.
-- Task 3 completed:
-  - Updated `src/utils/rabExport.ts`: added `package_name`, `packageName`, `packageId`, and `notes` to `RabExportItem`.
-  - Added "Sumber / Paket" column between "Deskripsi" and "Tipe" in `exportRabToExcel`.
-  - Added subtle subtext (`📦 Paket: ...` or `📋 Granular`) in `printRabQuotation`.
-- Task 4 completed:
-  - Created `src/utils/__tests__/rabExport.test.ts` (7 tests passing).
-  - Created `src/components/__tests__/RabCalculatorOrigin.test.tsx` (6 tests passing).
-  - Ran full test suite: 60 test suites, 415 tests passing (100% green).
-  - Validated production bundle build: `npm run build` succeeded in 447ms.
+- Archived Sprint 80 into `.gsd/sprints/sprint-80-add-source-package-granular-origin-column-to-rab-calculator-table.md`.
+- Initialized Sprint 81.
+- Analyzed `AmendmentManager.tsx`, `ChangeOrderPackageModal.tsx`, `packageExplosion.ts`, and `spkService.ts`.
+- Verified baseline tests: 21 existing tests in `ChangeOrderPackageModal.test.tsx` and `AmendmentManager.test.tsx` passing.
