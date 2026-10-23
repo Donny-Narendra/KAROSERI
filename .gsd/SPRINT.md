@@ -1,84 +1,64 @@
-# Sprint 81 — Allow Multi-Instance Package Selection in Change Orders with Strict Duplicate Prevention
+# Sprint 82 — Comprehensive Profit Segregation (Assembly Package vs Granular Items) across RAB, Change Orders, and Financial Reports
 
-> **Duration**: 2026-10-23 to 2026-10-23
-> **Status**: Completed
+> **Duration**: 2026-10-23 to 2026-10-24
+> **Status**: In Progress
 
 ## Goal
-Enable users to select and add the same finished goods product assembly package (BOM) multiple times to a Change Order without restriction from initial RAB locks, assigning a unique `package_instance_id` per application session, and enforcing strict UI double-submit guards (state locking + debounce) on both the modal apply button and final Change Order submission.
+Implement comprehensive 3-pillar profit segregation (Finished Goods Assembly BOM Package profit vs Granular Raw Material markup profit vs Granular Labor & Overhead margin) across the database reporting layer (`view_spk_job_profitability`), financial reporting UI & Excel/CSV exports, RAB Calculator, and Change Order form (incorporating both baseline RAB items and approved Change Orders).
 
 ## Scope
 
 ### Included
-- **Task 1: Unlocked Package Selection in Change Order Form**
-  - Verified product package dropdowns in `AmendmentManager.tsx` and `ChangeOrderPackageModal.tsx` remain 100% unlocked and selectable, regardless of whether a package is already allocated in the initial RAB or existing draft items.
-- **Task 2: Unique Package Instance Identifier (`package_instance_id`)**
-  - Updated `packageExplosion.ts` (`ExplodedChangeOrderItem`) and `AmendmentManager.tsx` (`DraftItem`) to support `package_instance_id`.
-  - In `ChangeOrderPackageModal.tsx`, generated `instanceId = generateUUID()` whenever a package is exploded and applied, assigning this unique `package_instance_id` to all component breakdown items of that session.
-  - In `AmendmentManager.tsx`, persisted `package_instance_id` on draft items and when submitting to backend, ensuring subsequent additions of the same package remain distinctly identifiable.
-- **Task 3: Strict Double-Submit Prevention (UI Loading Guard & Debounce)**
-  - In `ChangeOrderPackageModal.tsx`:
-    - Implemented `isApplying` guard state and 500ms debounce timeout.
-    - Set apply button `disabled={isApplying || ...}` and display `Memproses...` when applying.
-    - Prevented double-click execution from adding duplicate sets of items.
-  - In `AmendmentManager.tsx`:
-    - Added re-entrancy guard in `handleSubmitFinalChangeOrder` (`if (submitting) return;`).
-    - Kept final submit button disabled with loading indicator (`submitting ? 'Menyimpan Change Order...' : 'Ajukan Change Order'`) until backend response completes.
-- **Task 4: Database Migration & Service Layer Support**
-  - Added PostgreSQL migration `20261023040000_add_package_instance_to_change_order_items.sql` for `package_instance_id`, `package_source_id`, and `package_name` on `change_order_items` with indexes.
-  - Updated `spkService.ts` (`createChangeOrder`) with defensive column fallback (PostgreSQL 42703 error handling).
-- **Task 5: Comprehensive Testing & Quality Verification**
-  - Added unit and component test suites in `ChangeOrderPackageModal.test.tsx` and `AmendmentManager.test.tsx` testing:
-    - Multiple selections of the same package with distinct `package_instance_id`.
-    - Double-click prevention on "Terapkan Item ke Change Order" (ensuring only 1 set is added).
-    - Double-submit prevention on "Ajukan Change Order".
-    - Financial recalculation when the same package is added twice.
-  - Passed full quality gate: Vitest test suite (60 suites, 420 tests passing), Oxlint linter (0 errors, 0 warnings), TypeScript compiler (`tsc -b`), and production build (`npm run build`).
+- **Task 1: Database Migration & Reporting View Layer (`view_spk_job_profitability`)**
+  - Create migration `20261024020000_segregate_package_and_granular_profit.sql` aggregating items from `rab_items` and approved `change_order_items`.
+  - Calculate segregated revenue, COGS, and profit for:
+    1. Finished goods assembly package (`package_revenue`, `package_cogs`, `package_profit`).
+    2. Granular raw material (`granular_mat_revenue`, `granular_mat_cogs`, `granular_material_profit`).
+    3. Granular labor & overhead (`granular_other_revenue`, `granular_other_cogs`, `granular_other_profit`).
+    4. Accumulative totals (`total_revenue`, `total_cogs`, `gross_profit`, `gross_margin_percentage`).
+  - Maintain backward compatibility for `actual_material_cost`, `actual_labor_cost`, `actual_overhead_cost`, and `payment_status` to ensure dependent corporate views (`view_corporate_monthly_pnl`) and executive summary RPCs remain fully operational.
+  - Exclude `DRAFT` and `PENDING_PAYMENT` SPKs.
+- **Task 2: Financial Reporting Service Layer & Type Contracts**
+  - Update `SpkJobProfitability` interface in `src/types/financialReports.ts` with new segregated profit columns.
+  - Update `financialReportsService.ts` (`getJobProfitability`) to parse and normalize segregated fields as numbers.
+  - Update `exportFinancialReports.ts` to include segregated profit breakdown columns in Excel and CSV reports.
+- **Task 3: Financial Reports UI Module (`JobProfitabilityTab.tsx`)**
+  - Update `JobProfitabilityTab.tsx` table headers, rows, and footer aggregates to display:
+    - Profit Paket Assembly (`package_profit`).
+    - Profit Material Granular (`granular_material_profit`).
+    - Profit Jasa & Overhead (`granular_other_profit`).
+  - Add tooltips and visual distinctions for assembly vs granular earnings.
+- **Task 4: RAB Calculator Financial Summary Sub-Breakdown (`RabCalculator.tsx`)**
+  - Compute live segregated profit metrics in `RabCalculator.tsx`:
+    - Package BOM Profit: `Σ (selling_price - cost_price)` for package components.
+    - Granular Material Markup: `Σ (selling_price - cost_price)` for non-package material items.
+    - Granular Labor & Overhead Profit: `Σ (selling_price - cost_price)` for non-package labor and overhead items.
+  - Display clear sub-breakdown cards in the financial summary section.
+- **Task 5: Change Order Form Financial Summary Sub-Breakdown (`AmendmentManager.tsx`)**
+  - Compute live segregated profit metrics for draft items in `AmendmentManager.tsx`.
+  - Display sub-breakdown cards (Profit Paket, Profit Material Granular, Profit Jasa & Overhead) in the financial summary panel.
+- **Task 6: Testing & Quality Gate Verification**
+  - Add test suites in `financialReportsService.test.ts`, `JobProfitabilityTab.test.tsx`, `exportFinancialReports.test.ts`, `RabCalculatorLabor.test.tsx`, and `AmendmentManager.test.tsx`.
+  - Pass full quality gate: TypeScript (`tsc -b`), Oxlint (0 errors, 0 warnings), Vitest (100% passing), and production build (`npm run build`).
 
 ### Explicitly Excluded
-- Changing RAB Calculator's initial package locking behavior (RAB initial allocation remains locked to protect the baseline contract).
-- Modifying warehouse requisition approval matrix beyond supporting new item columns.
+- Altering physical inventory reservation logic in warehouse approvals.
+- Modifying cashflow / payment receipt ledger posting procedures.
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| 1. Ensure package selection is fully enabled in `AmendmentManager.tsx` and `ChangeOrderPackageModal.tsx` | Antigravity | ✅ Completed | 0.5h |
-| 2. Implement `package_instance_id` in `packageExplosion.ts`, `ChangeOrderPackageModal.tsx`, and `AmendmentManager.tsx` | Antigravity | ✅ Completed | 0.5h |
-| 3. Add double-submit UI guards & debounce on modal apply and form submit buttons | Antigravity | ✅ Completed | 0.5h |
-| 4. Add database migration & `spkService.ts` persistence with defensive fallback | Antigravity | ✅ Completed | 0.5h |
-| 5. Update automated tests and run full quality gates | Antigravity | ✅ Completed | 0.5h |
+| 1. Create SQL migration `20261024020000_segregate_package_and_granular_profit.sql` | Antigravity | ⏳ In Progress | 0.5h |
+| 2. Update financial reporting types, service layer, and Excel/CSV exporters | Antigravity | ⬜ Todo | 0.5h |
+| 3. Update `JobProfitabilityTab.tsx` UI with segregated profit columns and summary totals | Antigravity | ⬜ Todo | 0.5h |
+| 4. Update `RabCalculator.tsx` financial summary with segregated profit cards | Antigravity | ⬜ Todo | 0.5h |
+| 5. Update `AmendmentManager.tsx` financial summary with segregated profit cards | Antigravity | ⬜ Todo | 0.5h |
+| 6. Add automated tests and verify full quality gates | Antigravity | ⬜ Todo | 0.5h |
 
 ## Daily Log
 
 ### 2026-10-23
-- Archived Sprint 80 into `.gsd/sprints/sprint-80-add-source-package-granular-origin-column-to-rab-calculator-table.md`.
-- Initialized Sprint 81.
-- Analyzed `AmendmentManager.tsx`, `ChangeOrderPackageModal.tsx`, `packageExplosion.ts`, and `spkService.ts`.
-- Implemented Task 1:
-  - Verified dropdown options in `AmendmentManager.tsx` and `ChangeOrderPackageModal.tsx` remain unlocked.
-  - Added automated test in `ChangeOrderPackageModal.test.tsx` verifying all package options are enabled.
-- Implemented Task 2:
-  - Added `package_instance_id` to `ExplodedChangeOrderItem` in `packageExplosion.ts` and `DraftItem` in `AmendmentManager.tsx`.
-  - Added `generateUUID` helper in `packageExplosion.ts`.
-  - Updated `explodePackageWithAllocations` and `explodePackageToDraftItems` to assign `instanceId` and distinct item IDs.
-  - Updated `ChangeOrderPackageModal.tsx` to generate session-level `instanceId` on `handleApply`.
-- Implemented Task 3:
-  - Added `isApplying` state, disabled button state, `Memproses...` label, and 500ms debounce guard in `ChangeOrderPackageModal.tsx`.
-  - Added `if (submitting) return;` guard in `handleSubmitFinalChangeOrder` and `Menyimpan Change Order...` button state in `AmendmentManager.tsx`.
-- Implemented Task 4:
-  - Created migration `20261023040000_add_package_instance_to_change_order_items.sql`.
-  - Updated `ChangeOrderItemRecord` in `src/types/database.ts`.
-  - Updated `createChangeOrder` in `spkService.ts` with `package_source_id`, `package_instance_id`, `package_name` and defensive 42703 retry fallback.
-- Implemented Task 5:
-  - Added test cases in `ChangeOrderPackageModal.test.tsx`:
-    - `assigns unique package_instance_id and generates distinct item IDs on apply`
-    - `enforces double-click guard and disables button showing "Memproses..." while applying`
-    - `ensures all product packages in dropdown remain enabled and selectable`
-  - Added test cases in `AmendmentManager.test.tsx`:
-    - `allows adding the same product package multiple times with separate instance IDs and doubled totals`
-    - `prevents multiple final Change Order submissions on rapid clicks`
-  - All 26 modal and manager tests passed.
-  - Full Vitest suite: 60 suites, 420 tests passing (100% green).
-  - Oxlint: 0 warnings, 0 errors.
-  - TypeScript: `tsc -b` clean.
-  - Production build: `npm run build` completed in 417ms.
+- Archived Sprint 81 into `.gsd/sprints/sprint-81-allow-multi-instance-package-selection-in-change-orders.md`.
+- Initialized Sprint 82: Comprehensive Profit Segregation across RAB, Change Orders, and Financial Reports.
+- Analyzed database view `view_spk_job_profitability`, `financialReportsService.ts`, `JobProfitabilityTab.tsx`, `RabCalculator.tsx`, and `AmendmentManager.tsx`.
