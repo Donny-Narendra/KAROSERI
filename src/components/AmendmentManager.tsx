@@ -1749,89 +1749,111 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                   </div>
 
                   {/* Financial Metrics in Summary Line */}
-                  <div className="flex items-start gap-4 text-right pl-8 md:pl-0">
-                    <div>
-                      <span className="text-[10px] uppercase font-mono text-text-muted block">Harga Jual Konsumen</span>
-                      <span className="font-mono font-bold text-sm text-primary">
-                        Rp {coTotalSelling.toLocaleString('id-ID')}
-                      </span>
+                  <div className="flex flex-col items-end pl-8 md:pl-0">
+                    <div className="flex items-center gap-4 text-right">
+                      <div>
+                        <span className="text-[10px] uppercase font-mono text-text-muted block">Harga Jual Konsumen</span>
+                        <span className="font-mono font-bold text-sm text-primary">
+                          Rp {coTotalSelling.toLocaleString('id-ID')}
+                        </span>
+                      </div>
+
+                      <div className="hidden sm:block border-l border-border pl-4">
+                        <span className="text-[10px] uppercase font-mono text-text-muted block">Beban Modal (HPP)</span>
+                        <span className="font-mono font-bold text-sm text-text">
+                          Rp {coTotalHpp.toLocaleString('id-ID')}
+                        </span>
+                      </div>
+
+                      <div className="hidden sm:block border-l border-border pl-4">
+                        <span className="text-[10px] uppercase font-mono text-text-muted block">Margin Laba</span>
+                        <span className="font-mono font-bold text-sm text-emerald-400">
+                          Rp {coMargin.toLocaleString('id-ID')} ({coMarginPct.toFixed(0)}%)
+                        </span>
+                      </div>
+
+                      {/* Owner Action Buttons */}
+                      {isOwner && isPending && (
+                        <div className="flex items-center gap-1 ml-2" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => handleActionClick(co, 'APPROVED')}
+                            className="bg-status-success/20 hover:bg-status-success/30 text-status-success p-1.5 rounded transition cursor-pointer"
+                            title="Setujui Change Order"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleActionClick(co, 'REJECTED')}
+                            className="bg-status-danger/20 hover:bg-status-danger/30 text-status-danger p-1.5 rounded transition cursor-pointer"
+                            title="Tolak Change Order"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="hidden sm:block border-l border-border pl-4">
-                      <span className="text-[10px] uppercase font-mono text-text-muted block">Beban Modal (HPP)</span>
-                      <span className="font-mono font-bold text-sm text-text">
-                        Rp {coTotalHpp.toLocaleString('id-ID')}
-                      </span>
-                    </div>
-
-                    <div className="hidden sm:block border-l border-border pl-4">
-                      <span className="text-[10px] uppercase font-mono text-text-muted block">Margin Laba</span>
-                      <span className="font-mono font-bold text-sm text-emerald-400 block">
-                        Rp {coMargin.toLocaleString('id-ID')} ({coMarginPct.toFixed(0)}%)
-                      </span>
-
-                      {/* 4 Pilar Margin Breakdown */}
-                      <div 
-                        data-testid={`co-margins-breakdown-${co.id}`}
-                        className="flex items-center gap-1.5 mt-1.5 text-[10px] font-mono justify-end flex-wrap"
-                      >
+                    {/* Baris Rincian 4 Pilar Margin */}
+                    <div 
+                      data-testid={`co-margins-breakdown-${co.id}`}
+                      className="flex flex-wrap items-center justify-end gap-2 pt-1 text-[11px]"
+                    >
+                      {/* Margin Paket (Jika ada item paket) */}
+                      {margins.packageRev > 0 && (
                         <span 
                           data-testid={`co-margin-pkg-${co.id}`}
-                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 whitespace-nowrap"
-                          title="Margin Paket Barang Jadi (Assembly)"
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-950/70 border border-amber-800/80 text-amber-300"
                         >
-                          <span className="text-[9px] opacity-75">Paket:</span>
-                          <span className="font-semibold">Rp {margins.packageMargin.toLocaleString('id-ID')}</span>
+                          <span>📦 Paket:</span>
+                          <span className="font-semibold">{formatRupiah(margins.packageMargin)}</span>
+                          <span className="text-[9px] text-amber-400">
+                            ({((margins.packageMargin / margins.packageRev) * 100).toFixed(0)}%)
+                          </span>
                         </span>
+                      )}
 
+                      {/* Margin Material Granular */}
+                      {margins.materialRev > 0 && (
                         <span 
                           data-testid={`co-margin-mat-${co.id}`}
-                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 whitespace-nowrap"
-                          title="Margin Material Granular (Lepas)"
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-cyan-950/70 border border-cyan-800/80 text-cyan-300"
                         >
-                          <span className="text-[9px] opacity-75">Material:</span>
-                          <span className="font-semibold">Rp {margins.materialMargin.toLocaleString('id-ID')}</span>
+                          <span>🔩 Mat:</span>
+                          <span className="font-semibold">{formatRupiah(margins.materialMargin)}</span>
+                          <span className="text-[9px] text-cyan-400">
+                            ({((margins.materialMargin / margins.materialRev) * 100).toFixed(0)}%)
+                          </span>
                         </span>
+                      )}
 
+                      {/* Margin Labor / Jasa */}
+                      {margins.laborRev > 0 && (
                         <span 
                           data-testid={`co-margin-labor-${co.id}`}
-                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 whitespace-nowrap"
-                          title="Margin Labor (Tenaga Kerja / Tukang)"
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-950/70 border border-blue-800/80 text-blue-300"
                         >
-                          <span className="text-[9px] opacity-75">Labor:</span>
-                          <span className="font-semibold">Rp {margins.laborMargin.toLocaleString('id-ID')}</span>
+                          <span>🔧 Labor:</span>
+                          <span className="font-semibold">{formatRupiah(margins.laborMargin)}</span>
+                          <span className="text-[9px] text-blue-400">
+                            ({((margins.laborMargin / margins.laborRev) * 100).toFixed(0)}%)
+                          </span>
                         </span>
+                      )}
 
+                      {/* Margin Overhead / FOH */}
+                      {margins.overheadRev > 0 && (
                         <span 
                           data-testid={`co-margin-overhead-${co.id}`}
-                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 whitespace-nowrap"
-                          title="Margin Overhead (FOH)"
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-950/70 border border-purple-800/80 text-purple-300"
                         >
-                          <span className="text-[9px] opacity-75">Overhead:</span>
-                          <span className="font-semibold">Rp {margins.overheadMargin.toLocaleString('id-ID')}</span>
+                          <span>⚡ FOH:</span>
+                          <span className="font-semibold">{formatRupiah(margins.overheadMargin)}</span>
+                          <span className="text-[9px] text-purple-400">
+                            ({((margins.overheadMargin / margins.overheadRev) * 100).toFixed(0)}%)
+                          </span>
                         </span>
-                      </div>
+                      )}
                     </div>
-
-                    {/* Owner Action Buttons */}
-                    {isOwner && isPending && (
-                      <div className="flex items-center gap-1 ml-2 self-center" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => handleActionClick(co, 'APPROVED')}
-                          className="bg-status-success/20 hover:bg-status-success/30 text-status-success p-1.5 rounded transition cursor-pointer"
-                          title="Setujui Change Order"
-                        >
-                          <Check className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleActionClick(co, 'REJECTED')}
-                          className="bg-status-danger/20 hover:bg-status-danger/30 text-status-danger p-1.5 rounded transition cursor-pointer"
-                          title="Tolak Change Order"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </div>
 

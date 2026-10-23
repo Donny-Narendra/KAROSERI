@@ -1283,36 +1283,157 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
         const breakdownContainer = screen.getByTestId('co-margins-breakdown-co-all-pillars-1');
         expect(breakdownContainer).toBeInTheDocument();
 
-        // 1. Paket Margin: Rp 1.000.000
+        // 1. Paket Margin: Rp 1.000.000 (33%)
         const pkgMargin = screen.getByTestId('co-margin-pkg-co-all-pillars-1');
         expect(pkgMargin).toBeInTheDocument();
-        expect(pkgMargin).toHaveTextContent('Paket:');
+        expect(pkgMargin).toHaveTextContent('📦 Paket:');
         expect(pkgMargin).toHaveTextContent('Rp 1.000.000');
-        expect(pkgMargin.className).toContain('text-amber-400');
+        expect(pkgMargin).toHaveTextContent('(33%)');
+        expect(pkgMargin.className).toContain('text-amber-300');
 
-        // 2. Material Margin: Rp 250.000
+        // 2. Material Margin: Rp 250.000 (25%)
         const matMargin = screen.getByTestId('co-margin-mat-co-all-pillars-1');
         expect(matMargin).toBeInTheDocument();
-        expect(matMargin).toHaveTextContent('Material:');
+        expect(matMargin).toHaveTextContent('🔩 Mat:');
         expect(matMargin).toHaveTextContent('Rp 250.000');
-        expect(matMargin.className).toContain('text-cyan-400');
+        expect(matMargin).toHaveTextContent('(25%)');
+        expect(matMargin.className).toContain('text-cyan-300');
 
-        // 3. Labor Margin: Rp 300.000
+        // 3. Labor Margin: Rp 300.000 (30%)
         const laborMargin = screen.getByTestId('co-margin-labor-co-all-pillars-1');
         expect(laborMargin).toBeInTheDocument();
-        expect(laborMargin).toHaveTextContent('Labor:');
+        expect(laborMargin).toHaveTextContent('🔧 Labor:');
         expect(laborMargin).toHaveTextContent('Rp 300.000');
-        expect(laborMargin.className).toContain('text-sky-400');
+        expect(laborMargin).toHaveTextContent('(30%)');
+        expect(laborMargin.className).toContain('text-blue-300');
 
-        // 4. Overhead Margin: Rp 200.000
+        // 4. Overhead Margin: Rp 200.000 (33%)
         const overheadMargin = screen.getByTestId('co-margin-overhead-co-all-pillars-1');
         expect(overheadMargin).toBeInTheDocument();
-        expect(overheadMargin).toHaveTextContent('Overhead:');
+        expect(overheadMargin).toHaveTextContent('⚡ FOH:');
         expect(overheadMargin).toHaveTextContent('Rp 200.000');
-        expect(overheadMargin.className).toContain('text-purple-400');
+        expect(overheadMargin).toHaveTextContent('(33%)');
+        expect(overheadMargin.className).toContain('text-purple-300');
       });
 
-      it('safely renders zero values for all 4 margin pillars when change order has no items', async () => {
+      it('Verification 1: verifies CO-SPK4374-6417 renders Labor, FOH, and Mat pills with exact expected amounts and percentages', async () => {
+        const mockCO6417 = [
+          {
+            id: 'co-6417',
+            spk_id: 'spk-test-1',
+            co_number: 'CO-SPK4374-6417',
+            description: 'Change order dengan labor, overhead, dan material granular',
+            cost_adjustment: 440000,
+            total_amount: 440000,
+            status: 'APPROVED',
+            created_at: '2026-10-24T00:00:00Z',
+            items: [
+              // Labor: Rev 270.000, Cost 210.000 -> Margin 60.000 (22%)
+              {
+                id: 'it-6417-labor',
+                item_type: 'LABOR',
+                quantity: 1,
+                unit_price: 270000,
+                cost_price: 210000,
+              },
+              // FOH: Rev 120.000, Cost 100.000 -> Margin 20.000 (17%)
+              {
+                id: 'it-6417-foh',
+                item_type: 'OVERHEAD',
+                quantity: 1,
+                unit_price: 120000,
+                cost_price: 100000,
+              },
+              // Mat: Rev 50.000, Cost 40.000 -> Margin 10.000 (20%)
+              {
+                id: 'it-6417-mat',
+                item_type: 'MATERIAL',
+                quantity: 1,
+                unit_price: 50000,
+                cost_price: 40000,
+              },
+            ],
+          },
+        ];
+        vi.mocked(spkService.getChangeOrders).mockResolvedValue(mockCO6417 as any);
+
+        render(<AmendmentManager spkId="spk-test-1" spkNo="SPK-4374" />);
+
+        await waitFor(() => {
+          expect(screen.getByText('Change Orders & Amandemen SPK')).toBeInTheDocument();
+        });
+
+        // Pill Labor: Rp 60.000 (22%)
+        const laborPill = screen.getByTestId('co-margin-labor-co-6417');
+        expect(laborPill).toHaveTextContent('🔧 Labor:');
+        expect(laborPill).toHaveTextContent('Rp 60.000');
+        expect(laborPill).toHaveTextContent('(22%)');
+
+        // Pill FOH: Rp 20.000 (17%)
+        const fohPill = screen.getByTestId('co-margin-overhead-co-6417');
+        expect(fohPill).toHaveTextContent('⚡ FOH:');
+        expect(fohPill).toHaveTextContent('Rp 20.000');
+        expect(fohPill).toHaveTextContent('(17%)');
+
+        // Pill Mat: Rp 10.000 (20%)
+        const matPill = screen.getByTestId('co-margin-mat-co-6417');
+        expect(matPill).toHaveTextContent('🔩 Mat:');
+        expect(matPill).toHaveTextContent('Rp 10.000');
+        expect(matPill).toHaveTextContent('(20%)');
+
+        // Tidak ada item paket -> pill paket tidak muncul
+        expect(screen.queryByTestId('co-margin-pkg-co-6417')).toBeNull();
+
+        // MARGIN LABA: Rp 90.000 (20%)
+        expect(screen.getByText(/Rp 90\.000 \(20%\)/)).toBeInTheDocument();
+      });
+
+      it('Verification 2: verifies CO-SPK4374-2984 with only package items renders only Paket pill and hides empty pills', async () => {
+        const mockCO2984 = [
+          {
+            id: 'co-2984',
+            spk_id: 'spk-test-1',
+            co_number: 'CO-SPK4374-2984',
+            description: 'Change order paket saja',
+            cost_adjustment: 500000,
+            total_amount: 500000,
+            status: 'APPROVED',
+            created_at: '2026-10-24T00:00:00Z',
+            items: [
+              // Paket: Rev 500.000, Cost 30.000 -> Margin 470.000 (94%)
+              {
+                id: 'it-2984-pkg',
+                package_source_id: 'pkg-acc-1',
+                package_name: 'Paket Aksesoris Tambahan',
+                item_type: 'MATERIAL',
+                quantity: 1,
+                unit_price: 500000,
+                cost_price: 30000,
+              },
+            ],
+          },
+        ];
+        vi.mocked(spkService.getChangeOrders).mockResolvedValue(mockCO2984 as any);
+
+        render(<AmendmentManager spkId="spk-test-1" spkNo="SPK-4374" />);
+
+        await waitFor(() => {
+          expect(screen.getByText('Change Orders & Amandemen SPK')).toBeInTheDocument();
+        });
+
+        // Pastikan hanya menampilkan pill Paket: Rp 470.000 (94%)
+        const pkgPill = screen.getByTestId('co-margin-pkg-co-2984');
+        expect(pkgPill).toHaveTextContent('📦 Paket:');
+        expect(pkgPill).toHaveTextContent('Rp 470.000');
+        expect(pkgPill).toHaveTextContent('(94%)');
+
+        // Tanpa memunculkan pill kosong yang bernilai 0
+        expect(screen.queryByTestId('co-margin-mat-co-2984')).toBeNull();
+        expect(screen.queryByTestId('co-margin-labor-co-2984')).toBeNull();
+        expect(screen.queryByTestId('co-margin-overhead-co-2984')).toBeNull();
+      });
+
+      it('safely renders no pills when change order has no items or 0 revenue', async () => {
         const mockEmptyCO = [
           {
             id: 'co-empty-2',
@@ -1334,19 +1455,11 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
           expect(screen.getByText('Change Orders & Amandemen SPK')).toBeInTheDocument();
         });
 
-        const pkgMargin = screen.getByTestId('co-margin-pkg-co-empty-2');
-        const matMargin = screen.getByTestId('co-margin-mat-co-empty-2');
-        const laborMargin = screen.getByTestId('co-margin-labor-co-empty-2');
-        const overheadMargin = screen.getByTestId('co-margin-overhead-co-empty-2');
-
-        expect(pkgMargin).toHaveTextContent('Paket:');
-        expect(pkgMargin).toHaveTextContent('Rp 0');
-        expect(matMargin).toHaveTextContent('Material:');
-        expect(matMargin).toHaveTextContent('Rp 0');
-        expect(laborMargin).toHaveTextContent('Labor:');
-        expect(laborMargin).toHaveTextContent('Rp 0');
-        expect(overheadMargin).toHaveTextContent('Overhead:');
-        expect(overheadMargin).toHaveTextContent('Rp 0');
+        // Pill breakdown container exists but contains no pills since all revs are 0
+        expect(screen.queryByTestId('co-margin-pkg-co-empty-2')).toBeNull();
+        expect(screen.queryByTestId('co-margin-mat-co-empty-2')).toBeNull();
+        expect(screen.queryByTestId('co-margin-labor-co-empty-2')).toBeNull();
+        expect(screen.queryByTestId('co-margin-overhead-co-empty-2')).toBeNull();
       });
     });
   });
