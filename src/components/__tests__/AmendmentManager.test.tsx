@@ -127,7 +127,7 @@ vi.mock('../../services/packageService', () => ({
   },
 }));
 
-describe('Component: AmendmentManager (3-Element Costing & Overhead Support)', () => {
+describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -214,7 +214,7 @@ describe('Component: AmendmentManager (3-Element Costing & Overhead Support)', (
     expect(screen.getByText('Sewa Alat Derek')).toBeInTheDocument();
   });
 
-  it('opens form and displays + Item Overhead (FOH) button', async () => {
+  it('opens form and displays two-column layout controls, package selector, and category toggles', async () => {
     vi.mocked(spkService.getChangeOrders).mockResolvedValue([]);
 
     render(<AmendmentManager spkId="spk-test-1" spkNo="SPK-2026-001" />);
@@ -226,10 +226,14 @@ describe('Component: AmendmentManager (3-Element Costing & Overhead Support)', (
     fireEvent.click(screen.getByText('Buat Change Order Baru'));
 
     expect(screen.getByText('Formulir Pengajuan Itemized Change Order (CO)')).toBeInTheDocument();
+    expect(screen.getByText('Deskripsi & Justifikasi Perubahan Pekerjaan *')).toBeInTheDocument();
+    expect(screen.getByText('Pilih Paket Barang Jadi (Assembly List)')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /\+ Item Material/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /\+ Item Jasa \/ Mandor/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /\+ Item Overhead \(FOH\)/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /\+ Paket Barang Jadi/i })).toBeInTheDocument();
+    expect(screen.getByText('Alokasi WBS')).toBeInTheDocument();
+    expect(screen.getByText('Ringkasan Pagu Biaya per Tahapan WBS:')).toBeInTheDocument();
   });
 
   it('creates an Overhead change order item, computes live margins, and submits payload', async () => {
@@ -248,32 +252,47 @@ describe('Component: AmendmentManager (3-Element Costing & Overhead Support)', (
     const descTextarea = screen.getByPlaceholderText(/Contoh: Penambahan lapisan/i);
     fireEvent.change(descTextarea, { target: { value: 'Sewa ruang oven lembur untuk pengeringan' } });
 
-    // Remove default empty material item
-    const removeButtons = screen.getAllByTitle('Hapus baris ini');
-    fireEvent.click(removeButtons[0]);
-
-    // Click "+ Item Overhead (FOH)" button
+    // Switch to Overhead mode
     const addOverheadBtn = screen.getByRole('button', { name: /\+ Item Overhead \(FOH\)/i });
     fireEvent.click(addOverheadBtn);
 
     // Verify overhead badge in form
-    expect(screen.getAllByText('OVERHEAD').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Input Overhead (FOH)')).toBeInTheDocument();
     expect(screen.getByText('Uraian Biaya Overhead (FOH) *')).toBeInTheDocument();
 
     // Fill in overhead item details
     const overheadNameInput = screen.getByPlaceholderText(/Misal: Sewa alat derek \/ oven lembur/i);
     fireEvent.change(overheadNameInput, { target: { value: 'Sewa Ruang Oven Lembur' } });
 
-    // Set qty to 2, selling price to 800,000, cost price to 600,000
-    const qtyInputs = screen.getAllByRole('spinbutton');
-    fireEvent.change(qtyInputs[0], { target: { value: '2' } });
-    fireEvent.change(qtyInputs[1], { target: { value: '800000' } });
-    fireEvent.change(qtyInputs[2], { target: { value: '600000' } });
+    // Set qty to 2, cost price to 600,000, selling price to 800,000
+    const qtyInput = screen.getByLabelText(/FREKWENSI DALAM PROYEK INI/i);
+    fireEvent.change(qtyInput, { target: { value: '2' } });
 
-    // Verify draft summary updates with overhead count and margin
+    // Match WBS allocation to 2 (e.g. WBS 2 = 2)
+    const wbs2Input = screen.getByLabelText(/Alokasi WBS 2: Sasis\/Rangka/i);
+    fireEvent.change(wbs2Input, { target: { value: '2' } });
+
+    const spinbuttons = screen.getAllByRole('spinbutton');
+    // spinbutton 0: HPP (cost_price), spinbutton 1: selling price (unit_price)
+    fireEvent.change(spinbuttons[0], { target: { value: '600000' } });
+    fireEvent.change(spinbuttons[1], { target: { value: '800000' } });
+
+    // Click "+ Tambah ke Change Order" to add item to right-hand table
+    const addItemBtn = screen.getByRole('button', { name: /\+ Tambah ke Change Order/i });
+    expect(addItemBtn).not.toBeDisabled();
+    fireEvent.click(addItemBtn);
+
+    // Verify draft summary updates with overhead count, pagu, and margin
     await waitFor(() => {
       expect(screen.getByText(/0 Material, 0 Jasa, 1 Overhead/i)).toBeInTheDocument();
+      expect(screen.getByText('Sewa Ruang Oven Lembur')).toBeInTheDocument();
+      expect(screen.getByText('[ OVERHEAD ]')).toBeInTheDocument();
     });
+
+    // Check financial cards
+    expect(screen.getAllByText('Rp 1.600.000').length).toBeGreaterThanOrEqual(1); // 2 * 800,000
+    expect(screen.getByText('1.200.000')).toBeInTheDocument(); // 2 * 600,000 HPP
+    expect(screen.getByText(/400\.000/)).toBeInTheDocument(); // 400,000 Margin
 
     // Submit form
     const submitBtn = screen.getByRole('button', { name: /Ajukan Change Order/i });
@@ -313,11 +332,7 @@ describe('Component: AmendmentManager (3-Element Costing & Overhead Support)', (
     const descTextarea = screen.getByPlaceholderText(/Contoh: Penambahan lapisan/i);
     fireEvent.change(descTextarea, { target: { value: 'Penambahan pekerjaan las sasis' } });
 
-    // Remove default empty material item
-    const removeButtons = screen.getAllByTitle('Hapus baris ini');
-    fireEvent.click(removeButtons[0]);
-
-    // Click "+ Item Jasa / Mandor" button
+    // Switch to Labor mode
     const addLaborBtn = screen.getByRole('button', { name: /\+ Item Jasa \/ Mandor/i });
     fireEvent.click(addLaborBtn);
 
@@ -346,12 +361,19 @@ describe('Component: AmendmentManager (3-Element Costing & Overhead Support)', (
     expect(screen.getByTestId('badge-master-labor')).toHaveTextContent('Master');
 
     // Verify auto-populated prices
-    // spinbutton 0: qty (default 1)
-    // spinbutton 1: unit_price (selling price: 150000)
-    // spinbutton 2: cost_price (HPP: 120000)
     const spinbuttons = screen.getAllByRole('spinbutton');
+    // spinbutton 0: HPP (120000), spinbutton 1: selling price (150000)
+    expect(spinbuttons[0]).toHaveValue(120000);
     expect(spinbuttons[1]).toHaveValue(150000);
-    expect(spinbuttons[2]).toHaveValue(120000);
+
+    // Add to Change Order
+    const addItemBtn = screen.getByRole('button', { name: /\+ Tambah ke Change Order/i });
+    fireEvent.click(addItemBtn);
+
+    // Verify item appears in the live review table
+    await waitFor(() => {
+      expect(screen.getByText('[ JASA / TUKANG ]')).toBeInTheDocument();
+    });
 
     // Submit form
     const submitBtn = screen.getByRole('button', { name: /Ajukan Change Order/i });
@@ -387,11 +409,7 @@ describe('Component: AmendmentManager (3-Element Costing & Overhead Support)', (
     const descTextarea = screen.getByPlaceholderText(/Contoh: Penambahan lapisan/i);
     fireEvent.change(descTextarea, { target: { value: 'Bongkar darurat tangki customer' } });
 
-    // Remove default empty material item
-    const removeButtons = screen.getAllByTitle('Hapus baris ini');
-    fireEvent.click(removeButtons[0]);
-
-    // Click "+ Item Jasa / Mandor" button
+    // Switch to Labor mode
     const addLaborBtn = screen.getByRole('button', { name: /\+ Item Jasa \/ Mandor/i });
     fireEvent.click(addLaborBtn);
 
@@ -405,10 +423,19 @@ describe('Component: AmendmentManager (3-Element Costing & Overhead Support)', (
     expect(laborInput).toHaveValue('jasa borong bongkar tangki darurat');
     expect(screen.getByTestId('badge-custom-labor')).toHaveTextContent('Kustom');
 
-    // Manually fill selling price (250000) and cost price (150000)
+    // Manually fill cost price (150000) and selling price (250000)
     const spinbuttons = screen.getAllByRole('spinbutton');
+    fireEvent.change(spinbuttons[0], { target: { value: '150000' } });
     fireEvent.change(spinbuttons[1], { target: { value: '250000' } });
-    fireEvent.change(spinbuttons[2], { target: { value: '150000' } });
+
+    // Add to Change Order
+    const addItemBtn = screen.getByRole('button', { name: /\+ Tambah ke Change Order/i });
+    fireEvent.click(addItemBtn);
+
+    // Verify item in review table
+    await waitFor(() => {
+      expect(screen.getByText('jasa borong bongkar tangki darurat')).toBeInTheDocument();
+    });
 
     // Submit form
     const submitBtn = screen.getByRole('button', { name: /Ajukan Change Order/i });
@@ -427,6 +454,91 @@ describe('Component: AmendmentManager (3-Element Costing & Overhead Support)', (
     expect(laborItem?.cost_price).toBe(150000);
   });
 
+  it('Verification 3: Distributes Qty on WBS allocation grid and splits item into respective WBS stages', async () => {
+    vi.mocked(spkService.getChangeOrders).mockResolvedValue([]);
+    vi.mocked(spkService.createChangeOrder).mockResolvedValue({ id: 'co-multi-wbs' } as any);
+
+    render(<AmendmentManager spkId="spk-test-1" spkNo="SPK-2026-001" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Buat Change Order Baru')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Buat Change Order Baru'));
+
+    // Fill description
+    const descTextarea = screen.getByPlaceholderText(/Contoh: Penambahan lapisan/i);
+    fireEvent.change(descTextarea, { target: { value: 'Distribusi material plat ke sasis dan dinding' } });
+
+    // Material mode is default. Select material from autocomplete
+    const matInput = screen.getByPlaceholderText('Cari material gudang...');
+    fireEvent.focus(matInput);
+    fireEvent.change(matInput, { target: { value: 'Plat' } });
+
+    // Wait for dropdown and select Plat Besi 2mm
+    const option = screen.getByTestId('material-option-mat-1');
+    fireEvent.mouseDown(option);
+    fireEvent.click(option);
+
+    expect(matInput).toHaveValue('Plat Besi 2mm');
+
+    // Change total target qty to 2
+    const targetQtyInput = screen.getByLabelText(/Qty \(Target\)/i);
+    fireEvent.change(targetQtyInput, { target: { value: '2' } });
+
+    // Initially WBS 2 has 1, remaining is 1.00 ("Sisa: 1.00")
+    expect(screen.getByText(/Sisa: 1.00/i)).toBeInTheDocument();
+
+    // Allocate 1 to WBS 2 and 1 to WBS 3
+    const wbs2Input = screen.getByLabelText(/Alokasi WBS 2: Sasis\/Rangka/i);
+    const wbs3Input = screen.getByLabelText(/Alokasi WBS 3: Dinding\/Fabrikasi/i);
+    fireEvent.change(wbs2Input, { target: { value: '1' } });
+    fireEvent.change(wbs3Input, { target: { value: '1' } });
+
+    // Badge should now show "Sesuai / Pas (0.00)"
+    expect(screen.getByText(/Sesuai \/ Pas \(0.00\)/i)).toBeInTheDocument();
+
+    // Click "+ Tambah ke Change Order"
+    const addItemBtn = screen.getByRole('button', { name: /\+ Tambah ke Change Order/i });
+    expect(addItemBtn).not.toBeDisabled();
+    fireEvent.click(addItemBtn);
+
+    // Verify right table now has 2 split rows: one for WBS 2 and one for WBS 3
+    await waitFor(() => {
+      expect(screen.getAllByText('WBS 2: Sasis/Rangka').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('WBS 3: Dinding/Fabrikasi').length).toBeGreaterThanOrEqual(1);
+    });
+
+    // Check Pagu Material updated to 2 * 250,000 = 500,000
+    expect(screen.getAllByText('Rp 500.000').length).toBeGreaterThanOrEqual(1);
+
+    // Edit item: Click edit on the first row
+    const editButtons = screen.getAllByTitle('Edit item');
+    fireEvent.click(editButtons[0]);
+
+    expect(screen.getByText('Edit Bahan Baku')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Update Item di Change Order/i })).toBeInTheDocument();
+
+    // Cancel edit
+    fireEvent.click(screen.getByRole('button', { name: /Batal Edit/i }));
+    expect(screen.getByText('Input Bahan Baku (Material)')).toBeInTheDocument();
+
+    // Submit form
+    const submitBtn = screen.getByRole('button', { name: /Ajukan Change Order/i });
+    fireEvent.submit(submitBtn.closest('form')!);
+
+    await waitFor(() => {
+      expect(spkService.createChangeOrder).toHaveBeenCalledTimes(1);
+    });
+
+    const payload = vi.mocked(spkService.createChangeOrder).mock.calls[0][0];
+    expect(payload.items).toHaveLength(2);
+    expect(payload.items[0].wbs_stage).toBe('WBS 2: Sasis/Rangka');
+    expect(payload.items[0].quantity).toBe(1);
+    expect(payload.items[1].wbs_stage).toBe('WBS 3: Dinding/Fabrikasi');
+    expect(payload.items[1].quantity).toBe(1);
+  });
+
   it('opens package selector modal and explodes assembly list into Change Order items', async () => {
     vi.mocked(spkService.getChangeOrders).mockResolvedValue([]);
     vi.mocked(spkService.createChangeOrder).mockResolvedValue({ id: 'new-co-pkg' } as any);
@@ -438,10 +550,6 @@ describe('Component: AmendmentManager (3-Element Costing & Overhead Support)', (
     });
 
     fireEvent.click(screen.getByText('Buat Change Order Baru'));
-
-    // Remove initial empty draft item
-    const removeButtons = screen.getAllByTitle('Hapus baris ini');
-    fireEvent.click(removeButtons[0]);
 
     // Click "+ Paket Barang Jadi" button
     const addPackageBtn = screen.getByRole('button', { name: /\+ Paket Barang Jadi/i });
@@ -460,20 +568,17 @@ describe('Component: AmendmentManager (3-Element Costing & Overhead Support)', (
     const applyBtn = screen.getByRole('button', { name: /Terapkan.*ke Change Order/i });
     fireEvent.click(applyBtn);
 
-    // Modal should close and items should be exploded in the main form
+    // Modal should close and items should be exploded in the right-hand review table
     await waitFor(() => {
       expect(screen.queryByText('Tambah Paket Barang Jadi (Assembly List)')).not.toBeInTheDocument();
     });
 
-    // Check exploded items in the form
-    expect(screen.getByDisplayValue(/Plat Besi 2mm/)).toBeInTheDocument();
-    expect(screen.getByDisplayValue('TUKANG LAS STRUKTUR SASIS')).toBeInTheDocument();
+    // Check exploded items in the live review table
+    expect(screen.getByText('Plat Besi 2mm')).toBeInTheDocument();
+    expect(screen.getByText('TUKANG LAS STRUKTUR SASIS')).toBeInTheDocument();
 
-    // Check notes contains [Paket: HPP DUDUKAN SLEBOR]
-    expect(screen.getAllByDisplayValue(/\[Paket: HPP DUDUKAN SLEBOR\]/).length).toBe(2);
-
-    // Check transparent badge [Paket: HPP DUDUKAN SLEBOR] on item row header
-    expect(screen.getAllByText(/\[Paket: HPP DUDUKAN SLEBOR\]/).length).toBeGreaterThanOrEqual(2);
+    // Check package badges on the item rows
+    expect(screen.getAllByText(/\[Paket: HPP DUDUKAN SLEBOR\]/).length).toBe(2);
 
     // Fill description and submit
     const descTextarea = screen.getByPlaceholderText(/Contoh: Penambahan lapisan/i);

@@ -124,8 +124,12 @@ export const MaterialAutocomplete: React.FC<MaterialAutocompleteProps> = ({
             return (
               <li
                 key={material.id}
+                data-testid={`material-option-${material.id}`}
                 onMouseDown={(e) => {
                   e.preventDefault();
+                  handleSelect(material);
+                }}
+                onClick={() => {
                   handleSelect(material);
                 }}
                 onMouseEnter={() => setHighlightedIndex(index)}
