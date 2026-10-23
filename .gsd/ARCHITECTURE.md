@@ -77,7 +77,10 @@ KAROSERI is an enterprise auto body repair and modification management system (*
   - [`SpkCredentialSection.tsx`](file:///c:/KAROSERI/src/components/SpkCredentialSection.tsx): Editable vehicle model, chassis/VIN, engine number, customer phone, target date, and sub-tasks list.
   - [`CancelSpkModal.tsx`](file:///c:/KAROSERI/src/components/CancelSpkModal.tsx): Guarded SPK cancellation workflow (allowed only before DP / material issuance).
   - [`CancelledSpkAuditLog.tsx`](file:///c:/KAROSERI/src/components/CancelledSpkAuditLog.tsx): Dedicated audit monitoring module for voided/cancelled SPKs with executor attribution, timestamped reasons, lost revenue KPI cards, search, and CSV export.
-  - [`AmendmentManager.tsx`](file:///c:/KAROSERI/src/components/AmendmentManager.tsx): Itemized change orders management with 3-element costing support (Materials, Labor, Overhead FOH), autocomplete labor item search from inventory catalog via [`LaborSearchAutocomplete.tsx`](file:///c:/KAROSERI/src/components/LaborSearchAutocomplete.tsx), toolbar action for adding product packages assembly lists via [`ChangeOrderPackageModal.tsx`](file:///c:/KAROSERI/src/components/ChangeOrderPackageModal.tsx), approval workflow, and budget recalculation.
+  - [`AmendmentManager.tsx`](file:///c:/KAROSERI/src/components/AmendmentManager.tsx): Itemized change orders management with a 2-column Split Panel Grid UI matching RAB Calculator layout:
+    - Form Header: Description & justification textarea with automatic CO preview number badge.
+    - Left Column (Input Builder): Assembly Package selection dropdown with BOM explosion modal trigger ([`ChangeOrderPackageModal.tsx`](file:///c:/KAROSERI/src/components/ChangeOrderPackageModal.tsx)), category switch toggles (`Bahan Baku (Material)`, `Jasa / Tukang (Labor)`, `Overhead (FOH)`), category-specific search/autocomplete inputs (Material master search via [`MaterialAutocomplete.tsx`](file:///c:/KAROSERI/src/components/MaterialAutocomplete.tsx), Labor with auto-suggest and custom name fallback via [`LaborSearchAutocomplete.tsx`](file:///c:/KAROSERI/src/components/LaborSearchAutocomplete.tsx), Overhead preset/custom input), Qty with decimal precision and auto-select on focus, Unit price & Cost price (HPP) with live margin indicators, interactive WBS 1 to 5 Allocation Grid with auto-validation status badge (`Sesuai / Pas (0.00)`, `Sisa: ...`, `Lebih: ...`), and local submission button `+ Tambah ke Change Order`.
+    - Right Column (Live Item Review & Financial Summary): Live itemized review table (`DESCRIPTION`, `TYPE` badge, `WBS`, `QTY`, `HARGA SATUAN`, `HARGA MODAL (HPP)`, `SUBTOTAL`, `AKSI` edit/delete), category budget cards (`PAGU MATERIAL`, `PAGU JASA (LABOR)`, `OVERHEAD`), WBS stage summary cards (WBS 1 to WBS 5), comprehensive financial totals (`TOTAL ESTIMATED COST (HPP MODAL CO)`, `TOTAL HARGA JUAL (QUOTATION CO)`, `MARGIN (PROFIT CO)`), and final action buttons (`Batal`, `Ajukan Change Order`).
   - [`ChangeOrderPackageModal.tsx`](file:///c:/KAROSERI/src/components/ChangeOrderPackageModal.tsx): Modal for selecting predefined product assembly packages and auto-exploding BOM components (Materials, Labor, Overhead) into Change Order items with WBS allocation targeting.
   - [`PackageAllocationModal.tsx`](file:///c:/KAROSERI/src/components/PackageAllocationModal.tsx) & [`PackageManager.tsx`](file:///c:/KAROSERI/src/components/PackageManager.tsx): Predefined package bundling and automatic WBS stage mapping with proper `item_type` propagation.
   - [`SpkFilterListBox.tsx`](file:///c:/KAROSERI/src/components/SpkFilterListBox.tsx) & [`SpkSelector.tsx`](file:///c:/KAROSERI/src/components/SpkSelector.tsx): Standardized SPK selector widgets with search.
@@ -202,7 +205,7 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 | Supabase Auth | BaaS API | Authentication, session persistence, role-based access | [`src/context/AuthContext.tsx`](file:///c:/KAROSERI/src/context/AuthContext.tsx) |
 | Supabase PostgreSQL | BaaS API | Relational database (96 migrations), RLS policies, Views, RPCs, Completion Triggers | [`src/lib/supabaseClient.ts`](file:///c:/KAROSERI/src/lib/supabaseClient.ts) |
 | Cloudinary | REST API / CDN | Vehicle damage intake photos and production milestone evidence | [`src/lib/cloudinary.ts`](file:///c:/KAROSERI/src/lib/cloudinary.ts), [`src/components/ui/CloudinaryUploader.tsx`](file:///c:/KAROSERI/src/components/ui/CloudinaryUploader.tsx) |
-| Vitest & RTL | Test Runner & Library | Automated unit and component testing with jsdom (58 suites, 395 tests) | `package.json`, [`src/utils/__tests__/`](file:///c:/KAROSERI/src/utils/__tests__/), [`src/components/**/__tests__/`](file:///c:/KAROSERI/src/components/), [`src/services/__tests__/`](file:///c:/KAROSERI/src/services/__tests__/) |
+| Vitest & RTL | Test Runner & Library | Automated unit and component testing with jsdom (58 suites, 396 tests) | `package.json`, [`src/utils/__tests__/`](file:///c:/KAROSERI/src/utils/__tests__/), [`src/components/**/__tests__/`](file:///c:/KAROSERI/src/components/), [`src/services/__tests__/`](file:///c:/KAROSERI/src/services/__tests__/) |
 | jsPDF / html2canvas | Client Library | BAST and invoice PDF rendering and export | [`src/components/BastModal.tsx`](file:///c:/KAROSERI/src/components/BastModal.tsx), [`src/utils/rabExport.ts`](file:///c:/KAROSERI/src/utils/rabExport.ts) |
 | XLSX (SheetJS) | Client Library | Inventory master data and financial reports Excel export | [`src/utils/excelExport.ts`](file:///c:/KAROSERI/src/utils/excelExport.ts), [`src/utils/exportFinancialReports.ts`](file:///c:/KAROSERI/src/utils/exportFinancialReports.ts) |
 
@@ -278,8 +281,26 @@ KAROSERI is an enterprise auto body repair and modification management system (*
 
 ## Technical Debt & Audit Status
 
-### Fully Resolved (Sprints 43–76, General Ledger, WBS Sorting, Source Origin & Owner Security Ingestion)
-- [x] **Format Source Column with RAB or Change Order Prefix and Granular Fallback in Warehouse Tables (Sprints 75–76 / Latest):**
+### Fully Resolved (Sprints 43–77, General Ledger, WBS Sorting, Source Origin, Owner Security & Change Order Two-Column UI)
+- [x] **Refactor Change Order Form Layout to Match RAB Calculator Two-Column UI (Sprint 77 / Latest):**
+  - Refactored [`src/components/AmendmentManager.tsx`](file:///c:/KAROSERI/src/components/AmendmentManager.tsx) from row-based stacked cards into a responsive 2-column Split Panel Grid (`grid grid-cols-1 lg:grid-cols-3 gap-8`) matching the exact layout and UX pattern of the RAB Calculator (`RabCalculator.tsx`).
+  - Top Header: Retained `DESKRIPSI & JUSTIFIKASI PERUBAHAN PEKERJAAN *` with automatic CO preview number badge.
+  - Left Panel Builder (`lg:col-span-1`):
+    - Assembly List package selector dropdown + `+ Paket Barang Jadi` BOM explosion modal trigger ([`ChangeOrderPackageModal.tsx`](file:///c:/KAROSERI/src/components/ChangeOrderPackageModal.tsx)).
+    - Category switch toggles: `Bahan Baku (Material)`, `Jasa / Tukang (Labor)`, `Overhead (FOH)`.
+    - Autocomplete search inputs: Material master search via [`MaterialAutocomplete.tsx`](file:///c:/KAROSERI/src/components/MaterialAutocomplete.tsx), Labor inventory search with custom name fallback and dual pricing (HPP vs Jual) + live margin indicators via [`LaborSearchAutocomplete.tsx`](file:///c:/KAROSERI/src/components/LaborSearchAutocomplete.tsx), Overhead description/preset input.
+    - Qty input with decimal precision and auto-select on focus (`onFocus={(e) => e.target.select()}`).
+    - Interactive WBS 1 to 5 Allocation Matrix (`Total Qty`, `WBS 1`, `WBS 2`, `WBS 3`, `WBS 4`, `WBS 5`) with real-time balance status badge (`Sesuai / Pas (0.00)`, `Sisa: ...`, `Lebih: ...`).
+    - Local submission button `+ Tambah ke Change Order` that distributes allocated quantities across WBS stages into separate draft item rows.
+  - Right Panel (`lg:col-span-2`):
+    - Live item review table with columns: `DESCRIPTION`, `TYPE` (Material, Labor, Overhead badges), `WBS`, `QTY`, `HARGA SATUAN`, `HARGA MODAL (HPP)`, `SUBTOTAL`, and `AKSI` (Edit & Delete).
+    - Category budget cards: `PAGU MATERIAL`, `PAGU JASA (LABOR)`, `OVERHEAD`.
+    - Matrix cards: `RINGKASAN PAGU BIAYA PER TAHAPAN WBS` (WBS 1 s/d WBS 5 with material, labor, overhead breakdowns).
+    - Total Financial summary: `TOTAL ESTIMATED COST (HPP MODAL CO)`, `TOTAL HARGA JUAL (QUOTATION CO)`, `MARGIN (PROFIT CO)`.
+    - Final action buttons: `Batal` and `Ajukan Change Order`.
+  - Added `data-testid` support to [`src/components/MaterialAutocomplete.tsx`](file:///c:/KAROSERI/src/components/MaterialAutocomplete.tsx).
+  - Verified by 7 comprehensive unit/component tests in [`src/components/__tests__/AmendmentManager.test.tsx`](file:///c:/KAROSERI/src/components/__tests__/AmendmentManager.test.tsx).
+- [x] **Format Source Column with RAB or Change Order Prefix and Granular Fallback in Warehouse Tables (Sprints 75–76):**
   - Refactored [`src/utils/sourceOrigin.ts`](file:///c:/KAROSERI/src/utils/sourceOrigin.ts#L55-L209) to implement [`resolveDetailedSource`](file:///c:/KAROSERI/src/utils/sourceOrigin.ts#L55-L160), [`resolveItemSource`](file:///c:/KAROSERI/src/utils/sourceOrigin.ts#L166-L181), and [`extractIssueSource`](file:///c:/KAROSERI/src/utils/sourceOrigin.ts#L187-L208).
   - Formats with explicit document origin prefix: `RAB` or `Change Order`.
   - Distinguishes assembly packages (`[ RAB • Paket: <Nama> ]` / `[ Change Order • Paket: <Nama> ]`) from loose/manual entries (`[ RAB • Granular ]` / `[ Change Order • Granular ]`).
