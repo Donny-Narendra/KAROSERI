@@ -1,54 +1,45 @@
-# Sprint 83 — Add Source Origin Column to Change Order Snapshot Table in Service Advisor
+# Sprint 84 — Display Itemized Labor and Overhead Margins on Change Order Cards
 
 > **Duration**: 2026-10-24 to 2026-10-24
 > **Status**: In Progress
 
 ## Goal
-Add a new "SUMBER / PAKET" column to the Change Order Snapshot Table (`RINCIAN ITEM SNAPSHOT (POINT-IN-TIME)`) in Service Advisor accordion cards, rendering badges for assembly package origin (`📦 Paket: [Nama Paket]`) and granular entries (`📋 Granular`) to support auditability and eliminate double-counting ambiguities.
+Display itemized margin breakdown across 4 cost pillars (Assembly Packages, Granular Materials, Labor/Tukang, and Overhead/FOH) right below the `MARGIN LABA` metric on each Change Order accordion card in Service Advisor to deliver full financial transparency.
 
 ## Scope
 
 ### Included
-- **Task 1: Query & Helper Resolver Verification**
-  - Ensure `spkService.getChangeOrders` or Supabase query fetches `change_order_items` with `package_source_id`, `package_name`, `notes`, and `product_packages(id, name)`.
-  - Implement `getChangeOrderItemSource(item)` helper to resolve package names from direct fields, relations, or note prefixes (`Bagian dari paket: `), falling back to Granular.
-- **Task 2: Snapshot Table UI Enhancement in AmendmentManager**
-  - Insert `SUMBER / PAKET` column header between `ITEM TYPE` and `ALOKASI WBS`.
-  - Render stylized badges:
-    - Package: `[ 📦 Paket: Nama Paket ]` (amber badge).
-    - Granular: `[ 📋 Granular ]` (slate badge).
-  - Adjust table `colSpan` for empty state (8 -> 9).
+- **Task 1: Helper Perhitungan Margin per Item Type (`computeChangeOrderMargins`)**
+  - Implement and export `computeChangeOrderMargins(items: Array<any>): ChangeOrderMarginBreakdown` in `src/utils/financialCalculations.ts` and re-export in `src/components/AmendmentManager.tsx` & `src/components/ChangeOrdersTab.tsx`.
+  - Calculate `packageMargin`, `materialMargin`, `laborMargin`, `overheadMargin`, `totalProfit`, and respective revenues.
+  - Correctly segregate items based on package origin (`package_source_id`, `package_name`, or notes prefix) and item types (`MATERIAL`, `LABOR`, `OVERHEAD`).
+- **Task 2: Accordion Card UI Itemized Margin Indicators**
+  - Update `AmendmentManager.tsx` card header: beneath the `Margin Laba` metric, render itemized 4-pillar badges/indicators:
+    - 📦 Paket: `Rp X`
+    - 🧱 Material: `Rp X`
+    - 🔧 Labor: `Rp X`
+    - ⚡ Overhead: `Rp X`
+  - Maintain elegant dark UI aesthetics with consistent pillar colors (amber for packages, cyan/emerald for material, sky for labor, purple for overhead).
+  - Ensure responsive, compact, and scannable presentation.
 - **Task 3: Automated Testing & Quality Gate Verification**
-  - Add unit/component tests in `src/components/__tests__/AmendmentManager.test.tsx` verifying the presence and correct badge rendering for both package items and granular items in the snapshot table.
-  - Run linter (`npx oxlint`), TypeScript verification (`tsc -b`), and full test suite (`npm test`).
+  - Add unit tests for `computeChangeOrderMargins` in `src/utils/__tests__/segregatedProfitCalculations.test.ts`.
+  - Add component tests in `src/components/__tests__/AmendmentManager.test.tsx` verifying card header rendering with 4-pillar margin values.
+  - Run linting, TypeScript compiler, and full Vitest suite.
 
 ### Explicitly Excluded
-- Modifying warehouse inventory reservation logic or material requisition schema.
-- Changing draft item creation flow in the left builder panel.
+- Modifying SPK creation, WBS checklist, or material requisition flows.
+- Modifying cashflow / billing calculator logic.
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| 1. Update Change Order query & source helper in `spkService.ts` and `AmendmentManager.tsx` | Antigravity | ✅ Completed | 0.5h |
-| 2. Add `SUMBER / PAKET` column header and badges to snapshot table in `AmendmentManager.tsx` | Antigravity | ✅ Completed | 0.5h |
-| 3. Add tests and verify quality gates (`npm test`, `npx oxlint`, `npm run build`) | Antigravity | ✅ Completed | 0.5h |
+| 1. Implement `computeChangeOrderMargins` helper in `financialCalculations.ts` & `AmendmentManager.tsx` | Antigravity | ⬜ Todo | 0.5h |
+| 2. Add 4-pillar itemized margin indicators under `Margin Laba` in `AmendmentManager.tsx` | Antigravity | ⬜ Todo | 0.5h |
+| 3. Add automated tests and verify quality gates (`npm test`, `tsc`, `npm run build`) | Antigravity | ⬜ Todo | 0.5h |
 
 ## Daily Log
 
 ### 2026-10-24
-- Initialized Sprint 83.
-- Archived Sprint 82 to `.gsd/sprints/sprint-82-comprehensive-profit-segregation-across-rab-co-and-financial-reports.md`.
-- Implemented Task 1:
-  - Updated `ChangeOrderItemRecord` in `src/types/database.ts` with `product_packages?: { id: string; name: string } | null;`.
-  - Updated `spkService.getChangeOrders` in `src/services/spkService.ts` to include `product_packages(id, name)` with defensive fallback to `change_order_items(*)`.
-  - Implemented and exported `getChangeOrderItemSource(item, packagesList)` in `src/components/AmendmentManager.tsx` with resolution across `package_name`, `product_packages`, `notes` (`Bagian dari paket: ` or `[Paket: ...]`), and packages list lookup.
-- Implemented Task 2:
-  - Updated `AmendmentManager.tsx` snapshot table header (`<thead>`) to include `Sumber / Paket` between `Item Type` and `Alokasi WBS`.
-  - Rendered `[ 📦 Paket: Nama Paket ]` amber badge and `[ 📋 Granular ]` slate badge in table rows (`<tbody>`).
-  - Adjusted empty state row `colSpan` to 9.
-- Implemented Task 3:
-  - Added 8 automated tests in `src/components/__tests__/AmendmentManager.test.tsx` verifying helper resolution and UI snapshot table column ordering, badges, and empty states.
-  - Verified TypeScript compilation: 0 errors (`tsc --noEmit`).
-  - Verified Vitest: 61 suites, 437 tests passing (100% green).
-  - Verified Production Build: `npm run build` completed cleanly in 410ms.
+- Initialized Sprint 84.
+- Archived Sprint 83 to `.gsd/sprints/sprint-83-add-source-origin-column-to-change-order-snapshot-table-in-service-advisor.md`.
