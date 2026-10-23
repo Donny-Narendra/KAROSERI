@@ -322,7 +322,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
 
   // Add or update item to the right-hand review table
   const handleAddOrUpdateItem = () => {
-    if (!isAllocationMatch || totalTargetNum <= 0) return;
+    setError(null);
 
     const currentType: ChangeOrderItemType = 
       itemMode === 'material' ? 'MATERIAL' : itemMode === 'labor' ? 'LABOR' : 'OVERHEAD';
@@ -333,19 +333,47 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
         ? laborForm.name 
         : overheadForm.description;
 
-    if (!name.trim()) return;
+    if (!name || !name.trim()) {
+      setError(
+        itemMode === 'material' 
+          ? 'Pilih atau isi nama bahan baku terlebih dahulu' 
+          : itemMode === 'labor' 
+            ? 'Pilih atau isi uraian jasa / pekerjaan terlebih dahulu' 
+            : 'Uraian biaya overhead (FOH) wajib diisi'
+      );
+      return;
+    }
 
-    const unit = itemMode === 'material' 
-      ? (materialForm.unit || 'pcs') 
-      : itemMode === 'labor' 
-        ? (laborForm.unit || 'jam') 
-        : (overheadForm.unit || 'hari');
+    if (totalTargetNum <= 0) {
+      setError('Target quantity harus lebih dari 0');
+      return;
+    }
+
+    if (!isAllocationMatch) {
+      setError(
+        allocationRemaining > 0
+          ? `Harap tentukan alokasi tahapan WBS (sisa ${allocationRemaining.toFixed(2)} dari target ${targetQty}).`
+          : `Alokasi tahapan WBS melebihi target ${targetQty} (lebih ${Math.abs(allocationRemaining).toFixed(2)}).`
+      );
+      return;
+    }
 
     const unitPrice = itemMode === 'material' 
       ? Number(materialForm.unitPrice || 0) 
       : itemMode === 'labor' 
         ? Number(laborForm.unitPrice || 0) 
         : Number(overheadForm.unitPrice || 0);
+
+    if (unitPrice <= 0) {
+      setError('Harga satuan jual harus diisi angka yang valid (lebih dari 0)');
+      return;
+    }
+
+    const unit = itemMode === 'material' 
+      ? (materialForm.unit || 'pcs') 
+      : itemMode === 'labor' 
+        ? (laborForm.unit || 'jam') 
+        : (overheadForm.unit || 'hari');
 
     const costPrice = itemMode === 'material' 
       ? Number(materialForm.costPrice || 0) 
@@ -405,17 +433,6 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
     resetBuilderInputs(itemMode);
   };
 
-  // Determine if builder input can be submitted
-  const canSubmitItem = useMemo(() => {
-    if (!isAllocationMatch || totalTargetNum <= 0) return false;
-    if (itemMode === 'material') {
-      return Boolean(materialForm.itemName.trim());
-    } else if (itemMode === 'labor') {
-      return Boolean(laborForm.name.trim());
-    } else {
-      return Boolean(overheadForm.description.trim());
-    }
-  }, [isAllocationMatch, totalTargetNum, itemMode, materialForm.itemName, laborForm.name, overheadForm.description]);
 
   // Financial summary & category pagu calculations
   const totalMaterialSelling = useMemo(() => {
@@ -448,19 +465,21 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
   const laborCount = draftItems.filter(i => i.item_type === 'LABOR').length;
   const overheadCount = draftItems.filter(i => i.item_type === 'OVERHEAD').length;
 
-  // Submit Change Order to backend
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Submit Change Order to backend (Decoupled final submission)
+  const handleSubmitFinalChangeOrder = async (e?: React.FormEvent) => {
+    if (e) {
+      e.preventDefault();
+    }
     setSubmitting(true);
     setError(null);
 
     try {
-      if (draftItems.length === 0) {
-        throw new Error('Minimal tambahkan satu item rincian material atau jasa ke Change Order!');
-      }
-
       if (!description.trim()) {
         throw new Error('Deskripsi & Justifikasi Perubahan Pekerjaan wajib diisi!');
+      }
+
+      if (draftItems.length === 0) {
+        throw new Error('Minimal tambahkan satu item rincian material atau jasa ke Change Order!');
       }
 
       // Validate each item
@@ -504,6 +523,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
       setSubmitting(false);
     }
   };
+
 
   const handleActionClick = (co: ChangeOrderRecord, action: 'APPROVED' | 'REJECTED') => {
     setActionError(null);
@@ -590,7 +610,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
 
       {/* Itemized Change Order Creation Form (2-Column Split Grid matching RAB Calculator) */}
       {showForm && (isSA || isOwner) && (
-        <form onSubmit={handleSubmit} className="p-6 border-b border-border bg-surface-hover/30 space-y-6">
+        <form noValidate onSubmit={handleSubmitFinalChangeOrder} className="p-6 border-b border-border bg-surface-hover/30 space-y-6">
           {/* Form Header */}
           <div className="flex items-center justify-between pb-3 border-b border-border">
             <div className="flex items-center gap-2">
@@ -617,7 +637,6 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
               Deskripsi & Justifikasi Perubahan Pekerjaan *
             </label>
             <textarea
-              required
               rows={2}
               className="w-full bg-surface border border-border rounded p-2.5 text-text text-sm focus:outline-none focus:border-primary transition"
               value={description}
@@ -781,7 +800,6 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                           id="material-target-qty"
                           type="text"
                           inputMode="decimal"
-                          required
                           value={targetQty}
                           onChange={(e) => {
                             const raw = e.target.value.replace(',', '.');
@@ -839,7 +857,6 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                           <input
                             type="number"
                             min="0"
-                            required
                             value={materialForm.unitPrice || ''}
                             onChange={(e) => setMaterialForm(prev => ({ ...prev, unitPrice: parseFloat(e.target.value) || 0 }))}
                             onFocus={(e) => e.target.select()}
@@ -905,7 +922,6 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                           }));
                         }}
                         placeholder="Misal: Jasa las struktur tambahan"
-                        required
                       />
                     </div>
 
@@ -918,7 +934,6 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                           id="labor-target-qty"
                           type="text"
                           inputMode="decimal"
-                          required
                           value={targetQty}
                           onChange={(e) => {
                             const raw = e.target.value.replace(',', '.');
@@ -975,7 +990,6 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                           <input
                             type="number"
                             min="0"
-                            required
                             value={laborForm.unitPrice || ''}
                             onChange={(e) => setLaborForm(prev => ({ ...prev, unitPrice: parseFloat(e.target.value) || 0 }))}
                             onFocus={(e) => e.target.select()}
@@ -1021,7 +1035,6 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                       <input
                         id="overhead-description-input"
                         type="text"
-                        required
                         placeholder="Misal: Sewa alat derek / oven lembur"
                         className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-purple-500"
                         value={overheadForm.description}
@@ -1038,7 +1051,6 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                           id="overhead-target-qty"
                           type="text"
                           inputMode="decimal"
-                          required
                           value={targetQty}
                           onChange={(e) => {
                             const raw = e.target.value.replace(',', '.');
@@ -1094,7 +1106,6 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                           <input
                             type="number"
                             min="0"
-                            required
                             value={overheadForm.unitPrice || ''}
                             onChange={(e) => setOverheadForm(prev => ({ ...prev, unitPrice: parseFloat(e.target.value) || 0 }))}
                             onFocus={(e) => e.target.select()}
@@ -1197,7 +1208,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                   <button
                     type="button"
                     onClick={handleAddOrUpdateItem}
-                    disabled={!canSubmitItem}
+                    disabled={submitting}
                     className="w-full bg-primary hover:bg-primary-hover text-background font-bold py-2.5 px-4 rounded text-xs transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-sm"
                   >
                     <Plus className="w-4 h-4" />
@@ -1445,7 +1456,8 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                   Batal
                 </button>
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={handleSubmitFinalChangeOrder}
                   className="px-6 py-2.5 bg-primary text-background rounded hover:bg-primary-hover transition text-xs font-bold flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={submitting || draftItems.length === 0}
                 >

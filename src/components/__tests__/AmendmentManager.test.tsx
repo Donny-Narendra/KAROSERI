@@ -678,5 +678,177 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
     expect(screen.getAllByText('WBS 2: Sasis/Rangka').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('WBS 3: Dinding/Fabrikasi').length).toBeGreaterThanOrEqual(1);
   });
+
+  describe('Sprint 79: Decouple Granular Input Validation from Final Change Order Submission', () => {
+    it('allows submitting Change Order with package items when granular builder inputs in left panel are empty (no false required errors)', async () => {
+      vi.mocked(spkService.getChangeOrders).mockResolvedValue([]);
+      vi.mocked(spkService.createChangeOrder).mockResolvedValue({ id: 'co-pkg-only' } as any);
+
+      render(<AmendmentManager spkId="spk-test-1" spkNo="SPK-2026-001" />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Buat Change Order Baru')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Buat Change Order Baru'));
+
+      // Check form has noValidate attribute
+      const formEl = screen.getByText('Formulir Pengajuan Itemized Change Order (CO)').closest('form');
+      expect(formEl).toHaveAttribute('noValidate');
+
+      // Check final submit button is type="button" (decoupled from native HTML5 validation)
+      const submitBtn = screen.getByRole('button', { name: /Ajukan Change Order/i });
+      expect(submitBtn).toHaveAttribute('type', 'button');
+
+      // Check that granular builder inputs do NOT have HTML5 required attributes
+      const targetQtyInput = screen.getByLabelText(/Qty \(Target\)/i);
+      expect(targetQtyInput).not.toHaveAttribute('required');
+
+      const spinbuttons = screen.getAllByRole('spinbutton');
+      // Harga Modal HPP and Harga Satuan Jual
+      spinbuttons.forEach(sb => {
+        expect(sb).not.toHaveAttribute('required');
+      });
+
+      // Fill description only
+      const descTextarea = screen.getByPlaceholderText(/Contoh: Penambahan lapisan/i);
+      expect(descTextarea).not.toHaveAttribute('required');
+      fireEvent.change(descTextarea, { target: { value: 'Pengajuan paket assembly tanpa input granular manual' } });
+
+      // Add items via package assembly modal
+      const addPackageBtn = screen.getByRole('button', { name: /\+ Paket Barang Jadi/i });
+      fireEvent.click(addPackageBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText('Tambah Paket Barang Jadi (Assembly List)')).toBeInTheDocument();
+      });
+
+      // Click "Terapkan ke Change Order"
+      const applyBtn = screen.getByRole('button', { name: /Terapkan.*ke Change Order/i });
+      fireEvent.click(applyBtn);
+
+      // Verify modal closed and draft items populated in review table
+      await waitFor(() => {
+        expect(screen.queryByText('Tambah Paket Barang Jadi (Assembly List)')).not.toBeInTheDocument();
+      });
+      expect(screen.getByText('Plat Besi 2mm')).toBeInTheDocument();
+
+      // Left panel builder inputs are still empty/default:
+      // Material name is empty, selling price is empty/0
+      const matInput = screen.getByPlaceholderText('Cari material gudang...');
+      expect(matInput).toHaveValue('');
+
+      // Click "Ajukan Change Order" via click event (not form submit)
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(spkService.createChangeOrder).toHaveBeenCalledTimes(1);
+      });
+
+      const payload = vi.mocked(spkService.createChangeOrder).mock.calls[0][0];
+      expect(payload.spkId).toBe('spk-test-1');
+      expect(payload.description).toBe('Pengajuan paket assembly tanpa input granular manual');
+      expect(payload.items.length).toBeGreaterThan(0);
+    });
+
+    it('validates granular inputs only when clicking "+ Tambah ke Change Order" in left builder', async () => {
+      vi.mocked(spkService.getChangeOrders).mockResolvedValue([]);
+
+      render(<AmendmentManager spkId="spk-test-1" spkNo="SPK-2026-001" />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Buat Change Order Baru')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Buat Change Order Baru'));
+
+      const addItemBtn = screen.getByRole('button', { name: /\+ Tambah ke Change Order/i });
+      expect(addItemBtn).not.toBeDisabled();
+
+      // 1. Click without selecting material -> shows error banner
+      fireEvent.click(addItemBtn);
+      expect(screen.getByText('Pilih atau isi nama bahan baku terlebih dahulu')).toBeInTheDocument();
+
+      // 2. Select material but set unit price to 0
+      const matInput = screen.getByPlaceholderText('Cari material gudang...');
+      fireEvent.focus(matInput);
+      fireEvent.change(matInput, { target: { value: 'Plat' } });
+      const option = screen.getByTestId('material-option-mat-1');
+      fireEvent.mouseDown(option);
+      fireEvent.click(option);
+
+      // Set unit price to 0
+      const spinbuttons = screen.getAllByRole('spinbutton');
+      // spinbutton 1 is Harga Satuan Jual
+      fireEvent.change(spinbuttons[1], { target: { value: '0' } });
+
+      fireEvent.click(addItemBtn);
+      expect(screen.getByText('Harga satuan jual harus diisi angka yang valid (lebih dari 0)')).toBeInTheDocument();
+
+      // 3. Set valid unit price -> successfully adds to Change Order
+      fireEvent.change(spinbuttons[1], { target: { value: '250000' } });
+      fireEvent.click(addItemBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText(/1 Material, 0 Jasa, 0 Overhead/i)).toBeInTheDocument();
+      });
+      // Error is cleared
+      expect(screen.queryByText('Harga satuan jual harus diisi angka yang valid (lebih dari 0)')).not.toBeInTheDocument();
+    });
+
+    it('validates document-level fields (description and item presence) on final Change Order submission', async () => {
+      vi.mocked(spkService.getChangeOrders).mockResolvedValue([]);
+      vi.mocked(spkService.createChangeOrder).mockResolvedValue({ id: 'co-test' } as any);
+
+      render(<AmendmentManager spkId="spk-test-1" spkNo="SPK-2026-001" />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Buat Change Order Baru')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Buat Change Order Baru'));
+
+      // Submit button is initially disabled when draft items list is empty
+      const submitBtn = screen.getByRole('button', { name: /Ajukan Change Order/i });
+      expect(submitBtn).toBeDisabled();
+
+      // Add a package item to populate draft items
+      const addPackageBtn = screen.getByRole('button', { name: /\+ Paket Barang Jadi/i });
+      fireEvent.click(addPackageBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText('Tambah Paket Barang Jadi (Assembly List)')).toBeInTheDocument();
+      });
+
+      const applyBtn = screen.getByRole('button', { name: /Terapkan.*ke Change Order/i });
+      fireEvent.click(applyBtn);
+
+      await waitFor(() => {
+        expect(screen.queryByText('Tambah Paket Barang Jadi (Assembly List)')).not.toBeInTheDocument();
+      });
+
+      // Submit button is now enabled
+      expect(submitBtn).not.toBeDisabled();
+
+      // Click submit without description
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText('Deskripsi & Justifikasi Perubahan Pekerjaan wajib diisi!')).toBeInTheDocument();
+      });
+      expect(spkService.createChangeOrder).not.toHaveBeenCalled();
+
+      // Fill description and submit again
+      const descTextarea = screen.getByPlaceholderText(/Contoh: Penambahan lapisan/i);
+      fireEvent.change(descTextarea, { target: { value: 'Justifikasi valid pengajuan perubahan' } });
+
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(spkService.createChangeOrder).toHaveBeenCalledTimes(1);
+      });
+    });
+  });
 });
+
 
