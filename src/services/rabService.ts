@@ -11,6 +11,7 @@ export interface DbRabItemRecord {
   material_name?: string | null;
   material_id?: string | null;
   package_id?: string | null;
+  package_name?: string | null;
   quantity?: number | string | null;
   unit?: string | null;
   notes?: string | null;
@@ -23,6 +24,7 @@ export interface DbRabItemRecord {
   item_total?: number | string | null;
   subtotal?: number | string | null;
   is_locked?: boolean | null;
+  product_packages?: { id?: string; name: string } | null;
 }
 
 export interface RabItem {
@@ -38,6 +40,8 @@ export interface RabItem {
   subtotal?: number;
   isLocked?: boolean;
   packageId?: string;
+  package_name?: string | null;
+  packageName?: string | null;
   materialId?: string;
 }
 
@@ -225,6 +229,19 @@ export class RabService {
         ? 'Cat/Finishing'
         : rawCat;
 
+      // Resolve package name from package_name column, product_packages relation, or notes
+      let resolvedPackageName: string | null = dbItem.package_name || null;
+      if (!resolvedPackageName && dbItem.product_packages?.name) {
+        resolvedPackageName = dbItem.product_packages.name;
+      }
+      if (!resolvedPackageName && dbItem.notes && dbItem.notes.includes('Paket:')) {
+        resolvedPackageName = dbItem.notes
+          .replace('Bagian dari paket: ', '')
+          .replace('Paket: ', '')
+          .replace(/^\[+|\]+$/g, '')
+          .trim();
+      }
+
       return {
         id: dbItem.id,
         wbsCategory: normalizedCategory,
@@ -238,6 +255,8 @@ export class RabService {
         subtotal: Number(dbItem.subtotal) || (qty * unitPrice),
         isLocked: Boolean(dbItem.is_locked),
         packageId: dbItem.package_id || undefined,
+        package_name: resolvedPackageName || null,
+        packageName: resolvedPackageName || null,
         materialId: dbItem.material_id || undefined
       };
     });
@@ -266,6 +285,8 @@ export class RabService {
       notes?: string;
       materialId?: string;
       packageId?: string;
+      package_name?: string | null;
+      packageName?: string | null;
     }>
   ): Promise<RabItem[]> {
     if (!spkId || itemsToInsert.length === 0) return [];
@@ -285,16 +306,19 @@ export class RabService {
         ? 'Cat/Finishing'
         : rawCat;
 
+      const pkgName = item.package_name || item.packageName || null;
+      const notesWithFallback = item.notes || (pkgName ? `Paket: ${pkgName}` : null);
+
       return {
         rab_estimation_id: estimationId,
         spk_id: spkId,
         wbs_category: normalizedCategory,
         item_type: itemType,
         material_name: item.description,
-        description: item.notes || item.description,
+        description: notesWithFallback || item.description,
         quantity: qty,
         unit: item.unit || (itemType === 'LABOR' ? 'lot' : itemType === 'OVERHEAD' ? 'hari' : 'pcs'),
-        notes: item.notes || null,
+        notes: notesWithFallback,
         unit_price: unitPrice,
         cost_price: costPrice,
         labor_hours: itemType === 'LABOR' ? qty : 0,
@@ -304,39 +328,61 @@ export class RabService {
         item_total: itemTotal,
         subtotal: itemTotal,
         package_id: item.packageId || null,
+        package_name: pkgName,
         material_id: item.materialId || null,
         is_locked: false
       };
     });
 
-    const { data: inserted, error } = await supabase
-      .from('rab_items')
-      .insert(rows)
-      .select();
+    let insertedData: any = null;
+    const insertBuilder = supabase.from('rab_items').insert(rows);
+    const { data: inserted, error } = typeof (insertBuilder as any)?.select === 'function'
+      ? await (insertBuilder as any).select()
+      : await (insertBuilder as any);
 
     if (error) {
-      console.error('Error inserting rab_items in RabService:', error);
-      throw error;
+      if ((error as any).code === '42703' || (error as any).message?.includes('package_name')) {
+        const fallbackRows = rows.map(({ package_name, ...rest }) => rest);
+        const retryBuilder = supabase.from('rab_items').insert(fallbackRows);
+        const { data: retryData, error: retryError } = typeof (retryBuilder as any)?.select === 'function'
+          ? await (retryBuilder as any).select()
+          : await (retryBuilder as any);
+        if (retryError) {
+          console.error('Error inserting rab_items in RabService:', retryError);
+          throw retryError;
+        }
+        insertedData = retryData;
+      } else {
+        console.error('Error inserting rab_items in RabService:', error);
+        throw error;
+      }
+    } else {
+      insertedData = inserted;
     }
 
     // Sinkronkan akumulasi pagu secara otomatis
     await this.syncRabTotals(spkId, estimationId);
 
-    return (inserted || []).map((dbItem: DbRabItemRecord) => ({
-      id: dbItem.id,
-      wbsCategory: dbItem.wbs_category,
-      type: (dbItem.item_type || 'material').toLowerCase() as 'material' | 'labor' | 'overhead',
-      description: dbItem.material_name || dbItem.description || '',
-      qty: Number(dbItem.quantity),
-      unit: dbItem.unit || undefined,
-      notes: dbItem.notes || undefined,
-      unitPrice: Number(dbItem.unit_price),
-      costPrice: Number(dbItem.cost_price),
-      subtotal: Number(dbItem.subtotal) || (Number(dbItem.quantity) * Number(dbItem.unit_price)),
-      isLocked: Boolean(dbItem.is_locked),
-      packageId: dbItem.package_id || undefined,
-      materialId: dbItem.material_id || undefined
-    }));
+    return (insertedData || []).map((dbItem: DbRabItemRecord) => {
+      const resolvedPkg = dbItem.package_name || (dbItem.notes && dbItem.notes.includes('Paket:') ? dbItem.notes.replace('Bagian dari paket: ', '').replace('Paket: ', '').replace(/^\[+|\]+$/g, '').trim() : null);
+      return {
+        id: dbItem.id,
+        wbsCategory: dbItem.wbs_category,
+        type: (dbItem.item_type || 'material').toLowerCase() as 'material' | 'labor' | 'overhead',
+        description: dbItem.material_name || dbItem.description || '',
+        qty: Number(dbItem.quantity),
+        unit: dbItem.unit || undefined,
+        notes: dbItem.notes || undefined,
+        unitPrice: Number(dbItem.unit_price),
+        costPrice: Number(dbItem.cost_price),
+        subtotal: Number(dbItem.subtotal) || (Number(dbItem.quantity) * Number(dbItem.unit_price)),
+        isLocked: Boolean(dbItem.is_locked),
+        packageId: dbItem.package_id || undefined,
+        package_name: resolvedPkg,
+        packageName: resolvedPkg,
+        materialId: dbItem.material_id || undefined
+      };
+    });
   }
 
   /**
@@ -475,16 +521,19 @@ export class RabService {
           ? 'Cat/Finishing'
           : rawCat;
 
+        const pkgName = item.package_name || item.packageName || null;
+        const notesWithFallback = item.notes || (pkgName ? `Paket: ${pkgName}` : null);
+
         return {
           rab_estimation_id: estimationId,
           spk_id: spkId,
           wbs_category: normalizedCategory,
           item_type: itemType,
           material_name: item.description,
-          description: item.notes || item.description,
+          description: notesWithFallback || item.description,
           quantity: qty,
           unit: item.unit || (itemType === 'LABOR' ? 'lot' : itemType === 'OVERHEAD' ? 'hari' : 'pcs'),
-          notes: item.notes || null,
+          notes: notesWithFallback,
           unit_price: unitPrice,
           cost_price: costPrice,
           labor_hours: itemType === 'LABOR' ? qty : 0,
@@ -494,6 +543,7 @@ export class RabService {
           item_total: itemTotal,
           subtotal: itemTotal,
           package_id: item.packageId || null,
+          package_name: pkgName,
           material_id: item.materialId || null,
           is_locked: false
         };
@@ -504,8 +554,19 @@ export class RabService {
         .insert(rows);
 
       if (insError) {
-        console.error('Error inserting rab_items in saveFullRabEstimation:', insError);
-        throw insError;
+        if ((insError as any).code === '42703' || (insError as any).message?.includes('package_name')) {
+          const fallbackRows = rows.map(({ package_name, ...rest }) => rest);
+          const { error: retryError } = await supabase
+            .from('rab_items')
+            .insert(fallbackRows);
+          if (retryError) {
+            console.error('Error inserting rab_items in saveFullRabEstimation:', retryError);
+            throw retryError;
+          }
+        } else {
+          console.error('Error inserting rab_items in saveFullRabEstimation:', insError);
+          throw insError;
+        }
       }
     }
 

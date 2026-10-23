@@ -1,22 +1,23 @@
 ## Current Position
-- **Sprint**: Sprint 80 — Add Source Package / Granular Origin Column to RAB Calculator Table
-- **Status**: Sprint in progress
-- **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness (paused for sprint)
+- **Sprint**: Sprint 80 — Add Source Package / Granular Origin Column to RAB Calculator Table (Completed)
+- **Status**: Sprint completed & verified
+- **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness (ready to resume)
 
 ## Last Session Summary
-- Sprint 79 archived to `.gsd/sprints/sprint-79-fix-false-required-field-validation-on-change-order-submission.md`.
-- Sprint 80 initialized: Add Source Package / Granular Origin Column to RAB Calculator Table.
-- Tasks:
-  1. Ensure package metadata persistence (`package_name`, `package_id`, notes fallback) in `PackageAllocationModal.tsx`, `RabCalculator.tsx`, and `rabService.ts`.
-  2. Add `SUMBER / PAKET` header and origin badges (`[ 📦 Paket: ... ]` vs `[ 📋 Granular ]`) to RAB table in `RabCalculator.tsx`.
-  3. Synchronize package origin to Excel export and PDF quotation in `rabExport.ts`.
-  4. Write automated tests and verify quality gate.
+- Sprint 80 completed:
+  - Added package metadata persistence (`package_name`, `package_id`, and notes fallback) in `PackageAllocationModal.tsx`, `RabCalculator.tsx`, and `rabService.ts`.
+  - Added PostgreSQL migration `20261023030000_add_package_name_to_rab_items.sql` with column addition and backfill from `product_packages`.
+  - Added dedicated `SUMBER / PAKET` column header between `DESCRIPTION` and `TYPE` in `RabCalculator.tsx` table.
+  - Rendered `[ 📦 Paket: Nama Paket ]` badge (amber) and `[ 📋 Granular ]` badge (slate) on every item row.
+  - Synchronized package origin to `rabExport.ts`:
+    - Excel export now includes "Sumber / Paket" column between "Deskripsi" and "Tipe" with aligned totals row.
+    - PDF quotation print view includes subtle origin subtext (`📦 Paket: ...` or `📋 Granular`) in the component description column.
+  - Created automated test suites in `rabExport.test.ts` (7 tests) and `RabCalculatorOrigin.test.tsx` (6 tests).
 
 ## Quality & Verification Status
 - **TypeScript Static Analysis:** Clean compilation with 0 errors (`tsc --noEmit` & `tsc -b`).
-- **Linter Status:** 0 errors, 0 warnings across 199 files (`oxlint`).
-- **Production Build:** Clean bundle generated in 421ms (`npm run build`).
-- **Automated Tests:** 58 test suites, 402 tests passing (100% green).
+- **Production Build:** Clean bundle generated in 447ms (`npm run build`).
+- **Automated Tests:** 60 test suites, 415 tests passing (100% green).
 
 ## Next Up
-- Execute Task 1: Package metadata persistence in RAB items.
+- `/sprint close` or `/resume` or `/complete-milestone`.

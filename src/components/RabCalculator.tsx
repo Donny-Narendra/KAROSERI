@@ -271,6 +271,9 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
           costPrice: effectiveCostPrice,
           subtotal: Math.round(wbsQty * effectiveUnitPrice),
           isLocked: false,
+          package_name: null,
+          packageName: null,
+          packageId: undefined,
           notes: laborForm.notes.trim() || undefined,
           materialId: isCustomLabor ? undefined : (selectedLaborMaterialId || undefined),
         });
@@ -317,6 +320,9 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
           costPrice: i.costPrice,
           materialId: i.materialId,
           notes: i.notes,
+          package_name: null,
+          packageName: null,
+          packageId: undefined,
         }));
         const persisted = await rabService.insertRabItems(spkId, payloads);
         if (persisted && persisted.length > 0) {
@@ -403,6 +409,9 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
              costPrice,
              subtotal: wbsQty * (newItem.unitPrice as number),
              isLocked: false,
+             package_name: null,
+             packageName: null,
+             packageId: undefined,
              materialId: newItem.materialId,
           });
        }
@@ -435,6 +444,9 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
           unitPrice: i.unitPrice,
           costPrice: i.costPrice,
           materialId: i.materialId,
+          package_name: null,
+          packageName: null,
+          packageId: undefined,
         }));
         const persisted = await rabService.insertRabItems(spkId, payloads);
         if (persisted && persisted.length > 0) {
@@ -672,6 +684,9 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
         subtotal: payload.qty * payload.unitPrice,
         isLocked: false,
         packageId: pkgId,
+        package_name: selectedPackage.name,
+        packageName: selectedPackage.name,
+        notes: `Paket: ${selectedPackage.name}`,
         materialId: itemType === 'MATERIAL' ? (payloadMatId || matchedMat?.id) : undefined,
       };
     });
@@ -698,6 +713,9 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
           costPrice: i.costPrice,
           materialId: i.materialId,
           packageId: pkgId,
+          package_name: selectedPackage.name,
+          packageName: selectedPackage.name,
+          notes: i.notes || `Paket: ${selectedPackage.name}`,
         }));
         const persisted = await rabService.insertRabItems(spkId, payloads);
         if (persisted && persisted.length > 0) {
@@ -1466,6 +1484,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                   <thead className="bg-surface sticky top-0 border-b border-border text-text-muted font-mono text-xs uppercase shadow-sm">
                     <tr>
                       <th className="px-3 py-3">Description</th>
+                      <th className="px-3 py-3 text-left">Sumber / Paket</th>
                       <th className="px-3 py-3">Type</th>
                       <th className="px-3 py-3">WBS</th>
                       <th className="px-3 py-3 text-right">Qty</th>
@@ -1490,6 +1509,41 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                               </span>
                             )}
                           </div>
+                        </td>
+                        {/* Kolom Sumber / Paket */}
+                        <td className="px-3 py-3 align-middle">
+                          {(() => {
+                            const resolvedPackageName =
+                              item.package_name ||
+                              item.packageName ||
+                              (item.packageId ? packages.find(p => p.id === item.packageId)?.name : null) ||
+                              (item.notes && item.notes.includes('Paket:')
+                                ? item.notes.replace('Bagian dari paket: ', '').replace('Paket: ', '').replace(/^\[+|\]+$/g, '').trim()
+                                : null);
+
+                            if (resolvedPackageName) {
+                              const cleanName = resolvedPackageName.replace(/^Paket:\s*/i, '').trim();
+                              return (
+                                <span 
+                                  data-testid={`badge-package-${item.id}`}
+                                  className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded bg-amber-950/70 text-amber-400 border border-amber-800/80 whitespace-nowrap"
+                                >
+                                  <span>📦</span>
+                                  <span>Paket: {cleanName}</span>
+                                </span>
+                              );
+                            }
+
+                            return (
+                              <span 
+                                data-testid={`badge-granular-${item.id}`}
+                                className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded bg-slate-800/80 text-slate-300 border border-slate-700/80 whitespace-nowrap"
+                              >
+                                <span>📋</span>
+                                <span>Granular</span>
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-3 py-3">
                           {item.type === 'labor' ? (

@@ -14,6 +14,10 @@ export interface RabExportItem {
   description: string;
   qty: number;
   unitPrice: number;
+  package_name?: string | null;
+  packageName?: string | null;
+  packageId?: string | null;
+  notes?: string | null;
   /** @deprecated Waste factor is permanently eliminated */
   wasteFactor?: number;
 }
@@ -24,6 +28,34 @@ export interface RabExportTotals {
   overhead: number;
   grandTotal: number;
 }
+
+export const getRabItemSourceOrigin = (item: RabExportItem): { label: string; isPackage: boolean } => {
+  let raw: string | null = item.package_name || item.packageName || null;
+  if (!raw && item.notes) {
+    const match = item.notes.match(/(?:bagian dari paket:\s*|paket:\s*|\[paket:\s*)([^\]\r\n,;]+)/i);
+    if (match && match[1]) {
+      raw = match[1].trim();
+    } else if (item.notes.toLowerCase().includes('paket')) {
+      raw = item.notes
+        .replace(/bagian dari paket:\s*/i, '')
+        .replace(/paket:\s*/i, '')
+        .replace(/^\[+|\]+$/g, '')
+        .trim();
+    }
+  }
+
+  if (raw) {
+    const clean = raw.replace(/^Paket:\s*/i, '').trim();
+    return {
+      label: `Paket: ${clean}`,
+      isPackage: true,
+    };
+  }
+  return {
+    label: 'Granular',
+    isPackage: false,
+  };
+};
 
 export const exportRabToExcel = (
   spkDetails: RabExportSpkDetails | null | undefined,
@@ -39,7 +71,7 @@ export const exportRabToExcel = (
     ["Model Kendaraan", spkDetails?.vehicle_model || "-"],
     ["Tanggal", new Date().toLocaleDateString('id-ID')],
     [""],
-    ["WBS Category", "Tipe", "Deskripsi", "Qty", "Harga Satuan", "Subtotal"]
+    ["WBS Category", "Deskripsi", "Sumber / Paket", "Tipe", "Qty", "Harga Satuan", "Subtotal"]
   ];
 
   const wbsCategories = [
@@ -55,10 +87,12 @@ export const exportRabToExcel = (
     if (itemsInCat.length > 0) {
       itemsInCat.forEach(item => {
         const subtotal = item.qty * item.unitPrice;
+        const sourceOrigin = getRabItemSourceOrigin(item);
         wsData.push([
           item.wbsCategory,
-          item.type,
           item.description,
+          sourceOrigin.label,
+          item.type,
           item.qty,
           item.unitPrice,
           subtotal
@@ -68,10 +102,10 @@ export const exportRabToExcel = (
   });
 
   wsData.push([""]);
-  wsData.push(["", "", "", "", "Subtotal Material", totals.material]);
-  wsData.push(["", "", "", "", "Subtotal Jasa", totals.labor]);
-  wsData.push(["", "", "", "", "Overhead", totals.overhead]);
-  wsData.push(["", "", "", "", "Grand Total", totals.grandTotal]);
+  wsData.push(["", "", "", "", "", "Subtotal Material", totals.material]);
+  wsData.push(["", "", "", "", "", "Subtotal Jasa", totals.labor]);
+  wsData.push(["", "", "", "", "", "Overhead", totals.overhead]);
+  wsData.push(["", "", "", "", "", "Grand Total", totals.grandTotal]);
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
   const wb = XLSX.utils.book_new();
@@ -108,9 +142,17 @@ export const printRabQuotation = (
       `;
       itemsInCat.forEach(item => {
         const subtotal = item.qty * item.unitPrice;
+        const sourceOrigin = getRabItemSourceOrigin(item);
+        const originSubtext = sourceOrigin.isPackage
+          ? `<div style="font-size: 11px; color: #b45309; font-weight: 500; margin-top: 2px;">📦 ${sourceOrigin.label}</div>`
+          : `<div style="font-size: 11px; color: #64748b; font-weight: 400; margin-top: 2px;">📋 Granular</div>`;
+
         tableHtml += `
           <tr>
-            <td>${item.description}</td>
+            <td>
+              <div style="font-weight: 600;">${item.description}</div>
+              ${originSubtext}
+            </td>
             <td>${item.type}</td>
             <td>${item.qty}</td>
             <td>Rp ${item.unitPrice.toLocaleString('id-ID')}</td>
