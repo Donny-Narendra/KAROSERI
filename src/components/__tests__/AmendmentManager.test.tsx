@@ -848,6 +848,150 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
         expect(spkService.createChangeOrder).toHaveBeenCalledTimes(1);
       });
     });
+
+    it('allows adding the same product package multiple times with separate instance IDs and doubled totals', async () => {
+      vi.mocked(spkService.getChangeOrders).mockResolvedValue([]);
+      render(<AmendmentManager spkId="spk-test-1" spkNo="SPK-2026-001" />);
+
+      // Open Change Order form
+      await waitFor(() => {
+        expect(screen.getByText('Buat Change Order Baru')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('Buat Change Order Baru'));
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: /Pilih Paket Barang Jadi \(Assembly List\)/i })).toBeInTheDocument();
+      });
+
+      // 1. Add package for the first time
+      const addPackageBtn = screen.getByRole('button', { name: /\+ Paket Barang Jadi/i });
+      fireEvent.click(addPackageBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText('Tambah Paket Barang Jadi (Assembly List)')).toBeInTheDocument();
+      });
+
+      const applyBtn1 = screen.getByRole('button', { name: /Terapkan.*ke Change Order/i });
+      fireEvent.click(applyBtn1);
+
+      await waitFor(() => {
+        expect(screen.queryByText('Tambah Paket Barang Jadi (Assembly List)')).not.toBeInTheDocument();
+      });
+
+      // Verify 2 items added from first package
+      expect(screen.getAllByText(/\[Paket: HPP DUDUKAN SLEBOR\]/).length).toBe(2);
+
+      // 2. Add THE EXACT SAME package for the second time
+      fireEvent.click(addPackageBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText('Tambah Paket Barang Jadi (Assembly List)')).toBeInTheDocument();
+      });
+
+      const applyBtn2 = screen.getByRole('button', { name: /Terapkan.*ke Change Order/i });
+      fireEvent.click(applyBtn2);
+
+      await waitFor(() => {
+        expect(screen.queryByText('Tambah Paket Barang Jadi (Assembly List)')).not.toBeInTheDocument();
+      });
+
+      // Verify 4 items now exist (2 from 1st instance + 2 from 2nd instance)
+      expect(screen.getAllByText(/\[Paket: HPP DUDUKAN SLEBOR\]/).length).toBe(4);
+
+      // Fill description and submit
+      const descTextarea = screen.getByPlaceholderText(/Contoh: Penambahan lapisan/i);
+      fireEvent.change(descTextarea, { target: { value: 'Penambahan dua unit paket dudukan slebor' } });
+
+      const submitBtn = screen.getByRole('button', { name: /Ajukan Change Order/i });
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(spkService.createChangeOrder).toHaveBeenCalledTimes(1);
+      });
+
+      const payload = vi.mocked(spkService.createChangeOrder).mock.calls[0][0];
+      expect(payload.items).toHaveLength(4);
+
+      // Instance 1 items
+      const item1 = payload.items[0];
+      const item2 = payload.items[1];
+      expect(item1.package_instance_id).toBeDefined();
+      expect(item2.package_instance_id).toBe(item1.package_instance_id);
+
+      // Instance 2 items
+      const item3 = payload.items[2];
+      const item4 = payload.items[3];
+      expect(item3.package_instance_id).toBeDefined();
+      expect(item4.package_instance_id).toBe(item3.package_instance_id);
+
+      // Verify that instance 1 and instance 2 have strictly different instance IDs
+      expect(item1.package_instance_id).not.toBe(item3.package_instance_id);
+
+      // Both retain original package source id and name
+      expect(item1.package_source_id).toBe('pkg-1');
+      expect(item3.package_source_id).toBe('pkg-1');
+      expect(item1.package_name).toBe('HPP DUDUKAN SLEBOR');
+      expect(item3.package_name).toBe('HPP DUDUKAN SLEBOR');
+    });
+
+    it('prevents multiple final Change Order submissions on rapid clicks', async () => {
+      let finishSubmit: () => void = () => {};
+      const submitPromise = new Promise<{ id: string }>((resolve) => {
+        finishSubmit = () => resolve({ id: 'co-new-123' });
+      });
+      vi.mocked(spkService.getChangeOrders).mockResolvedValue([]);
+      vi.mocked(spkService.createChangeOrder).mockImplementation(() => submitPromise as any);
+
+      render(<AmendmentManager spkId="spk-test-1" spkNo="SPK-2026-001" />);
+
+      // Open Change Order form
+      await waitFor(() => {
+        expect(screen.getByText('Buat Change Order Baru')).toBeInTheDocument();
+      });
+      fireEvent.click(screen.getByText('Buat Change Order Baru'));
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: /Pilih Paket Barang Jadi \(Assembly List\)/i })).toBeInTheDocument();
+      });
+
+      // Add a package to have valid draft items
+      const addPackageBtn = screen.getByRole('button', { name: /\+ Paket Barang Jadi/i });
+      fireEvent.click(addPackageBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText('Tambah Paket Barang Jadi (Assembly List)')).toBeInTheDocument();
+      });
+
+      const applyBtn = screen.getByRole('button', { name: /Terapkan.*ke Change Order/i });
+      fireEvent.click(applyBtn);
+
+      await waitFor(() => {
+        expect(screen.queryByText('Tambah Paket Barang Jadi (Assembly List)')).not.toBeInTheDocument();
+      });
+
+      // Fill description
+      const descTextarea = screen.getByPlaceholderText(/Contoh: Penambahan lapisan/i);
+      fireEvent.change(descTextarea, { target: { value: 'Penambahan slebor double-click prevention' } });
+
+      const submitBtn = screen.getByRole('button', { name: /Ajukan Change Order/i });
+
+      // First click
+      fireEvent.click(submitBtn);
+
+      // Rapid second click
+      fireEvent.click(submitBtn);
+
+      // Button should be in loading state
+      expect(screen.getByText('Menyimpan Change Order...')).toBeInTheDocument();
+      expect(submitBtn).toBeDisabled();
+
+      // Finish async submit
+      finishSubmit();
+
+      await waitFor(() => {
+        expect(spkService.createChangeOrder).toHaveBeenCalledTimes(1);
+      });
+    });
   });
 });
 

@@ -302,6 +302,101 @@ describe('Component: ChangeOrderPackageModal (Per-Component WBS Allocation Matri
     expect(applyButton).toBeDisabled();
   });
 
+  it('assigns unique package_instance_id and generates distinct item IDs on apply', () => {
+    const handleApply = vi.fn();
+    render(
+      <ChangeOrderPackageModal
+        isOpen={true}
+        onClose={vi.fn()}
+        onApply={handleApply}
+        packages={mockPackages}
+        selectedPackageId="pkg-1"
+      />
+    );
+
+    const applyButton = screen.getByRole('button', { name: /Terapkan.*ke Change Order/i });
+    expect(applyButton).toBeEnabled();
+
+    fireEvent.click(applyButton);
+
+    expect(handleApply).toHaveBeenCalledTimes(1);
+    const appliedItems = handleApply.mock.calls[0][0];
+    expect(appliedItems).toHaveLength(2);
+
+    // Verify package_instance_id is set and identical across all items in this session
+    expect(appliedItems[0].package_instance_id).toBeDefined();
+    expect(typeof appliedItems[0].package_instance_id).toBe('string');
+    expect(appliedItems[0].package_instance_id).toBe(appliedItems[1].package_instance_id);
+
+    // Verify distinct individual item IDs
+    expect(appliedItems[0].id).toBeDefined();
+    expect(appliedItems[1].id).toBeDefined();
+    expect(appliedItems[0].id).not.toBe(appliedItems[1].id);
+
+    // Verify package metadata
+    expect(appliedItems[0].package_source_id).toBe('pkg-1');
+    expect(appliedItems[0].package_name).toBe('Paket Variasi Slebor Komplit');
+    expect(appliedItems[0].notes).toContain('Paket Variasi Slebor Komplit');
+  });
+
+  it('enforces double-click guard and disables button showing "Memproses..." while applying', async () => {
+    let finishAsyncApply: () => void = () => {};
+    const asyncPromise = new Promise<void>((resolve) => {
+      finishAsyncApply = resolve;
+    });
+    const handleApply = vi.fn().mockImplementation(() => asyncPromise);
+
+    render(
+      <ChangeOrderPackageModal
+        isOpen={true}
+        onClose={vi.fn()}
+        onApply={handleApply}
+        packages={mockPackages}
+        selectedPackageId="pkg-1"
+      />
+    );
+
+    const applyButton = screen.getByRole('button', { name: /Terapkan.*ke Change Order/i });
+    expect(applyButton).toBeEnabled();
+
+    // First click initiates apply
+    fireEvent.click(applyButton);
+
+    // Immediate second click must be guarded
+    fireEvent.click(applyButton);
+
+    // Button should now show loading text and be disabled
+    expect(screen.getByText('Memproses...')).toBeInTheDocument();
+    expect(applyButton).toBeDisabled();
+
+    // Resolve the async operation
+    finishAsyncApply();
+    await waitFor(() => {
+      expect(handleApply).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('ensures all product packages in dropdown remain enabled and selectable', () => {
+    render(
+      <ChangeOrderPackageModal
+        isOpen={true}
+        onClose={vi.fn()}
+        onApply={vi.fn()}
+        packages={mockPackages}
+        selectedPackageId="pkg-1"
+      />
+    );
+
+    const select = screen.getByLabelText(/Pilih Paket Barang Jadi/i) as HTMLSelectElement;
+    const options = Array.from(select.querySelectorAll('option:not([disabled])'));
+    expect(options).toHaveLength(2);
+    expect(options[0]).toHaveValue('pkg-1');
+    expect(options[1]).toHaveValue('pkg-2');
+    options.forEach(opt => {
+      expect((opt as HTMLOptionElement).disabled).toBe(false);
+    });
+  });
+
   it('closes modal when Batal or X button is clicked', () => {
     const handleClose = vi.fn();
 

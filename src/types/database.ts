@@ -126,6 +126,9 @@ export interface ChangeOrderItemRecord {
   unit_price: number; // Snapshot selling price
   cost_price: number; // Snapshot warehouse HPP
   subtotal?: number;  // Generated (quantity * unit_price)
+  package_source_id?: string | null;
+  package_instance_id?: string | null;
+  package_name?: string | null;
   notes?: string | null;
   created_at?: string;
 }

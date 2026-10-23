@@ -35,6 +35,7 @@ interface DraftItem {
   unit_price: number; // Snapshot selling price
   cost_price: number; // Snapshot HPP
   package_source_id?: string | null;
+  package_instance_id?: string | null;
   package_name?: string | null;
   notes?: string;
 }
@@ -470,6 +471,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
     if (e) {
       e.preventDefault();
     }
+    if (submitting) return;
     setSubmitting(true);
     setError(null);
 
@@ -506,6 +508,9 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
           unit: item.unit,
           unit_price: Number(item.unit_price),
           cost_price: Number(item.cost_price),
+          package_source_id: item.package_source_id || null,
+          package_instance_id: item.package_instance_id || null,
+          package_name: item.package_name || null,
           notes: item.notes
         })),
         createdBy: profile?.id,
@@ -1462,7 +1467,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                   disabled={submitting || draftItems.length === 0}
                 >
                   <ShieldCheck className="w-4 h-4" />
-                  {submitting ? 'Menyimpan & Snapshotting...' : 'Ajukan Change Order'}
+                  {submitting ? 'Menyimpan Change Order...' : 'Ajukan Change Order'}
                 </button>
               </div>
             </div>

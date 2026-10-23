@@ -9,13 +9,14 @@ import {
   explodePackageWithAllocations, 
   WBS_COLUMNS,
   type WbsKey,
-  type ExplodedChangeOrderItem 
+  type ExplodedChangeOrderItem,
+  generateUUID 
 } from '../utils/packageExplosion';
 
 export interface ChangeOrderPackageModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onApply: (items: ExplodedChangeOrderItem[]) => void;
+  onApply: (items: ExplodedChangeOrderItem[]) => void | Promise<void>;
   packages?: ProductPackage[];
   selectedPackageId?: string;
   initialPackageId?: string;
@@ -40,6 +41,7 @@ export const ChangeOrderPackageModal: React.FC<ChangeOrderPackageModalProps> = (
   const [allocations, setAllocations] = useState<AllocationState>({});
   const [saveAsTemplate, setSaveAsTemplate] = useState<boolean>(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isApplying, setIsApplying] = useState<boolean>(false);
 
   // Close with Escape key
   useEffect(() => {
@@ -88,6 +90,7 @@ export const ChangeOrderPackageModal: React.FC<ChangeOrderPackageModalProps> = (
       setPackageMultiplier(1);
       setAllocations({});
       setSaveAsTemplate(false);
+      setIsApplying(false);
     }
   }, [isOpen, propPackages, propSelectedPackageId, initialPackageId]);
 
@@ -231,34 +234,52 @@ export const ChangeOrderPackageModal: React.FC<ChangeOrderPackageModalProps> = (
   }, [previewItems]);
 
   const handleApply = async () => {
-    if (previewItems.length === 0 || hasNegativeRemainder || totalAllocatedSum === 0) return;
+    if (isApplying || previewItems.length === 0 || hasNegativeRemainder || totalAllocatedSum === 0) return;
+    setIsApplying(true);
+    try {
+      // Generate a unique instance ID for this specific package addition session
+      const instanceId = generateUUID();
+      const generatedItems: ExplodedChangeOrderItem[] = previewItems.map(item => ({
+        ...item,
+        id: generateUUID(),
+        package_source_id: selectedPackage?.id || item.package_source_id || null,
+        package_instance_id: instanceId,
+        package_name: selectedPackage?.name || item.package_name || null,
+        notes: item.notes || (selectedPackage ? `Bagian dari paket: ${selectedPackage.name}` : undefined)
+      }));
 
-    if (saveAsTemplate && selectedPackage) {
-      try {
-        for (let i = 0; i < rawItems.length; i++) {
-          const item = rawItems[i];
-          if (item.id) {
-            const itemKey = item.id || `pkg-item-${i}`;
-            const itemAlloc = allocations[itemKey];
-            if (itemAlloc) {
-              const tmpl: Record<string, number> = {};
-              WBS_COLUMNS.forEach(col => {
-                const q = parseFloat(itemAlloc[col.key]) || 0;
-                if (q > 0) {
-                  tmpl[col.category] = Number((q / multiplier).toFixed(2));
-                }
-              });
-              await packageService.updatePackageItemDefaultAllocation(item.id, tmpl);
+      if (saveAsTemplate && selectedPackage) {
+        try {
+          for (let i = 0; i < rawItems.length; i++) {
+            const item = rawItems[i];
+            if (item.id) {
+              const itemKey = item.id || `pkg-item-${i}`;
+              const itemAlloc = allocations[itemKey];
+              if (itemAlloc) {
+                const tmpl: Record<string, number> = {};
+                WBS_COLUMNS.forEach(col => {
+                  const q = parseFloat(itemAlloc[col.key]) || 0;
+                  if (q > 0) {
+                    tmpl[col.category] = Number((q / multiplier).toFixed(2));
+                  }
+                });
+                await packageService.updatePackageItemDefaultAllocation(item.id, tmpl);
+              }
             }
           }
+        } catch (err) {
+          console.error('Failed to save default WBS template for package:', err);
         }
-      } catch (err) {
-        console.error('Failed to save default WBS template for package:', err);
       }
-    }
 
-    onApply(previewItems);
-    onClose();
+      const res = onApply(generatedItems) as unknown as Promise<void> | undefined;
+      if (res && typeof (res as any).then === 'function') {
+        await res;
+      }
+      onClose();
+    } finally {
+      setTimeout(() => setIsApplying(false), 500); // Debounce guard
+    }
   };
 
   if (!isOpen) return null;
@@ -570,11 +591,11 @@ export const ChangeOrderPackageModal: React.FC<ChangeOrderPackageModalProps> = (
             <button
               type="button"
               onClick={handleApply}
-              disabled={previewItems.length === 0 || hasNegativeRemainder || totalAllocatedSum === 0}
+              disabled={isApplying || previewItems.length === 0 || hasNegativeRemainder || totalAllocatedSum === 0}
               className="px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white rounded-lg text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               <Check className="w-4 h-4" />
-              <span>Terapkan {previewItems.length > 0 ? `${previewItems.length} Item ` : ''}ke Change Order</span>
+              <span>{isApplying ? 'Memproses...' : `Terapkan ${previewItems.length > 0 ? `${previewItems.length} Item ` : ''}ke Change Order`}</span>
             </button>
           </div>
         </div>

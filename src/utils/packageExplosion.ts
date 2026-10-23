@@ -31,9 +31,21 @@ export interface ExplodedChangeOrderItem {
   unit_price: number;
   cost_price: number;
   package_source_id?: string | null;
+  package_instance_id?: string | null;
   package_name?: string | null;
   notes?: string;
 }
+
+export const generateUUID = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
 
 export const mapToWbsStage = (rawStage?: string | null, fallback: string = WBS_STAGES[1]): string => {
   if (!rawStage) return fallback;
@@ -52,11 +64,13 @@ export const explodePackageToDraftItems = (
   pkg: ProductPackage,
   targetWbsMode: 'SINGLE' | 'MULTI',
   singleWbsStage: string = WBS_STAGES[1],
-  packageMultiplier: number = 1
+  packageMultiplier: number = 1,
+  packageInstanceId?: string
 ): ExplodedChangeOrderItem[] => {
   const rawItems = (pkg as any).package_items || pkg.items || [];
   if (!rawItems || rawItems.length === 0) return [];
   const multiplier = Math.max(0.01, packageMultiplier || 1);
+  const instanceId = packageInstanceId || generateUUID();
 
   // 1. Calculate total BOM HPP of the package (single unit)
   const totalBomHpp = rawItems.reduce((sum: number, item: any) => {
@@ -72,7 +86,7 @@ export const explodePackageToDraftItems = (
 
   const result: ExplodedChangeOrderItem[] = [];
 
-  rawItems.forEach((item: any, itemIdx: number) => {
+  rawItems.forEach((item: any) => {
     const mat = item.material || item.materials;
     const rawType = item.item_type || mat?.item_type;
     const rawName = item.name || item.description || item.labor_name || mat?.name || '';
@@ -117,10 +131,10 @@ export const explodePackageToDraftItems = (
     if (targetWbsMode === 'MULTI' && item.default_wbs_allocation && Object.keys(item.default_wbs_allocation).length > 0) {
       const nonZeroEntries = Object.entries(item.default_wbs_allocation).filter(([, q]) => Number(q) > 0);
       if (nonZeroEntries.length > 0) {
-        nonZeroEntries.forEach(([stageKey, allocQty], subIdx) => {
+        nonZeroEntries.forEach(([stageKey, allocQty]) => {
           const wbsStage = mapToWbsStage(stageKey, singleWbsStage);
           result.push({
-            id: `draft-pkg-${Date.now()}-${itemIdx}-${subIdx}-${Math.random().toString(36).substring(2, 6)}`,
+            id: generateUUID(),
             wbs_stage: wbsStage,
             item_type: itemType,
             material_id: materialId,
@@ -130,6 +144,7 @@ export const explodePackageToDraftItems = (
             unit_price: unitPrice,
             cost_price: costPrice,
             package_source_id: pkg.id,
+            package_instance_id: instanceId,
             package_name: pkg.name,
             notes: note
           });
@@ -144,7 +159,7 @@ export const explodePackageToDraftItems = (
       : singleWbsStage;
 
     result.push({
-      id: `draft-pkg-${Date.now()}-${itemIdx}-${Math.random().toString(36).substring(2, 6)}`,
+      id: generateUUID(),
       wbs_stage: wbsStage,
       item_type: itemType,
       material_id: materialId,
@@ -154,6 +169,7 @@ export const explodePackageToDraftItems = (
       unit_price: unitPrice,
       cost_price: costPrice,
       package_source_id: pkg.id,
+      package_instance_id: instanceId,
       package_name: pkg.name,
       notes: note
     });
@@ -165,10 +181,12 @@ export const explodePackageToDraftItems = (
 export const explodePackageWithAllocations = (
   pkg: ProductPackage,
   allocations: Record<string, Record<string, number | string>>,
-  _packageMultiplier: number = 1
+  _packageMultiplier: number = 1,
+  packageInstanceId?: string
 ): ExplodedChangeOrderItem[] => {
   const rawItems = (pkg as any).package_items || pkg.items || [];
   if (!rawItems || rawItems.length === 0) return [];
+  const instanceId = packageInstanceId || generateUUID();
 
   // 1. Calculate total BOM HPP of the package (single unit)
   const totalBomHpp = rawItems.reduce((sum: number, item: any) => {
@@ -235,11 +253,11 @@ export const explodePackageWithAllocations = (
       { key: 'wbs5', stage: WBS_STAGES[4] },
     ];
 
-    stageDefinitions.forEach(({ key, stage }, subIdx) => {
+    stageDefinitions.forEach(({ key, stage }) => {
       const qty = parseFloat(String(itemAlloc[key] ?? itemAlloc[stage] ?? '0')) || 0;
       if (qty > 0) {
         result.push({
-          id: `draft-pkg-${Date.now()}-${itemIdx}-${subIdx}-${Math.random().toString(36).substring(2, 6)}`,
+          id: generateUUID(),
           wbs_stage: stage,
           item_type: itemType,
           material_id: materialId,
@@ -249,6 +267,7 @@ export const explodePackageWithAllocations = (
           unit_price: unitPrice,
           cost_price: costPrice,
           package_source_id: pkg.id,
+          package_instance_id: instanceId,
           package_name: pkg.name,
           notes: note,
         });

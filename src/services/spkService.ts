@@ -285,6 +285,9 @@ export const spkService = {
       unit: string;
       unit_price: number;
       cost_price: number;
+      package_source_id?: string | null;
+      package_instance_id?: string | null;
+      package_name?: string | null;
       notes?: string;
     }>;
     createdBy?: string;
@@ -334,6 +337,9 @@ export const spkService = {
         unit: item.unit || 'pcs',
         unit_price: Number(item.unit_price || 0),
         cost_price: Number(item.cost_price || 0),
+        package_source_id: item.package_source_id || null,
+        package_instance_id: item.package_instance_id || null,
+        package_name: item.package_name || null,
         notes: item.notes || null,
         created_at: new Date().toISOString()
       }));
@@ -343,9 +349,20 @@ export const spkService = {
         .insert(itemsToInsert);
 
       if (itemsError) {
-        // Rollback header if items fail
-        await supabase.from('change_orders').delete().eq('id', coHeader.id);
-        throw new Error(`Failed to save change order items: ${itemsError.message}`);
+        if ((itemsError as any).code === '42703' || (itemsError as any).message?.includes('package_')) {
+          const fallbackRows = itemsToInsert.map(({ package_source_id: _psi, package_instance_id: _pii, package_name: _pn, ...rest }) => rest);
+          const { error: retryError } = await supabase
+            .from('change_order_items')
+            .insert(fallbackRows);
+          if (retryError) {
+            await supabase.from('change_orders').delete().eq('id', coHeader.id);
+            throw new Error(`Failed to save change order items: ${retryError.message}`);
+          }
+        } else {
+          // Rollback header if items fail
+          await supabase.from('change_orders').delete().eq('id', coHeader.id);
+          throw new Error(`Failed to save change order items: ${itemsError.message}`);
+        }
       }
     }
 
