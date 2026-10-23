@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { AmendmentManager } from '../AmendmentManager';
+import { AmendmentManager, getChangeOrderItemSource } from '../AmendmentManager';
 import { spkService } from '../../services/spkService';
 
 // Mock AuthContext
@@ -998,6 +998,205 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
 
       await waitFor(() => {
         expect(spkService.createChangeOrder).toHaveBeenCalledTimes(1);
+      });
+    });
+  });
+
+  describe('Sprint 83: Add Source Origin Column to Change Order Snapshot Table', () => {
+    describe('getChangeOrderItemSource helper', () => {
+      it('resolves source from direct package_name field', () => {
+        const item = {
+          item_name: 'Plat Besi 2mm',
+          package_name: 'HPP DUDUKAN SLEBOR',
+        };
+        const result = getChangeOrderItemSource(item);
+        expect(result.isPackage).toBe(true);
+        expect(result.label).toBe('📦 Paket: HPP DUDUKAN SLEBOR');
+        expect(result.packageName).toBe('HPP DUDUKAN SLEBOR');
+      });
+
+      it('resolves source from product_packages relation', () => {
+        const item = {
+          item_name: 'Tukang Las Sasis',
+          product_packages: { id: 'pkg-1', name: 'PAKET RANGKA SASIS' },
+        };
+        const result = getChangeOrderItemSource(item);
+        expect(result.isPackage).toBe(true);
+        expect(result.label).toBe('📦 Paket: PAKET RANGKA SASIS');
+        expect(result.packageName).toBe('PAKET RANGKA SASIS');
+      });
+
+      it('resolves source from notes starting with "Bagian dari paket: "', () => {
+        const item = {
+          item_name: 'Baut Hexagonal',
+          notes: 'Bagian dari paket: PAKET MATERIAL EX CUBE',
+        };
+        const result = getChangeOrderItemSource(item);
+        expect(result.isPackage).toBe(true);
+        expect(result.label).toBe('📦 Paket: PAKET MATERIAL EX CUBE');
+        expect(result.packageName).toBe('PAKET MATERIAL EX CUBE');
+      });
+
+      it('resolves source from notes matching bracketed "[Paket: ...]" format', () => {
+        const item = {
+          item_name: 'Engsel Pintu Belakang',
+          notes: '[Paket: BODY BUS 30 SEAT] Tambahan kustom',
+        };
+        const result = getChangeOrderItemSource(item);
+        expect(result.isPackage).toBe(true);
+        expect(result.label).toBe('📦 Paket: BODY BUS 30 SEAT');
+        expect(result.packageName).toBe('BODY BUS 30 SEAT');
+      });
+
+      it('resolves source from package_source_id using packagesList lookup', () => {
+        const item = {
+          item_name: 'Plat Dudukan',
+          package_source_id: 'pkg-custom-99',
+        };
+        const packagesList = [
+          { id: 'pkg-custom-99', name: 'PAKET MODIFIKASI KHUSUS' },
+        ];
+        const result = getChangeOrderItemSource(item, packagesList);
+        expect(result.isPackage).toBe(true);
+        expect(result.label).toBe('📦 Paket: PAKET MODIFIKASI KHUSUS');
+        expect(result.packageName).toBe('PAKET MODIFIKASI KHUSUS');
+      });
+
+      it('returns Granular label when no package information is present', () => {
+        const item = {
+          item_name: 'Cat Epoxy Abu-Abu',
+          notes: 'Input manual lepas satu kaleng',
+        };
+        const result = getChangeOrderItemSource(item);
+        expect(result.isPackage).toBe(false);
+        expect(result.label).toBe('📋 Granular');
+        expect(result.packageName).toBeNull();
+      });
+    });
+
+    describe('Snapshot Table Rendering in AmendmentManager', () => {
+      const mockCOWithMixedItems = [
+        {
+          id: 'co-mixed-1',
+          spk_id: 'spk-test-1',
+          co_number: 'CO-SPK4374-6417',
+          description: 'Pekerjaan Adendum Kombinasi Paket dan Lepas',
+          cost_adjustment: 4200000,
+          total_amount: 4200000,
+          status: 'APPROVED',
+          created_at: '2026-10-24T00:00:00Z',
+          items: [
+            {
+              id: 'it-pkg-1',
+              change_order_id: 'co-mixed-1',
+              spk_id: 'spk-test-1',
+              wbs_stage: 'WBS 2: Sasis/Rangka',
+              item_type: 'MATERIAL',
+              item_name: 'Plat Besi 2mm (BOM)',
+              quantity: 2,
+              unit: 'lembar',
+              unit_price: 600000,
+              cost_price: 450000,
+              package_name: 'HPP DUDUKAN SLEBOR',
+              package_source_id: 'pkg-1',
+              notes: 'Komponen paket slebor',
+            },
+            {
+              id: 'it-granular-mat-1',
+              change_order_id: 'co-mixed-1',
+              spk_id: 'spk-test-1',
+              wbs_stage: 'WBS 3: Dinding/Fabrikasi',
+              item_type: 'MATERIAL',
+              item_name: 'Pipa Seamless 1.5 inch',
+              quantity: 3,
+              unit: 'batang',
+              unit_price: 300000,
+              cost_price: 220000,
+              notes: 'Tambahan pipa luar paket',
+            },
+            {
+              id: 'it-granular-labor-1',
+              change_order_id: 'co-mixed-1',
+              spk_id: 'spk-test-1',
+              wbs_stage: 'WBS 4: Cat/Finishing',
+              item_type: 'LABOR',
+              item_name: 'Jasa Dempul Ekstra Halus',
+              quantity: 4,
+              unit: 'jam',
+              unit_price: 150000,
+              cost_price: 120000,
+              notes: null,
+            },
+          ],
+        },
+      ];
+
+      it('renders the new SUMBER / PAKET table header and corresponding badges', async () => {
+        vi.mocked(spkService.getChangeOrders).mockResolvedValue(mockCOWithMixedItems as any);
+
+        render(<AmendmentManager spkId="spk-test-1" spkNo="SPK-4374" />);
+
+        await waitFor(() => {
+          expect(screen.getByText('Change Orders & Amandemen SPK')).toBeInTheDocument();
+        });
+
+        // 1. Verify header exists
+        expect(screen.getByRole('columnheader', { name: /sumber \/ paket/i })).toBeInTheDocument();
+
+        // Verify headers order: Item Type -> Sumber / Paket -> Alokasi WBS -> Deskripsi Item
+        const headers = screen.getAllByRole('columnheader');
+        const headerTexts = headers.map(h => h.textContent?.trim());
+        expect(headerTexts).toContain('Sumber / Paket');
+        const itemTypeIdx = headerTexts.findIndex(h => /item type/i.test(h || ''));
+        const sourcePkgIdx = headerTexts.findIndex(h => /sumber \/ paket/i.test(h || ''));
+        const wbsIdx = headerTexts.findIndex(h => /alokasi wbs/i.test(h || ''));
+
+        expect(itemTypeIdx).toBeGreaterThanOrEqual(0);
+        expect(sourcePkgIdx).toBe(itemTypeIdx + 1);
+        expect(wbsIdx).toBe(sourcePkgIdx + 1);
+
+        // 2. Verify Package Badge
+        const pkgBadge = screen.getByTestId('badge-source-pkg-it-pkg-1');
+        expect(pkgBadge).toBeInTheDocument();
+        expect(pkgBadge).toHaveTextContent('📦 Paket: HPP DUDUKAN SLEBOR');
+        expect(pkgBadge.className).toContain('text-amber-400');
+
+        // 3. Verify Granular Badges
+        const granularMatBadge = screen.getByTestId('badge-source-granular-it-granular-mat-1');
+        expect(granularMatBadge).toBeInTheDocument();
+        expect(granularMatBadge).toHaveTextContent('📋 Granular');
+        expect(granularMatBadge.className).toContain('text-slate-300');
+
+        const granularLaborBadge = screen.getByTestId('badge-source-granular-it-granular-labor-1');
+        expect(granularLaborBadge).toBeInTheDocument();
+        expect(granularLaborBadge).toHaveTextContent('📋 Granular');
+      });
+
+      it('renders empty table state with colSpan=9 when change order has no items', async () => {
+        const mockEmptyCO = [
+          {
+            id: 'co-empty-1',
+            spk_id: 'spk-test-1',
+            co_number: 'CO-LEGACY-001',
+            description: 'Change order legacy tanpa rincian item',
+            cost_adjustment: 1000000,
+            total_amount: 1000000,
+            status: 'APPROVED',
+            created_at: '2026-10-24T00:00:00Z',
+            items: [],
+          },
+        ];
+        vi.mocked(spkService.getChangeOrders).mockResolvedValue(mockEmptyCO as any);
+
+        render(<AmendmentManager spkId="spk-test-1" spkNo="SPK-4374" />);
+
+        await waitFor(() => {
+          expect(screen.getByText('Change Orders & Amandemen SPK')).toBeInTheDocument();
+        });
+
+        const emptyCell = screen.getByText('Tidak ada rincian item individual (Legacy Change Order).');
+        expect(emptyCell).toBeInTheDocument();
+        expect(emptyCell).toHaveAttribute('colSpan', '9');
       });
     });
   });

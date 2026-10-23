@@ -129,6 +129,7 @@ export interface ChangeOrderItemRecord {
   package_source_id?: string | null;
   package_instance_id?: string | null;
   package_name?: string | null;
+  product_packages?: { id: string; name: string } | null;
   notes?: string | null;
   created_at?: string;
 }

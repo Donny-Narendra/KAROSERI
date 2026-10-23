@@ -221,14 +221,31 @@ export const spkService = {
       .from('change_orders')
       .select(`
         *,
-        items:change_order_items(*)
+        items:change_order_items(
+          *,
+          product_packages(id, name)
+        )
       `)
       .eq('spk_id', spkId)
       .order('created_at', { ascending: false });
 
     if (error) {
+      console.warn('Query with product_packages failed, falling back to change_order_items(*):', error.message);
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('change_orders')
+        .select(`
+          *,
+          items:change_order_items(*)
+        `)
+        .eq('spk_id', spkId)
+        .order('created_at', { ascending: false });
+
+      if (!fallbackError && fallbackData) {
+        return fallbackData;
+      }
+
       // Fallback to legacy spk_amendments if table query fails
-      console.warn('Error fetching change_orders, falling back to spk_amendments:', error.message);
+      console.warn('Error fetching change_orders, falling back to spk_amendments:', fallbackError?.message || error.message);
       const { data: legacyData, error: legacyError } = await supabase
         .from('spk_amendments')
         .select('*')

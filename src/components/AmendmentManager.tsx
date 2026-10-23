@@ -23,6 +23,37 @@ import { calculateSegregatedProfit } from '../utils/financialCalculations';
 
 export { calculateSegregatedProfit };
 
+/**
+ * Resolves item source origin for change order snapshot items.
+ * Identifies package assembly items vs granular individual entries.
+ */
+export function getChangeOrderItemSource(
+  item: any,
+  packagesList?: { id: string; name: string }[]
+): { label: string; isPackage: boolean; packageName: string | null } {
+  let pkgName = 
+    item?.package_name || 
+    item?.product_packages?.name || 
+    (item?.package_source_id && packagesList ? packagesList.find(p => p.id === item.package_source_id)?.name : null);
+
+  if (!pkgName && item?.notes && typeof item.notes === 'string') {
+    if (item.notes.startsWith('Bagian dari paket: ')) {
+      pkgName = item.notes.replace('Bagian dari paket: ', '').trim();
+    } else {
+      const match = item.notes.match(/\[?Paket:\s*([^\]\r\n,;]+)\]?/i);
+      if (match && match[1]) {
+        pkgName = match[1].trim();
+      }
+    }
+  }
+
+  if (pkgName) {
+    const clean = pkgName.replace(/^Paket:\s*/i, '').replace(/^\[+|\]+$/g, '').trim();
+    return { label: `📦 Paket: ${clean}`, isPackage: true, packageName: clean };
+  }
+  return { label: '📋 Granular', isPackage: false, packageName: null };
+}
+
 interface AmendmentManagerProps {
   spkId: string;
   spkNo?: string;
@@ -1775,6 +1806,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                           <thead className="bg-surface/50 text-text-muted uppercase text-[10px] border-b border-border font-mono">
                             <tr>
                               <th className="px-3 py-2">Item Type</th>
+                              <th className="px-3 py-2">Sumber / Paket</th>
                               <th className="px-3 py-2">Alokasi WBS</th>
                               <th className="px-3 py-2">Deskripsi Item</th>
                               <th className="px-3 py-2 text-right">Qty</th>
@@ -1788,6 +1820,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                             {co.items && co.items.length > 0 ? (
                               co.items.map((it) => {
                                 const itSellingSub = Number(it.quantity || 0) * Number(it.unit_price || 0);
+                                const source = getChangeOrderItemSource(it, packages);
                                 return (
                                   <tr key={it.id} className="hover:bg-surface-hover/20">
                                     <td className="px-3 py-2">
@@ -1800,6 +1833,23 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                                       }`}>
                                         {it.item_type}
                                       </span>
+                                    </td>
+                                    <td className="px-3 py-2 align-middle">
+                                      {source.isPackage ? (
+                                        <span 
+                                          data-testid={`badge-source-pkg-${it.id}`}
+                                          className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-950/70 text-amber-400 border border-amber-800/80 whitespace-nowrap"
+                                        >
+                                          {source.label}
+                                        </span>
+                                      ) : (
+                                        <span 
+                                          data-testid={`badge-source-granular-${it.id}`}
+                                          className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded bg-slate-800/80 text-slate-300 border border-slate-700/80 whitespace-nowrap"
+                                        >
+                                          {source.label}
+                                        </span>
+                                      )}
                                     </td>
                                     <td className="px-3 py-2 font-mono text-text-muted">
                                       {it.wbs_stage}
@@ -1827,7 +1877,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                               })
                             ) : (
                               <tr>
-                                <td colSpan={8} className="px-4 py-4 text-center text-text-muted italic">
+                                <td colSpan={9} className="px-4 py-4 text-center text-text-muted italic">
                                   Tidak ada rincian item individual (Legacy Change Order).
                                 </td>
                               </tr>
