@@ -199,12 +199,29 @@ export function isRabItemAllocated(
       const status = (borong.status || '').toUpperCase();
       if (status === 'CANCELLED' || status === 'CUT_OFF') return false;
 
-      // Check explicit IDs
-      if (rabItemId && borong.rab_item_id && borong.rab_item_id === rabItemId) return true;
-      if (rabItemId && borong.change_order_item_id && borong.change_order_item_id === rabItemId) return true;
+      const isCoItem = Boolean(
+        rabItem.sourceType === 'CHANGE_ORDER' ||
+        rabItem.is_change_order ||
+        rabItem.changeOrderItemId ||
+        rabItem.change_order_id
+      );
+
+      // Explicit change_order_item_id match: strictly isolates Change Order items
+      if (borong.change_order_item_id) {
+        if (!isCoItem) return false;
+        const targetCoId = rabItem.changeOrderItemId || rabItemId;
+        return borong.change_order_item_id === targetCoId;
+      }
+
+      // Explicit rab_item_id match: strictly isolates RAB items
+      if (borong.rab_item_id) {
+        if (isCoItem) return false;
+        return borong.rab_item_id === rabItemId;
+      }
+
+      // Legacy fallback (only if assignment has neither rab_item_id nor change_order_item_id):
       if (materialId && borong.material_id && borong.material_id === materialId) return true;
       if (rabItemId && borong.material_id && borong.material_id === rabItemId) return true;
-      if (materialId && borong.rab_item_id && borong.rab_item_id === materialId) return true;
 
       // Check Task Description
       const taskDesc = (borong.task_description || '').trim();

@@ -115,4 +115,75 @@ describe('Util: rabItemAllocation (Multi-element 3-Pillar Allocation Matching)',
     ];
     expect(isRabItemAllocated(rabItem, requisitionsCancelled, null, null, null)).toBe(false);
   });
+
+  it('Sprint 85: strictly isolates exclusion between identically named RAB and Change Order labor items', () => {
+    // Two items with identical descriptions and shared catalog material_id
+    const rabLaborItem = {
+      id: 'rab-tukang-1',
+      material_id: 'shared-mat-tukang',
+      description: 'materias tes tukang 1',
+      item_type: 'LABOR',
+      sourceType: 'RAB',
+      is_change_order: false,
+    };
+
+    const coLaborItem = {
+      id: 'co-tukang-1',
+      material_id: 'shared-mat-tukang',
+      description: 'materias tes tukang 1',
+      item_type: 'LABOR',
+      sourceType: 'CHANGE_ORDER',
+      changeOrderItemId: 'co-tukang-1',
+      is_change_order: true,
+    };
+
+    // Scenario A: Only Change Order labor item is assigned to a worker
+    const coAssignment = [
+      {
+        id: 'spkb-co-1',
+        worker_name: 'adi las',
+        task_description: '[CO] materias tes tukang 1',
+        material_id: 'shared-mat-tukang',
+        rab_item_id: null,
+        change_order_item_id: 'co-tukang-1',
+        status: 'ACTIVE',
+      }
+    ];
+
+    // CO item is allocated
+    expect(isRabItemAllocated(coLaborItem, null, coAssignment, null, null)).toBe(true);
+    // RAB item MUST NOT be falsely allocated even though names and material_id match!
+    expect(isRabItemAllocated(rabLaborItem, null, coAssignment, null, null)).toBe(false);
+
+    // Scenario B: Only RAB labor item is assigned to a worker
+    const rabAssignment = [
+      {
+        id: 'spkb-rab-1',
+        worker_name: 'budi ketok',
+        task_description: 'materias tes tukang 1',
+        material_id: 'shared-mat-tukang',
+        rab_item_id: 'rab-tukang-1',
+        change_order_item_id: null,
+        status: 'ACTIVE',
+      }
+    ];
+
+    // RAB item is allocated
+    expect(isRabItemAllocated(rabLaborItem, null, rabAssignment, null, null)).toBe(true);
+    // CO item MUST NOT be falsely allocated
+    expect(isRabItemAllocated(coLaborItem, null, rabAssignment, null, null)).toBe(false);
+
+    // Scenario C: Both items assigned
+    const bothAssignments = [...coAssignment, ...rabAssignment];
+    expect(isRabItemAllocated(rabLaborItem, null, bothAssignments, null, null)).toBe(true);
+    expect(isRabItemAllocated(coLaborItem, null, bothAssignments, null, null)).toBe(true);
+
+    // Scenario D: CANCELLED or CUT_OFF assignments are treated as unallocated
+    const cancelledAssignments = [
+      { ...coAssignment[0], status: 'CANCELLED' },
+      { ...rabAssignment[0], status: 'CUT_OFF' },
+    ];
+    expect(isRabItemAllocated(rabLaborItem, null, cancelledAssignments, null, null)).toBe(false);
+    expect(isRabItemAllocated(coLaborItem, null, cancelledAssignments, null, null)).toBe(false);
+  });
 });

@@ -820,5 +820,574 @@ describe('Component: SpkBoronganPanel (Strict LABOR Filter)', () => {
 
     openSpy.mockRestore();
   });
+
+  describe('Sprint 85: Isolate SPK Borongan Labor Assignment Exclusion by Unique ID', () => {
+    it('allows assigning CO labor item without falsely excluding identically named RAB labor item', async () => {
+      const mockRabItems = [
+        {
+          id: 'rab-item-tukang-1',
+          description: 'materias tes tukang 1',
+          item_type: 'LABOR',
+          quantity: 1,
+          unit: 'lot',
+          item_total: 100000,
+          unit_price: 100000,
+          wbs_category: 'Pembongkaran',
+          materials: null,
+        },
+      ];
+
+      const mockCoItems = [
+        {
+          id: 'co-item-tukang-1',
+          change_order_id: 'co-001',
+          spk_id: mockSpkId,
+          item_name: 'materias tes tukang 1',
+          quantity: 1,
+          unit: 'pcs',
+          unit_price: 248964,
+          subtotal: 248964,
+          wbs_stage: 'Pembongkaran',
+          item_type: 'LABOR',
+          change_orders: { status: 'APPROVED', co_number: 'CO-001' },
+        },
+      ];
+
+      let capturedPayload: any = null;
+
+      vi.mocked(supabase.from).mockImplementation((table: string) => {
+        if (table === 'spk') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: {
+                spk_no: 'SPK-6592',
+                customer_name: 'Customer Test',
+                vehicle_plate: 'B 9999 XYZ',
+              },
+              error: null,
+            }),
+          } as any;
+        }
+
+        if (table === 'rab_estimations') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { id: 'rab-est-uuid-6592' },
+              error: null,
+            }),
+          } as any;
+        }
+
+        if (table === 'spk_borongan') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            neq: vi.fn().mockReturnThis(),
+            insert: vi.fn().mockImplementation((payload: any) => {
+              capturedPayload = payload;
+              return Promise.resolve({ data: null, error: null });
+            }),
+            order: vi.fn().mockResolvedValue({
+              data: [],
+              error: null,
+            }),
+            then: vi.fn().mockImplementation((fn: any) =>
+              Promise.resolve({ data: [], error: null }).then(fn)
+            ),
+          } as any;
+        }
+
+        if (table === 'rab_items') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockImplementation((col: string) => {
+              if (col === 'item_type') {
+                return Promise.resolve({ data: mockRabItems, error: null });
+              }
+              return {
+                eq: vi.fn().mockResolvedValue({ data: mockRabItems, error: null }),
+              };
+            }),
+          } as any;
+        }
+
+        if (table === 'change_order_items') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            then: vi.fn().mockImplementation((fn: any) =>
+              Promise.resolve({ data: mockCoItems, error: null }).then(fn)
+            ),
+          } as any;
+        }
+
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+        } as any;
+      });
+
+      render(
+        <SpkBoronganPanel
+          spkId={mockSpkId}
+          wbsCategory="Pembongkaran"
+          onClose={mockOnClose}
+        />
+      );
+
+      // Verify both items are initially visible in guide panel (2 Tersedia)
+      await waitFor(() => {
+        expect(screen.getByText('2 Tersedia')).toBeInTheDocument();
+        const table = screen.getByRole('table');
+        expect(within(table).getAllByText('materias tes tukang 1')).toHaveLength(2);
+        expect(within(table).getByText('[CO]')).toBeInTheDocument();
+        expect(within(table).getByText(/Rp\s*100\.000/i)).toBeInTheDocument();
+        expect(within(table).getByText(/Rp\s*248\.964/i)).toBeInTheDocument();
+      });
+
+      // Transfer [CO] item to form using "<<"
+      const transferButtons = screen.getAllByTitle("Pindahkan ke form penugasan (<<)");
+      expect(transferButtons.length).toBe(2);
+
+      // Click second transfer button (which is the [CO] item)
+      fireEvent.click(transferButtons[1]);
+
+      // Form is populated with [CO] metadata
+      expect(screen.getByText('Auto-Fill Change Order')).toBeInTheDocument();
+      const taskInput = screen.getByPlaceholderText(/Contoh: TUKANG LAS DUDUKAN SLEBOR/i) as HTMLTextAreaElement;
+      expect(taskInput.value).toBe('[CO] materias tes tukang 1');
+
+      const contractInput = screen.getByPlaceholderText('0') as HTMLInputElement;
+      expect(contractInput.value).toBe('248964');
+
+      // The RAB item with identical name MUST REMAIN AVAILABLE (1 Tersedia)!
+      expect(screen.getByText('1 Tersedia')).toBeInTheDocument();
+      const tableAfterTransfer = screen.getByRole('table');
+      expect(within(tableAfterTransfer).getByText('materias tes tukang 1')).toBeInTheDocument();
+      expect(within(tableAfterTransfer).queryByText('[CO]')).not.toBeInTheDocument();
+
+      // Submit assignment to "adi las"
+      const workerInput = screen.getByPlaceholderText(/Contoh: Adi Las, Budi Ketok/i);
+      fireEvent.change(workerInput, { target: { value: 'adi las' } });
+
+      const submitBtn = screen.getByRole('button', { name: /Buat SPK Borongan/i });
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(capturedPayload).not.toBeNull();
+        expect(capturedPayload).toEqual(
+          expect.objectContaining({
+            spk_id: mockSpkId,
+            wbs_category: 'Pembongkaran',
+            worker_name: 'adi las',
+            task_description: '[CO] materias tes tukang 1',
+            contract_value: 248964,
+            status: 'ACTIVE',
+            rab_item_id: null,
+            change_order_item_id: 'co-item-tukang-1',
+          })
+        );
+      });
+    });
+
+    it('displays RAB item when CO item is already actively assigned, and shows 0 Tersedia only after both are assigned', async () => {
+      const mockRabItems = [
+        {
+          id: 'rab-item-tukang-1',
+          description: 'materias tes tukang 1',
+          item_type: 'LABOR',
+          quantity: 1,
+          unit: 'lot',
+          item_total: 100000,
+          unit_price: 100000,
+          wbs_category: 'Pembongkaran',
+          materials: null,
+        },
+      ];
+
+      const mockCoItems = [
+        {
+          id: 'co-item-tukang-1',
+          change_order_id: 'co-001',
+          spk_id: mockSpkId,
+          item_name: 'materias tes tukang 1',
+          quantity: 1,
+          unit: 'pcs',
+          unit_price: 248964,
+          subtotal: 248964,
+          wbs_stage: 'Pembongkaran',
+          item_type: 'LABOR',
+          change_orders: { status: 'APPROVED', co_number: 'CO-001' },
+        },
+      ];
+
+      // Simulated active assignment where [CO] materias tes tukang 1 is assigned to adi las
+      const activeAssignments = [
+        {
+          id: 'spkb-assigned-adi-las',
+          worker_name: 'adi las',
+          task_description: '[CO] materias tes tukang 1',
+          contract_value: 248964,
+          status: 'ACTIVE',
+          change_order_item_id: 'co-item-tukang-1',
+          rab_item_id: null,
+          wbs_category: 'Pembongkaran',
+          created_at: new Date().toISOString(),
+        },
+      ];
+
+      let capturedRabPayload: any = null;
+
+      vi.mocked(supabase.from).mockImplementation((table: string) => {
+        if (table === 'spk') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: {
+                spk_no: 'SPK-6592',
+                customer_name: 'Customer Test',
+                vehicle_plate: 'B 9999 XYZ',
+              },
+              error: null,
+            }),
+          } as any;
+        }
+
+        if (table === 'rab_estimations') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { id: 'rab-est-uuid-6592' },
+              error: null,
+            }),
+          } as any;
+        }
+
+        if (table === 'spk_borongan') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            neq: vi.fn().mockReturnThis(),
+            insert: vi.fn().mockImplementation((payload: any) => {
+              capturedRabPayload = payload;
+              return Promise.resolve({ data: null, error: null });
+            }),
+            order: vi.fn().mockResolvedValue({
+              data: activeAssignments,
+              error: null,
+            }),
+            then: vi.fn().mockImplementation((fn: any) =>
+              Promise.resolve({ data: activeAssignments, error: null }).then(fn)
+            ),
+          } as any;
+        }
+
+        if (table === 'rab_items') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockImplementation((col: string) => {
+              if (col === 'item_type') {
+                return Promise.resolve({ data: mockRabItems, error: null });
+              }
+              return {
+                eq: vi.fn().mockResolvedValue({ data: mockRabItems, error: null }),
+              };
+            }),
+          } as any;
+        }
+
+        if (table === 'change_order_items') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            then: vi.fn().mockImplementation((fn: any) =>
+              Promise.resolve({ data: mockCoItems, error: null }).then(fn)
+            ),
+          } as any;
+        }
+
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+        } as any;
+      });
+
+      const { rerender } = render(
+        <SpkBoronganPanel
+          spkId={mockSpkId}
+          wbsCategory="Pembongkaran"
+          onClose={mockOnClose}
+        />
+      );
+
+      // Verify that the [CO] item is in Riwayat Penugasan, but RAB item IS STILL IN THE RIGHT PANEL (1 Tersedia)!
+      await waitFor(() => {
+        expect(screen.getByText('adi las')).toBeInTheDocument();
+        expect(screen.getByText('1 Tersedia')).toBeInTheDocument();
+        const table = screen.getByRole('table');
+        expect(within(table).getByText('materias tes tukang 1')).toBeInTheDocument();
+        expect(within(table).getByText(/Rp\s*100\.000/i)).toBeInTheDocument();
+        // The [CO] item is NOT in the guide panel
+        expect(within(table).queryByText('[CO]')).not.toBeInTheDocument();
+      });
+
+      // Transfer the remaining RAB item
+      const transferBtn = screen.getByTitle("Pindahkan ke form penugasan (<<)");
+      fireEvent.click(transferBtn);
+
+      expect(screen.getByText('Auto-Fill RAB')).toBeInTheDocument();
+      const taskInput = screen.getByPlaceholderText(/Contoh: TUKANG LAS DUDUKAN SLEBOR/i) as HTMLTextAreaElement;
+      expect(taskInput.value).toBe('materias tes tukang 1');
+
+      // Submit assignment to "budi ketok"
+      const workerInput = screen.getByPlaceholderText(/Contoh: Adi Las, Budi Ketok/i);
+      fireEvent.change(workerInput, { target: { value: 'budi ketok' } });
+
+      const submitBtn = screen.getByRole('button', { name: /Buat SPK Borongan/i });
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(capturedRabPayload).not.toBeNull();
+        expect(capturedRabPayload).toEqual(
+          expect.objectContaining({
+            spk_id: mockSpkId,
+            wbs_category: 'Pembongkaran',
+            worker_name: 'budi ketok',
+            task_description: 'materias tes tukang 1',
+            contract_value: 100000,
+            status: 'ACTIVE',
+            rab_item_id: 'rab-item-tukang-1',
+            change_order_item_id: null,
+          })
+        );
+      });
+
+      // Now simulate both items assigned
+      const bothAssigned = [
+        ...activeAssignments,
+        {
+          id: 'spkb-assigned-budi-ketok',
+          worker_name: 'budi ketok',
+          task_description: 'materias tes tukang 1',
+          contract_value: 100000,
+          status: 'ACTIVE',
+          change_order_item_id: null,
+          rab_item_id: 'rab-item-tukang-1',
+          wbs_category: 'Pembongkaran',
+          created_at: new Date().toISOString(),
+        },
+      ];
+
+      setupSupabaseMock(mockRabItems, bothAssigned, mockCoItems);
+
+      rerender(
+        <SpkBoronganPanel
+          key="both-assigned"
+          spkId={mockSpkId}
+          wbsCategory="Pembongkaran"
+          onClose={mockOnClose}
+        />
+      );
+
+      // Both items are assigned, now guide panel shows "0 Tersedia"
+      await waitFor(() => {
+        expect(screen.getByText('0 Tersedia')).toBeInTheDocument();
+        expect(screen.getByText('Tidak ada pagu pekerjaan/jasa tersisa untuk WBS ini.')).toBeInTheDocument();
+      });
+    });
+
+    it('restores only the cancelled labor item back to the guide panel upon cancellation', async () => {
+      const mockRabItems = [
+        {
+          id: 'rab-item-tukang-1',
+          description: 'materias tes tukang 1',
+          item_type: 'LABOR',
+          quantity: 1,
+          unit: 'lot',
+          item_total: 100000,
+          unit_price: 100000,
+          wbs_category: 'Pembongkaran',
+          materials: null,
+        },
+      ];
+
+      const mockCoItems = [
+        {
+          id: 'co-item-tukang-1',
+          change_order_id: 'co-001',
+          spk_id: mockSpkId,
+          item_name: 'materias tes tukang 1',
+          quantity: 1,
+          unit: 'pcs',
+          unit_price: 248964,
+          subtotal: 248964,
+          wbs_stage: 'Pembongkaran',
+          item_type: 'LABOR',
+          change_orders: { status: 'APPROVED', co_number: 'CO-001' },
+        },
+      ];
+
+      let currentAssignments = [
+        {
+          id: 'spkb-co-adi',
+          worker_name: 'adi las',
+          task_description: '[CO] materias tes tukang 1',
+          contract_value: 248964,
+          status: 'ACTIVE',
+          change_order_item_id: 'co-item-tukang-1',
+          rab_item_id: null,
+          wbs_category: 'Pembongkaran',
+          created_at: new Date('2026-10-24T00:00:00Z').toISOString(),
+        },
+        {
+          id: 'spkb-rab-budi',
+          worker_name: 'budi ketok',
+          task_description: 'materias tes tukang 1',
+          contract_value: 100000,
+          status: 'ACTIVE',
+          change_order_item_id: null,
+          rab_item_id: 'rab-item-tukang-1',
+          wbs_category: 'Pembongkaran',
+          created_at: new Date('2026-10-24T01:00:00Z').toISOString(),
+        },
+      ];
+
+      let capturedDeleteId: string | null = null;
+
+      vi.mocked(supabase.from).mockImplementation((table: string) => {
+        if (table === 'spk') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: {
+                spk_no: 'SPK-6592',
+                customer_name: 'Customer Test',
+                vehicle_plate: 'B 9999 XYZ',
+              },
+              error: null,
+            }),
+          } as any;
+        }
+
+        if (table === 'rab_estimations') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { id: 'rab-est-uuid-6592' },
+              error: null,
+            }),
+          } as any;
+        }
+
+        if (table === 'spk_borongan') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            neq: vi.fn().mockReturnThis(),
+            delete: vi.fn().mockImplementation(() => ({
+              eq: vi.fn().mockImplementation((_col: string, val: any) => {
+                capturedDeleteId = val;
+                // Filter out the deleted assignment
+                currentAssignments = currentAssignments.filter(a => a.id !== val);
+                return Promise.resolve({ data: null, error: null });
+              }),
+            })),
+            order: vi.fn().mockImplementation(() =>
+              Promise.resolve({ data: currentAssignments, error: null })
+            ),
+            then: vi.fn().mockImplementation((fn: any) =>
+              Promise.resolve({ data: currentAssignments, error: null }).then(fn)
+            ),
+          } as any;
+        }
+
+        if (table === 'rab_items') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockImplementation((col: string) => {
+              if (col === 'item_type') {
+                return Promise.resolve({ data: mockRabItems, error: null });
+              }
+              return {
+                eq: vi.fn().mockResolvedValue({ data: mockRabItems, error: null }),
+              };
+            }),
+          } as any;
+        }
+
+        if (table === 'change_order_items') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            then: vi.fn().mockImplementation((fn: any) =>
+              Promise.resolve({ data: mockCoItems, error: null }).then(fn)
+            ),
+          } as any;
+        }
+
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+        } as any;
+      });
+
+      render(
+        <SpkBoronganPanel
+          spkId={mockSpkId}
+          wbsCategory="Pembongkaran"
+          onClose={mockOnClose}
+        />
+      );
+
+      // Initially both are assigned: 0 Tersedia
+      await waitFor(() => {
+        expect(screen.getByText('0 Tersedia')).toBeInTheDocument();
+        expect(screen.getByText('adi las')).toBeInTheDocument();
+        expect(screen.getByText('budi ketok')).toBeInTheDocument();
+      });
+
+      // Find "Batalkan" buttons (should be 2 for the 2 workers)
+      const cancelButtons = screen.getAllByTitle('Batalkan / Hapus penugasan ini');
+      expect(cancelButtons.length).toBe(2);
+
+      // Click "Batalkan" on the first assignment (adi las)
+      fireEvent.click(cancelButtons[0]);
+
+      // Confirmation modal should open
+      await waitFor(() => {
+        expect(screen.getByText('Konfirmasi Pembatalan Penugasan')).toBeInTheDocument();
+        expect(screen.getByText(/Batalkan dan hapus penugasan untuk "adi las"/i)).toBeInTheDocument();
+      });
+
+      // Confirm deletion
+      const confirmCancelBtn = screen.getByRole('button', { name: /Ya, Batalkan Penugasan/i });
+      fireEvent.click(confirmCancelBtn);
+
+      // Verify delete was called with adi las ID
+      await waitFor(() => {
+        expect(capturedDeleteId).toBe('spkb-co-adi');
+      });
+
+      // After cancellation of adi las, [CO] materias tes tukang 1 is restored (1 Tersedia),
+      // while budi ketok still remains in Riwayat Penugasan!
+      await waitFor(() => {
+        expect(screen.getByText('1 Tersedia')).toBeInTheDocument();
+        const table = screen.getByRole('table');
+        expect(within(table).getByText('[CO]')).toBeInTheDocument();
+        expect(within(table).getByText('materias tes tukang 1')).toBeInTheDocument();
+        expect(within(table).getByText(/Rp\s*248\.964/i)).toBeInTheDocument();
+        // RAB item is still assigned to budi ketok, so Rp 100.000 is NOT in guide panel
+        expect(within(table).queryByText(/Rp\s*100\.000/i)).not.toBeInTheDocument();
+      });
+    });
+  });
 });
 

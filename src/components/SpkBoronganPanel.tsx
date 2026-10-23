@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import type { SpkBoronganStatus } from '../types/database';
@@ -13,7 +13,7 @@ import {
   PackageCheck,
   Calendar
 } from 'lucide-react';
-import { isRabItemAllocated, normalizeText } from '../utils/rabItemAllocation';
+import { normalizeText } from '../utils/rabItemAllocation';
 import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
 
 interface SpkBoronganPanelProps {
@@ -48,13 +48,20 @@ interface RabMaterial {
   quantity: number;
   unit?: string;
   wbs_category: string;
+  wbs_stage?: string;
   description?: string;
+  name?: string;
+  material_name?: string;
   item_total?: number;
   unit_price?: number;
+  cost_price?: number;
   material_id?: string;
   item_type?: 'MATERIAL' | 'LABOR' | string;
   sourceType?: 'RAB' | 'CHANGE_ORDER';
+  is_change_order?: boolean;
+  change_order_id?: string;
   changeOrderItemId?: string;
+  package_source_id?: string | null;
   materials: {
     id: string;
     name: string;
@@ -95,12 +102,18 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
   const [loading, setLoading] = useState(false);
   const [records, setRecords] = useState<SpkBorongan[]>([]);
   
-  // Rab Materials
-  const [rabMaterials, setRabMaterials] = useState<RabMaterial[]>([]);
+  // Labor Sources
+  const [allLaborSources, setAllLaborSources] = useState<RabMaterial[]>([]);
   const [searchMaterial, setSearchMaterial] = useState('');
   
   // Interactive transfer state
   const [selectedRabItemForAssignment, setSelectedRabItemForAssignment] = useState<RabMaterial | null>(null);
+  const [selectedSourceItem, setSelectedSourceItem] = useState<{
+    id: string;
+    isChangeOrder: boolean;
+    name: string;
+    rate: number;
+  } | null>(null);
 
   // New assignment form
   const [workerName, setWorkerName] = useState('');
@@ -177,63 +190,9 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
       console.error('Error in rabEst query:', rabErr);
     }
 
-    // Langkah 2: Ambil data Requisition aktif untuk mengecualikan material yang sudah diminta ke gudang
-    let requisitionList: any[] = [];
-    try {
-      const { data: reqData } = await supabase
-        .from('material_requisitions')
-        .select(`
-          id,
-          status,
-          material_requisition_items (
-            status,
-            material_id,
-            rab_item_id,
-            change_order_item_id,
-            material_name,
-            materials ( name )
-          )
-        `)
-        .eq('spk_id', spkId)
-        .eq('wbs_category', cleanWbsCategory)
-        .neq('status', 'CANCELLED')
-        .neq('status', 'REJECTED');
-
-      if (reqData) {
-        requisitionList = reqData;
-      }
-    } catch (reqErr) {
-      console.error('Error fetching requisitions for exclusion:', reqErr);
-    }
-
-    // Langkah 3: Ambil penugasan SPK Borongan aktif untuk mengecualikan material yang sudah ditugaskan ke pekerja
-    let activeAssignments: any[] = [];
-    try {
-      const { data: spkBData } = await supabase
-        .from('spk_borongan')
-        .select('id, material_id, rab_item_id, change_order_item_id, task_description, status, wbs_category')
-        .eq('spk_id', spkId)
-        .neq('status', 'CUT_OFF');
-
-      if (spkBData) {
-        activeAssignments = spkBData.filter((item: any) => {
-          const bStatus = (item.status || '').toUpperCase();
-          if (bStatus === 'CUT_OFF' || bStatus === 'CANCELLED') return false;
-          if (!item.wbs_category) return true;
-          const bCat = item.wbs_category.replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
-          return (
-            bCat === cleanWbsCategory.toLowerCase() ||
-            item.wbs_category.toLowerCase() === wbsCategory.toLowerCase()
-          );
-        });
-      }
-    } catch (spkBErr) {
-      console.error('Error fetching SPK-B for exclusion:', spkBErr);
-    }
-
     const combinedAvailable: RabMaterial[] = [];
 
-    // Langkah 4: Ambil items dari rab_items join materials (HANYA item_type = 'LABOR')
+    // Langkah 2: Ambil items dari rab_items join materials (HANYA item_type = 'LABOR')
     if (rabEstId) {
       const { data: itemsData, error: itemsError } = await supabase
         .from('rab_items')
@@ -272,9 +231,15 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
         });
 
         matchingCategory.forEach((item: any) => {
+          const rawName = item.materials?.name || item.description || 'Pekerjaan Borongan';
           combinedAvailable.push({
             ...item,
+            wbs_stage: item.wbs_category,
+            name: rawName,
+            material_name: item.materials?.name || item.description,
+            cost_price: item.cost_price || item.unit_price || 0,
             sourceType: 'RAB',
+            is_change_order: false,
           });
         });
       }
@@ -298,6 +263,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
           notes,
           wbs_stage,
           item_type,
+          package_source_id,
           change_orders!inner ( status, co_number )
         `)
         .eq('spk_id', spkId)
@@ -321,19 +287,27 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
           const qty = Number(ci.quantity || 1);
           const unitPrice = Number(ci.unit_price || 0);
           const subtotal = Number(ci.subtotal || qty * unitPrice);
+          const rawName = ci.item_name || ci.notes || 'Pekerjaan Borongan Tambahan';
 
           combinedAvailable.push({
             id: ci.id,
             quantity: qty,
             unit: ci.unit || 'lot',
             wbs_category: ci.wbs_stage || wbsCategory,
-            description: ci.item_name || ci.notes || 'Pekerjaan Borongan Tambahan',
+            wbs_stage: ci.wbs_stage || wbsCategory,
+            description: rawName,
+            name: rawName,
+            material_name: ci.item_name,
             item_total: subtotal,
             unit_price: unitPrice,
+            cost_price: ci.cost_price || unitPrice,
             material_id: ci.material_id || undefined,
             item_type: 'LABOR',
             sourceType: 'CHANGE_ORDER',
+            is_change_order: true,
+            change_order_id: ci.change_order_id,
             changeOrderItemId: ci.id,
+            package_source_id: ci.package_source_id || null,
             materials: null,
           });
         });
@@ -342,12 +316,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
       console.error('Error in fetching CO LABOR items:', coFetchErr);
     }
 
-    // Filter eksklusi material yang sudah masuk ke Requisition atau sudah ditugaskan di SPK Borongan
-    const nonAllocated = combinedAvailable.filter(item => {
-      return !isRabItemAllocated(item, requisitionList, activeAssignments);
-    });
-
-    setRabMaterials(nonAllocated);
+    setAllLaborSources(combinedAvailable);
   }, [spkId, cleanWbsCategory, wbsCategory]);
 
   useEffect(() => {
@@ -358,22 +327,34 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
 
 
   // Handler Transfer Material dari Panduan RAB / Change Order ke Form Penugasan Baru
-  const handleSelectMaterialForAssignment = (item: RabMaterial) => {
-    const rawName = item.materials?.name || item.description || 'Pekerjaan Borongan';
-    const itemName = item.sourceType === 'CHANGE_ORDER'
-      ? (rawName.startsWith('[CO]') ? rawName : `[CO] ${rawName}`)
-      : rawName;
+  const handleSelectLaborItem = (item: any) => {
+    const isCo = Boolean(
+      item.is_change_order ||
+      item.sourceType === 'CHANGE_ORDER' ||
+      item.change_order_id ||
+      item.changeOrderItemId ||
+      item.package_source_id
+    );
+    const rawName = item.material_name || item.name || item.materials?.name || item.description || 'Pekerjaan Borongan';
     const subtotal = (typeof item.item_total === 'number' && item.item_total > 0)
       ? item.item_total
       : ((item.quantity || 0) * (item.materials?.unit_price || item.unit_price || 0));
+    const rate = subtotal > 0 ? subtotal : (item.cost_price || item.unit_price || 0);
 
+    setSelectedSourceItem({
+      id: item.id,
+      isChangeOrder: isCo,
+      name: rawName,
+      rate
+    });
     setSelectedRabItemForAssignment(item);
-    setTaskDescription(itemName);
-    setContractValue(subtotal);
+    setTaskDescription(isCo ? (rawName.startsWith('[CO]') ? rawName : `[CO] ${rawName}`) : rawName);
+    setContractValue(rate);
   };
 
   // Handler Batal Transfer / Reset Form
   const handleResetTransferredItem = () => {
+    setSelectedSourceItem(null);
     setSelectedRabItemForAssignment(null);
     setTaskDescription('');
     setContractValue('');
@@ -427,8 +408,22 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
     let finalChangeOrderItemId: string | null = null;
     let finalMaterialId: string | null = null;
 
-    if (selectedRabItemForAssignment) {
-      if (selectedRabItemForAssignment.sourceType === 'CHANGE_ORDER') {
+    if (selectedSourceItem) {
+      if (selectedSourceItem.isChangeOrder) {
+        finalChangeOrderItemId = selectedSourceItem.id;
+        finalRabItemId = null;
+      } else {
+        finalRabItemId = selectedSourceItem.id;
+        finalChangeOrderItemId = null;
+      }
+      finalMaterialId = selectedRabItemForAssignment?.materials?.id || selectedRabItemForAssignment?.material_id || null;
+    } else if (selectedRabItemForAssignment) {
+      const isCo = Boolean(
+        selectedRabItemForAssignment.is_change_order ||
+        selectedRabItemForAssignment.sourceType === 'CHANGE_ORDER' ||
+        selectedRabItemForAssignment.change_order_id
+      );
+      if (isCo) {
         finalChangeOrderItemId = selectedRabItemForAssignment.changeOrderItemId || selectedRabItemForAssignment.id;
         finalRabItemId = null;
       } else {
@@ -437,15 +432,22 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
       }
       finalMaterialId = selectedRabItemForAssignment.materials?.id || selectedRabItemForAssignment.material_id || null;
     } else if (taskDescription.trim()) {
-      // Defensif: jika item tidak dipilih manual dari daftar kanan, cari kecocokan otomatis dari rabMaterials berdasarkan nama/tugas
+      // Defensif: jika item tidak dipilih manual dari daftar kanan, cari kecocokan dari allLaborSources
+      const isCoText = taskDescription.trim().toUpperCase().startsWith('[CO]');
+      const cleanDesc = normalizeText(taskDescription.replace(/^\[CO\]\s*/i, '').trim());
       const normDesc = normalizeText(taskDescription.trim());
-      const matched = rabMaterials.find(item => {
-        const rawName = (item.materials?.name || item.description || '').trim();
+
+      const matched = allLaborSources.find(item => {
+        const isItemCo = Boolean(item.is_change_order || item.sourceType === 'CHANGE_ORDER');
+        if (isCoText !== isItemCo) return false;
+        const rawName = (item.material_name || item.name || item.materials?.name || item.description || '').trim();
         const normName = normalizeText(rawName);
-        return normName && (normName === normDesc || normDesc.includes(normName) || normName.includes(normDesc));
+        return normName === cleanDesc || normName === normDesc;
       });
+
       if (matched) {
-        if (matched.sourceType === 'CHANGE_ORDER') {
+        const isMatchedCo = Boolean(matched.is_change_order || matched.sourceType === 'CHANGE_ORDER');
+        if (isMatchedCo) {
           finalChangeOrderItemId = matched.changeOrderItemId || matched.id;
           finalRabItemId = null;
         } else {
@@ -485,6 +487,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
       setTaskDescription('');
       setContractValue('');
       setDeadlineDate('');
+      setSelectedSourceItem(null);
       setSelectedRabItemForAssignment(null);
       await fetchRecords();
       await fetchRabMaterials();
@@ -623,28 +626,91 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
     }, 250);
   };
 
-  // Filter daftar pekerjaan/jasa RAB yang tersedia:
-  // 1. Sembunyikan jika sedang ditransfer ke form penugasan saat ini
-  // 2. Sembunyikan jika sudah aktif ditugaskan di riwayat SPK-B (reaktif terhadap state lokal)
-  // 3. Filter pencarian teks
-  // 4. Syarat ketat: HANYA item_type === 'LABOR'
-  const filteredMaterials = rabMaterials.filter(m => {
-    if (m.item_type && m.item_type !== 'LABOR') {
-      return false;
-    }
-    if (selectedRabItemForAssignment && (
-      selectedRabItemForAssignment.id === m.id || 
-      (selectedRabItemForAssignment.materials?.id && selectedRabItemForAssignment.materials.id === m.materials?.id)
-    )) {
-      return false;
-    }
-    const isAlreadyAssigned = isRabItemAllocated(m, null, records);
-    if (isAlreadyAssigned) {
-      return false;
-    }
-    const itemName = (m.materials?.name || m.description || '').toLowerCase();
-    return itemName.includes(searchMaterial.toLowerCase());
-  });
+  // Filter ketersediaan pagu pekerjaan / jasa:
+  // Mengecualikan item HANYA berdasarkan ID unik entitas (rab_item_id atau change_order_item_id)
+  const availableLaborItems = useMemo(() => {
+    // Kumpulkan set ID yang sudah pernah ditugaskan (status bukan CANCELLED atau CUT_OFF)
+    const assignedRabItemIds = new Set(
+      records
+        .filter(a => (a.status as string) !== 'CANCELLED' && a.status !== 'CUT_OFF' && a.rab_item_id)
+        .map(a => a.rab_item_id)
+    );
+    const assignedCoItemIds = new Set(
+      records
+        .filter(a => (a.status as string) !== 'CANCELLED' && a.status !== 'CUT_OFF' && a.change_order_item_id)
+        .map(a => a.change_order_item_id)
+    );
+
+    // Kumpulkan deskripsi penugasan legacy (hanya untuk penugasan lawas di mana kedua ID bernilai null)
+    const legacyAssignedDesc = new Set(
+      records
+        .filter(a => (a.status as string) !== 'CANCELLED' && a.status !== 'CUT_OFF' && !a.rab_item_id && !a.change_order_item_id)
+        .map(a => normalizeText(a.task_description))
+        .filter(Boolean)
+    );
+
+    // Filter item panduan gabungan
+    return allLaborSources.filter(item => {
+      if (item.item_type && item.item_type !== 'LABOR') return false;
+
+      const itemStageClean = (item.wbs_stage || item.wbs_category || '').replace(/^WBS\s*\d+:\s*/i, '').trim().toLowerCase();
+      if (itemStageClean && itemStageClean !== cleanWbsCategory.toLowerCase()) return false;
+
+      const isCo = Boolean(
+        item.is_change_order ||
+        item.sourceType === 'CHANGE_ORDER' ||
+        item.change_order_id ||
+        item.changeOrderItemId
+      );
+
+      if (isCo) {
+        // Jika asal Change Order, cek apakah change_order_item_id ini sudah ditugaskan
+        const coId = item.changeOrderItemId || item.id;
+        if (assignedCoItemIds.has(coId) || assignedCoItemIds.has(item.id)) return false;
+      } else {
+        // Jika asal RAB, cek apakah rab_item_id ini sudah ditugaskan
+        if (assignedRabItemIds.has(item.id)) return false;
+      }
+
+      // Legacy fallback: hanya mengecek deskripsi jika ada penugasan lawas tanpa ID
+      if (legacyAssignedDesc.size > 0 && !isCo) {
+        const rawName = (item.material_name || item.name || item.materials?.name || item.description || '').trim();
+        const normName = normalizeText(rawName);
+        if (legacyAssignedDesc.has(normName)) return false;
+      }
+
+      return true;
+    });
+  }, [allLaborSources, records, cleanWbsCategory]);
+
+  // Sembunyikan item yang sedang aktif dipilih di form penugasan (berdasarkan ID dan asal sumber)
+  const availableToAssign = useMemo(() => {
+    return availableLaborItems.filter(item => {
+      if (!selectedSourceItem) return true;
+      const isCo = Boolean(
+        item.is_change_order ||
+        item.sourceType === 'CHANGE_ORDER' ||
+        item.change_order_id ||
+        item.changeOrderItemId
+      );
+      if (isCo === selectedSourceItem.isChangeOrder) {
+        if (item.id === selectedSourceItem.id || item.changeOrderItemId === selectedSourceItem.id) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [availableLaborItems, selectedSourceItem]);
+
+  // Filter teks pencarian mandiri
+  const filteredMaterials = useMemo(() => {
+    if (!searchMaterial.trim()) return availableToAssign;
+    const term = searchMaterial.toLowerCase();
+    return availableToAssign.filter(item => {
+      const name = (item.material_name || item.name || item.materials?.name || item.description || '').toLowerCase();
+      return name.includes(term);
+    });
+  }, [availableToAssign, searchMaterial]);
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
@@ -972,7 +1038,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
               
               {/* Tabel Scrollable Mandiri */}
               <div className="flex-1 overflow-y-auto border border-border/80 rounded-lg bg-background/80">
-                {rabMaterials.length === 0 ? (
+                {allLaborSources.length === 0 || availableLaborItems.length === 0 ? (
                   <div className="p-8 text-center text-xs sm:text-sm text-text-muted flex flex-col items-center justify-center h-full">
                     <CheckCircle2 className="w-8 h-8 text-blue-500/30 mb-2" />
                     <p className="font-semibold text-text">Tidak ada pagu pekerjaan/jasa tersisa untuk WBS ini.</p>
@@ -1005,7 +1071,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
                         return (
                           <tr 
                             key={item.id} 
-                            onDoubleClick={() => handleSelectMaterialForAssignment(item)}
+                            onDoubleClick={() => handleSelectLaborItem(item)}
                             className="hover:bg-blue-500/10 cursor-pointer transition-colors group"
                             title="Double click atau klik tombol '<<' untuk transfer ke Form Penugasan"
                           >
@@ -1030,7 +1096,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleSelectMaterialForAssignment(item);
+                                  handleSelectLaborItem(item);
                                 }}
                                 className="p-1 bg-blue-600 hover:bg-blue-500 text-white rounded shadow-sm transition-all"
                                 title="Pindahkan ke form penugasan (<<)"

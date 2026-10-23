@@ -1,12 +1,21 @@
 ## Current Position
-- **Sprint**: Sprint 85 — Fix False Shared Exclusion of RAB and Change Order Labor Items in SPK Borongan Modal
-- **Status**: Sprint in progress (2026-10-24)
-- **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness (paused for sprint)
+- **Sprint**: Sprint 85 — Fix False Shared Exclusion of RAB and Change Order Labor Items in SPK Borongan Modal (Completed)
+- **Status**: Sprint Completed (2026-10-24)
+- **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness (ready to resume)
 
-## Sprint 85 Overview
-Fixing false shared exclusion of RAB and Change Order labor items sharing identical names in the SPK Borongan modal (`SpkBoronganPanel.tsx`), ensuring availability filtering isolates items strictly by unique database row ID (`rab_item_id` and `change_order_item_id`) rather than text description matching.
+## Sprint 85 Summary
+- **Database & Data Layer:**
+  - Guaranteed `rab_item_id` and `change_order_item_id` foreign keys and indices in `spk_borongan` via idempotent migration `supabase/migrations/20261024030000_add_source_ids_to_spk_borongan.sql`.
+  - Refactored `src/utils/rabItemAllocation.ts` `isRabItemAllocated` so assignments with explicit `change_order_item_id` or `rab_item_id` strictly match their corresponding source rows and never cross-contaminate identically named items.
+- **Mandor SPK Borongan UI (`SpkBoronganPanel.tsx` & `src/components/mandor/SpkBoronganModal.tsx`):**
+  - Updated selection handler `handleSelectLaborItem` to track item origin (`id`, `isChangeOrder`, `name`, `rate`).
+  - Updated submission payload `handleCreate` to persist explicit `rab_item_id` (for RAB labor) or `change_order_item_id` (for Change Order labor).
+  - Rebuilt availability filtering in `availableLaborItems` via `useMemo` using ID sets (`assignedRabItemIds` and `assignedCoItemIds`), eliminating mutual false exclusion of identically named items between RAB and Change Orders.
+- **Quality & Verification Status:**
+  - Automated Tests: 61 test suites, 449 tests passing (100% green, +4 tests added).
+  - TypeScript Static Analysis: Clean compilation with 0 errors (`tsc -b`).
+  - Linter Check: 0 errors (`npx oxlint`).
+  - Production Build: Clean bundle generated (`npm run build`).
 
 ## Next Up
-- Task 1: Create idempotent SQL migration `supabase/migrations/20261024030000_add_source_ids_to_spk_borongan.sql`.
-- Task 2: Implement ID-based exclusion in `SpkBoronganPanel.tsx`, `src/components/mandor/SpkBoronganModal.tsx`, and `rabItemAllocation.ts`.
-- Task 3: Automated tests and validation checks.
+- User verification or review.
