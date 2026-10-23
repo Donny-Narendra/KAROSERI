@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { calculateSegregatedProfit } from '../financialCalculations';
+import { calculateSegregatedProfit, computeChangeOrderMargins } from '../financialCalculations';
 import { calculateSegregatedProfit as rabCalcSegProfit } from '../../components/RabCalculator';
-import { calculateSegregatedProfit as amendmentSegProfit } from '../../components/AmendmentManager';
-import { calculateSegregatedProfit as itemizedCoSegProfit } from '../../components/ItemizedChangeOrderForm';
-import { calculateSegregatedProfit as changeOrdersTabSegProfit } from '../../components/ChangeOrdersTab';
+import { calculateSegregatedProfit as amendmentSegProfit, computeChangeOrderMargins as amendmentComputeMargins } from '../../components/AmendmentManager';
+import { calculateSegregatedProfit as itemizedCoSegProfit, computeChangeOrderMargins as itemizedCoComputeMargins } from '../../components/ItemizedChangeOrderForm';
+import { calculateSegregatedProfit as changeOrdersTabSegProfit, computeChangeOrderMargins as changeOrdersTabComputeMargins } from '../../components/ChangeOrdersTab';
 
 describe('Sprint 82 Task 2: calculateSegregatedProfit Helper', () => {
   it('is exported and consistent across all component and utility modules', () => {
@@ -172,3 +172,126 @@ describe('Sprint 82 Task 2: calculateSegregatedProfit Helper', () => {
     expect(result.totalProfit).toBe(result.pkgProfit + result.matProfit + result.otherProfit);
   });
 });
+
+describe('Sprint 84: computeChangeOrderMargins Helper', () => {
+  it('is exported and consistent across financialCalculations, AmendmentManager, ChangeOrdersTab, and ItemizedChangeOrderForm', () => {
+    expect(typeof computeChangeOrderMargins).toBe('function');
+    expect(computeChangeOrderMargins).toBe(amendmentComputeMargins);
+    expect(computeChangeOrderMargins).toBe(itemizedCoComputeMargins);
+    expect(computeChangeOrderMargins).toBe(changeOrdersTabComputeMargins);
+  });
+
+  it('safely handles empty array, null, or undefined inputs', () => {
+    const emptyResult = computeChangeOrderMargins([]);
+    expect(emptyResult).toEqual({
+      packageMargin: 0,
+      materialMargin: 0,
+      laborMargin: 0,
+      overheadMargin: 0,
+      totalProfit: 0,
+      packageRev: 0,
+      materialRev: 0,
+      laborRev: 0,
+      overheadRev: 0,
+    });
+
+    const nullResult = computeChangeOrderMargins(null);
+    expect(nullResult).toEqual(emptyResult);
+
+    const undefResult = computeChangeOrderMargins(undefined);
+    expect(undefResult).toEqual(emptyResult);
+  });
+
+  it('correctly calculates itemized margins for package, granular material, labor, and overhead items', () => {
+    const items = [
+      // 1. Package component (Assembly package)
+      {
+        package_source_id: 'pkg-1',
+        package_name: 'Dudukan Slebor',
+        item_type: 'MATERIAL',
+        quantity: 2,
+        unit_price: 3_000_000,
+        cost_price: 2_000_000,
+      },
+      // 2. Package component with notes prefix
+      {
+        notes: 'Bagian dari paket: Tangki Solar 200L',
+        item_type: 'LABOR',
+        quantity: 1,
+        unit_price: 1_000_000,
+        cost_price: 600_000,
+      },
+      // 3. Granular Material
+      {
+        item_type: 'MATERIAL',
+        quantity: 5,
+        unit_price: 200_000,
+        cost_price: 150_000,
+      },
+      // 4. Granular Labor (Tukang / Jasa)
+      {
+        item_type: 'LABOR',
+        quantity: 2,
+        unit_price: 500_000,
+        cost_price: 350_000,
+      },
+      // 5. Granular Overhead (FOH)
+      {
+        item_type: 'OVERHEAD',
+        quantity: 3,
+        unit_price: 100_000,
+        cost_price: 70_000,
+      },
+    ];
+
+    const result = computeChangeOrderMargins(items);
+
+    // Package: item 1 (selling: 6M, cost: 4M, margin: 2M) + item 2 (selling: 1M, cost: 0.6M, margin: 0.4M)
+    expect(result.packageRev).toBe(7_000_000);
+    expect(result.packageMargin).toBe(2_400_000);
+
+    // Material: item 3 (selling: 5 * 200k = 1M, cost: 5 * 150k = 750k, margin: 250k)
+    expect(result.materialRev).toBe(1_000_000);
+    expect(result.materialMargin).toBe(250_000);
+
+    // Labor: item 4 (selling: 2 * 500k = 1M, cost: 2 * 350k = 700k, margin: 300k)
+    expect(result.laborRev).toBe(1_000_000);
+    expect(result.laborMargin).toBe(300_000);
+
+    // Overhead: item 5 (selling: 3 * 100k = 300k, cost: 3 * 70k = 210k, margin: 90k)
+    expect(result.overheadRev).toBe(300_000);
+    expect(result.overheadMargin).toBe(90_000);
+
+    // Total Profit: 2.4M + 250k + 300k + 90k = 3,040,000
+    expect(result.totalProfit).toBe(3_040_000);
+    expect(result.totalProfit).toBe(
+      result.packageMargin + result.materialMargin + result.laborMargin + result.overheadMargin
+    );
+  });
+
+  it('correctly handles default quantities and price fallbacks', () => {
+    const items = [
+      {
+        item_type: 'MATERIAL',
+        unit_price: 100_000,
+        cost_price: 80_000,
+        // no quantity provided -> defaults to 1
+      },
+      {
+        item_type: 'LABOR',
+        qty: 3,
+        unitPrice: 200_000,
+        costPrice: 150_000,
+        // camelCase qty / unitPrice / costPrice
+      },
+    ];
+
+    const result = computeChangeOrderMargins(items);
+    expect(result.materialMargin).toBe(20_000);
+    expect(result.materialRev).toBe(100_000);
+    expect(result.laborMargin).toBe(150_000);
+    expect(result.laborRev).toBe(600_000);
+    expect(result.totalProfit).toBe(170_000);
+  });
+});
+

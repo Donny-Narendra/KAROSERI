@@ -19,9 +19,9 @@ import { ChangeOrderPackageModal } from './ChangeOrderPackageModal';
 import type { ExplodedChangeOrderItem } from '../utils/packageExplosion';
 import { parseDecimalValue } from '../utils/numberUtils';
 import { formatRupiah } from '../utils/formatters';
-import { calculateSegregatedProfit } from '../utils/financialCalculations';
+import { calculateSegregatedProfit, computeChangeOrderMargins, type ChangeOrderMarginBreakdown } from '../utils/financialCalculations';
 
-export { calculateSegregatedProfit };
+export { calculateSegregatedProfit, computeChangeOrderMargins, type ChangeOrderMarginBreakdown };
 
 /**
  * Resolves item source origin for change order snapshot items.
@@ -1696,6 +1696,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
             const coTotalHpp = co.items ? co.items.reduce((acc, it) => acc + (Number(it.quantity) * Number(it.cost_price || 0)), 0) : 0;
             const coMargin = coTotalSelling - coTotalHpp;
             const coMarginPct = coTotalSelling > 0 ? (coMargin / coTotalSelling) * 100 : 0;
+            const margins = computeChangeOrderMargins(co.items || []);
 
             return (
               <div key={co.id} className="transition bg-surface hover:bg-surface-hover/20">
@@ -1748,7 +1749,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                   </div>
 
                   {/* Financial Metrics in Summary Line */}
-                  <div className="flex items-center gap-4 text-right pl-8 md:pl-0">
+                  <div className="flex items-start gap-4 text-right pl-8 md:pl-0">
                     <div>
                       <span className="text-[10px] uppercase font-mono text-text-muted block">Harga Jual Konsumen</span>
                       <span className="font-mono font-bold text-sm text-primary">
@@ -1765,14 +1766,56 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
 
                     <div className="hidden sm:block border-l border-border pl-4">
                       <span className="text-[10px] uppercase font-mono text-text-muted block">Margin Laba</span>
-                      <span className="font-mono font-bold text-sm text-emerald-400">
+                      <span className="font-mono font-bold text-sm text-emerald-400 block">
                         Rp {coMargin.toLocaleString('id-ID')} ({coMarginPct.toFixed(0)}%)
                       </span>
+
+                      {/* 4 Pilar Margin Breakdown */}
+                      <div 
+                        data-testid={`co-margins-breakdown-${co.id}`}
+                        className="flex items-center gap-1.5 mt-1.5 text-[10px] font-mono justify-end flex-wrap"
+                      >
+                        <span 
+                          data-testid={`co-margin-pkg-${co.id}`}
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 whitespace-nowrap"
+                          title="Margin Paket Barang Jadi (Assembly)"
+                        >
+                          <span className="text-[9px] opacity-75">Paket:</span>
+                          <span className="font-semibold">Rp {margins.packageMargin.toLocaleString('id-ID')}</span>
+                        </span>
+
+                        <span 
+                          data-testid={`co-margin-mat-${co.id}`}
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 whitespace-nowrap"
+                          title="Margin Material Granular (Lepas)"
+                        >
+                          <span className="text-[9px] opacity-75">Material:</span>
+                          <span className="font-semibold">Rp {margins.materialMargin.toLocaleString('id-ID')}</span>
+                        </span>
+
+                        <span 
+                          data-testid={`co-margin-labor-${co.id}`}
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 whitespace-nowrap"
+                          title="Margin Labor (Tenaga Kerja / Tukang)"
+                        >
+                          <span className="text-[9px] opacity-75">Labor:</span>
+                          <span className="font-semibold">Rp {margins.laborMargin.toLocaleString('id-ID')}</span>
+                        </span>
+
+                        <span 
+                          data-testid={`co-margin-overhead-${co.id}`}
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 whitespace-nowrap"
+                          title="Margin Overhead (FOH)"
+                        >
+                          <span className="text-[9px] opacity-75">Overhead:</span>
+                          <span className="font-semibold">Rp {margins.overheadMargin.toLocaleString('id-ID')}</span>
+                        </span>
+                      </div>
                     </div>
 
                     {/* Owner Action Buttons */}
                     {isOwner && isPending && (
-                      <div className="flex items-center gap-1 ml-2" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-1 ml-2 self-center" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => handleActionClick(co, 'APPROVED')}
                           className="bg-status-success/20 hover:bg-status-success/30 text-status-success p-1.5 rounded transition cursor-pointer"

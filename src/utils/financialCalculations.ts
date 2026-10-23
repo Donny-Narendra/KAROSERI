@@ -260,3 +260,73 @@ export function calculateSegregatedProfit(
   };
 }
 
+export interface ChangeOrderMarginBreakdown {
+  packageMargin: number;
+  materialMargin: number;
+  laborMargin: number;
+  overheadMargin: number;
+  totalProfit: number;
+  packageRev: number;
+  materialRev: number;
+  laborRev: number;
+  overheadRev: number;
+}
+
+/**
+ * Menghitung rincian 4 pilar margin (Paket Assembly, Material Granular, Labor/Jasa, Overhead/FOH)
+ * untuk item snapshot pada kartu Change Order.
+ */
+export function computeChangeOrderMargins(items?: Array<any> | null): ChangeOrderMarginBreakdown {
+  let packageMargin = 0, packageRev = 0;
+  let materialMargin = 0, materialRev = 0;
+  let laborMargin = 0, laborRev = 0;
+  let overheadMargin = 0, overheadRev = 0;
+
+  if (Array.isArray(items)) {
+    items.forEach(item => {
+      const qty = Number(item.quantity !== undefined && item.quantity !== null ? item.quantity : (item.qty ?? 1));
+      const selling = Number(item.unit_price !== undefined && item.unit_price !== null ? item.unit_price : (item.unitPrice ?? 0)) * qty;
+      const cost = Number(item.cost_price !== undefined && item.cost_price !== null ? item.cost_price : (item.costPrice ?? 0)) * qty;
+      const margin = selling - cost;
+
+      const isPackage = Boolean(
+        item.package_source_id ||
+        item.package_name ||
+        item.packageId ||
+        item.packageName ||
+        item.product_packages?.name ||
+        (typeof item.notes === 'string' && (item.notes.includes('Bagian dari paket:') || item.notes.includes('[Paket:')))
+      );
+
+      const itemType = String(item.item_type || item.type || '').toUpperCase();
+
+      if (isPackage) {
+        packageRev += selling;
+        packageMargin += margin;
+      } else if (itemType === 'MATERIAL') {
+        materialRev += selling;
+        materialMargin += margin;
+      } else if (itemType === 'LABOR') {
+        laborRev += selling;
+        laborMargin += margin;
+      } else if (itemType === 'OVERHEAD') {
+        overheadRev += selling;
+        overheadMargin += margin;
+      }
+    });
+  }
+
+  return {
+    packageMargin,
+    materialMargin,
+    laborMargin,
+    overheadMargin,
+    totalProfit: packageMargin + materialMargin + laborMargin + overheadMargin,
+    packageRev,
+    materialRev,
+    laborRev,
+    overheadRev
+  };
+}
+
+

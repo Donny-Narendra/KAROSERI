@@ -1199,6 +1199,156 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
         expect(emptyCell).toHaveAttribute('colSpan', '9');
       });
     });
+
+    describe('Sprint 84: 4-Pillar Itemized Margins on Change Order Cards', () => {
+      const mockCOWithAllPillars = [
+        {
+          id: 'co-all-pillars-1',
+          spk_id: 'spk-test-1',
+          co_number: 'CO-SPK4374-9001',
+          description: 'Adendum Komprehensif 4 Pilar Biaya',
+          cost_adjustment: 8000000,
+          total_amount: 8000000,
+          status: 'APPROVED',
+          created_at: '2026-10-24T00:00:00Z',
+          items: [
+            // 1. Paket: 2 x (1,500,000 - 1,000,000) = 1,000,000 margin
+            {
+              id: 'it-pkg-1',
+              change_order_id: 'co-all-pillars-1',
+              spk_id: 'spk-test-1',
+              wbs_stage: 'WBS 2: Sasis/Rangka',
+              item_type: 'MATERIAL',
+              item_name: 'Paket Dudukan Hidrolis',
+              quantity: 2,
+              unit: 'set',
+              unit_price: 1500000,
+              cost_price: 1000000,
+              package_source_id: 'pkg-hidrolis',
+              package_name: 'Paket Dudukan Hidrolis',
+            },
+            // 2. Granular Material: 5 x (200,000 - 150,000) = 250,000 margin
+            {
+              id: 'it-mat-1',
+              change_order_id: 'co-all-pillars-1',
+              spk_id: 'spk-test-1',
+              wbs_stage: 'WBS 3: Dinding/Fabrikasi',
+              item_type: 'MATERIAL',
+              item_name: 'Pipa Besi Seamless',
+              quantity: 5,
+              unit: 'batang',
+              unit_price: 200000,
+              cost_price: 150000,
+            },
+            // 3. Labor: 4 x (250,000 - 175,000) = 300,000 margin
+            {
+              id: 'it-labor-1',
+              change_order_id: 'co-all-pillars-1',
+              spk_id: 'spk-test-1',
+              wbs_stage: 'WBS 3: Dinding/Fabrikasi',
+              item_type: 'LABOR',
+              item_name: 'Jasa Las Spesialis',
+              quantity: 4,
+              unit: 'titik',
+              unit_price: 250000,
+              cost_price: 175000,
+            },
+            // 4. Overhead: 2 x (300,000 - 200,000) = 200,000 margin
+            {
+              id: 'it-overhead-1',
+              change_order_id: 'co-all-pillars-1',
+              spk_id: 'spk-test-1',
+              wbs_stage: 'WBS 4: Cat/Finishing',
+              item_type: 'OVERHEAD',
+              item_name: 'Listrik & Alat Bantu Las',
+              quantity: 2,
+              unit: 'shift',
+              unit_price: 300000,
+              cost_price: 200000,
+            },
+          ],
+        },
+      ];
+
+      it('renders 4 itemized margin breakdown badges under Margin Laba on the card header', async () => {
+        vi.mocked(spkService.getChangeOrders).mockResolvedValue(mockCOWithAllPillars as any);
+
+        render(<AmendmentManager spkId="spk-test-1" spkNo="SPK-4374" />);
+
+        await waitFor(() => {
+          expect(screen.getByText('Change Orders & Amandemen SPK')).toBeInTheDocument();
+        });
+
+        // Verify container
+        const breakdownContainer = screen.getByTestId('co-margins-breakdown-co-all-pillars-1');
+        expect(breakdownContainer).toBeInTheDocument();
+
+        // 1. Paket Margin: Rp 1.000.000
+        const pkgMargin = screen.getByTestId('co-margin-pkg-co-all-pillars-1');
+        expect(pkgMargin).toBeInTheDocument();
+        expect(pkgMargin).toHaveTextContent('Paket:');
+        expect(pkgMargin).toHaveTextContent('Rp 1.000.000');
+        expect(pkgMargin.className).toContain('text-amber-400');
+
+        // 2. Material Margin: Rp 250.000
+        const matMargin = screen.getByTestId('co-margin-mat-co-all-pillars-1');
+        expect(matMargin).toBeInTheDocument();
+        expect(matMargin).toHaveTextContent('Material:');
+        expect(matMargin).toHaveTextContent('Rp 250.000');
+        expect(matMargin.className).toContain('text-cyan-400');
+
+        // 3. Labor Margin: Rp 300.000
+        const laborMargin = screen.getByTestId('co-margin-labor-co-all-pillars-1');
+        expect(laborMargin).toBeInTheDocument();
+        expect(laborMargin).toHaveTextContent('Labor:');
+        expect(laborMargin).toHaveTextContent('Rp 300.000');
+        expect(laborMargin.className).toContain('text-sky-400');
+
+        // 4. Overhead Margin: Rp 200.000
+        const overheadMargin = screen.getByTestId('co-margin-overhead-co-all-pillars-1');
+        expect(overheadMargin).toBeInTheDocument();
+        expect(overheadMargin).toHaveTextContent('Overhead:');
+        expect(overheadMargin).toHaveTextContent('Rp 200.000');
+        expect(overheadMargin.className).toContain('text-purple-400');
+      });
+
+      it('safely renders zero values for all 4 margin pillars when change order has no items', async () => {
+        const mockEmptyCO = [
+          {
+            id: 'co-empty-2',
+            spk_id: 'spk-test-1',
+            co_number: 'CO-EMPTY-002',
+            description: 'Change order tanpa items',
+            cost_adjustment: 0,
+            total_amount: 0,
+            status: 'PENDING',
+            created_at: '2026-10-24T00:00:00Z',
+            items: [],
+          },
+        ];
+        vi.mocked(spkService.getChangeOrders).mockResolvedValue(mockEmptyCO as any);
+
+        render(<AmendmentManager spkId="spk-test-1" spkNo="SPK-4374" />);
+
+        await waitFor(() => {
+          expect(screen.getByText('Change Orders & Amandemen SPK')).toBeInTheDocument();
+        });
+
+        const pkgMargin = screen.getByTestId('co-margin-pkg-co-empty-2');
+        const matMargin = screen.getByTestId('co-margin-mat-co-empty-2');
+        const laborMargin = screen.getByTestId('co-margin-labor-co-empty-2');
+        const overheadMargin = screen.getByTestId('co-margin-overhead-co-empty-2');
+
+        expect(pkgMargin).toHaveTextContent('Paket:');
+        expect(pkgMargin).toHaveTextContent('Rp 0');
+        expect(matMargin).toHaveTextContent('Material:');
+        expect(matMargin).toHaveTextContent('Rp 0');
+        expect(laborMargin).toHaveTextContent('Labor:');
+        expect(laborMargin).toHaveTextContent('Rp 0');
+        expect(overheadMargin).toHaveTextContent('Overhead:');
+        expect(overheadMargin).toHaveTextContent('Rp 0');
+      });
+    });
   });
 });
 
