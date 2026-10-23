@@ -810,5 +810,17 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
     expect(screen.getByText('Margin (Profit)')).toBeInTheDocument();
     expect(screen.getByText('100.000')).toBeInTheDocument();
   });
+
+  it('Sprint 82: renders 3-pillar segregated profit breakdown cards in RAB Calculator footer', async () => {
+    render(<RabCalculator spkId="spk-test-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Sub-Rincian Profitabilitas RAB (3 Pilar):')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Profit Paket \(BOM\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Profit Mat\. Granular/i)).toBeInTheDocument();
+    expect(screen.getByText(/Profit Jasa & FOH/i)).toBeInTheDocument();
+  });
 });
 

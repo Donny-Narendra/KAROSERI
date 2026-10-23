@@ -48,6 +48,19 @@ export interface SpkJobProfitabilityItem {
   gross_profit: number;
   gross_margin_percentage: number;
   payment_status: 'UNBILLED' | 'DRAFT' | 'PARTIAL' | 'PAID' | string;
+
+  // 3-Pillar Segregated Profit Columns (Sprint 82)
+  package_revenue?: number;
+  package_cogs?: number;
+  package_profit?: number;
+
+  granular_mat_revenue?: number;
+  granular_mat_cogs?: number;
+  granular_material_profit?: number;
+
+  granular_other_revenue?: number;
+  granular_other_cogs?: number;
+  granular_other_profit?: number;
 }
 export type SpkJobProfitability = SpkJobProfitabilityItem;
 

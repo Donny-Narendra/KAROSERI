@@ -342,7 +342,7 @@ export class RabService {
 
     if (error) {
       if ((error as any).code === '42703' || (error as any).message?.includes('package_name')) {
-        const fallbackRows = rows.map(({ package_name, ...rest }) => rest);
+        const fallbackRows = rows.map(({ package_name: _packageName, ...rest }) => rest);
         const retryBuilder = supabase.from('rab_items').insert(fallbackRows);
         const { data: retryData, error: retryError } = typeof (retryBuilder as any)?.select === 'function'
           ? await (retryBuilder as any).select()
@@ -555,7 +555,7 @@ export class RabService {
 
       if (insError) {
         if ((insError as any).code === '42703' || (insError as any).message?.includes('package_name')) {
-          const fallbackRows = rows.map(({ package_name, ...rest }) => rest);
+          const fallbackRows = rows.map(({ package_name: _packageName, ...rest }) => rest);
           const { error: retryError } = await supabase
             .from('rab_items')
             .insert(fallbackRows);

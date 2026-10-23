@@ -322,7 +322,9 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
     // Check financial cards
     expect(screen.getAllByText('Rp 1.600.000').length).toBeGreaterThanOrEqual(1); // 2 * 800,000
     expect(screen.getByText('1.200.000')).toBeInTheDocument(); // 2 * 600,000 HPP
-    expect(screen.getByText(/400\.000/)).toBeInTheDocument(); // 400,000 Margin
+    expect(screen.getAllByText(/400\.000/).length).toBeGreaterThanOrEqual(1); // 400,000 Margin & Segregated FOH Profit
+    expect(screen.getByText('Sub-Rincian Profitabilitas CO (3 Pilar):')).toBeInTheDocument();
+    expect(screen.getByText(/Profit Jasa & FOH/i)).toBeInTheDocument();
 
     // Submit form
     const submitBtn = screen.getByRole('button', { name: /Ajukan Change Order/i });

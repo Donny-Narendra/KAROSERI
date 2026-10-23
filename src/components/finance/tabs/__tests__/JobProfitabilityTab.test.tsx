@@ -135,4 +135,19 @@ describe('Component: JobProfitabilityTab (Operational SPKs & Draft Exclusion)', 
     // Total Gross Profit = 17.5M + 15M = 32.5M
     expect(screen.getByText(/Total Akumulasi \(2 SPK\):/i)).toBeInTheDocument();
   });
+
+  it('renders 3-pillar segregated profit columns and top summary cards', async () => {
+    render(<JobProfitabilityTab />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Profit Paket (BOM)')).toBeInTheDocument();
+      expect(screen.getByText('Profit Mat. Granular')).toBeInTheDocument();
+      expect(screen.getByText('Profit Jasa & FOH')).toBeInTheDocument();
+    });
+
+    // Verify top summary cards
+    expect(screen.getByText(/Profit Paket Assembly \(BOM\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Profit Material Granular/i)).toBeInTheDocument();
+    expect(screen.getByText(/Profit Jasa & Overhead Lepas/i)).toBeInTheDocument();
+  });
 });

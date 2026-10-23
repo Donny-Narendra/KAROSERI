@@ -99,6 +99,9 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
 
   // Aggregates for footer
   const totalRevenueSum = sortedData.reduce((acc, curr) => acc + curr.total_revenue, 0);
+  const totalPackageProfitSum = sortedData.reduce((acc, curr) => acc + (curr.package_profit || 0), 0);
+  const totalGranularMatProfitSum = sortedData.reduce((acc, curr) => acc + (curr.granular_material_profit || 0), 0);
+  const totalGranularOtherProfitSum = sortedData.reduce((acc, curr) => acc + (curr.granular_other_profit || 0), 0);
   const totalMaterialSum = sortedData.reduce((acc, curr) => acc + curr.actual_material_cost, 0);
   const totalLaborSum = sortedData.reduce((acc, curr) => acc + curr.actual_labor_cost, 0);
   const totalOverheadSum = sortedData.reduce((acc, curr) => acc + (curr.actual_overhead_cost || 0), 0);
@@ -107,6 +110,54 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* 3-Pillar Segregated Profit Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="bg-surface/80 border border-amber-500/30 rounded-xl p-3.5 flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-400 font-mono uppercase">
+              <span>📦</span>
+              <span>Profit Paket Assembly (BOM)</span>
+            </div>
+            <div className="text-lg font-bold font-mono text-text mt-1">
+              {formatCurrency(totalPackageProfitSum)}
+            </div>
+            <div className="text-[11px] text-text-muted mt-0.5">
+              Karya manufaktur mandiri paket barang jadi
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-surface/80 border border-cyan-500/30 rounded-xl p-3.5 flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-cyan-400 font-mono uppercase">
+              <span>📋</span>
+              <span>Profit Material Granular</span>
+            </div>
+            <div className="text-lg font-bold font-mono text-text mt-1">
+              {formatCurrency(totalGranularMatProfitSum)}
+            </div>
+            <div className="text-[11px] text-text-muted mt-0.5">
+              Markup margin bahan baku lepasan
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-surface/80 border border-purple-500/30 rounded-xl p-3.5 flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-purple-400 font-mono uppercase">
+              <span>⚙️</span>
+              <span>Profit Jasa & Overhead Lepas</span>
+            </div>
+            <div className="text-lg font-bold font-mono text-text mt-1">
+              {formatCurrency(totalGranularOtherProfitSum)}
+            </div>
+            <div className="text-[11px] text-text-muted mt-0.5">
+              Kontribusi laba jasa borongan & operasional
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Control Toolbar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-surface/60 p-4 rounded-xl border border-border">
         <div className="flex flex-wrap items-center gap-3">
@@ -209,9 +260,19 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
                     <ArrowUpDown className="w-3 h-3" />
                   </div>
                 </th>
-                <th className="py-3 px-4 text-right">Biaya Bahan</th>
-                <th className="py-3 px-4 text-right">Biaya Borongan</th>
-                <th className="py-3 px-4 text-right">Biaya Overhead (FOH)</th>
+                {/* Segregated Profit Columns */}
+                <th className="py-3 px-3 text-right text-amber-400" title="Profit Penjualan Paket Barang Jadi (BOM)">
+                  Profit Paket (BOM)
+                </th>
+                <th className="py-3 px-3 text-right text-cyan-400" title="Markup Profit Penjualan Material Lepas (Granular)">
+                  Profit Mat. Granular
+                </th>
+                <th className="py-3 px-3 text-right text-purple-400" title="Margin Pekerjaan Jasa Lepas & Overhead Bebas">
+                  Profit Jasa & FOH
+                </th>
+                <th className="py-3 px-3 text-right">Biaya Bahan</th>
+                <th className="py-3 px-3 text-right">Biaya Borongan</th>
+                <th className="py-3 px-3 text-right">Biaya Overhead (FOH)</th>
                 <th 
                   className="py-3 px-4 text-right cursor-pointer hover:text-text transition"
                   onClick={() => toggleSort('profit')}
@@ -236,7 +297,7 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
             <tbody className="divide-y divide-border/60">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-text-muted">
+                  <td colSpan={12} className="py-12 text-center text-text-muted">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <RefreshCw className="w-6 h-6 animate-spin text-primary" />
                       <span>Memuat data profitabilitas...</span>
@@ -245,7 +306,7 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
                 </tr>
               ) : sortedData.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-text-muted">
+                  <td colSpan={12} className="py-12 text-center text-text-muted">
                     Tidak ada catatan SPK yang memenuhi kriteria filter.
                   </td>
                 </tr>
@@ -297,13 +358,23 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
                       <td className="py-3 px-4 text-right font-mono font-medium text-text">
                         {formatCurrency(row.total_revenue)}
                       </td>
-                      <td className="py-3 px-4 text-right font-mono text-text-muted">
+                      {/* Segregated Profit Columns */}
+                      <td className="py-3 px-3 text-right font-mono text-amber-400 font-medium">
+                        {formatCurrency(row.package_profit || 0)}
+                      </td>
+                      <td className="py-3 px-3 text-right font-mono text-cyan-400 font-medium">
+                        {formatCurrency(row.granular_material_profit || 0)}
+                      </td>
+                      <td className="py-3 px-3 text-right font-mono text-purple-400 font-medium">
+                        {formatCurrency(row.granular_other_profit || 0)}
+                      </td>
+                      <td className="py-3 px-3 text-right font-mono text-text-muted">
                         {formatCurrency(row.actual_material_cost)}
                       </td>
-                      <td className="py-3 px-4 text-right font-mono text-text-muted">
+                      <td className="py-3 px-3 text-right font-mono text-text-muted">
                         {formatCurrency(row.actual_labor_cost)}
                       </td>
-                      <td className="py-3 px-4 text-right font-mono text-text-muted">
+                      <td className="py-3 px-3 text-right font-mono text-text-muted">
                         {formatCurrency(row.actual_overhead_cost || 0)}
                       </td>
                       <td className={`py-3 px-4 text-right font-mono font-bold ${row.gross_profit >= 0 ? 'text-emerald-400' : 'text-status-danger'}`}>
@@ -341,13 +412,22 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
                   <td className="py-3 px-4 text-right text-text">
                     {formatCurrency(totalRevenueSum)}
                   </td>
-                  <td className="py-3 px-4 text-right text-text-muted">
+                  <td className="py-3 px-3 text-right text-amber-400">
+                    {formatCurrency(totalPackageProfitSum)}
+                  </td>
+                  <td className="py-3 px-3 text-right text-cyan-400">
+                    {formatCurrency(totalGranularMatProfitSum)}
+                  </td>
+                  <td className="py-3 px-3 text-right text-purple-400">
+                    {formatCurrency(totalGranularOtherProfitSum)}
+                  </td>
+                  <td className="py-3 px-3 text-right text-text-muted">
                     {formatCurrency(totalMaterialSum)}
                   </td>
-                  <td className="py-3 px-4 text-right text-text-muted">
+                  <td className="py-3 px-3 text-right text-text-muted">
                     {formatCurrency(totalLaborSum)}
                   </td>
-                  <td className="py-3 px-4 text-right text-text-muted">
+                  <td className="py-3 px-3 text-right text-text-muted">
                     {formatCurrency(totalOverheadSum)}
                   </td>
                   <td className={`py-3 px-4 text-right ${totalGrossProfitSum >= 0 ? 'text-emerald-400' : 'text-status-danger'}`}>

@@ -44,6 +44,15 @@ describe('Financial Report Export Engine & Mapping (exportFinancialReports)', ()
           registration_date: '2026-10-01T00:00:00.000Z',
           target_date: '2026-10-20T00:00:00.000Z',
           total_revenue: 50_000_000,
+          package_revenue: 30_000_000,
+          package_cogs: 21_000_000,
+          package_profit: 9_000_000,
+          granular_mat_revenue: 15_000_000,
+          granular_mat_cogs: 12_000_000,
+          granular_material_profit: 3_000_000,
+          granular_other_revenue: 5_000_000,
+          granular_other_cogs: 4_000_000,
+          granular_other_profit: 1_000_000,
           actual_material_cost: 25_000_000,
           actual_labor_cost: 10_000_000,
           actual_overhead_cost: 2_000_000,
@@ -61,6 +70,9 @@ describe('Financial Report Export Engine & Mapping (exportFinancialReports)', ()
       expect(row['Nomor SPK']).toBe('SPK-1001');
       expect(row['Nama Pelanggan']).toBe('PT Logistik Maju');
       expect(row['Pendapatan Tagihan (Rp)']).toBe(50_000_000);
+      expect(row['Profit Paket Assembly (Rp)']).toBe(9_000_000);
+      expect(row['Profit Material Granular (Rp)']).toBe(3_000_000);
+      expect(row['Profit Jasa & Overhead (Rp)']).toBe(1_000_000);
       expect(row['HPP Bahan/Material (Rp)']).toBe(25_000_000);
       expect(row['HPP Jasa/Borongan (Rp)']).toBe(10_000_000);
       expect(row['HPP Overhead Pabrikasi (Rp)']).toBe(2_000_000);

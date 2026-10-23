@@ -569,6 +569,34 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   const totalCost = totalMaterialCost + totalLaborCost + totalOverheadCost;
   const totalEstimatedModalCost = items.reduce((sum, i) => sum + calculateItemModalCost(i), 0);
 
+  // 3-Pillar Segregated Profit Calculations (Sprint 82)
+  const isPackageItem = (item: RabItem) => Boolean(
+    item.packageId || item.package_name || item.packageName || (item.notes && item.notes.includes('Paket:'))
+  );
+
+  // 1. Profit Paket Barang Jadi (Assembly List / BOM)
+  const packageItems = items.filter(isPackageItem);
+  const packageRevenue = packageItems.reduce((sum, i) => sum + calculateItemTotal(i), 0);
+  const packageCogs = packageItems.reduce((sum, i) => sum + calculateItemModalCost(i), 0);
+  const packageProfit = packageRevenue - packageCogs;
+
+  // 2. Profit Penjualan Material Granular (Bahan baku lepas di luar paket)
+  const granularMatItems = items.filter(i => !isPackageItem(i) && i.type === 'material');
+  const granularMatRevenue = granularMatItems.reduce((sum, i) => sum + calculateItemTotal(i), 0);
+  const granularMatCogs = granularMatItems.reduce((sum, i) => sum + calculateItemModalCost(i), 0);
+  const granularMatProfit = granularMatRevenue - granularMatCogs;
+
+  // 3. Profit Jasa & Overhead Lepas (Labor & FOH di luar paket)
+  const granularOtherItems = items.filter(i => !isPackageItem(i) && i.type !== 'material');
+  const granularOtherRevenue = granularOtherItems.reduce((sum, i) => sum + calculateItemTotal(i), 0);
+  const granularOtherCogs = granularOtherItems.reduce((sum, i) => sum + calculateItemModalCost(i), 0);
+  const granularOtherProfit = granularOtherRevenue - granularOtherCogs;
+
+  const totalCalculatedRevenue = packageRevenue + granularMatRevenue + granularOtherRevenue;
+  const totalCalculatedCogs = packageCogs + granularMatCogs + granularOtherCogs;
+  const totalCalculatedProfit = totalCalculatedRevenue - totalCalculatedCogs;
+  const grossMarginPercentage = totalCalculatedRevenue > 0 ? (totalCalculatedProfit / totalCalculatedRevenue) * 100 : 0;
+
   const handleSaveEstimation = async (silent = false) => {
     if (!spkId) {
       if (!silent) {
@@ -1689,6 +1717,68 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                  </div>
                </div>
 
+               {/* Sub-Rincian Profitabilitas RAB (3 Pilar) - Sprint 82 */}
+               <div className="pt-2 border-t border-border pb-1">
+                 <span className="text-[11px] font-mono font-bold text-text-muted uppercase tracking-wider block mb-2">
+                   Sub-Rincian Profitabilitas RAB (3 Pilar):
+                 </span>
+                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                   <div className="bg-background/80 p-2.5 rounded border border-amber-500/30">
+                     <div className="flex items-center justify-between">
+                       <span className="text-amber-400 font-bold text-[11px] font-mono uppercase">
+                         📦 Profit Paket (BOM)
+                       </span>
+                       <span className="text-[10px] font-mono text-text-muted">
+                         {packageItems.length} item
+                       </span>
+                     </div>
+                     <div className="mt-1 font-mono font-bold text-sm text-text">
+                       Rp {packageProfit.toLocaleString('id-ID')}
+                     </div>
+                     <div className="mt-0.5 text-[10px] font-mono text-text-muted flex justify-between">
+                       <span>Jual: Rp {packageRevenue.toLocaleString('id-ID')}</span>
+                       <span>Modal: Rp {packageCogs.toLocaleString('id-ID')}</span>
+                     </div>
+                   </div>
+
+                   <div className="bg-background/80 p-2.5 rounded border border-cyan-500/30">
+                     <div className="flex items-center justify-between">
+                       <span className="text-cyan-400 font-bold text-[11px] font-mono uppercase">
+                         📋 Profit Mat. Granular
+                       </span>
+                       <span className="text-[10px] font-mono text-text-muted">
+                         {granularMatItems.length} item
+                       </span>
+                     </div>
+                     <div className="mt-1 font-mono font-bold text-sm text-text">
+                       Rp {granularMatProfit.toLocaleString('id-ID')}
+                     </div>
+                     <div className="mt-0.5 text-[10px] font-mono text-text-muted flex justify-between">
+                       <span>Jual: Rp {granularMatRevenue.toLocaleString('id-ID')}</span>
+                       <span>Modal: Rp {granularMatCogs.toLocaleString('id-ID')}</span>
+                     </div>
+                   </div>
+
+                   <div className="bg-background/80 p-2.5 rounded border border-purple-500/30">
+                     <div className="flex items-center justify-between">
+                       <span className="text-purple-400 font-bold text-[11px] font-mono uppercase">
+                         ⚙️ Profit Jasa & FOH
+                       </span>
+                       <span className="text-[10px] font-mono text-text-muted">
+                         {granularOtherItems.length} item
+                       </span>
+                     </div>
+                     <div className="mt-1 font-mono font-bold text-sm text-text">
+                       Rp {granularOtherProfit.toLocaleString('id-ID')}
+                     </div>
+                     <div className="mt-0.5 text-[10px] font-mono text-text-muted flex justify-between">
+                       <span>Jual: Rp {granularOtherRevenue.toLocaleString('id-ID')}</span>
+                       <span>Biaya: Rp {granularOtherCogs.toLocaleString('id-ID')}</span>
+                     </div>
+                   </div>
+                 </div>
+               </div>
+
                <div className="flex items-center justify-between">
                  <span className="text-sm font-mono text-text-muted uppercase">Margin (Profit)</span>
                  <div className="flex items-center gap-2">
@@ -1710,6 +1800,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                         const totalJual = packagePrice + nonPackageCost;
                         return (totalJual - totalEstimatedModalCost).toLocaleString('id-ID');
                      })()}
+                     <span className="text-xs font-normal ml-1">({grossMarginPercentage.toFixed(1)}%)</span>
                    </span>
                  </div>
                </div>

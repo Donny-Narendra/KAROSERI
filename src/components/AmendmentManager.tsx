@@ -466,6 +466,38 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
   const laborCount = draftItems.filter(i => i.item_type === 'LABOR').length;
   const overheadCount = draftItems.filter(i => i.item_type === 'OVERHEAD').length;
 
+  // 3-Pillar Segregated Profit Calculations (Sprint 82)
+  const isPackageItem = (item: DraftItem) => Boolean(
+    item.package_source_id || item.package_name || (item.notes && item.notes.includes('Paket:'))
+  );
+
+  const packageDraftItems = useMemo(() => draftItems.filter(isPackageItem), [draftItems]);
+  const packageRevenue = useMemo(() => {
+    return packageDraftItems.reduce((sum, i) => sum + (Number(i.quantity) * Number(i.unit_price)), 0);
+  }, [packageDraftItems]);
+  const packageCogs = useMemo(() => {
+    return packageDraftItems.reduce((sum, i) => sum + (Number(i.quantity) * Number(i.cost_price || 0)), 0);
+  }, [packageDraftItems]);
+  const packageProfit = packageRevenue - packageCogs;
+
+  const granularMatDraftItems = useMemo(() => draftItems.filter(i => !isPackageItem(i) && i.item_type === 'MATERIAL'), [draftItems]);
+  const granularMatRevenue = useMemo(() => {
+    return granularMatDraftItems.reduce((sum, i) => sum + (Number(i.quantity) * Number(i.unit_price)), 0);
+  }, [granularMatDraftItems]);
+  const granularMatCogs = useMemo(() => {
+    return granularMatDraftItems.reduce((sum, i) => sum + (Number(i.quantity) * Number(i.cost_price || 0)), 0);
+  }, [granularMatDraftItems]);
+  const granularMatProfit = granularMatRevenue - granularMatCogs;
+
+  const granularOtherDraftItems = useMemo(() => draftItems.filter(i => !isPackageItem(i) && i.item_type !== 'MATERIAL'), [draftItems]);
+  const granularOtherRevenue = useMemo(() => {
+    return granularOtherDraftItems.reduce((sum, i) => sum + (Number(i.quantity) * Number(i.unit_price)), 0);
+  }, [granularOtherDraftItems]);
+  const granularOtherCogs = useMemo(() => {
+    return granularOtherDraftItems.reduce((sum, i) => sum + (Number(i.quantity) * Number(i.cost_price || 0)), 0);
+  }, [granularOtherDraftItems]);
+  const granularOtherProfit = granularOtherRevenue - granularOtherCogs;
+
   // Submit Change Order to backend (Decoupled final submission)
   const handleSubmitFinalChangeOrder = async (e?: React.FormEvent) => {
     if (e) {
@@ -1397,6 +1429,68 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                           </div>
                         );
                       })}
+                    </div>
+                  </div>
+
+                  {/* Sub-Rincian Profitabilitas Change Order (3 Pilar) - Sprint 82 */}
+                  <div className="pt-1 border-t border-border pb-1">
+                    <span className="text-[11px] font-mono font-bold text-text-muted uppercase tracking-wider block mb-2">
+                      Sub-Rincian Profitabilitas CO (3 Pilar):
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                      <div className="bg-background/80 p-2.5 rounded border border-amber-500/30">
+                        <div className="flex items-center justify-between">
+                          <span className="text-amber-400 font-bold text-[11px] font-mono uppercase">
+                            📦 Profit Paket (BOM)
+                          </span>
+                          <span className="text-[10px] font-mono text-text-muted">
+                            {packageDraftItems.length} item
+                          </span>
+                        </div>
+                        <div className="mt-1 font-mono font-bold text-sm text-text">
+                          Rp {packageProfit.toLocaleString('id-ID')}
+                        </div>
+                        <div className="mt-0.5 text-[10px] font-mono text-text-muted flex justify-between">
+                          <span>Jual: Rp {packageRevenue.toLocaleString('id-ID')}</span>
+                          <span>Modal: Rp {packageCogs.toLocaleString('id-ID')}</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-background/80 p-2.5 rounded border border-cyan-500/30">
+                        <div className="flex items-center justify-between">
+                          <span className="text-cyan-400 font-bold text-[11px] font-mono uppercase">
+                            📋 Profit Mat. Granular
+                          </span>
+                          <span className="text-[10px] font-mono text-text-muted">
+                            {granularMatDraftItems.length} item
+                          </span>
+                        </div>
+                        <div className="mt-1 font-mono font-bold text-sm text-text">
+                          Rp {granularMatProfit.toLocaleString('id-ID')}
+                        </div>
+                        <div className="mt-0.5 text-[10px] font-mono text-text-muted flex justify-between">
+                          <span>Jual: Rp {granularMatRevenue.toLocaleString('id-ID')}</span>
+                          <span>Modal: Rp {granularMatCogs.toLocaleString('id-ID')}</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-background/80 p-2.5 rounded border border-purple-500/30">
+                        <div className="flex items-center justify-between">
+                          <span className="text-purple-400 font-bold text-[11px] font-mono uppercase">
+                            ⚙️ Profit Jasa & FOH
+                          </span>
+                          <span className="text-[10px] font-mono text-text-muted">
+                            {granularOtherDraftItems.length} item
+                          </span>
+                        </div>
+                        <div className="mt-1 font-mono font-bold text-sm text-text">
+                          Rp {granularOtherProfit.toLocaleString('id-ID')}
+                        </div>
+                        <div className="mt-0.5 text-[10px] font-mono text-text-muted flex justify-between">
+                          <span>Jual: Rp {granularOtherRevenue.toLocaleString('id-ID')}</span>
+                          <span>Biaya: Rp {granularOtherCogs.toLocaleString('id-ID')}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
 

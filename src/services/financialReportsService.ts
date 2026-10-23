@@ -99,6 +99,16 @@ export const financialReportsService = {
         total_cogs: Number(row.total_cogs || 0),
         gross_profit: Number(row.gross_profit || 0),
         gross_margin_percentage: Number(row.gross_margin_percentage || 0),
+        // 3-Pillar Segregated Profit Columns
+        package_revenue: Number(row.package_revenue || 0),
+        package_cogs: Number(row.package_cogs || 0),
+        package_profit: Number(row.package_profit || 0),
+        granular_mat_revenue: Number(row.granular_mat_revenue || 0),
+        granular_mat_cogs: Number(row.granular_mat_cogs || 0),
+        granular_material_profit: Number(row.granular_material_profit || 0),
+        granular_other_revenue: Number(row.granular_other_revenue || 0),
+        granular_other_cogs: Number(row.granular_other_cogs || 0),
+        granular_other_profit: Number(row.granular_other_profit || 0),
       })) as SpkJobProfitability[];
   },
 
