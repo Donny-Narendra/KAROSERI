@@ -151,3 +151,112 @@ export function formatIdrCurrency(amount: number): string {
     maximumFractionDigits: 0,
   }).format(amount || 0);
 }
+
+export interface SegregatedProfitCalculation {
+  pkgRev: number;
+  pkgCost: number;
+  pkgProfit: number;
+  matRev: number;
+  matCost: number;
+  matProfit: number;
+  otherRev: number;
+  otherCost: number;
+  otherProfit: number;
+  totalRev: number;
+  totalCost: number;
+  totalProfit: number;
+}
+
+/**
+ * Menghitung pemisahan profit 3-pilar (Paket Barang Jadi, Material Granular, dan Jasa/Overhead Bebas)
+ * Mendukung data dari tabel rab_items, change_order_items, state RabItem, maupun DraftItem.
+ */
+export function calculateSegregatedProfit(
+  items: Array<any>,
+  packages?: Array<any>
+): SegregatedProfitCalculation {
+  if (!Array.isArray(items)) {
+    return {
+      pkgRev: 0, pkgCost: 0, pkgProfit: 0,
+      matRev: 0, matCost: 0, matProfit: 0,
+      otherRev: 0, otherCost: 0, otherProfit: 0,
+      totalRev: 0, totalCost: 0, totalProfit: 0,
+    };
+  }
+
+  // Paket: memiliki package_id atau package_source_id atau package_name (atau packageId / packageName / notes Paket:)
+  const isPkg = (i: any) => Boolean(
+    i.package_id ||
+    i.package_source_id ||
+    i.package_name ||
+    i.packageId ||
+    i.packageName ||
+    (typeof i.notes === 'string' && i.notes.includes('Paket:'))
+  );
+
+  const getQty = (i: any) => Number(i.quantity !== undefined ? i.quantity : (i.qty || 0));
+  const getUnitPrice = (i: any) => Number(i.unit_price !== undefined ? i.unit_price : (i.unitPrice || 0));
+  const getCostPrice = (i: any) => {
+    if (i.cost_price !== undefined && i.cost_price !== null) return Number(i.cost_price || 0);
+    if (i.costPrice !== undefined && i.costPrice !== null) return Number(i.costPrice || 0);
+    if (i.unitPrice !== undefined && i.unit_price === undefined) return Number(i.unitPrice || 0);
+    return 0;
+  };
+  const isMat = (i: any) => {
+    const t = String(i.item_type || i.type || '').toUpperCase();
+    return t === 'MATERIAL';
+  };
+
+  // Paket: memiliki package_id atau package_source_id atau package_name
+  const pkgItems = items.filter(isPkg);
+  let pkgRev = 0;
+  if (Array.isArray(packages) && packages.length > 0) {
+    const uniquePackages = new Map<string, number>();
+    const unbundledPkgItems: any[] = [];
+
+    pkgItems.forEach(i => {
+      const key = i.package_instance_id || i.packageInstanceId || i.packageId || i.package_id || i.package_source_id || i.packageName || i.package_name;
+      const pid = i.packageId || i.package_id || i.package_source_id;
+      const pName = i.packageName || i.package_name;
+      const found = packages.find(p => (pid && p.id === pid) || (pName && p.name === pName));
+      if (found) {
+        if (key && !uniquePackages.has(key)) {
+          uniquePackages.set(key, Number(found.selling_price || 0));
+        }
+      } else {
+        unbundledPkgItems.push(i);
+      }
+    });
+
+    uniquePackages.forEach(price => { pkgRev += price; });
+    pkgRev += unbundledPkgItems.reduce((acc, i) => acc + (getQty(i) * getUnitPrice(i)), 0);
+  } else {
+    pkgRev = pkgItems.reduce((acc, i) => acc + (getQty(i) * getUnitPrice(i)), 0);
+  }
+  const pkgCost = pkgItems.reduce((acc, i) => acc + (getQty(i) * getCostPrice(i)), 0);
+  const pkgProfit = pkgRev - pkgCost;
+
+  // Granular Material: tanpa paket & tipe MATERIAL
+  const matItems = items.filter(i => !isPkg(i) && isMat(i));
+  const matRev = matItems.reduce((acc, i) => acc + (getQty(i) * getUnitPrice(i)), 0);
+  const matCost = matItems.reduce((acc, i) => acc + (getQty(i) * getCostPrice(i)), 0);
+  const matProfit = matRev - matCost;
+
+  // Granular Other: tanpa paket & tipe JASA / OVERHEAD
+  const otherItems = items.filter(i => !isPkg(i) && !isMat(i));
+  const otherRev = otherItems.reduce((acc, i) => acc + (getQty(i) * getUnitPrice(i)), 0);
+  const otherCost = otherItems.reduce((acc, i) => acc + (getQty(i) * getCostPrice(i)), 0);
+  const otherProfit = otherRev - otherCost;
+
+  const totalRev = pkgRev + matRev + otherRev;
+  const totalCost = pkgCost + matCost + otherCost;
+  const totalProfit = totalRev - totalCost;
+
+  return {
+    pkgRev, pkgCost, pkgProfit,
+    matRev, matCost, matProfit,
+    otherRev, otherCost, otherProfit,
+    totalRev, totalCost, totalProfit,
+  };
+}
+

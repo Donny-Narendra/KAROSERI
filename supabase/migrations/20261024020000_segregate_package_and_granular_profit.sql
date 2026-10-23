@@ -78,6 +78,8 @@ SELECT
   (COALESCE(cp.package_revenue, 0) - COALESCE(cp.package_cogs, 0)) AS package_profit,
   
   -- Profit Material Granular
+  COALESCE(cp.granular_mat_revenue, 0) AS granular_material_revenue,
+  COALESCE(cp.granular_mat_cogs, 0) AS granular_material_cogs,
   COALESCE(cp.granular_mat_revenue, 0) AS granular_mat_revenue,
   COALESCE(cp.granular_mat_cogs, 0) AS granular_mat_cogs,
   (COALESCE(cp.granular_mat_revenue, 0) - COALESCE(cp.granular_mat_cogs, 0)) AS granular_material_profit,

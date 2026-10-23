@@ -261,11 +261,11 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
                   </div>
                 </th>
                 {/* Segregated Profit Columns */}
-                <th className="py-3 px-3 text-right text-amber-400" title="Profit Penjualan Paket Barang Jadi (BOM)">
-                  Profit Paket (BOM)
+                <th className="py-3 px-3 text-right text-amber-400" title="Profit Penjualan Paket Barang Jadi (Assembly)">
+                  Laba Karya Paket (Assembly)
                 </th>
                 <th className="py-3 px-3 text-right text-cyan-400" title="Markup Profit Penjualan Material Lepas (Granular)">
-                  Profit Mat. Granular
+                  Laba Material Lepas (Granular)
                 </th>
                 <th className="py-3 px-3 text-right text-purple-400" title="Margin Pekerjaan Jasa Lepas & Overhead Bebas">
                   Profit Jasa & FOH

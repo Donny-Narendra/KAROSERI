@@ -14,10 +14,13 @@ import type { RabItemPayload } from './PackageAllocationModal';
 import { exportRabToExcel, printRabQuotation } from '../utils/rabExport';
 import { parseDecimalValue } from '../utils/numberUtils';
 import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
+import { formatRupiah } from '../utils/formatters';
+import { calculateSegregatedProfit } from '../utils/financialCalculations';
 
 import { rabService, type RabItem, type RabSpkDetails, type DbRabItemRecord } from '../services/rabService';
 
 export type { RabItem, RabSpkDetails, DbRabItemRecord };
+export { calculateSegregatedProfit };
 
 const LABOR_KEYWORDS = ['jasa', 'ongkos', 'borongan', 'tukang', 'upah', 'tenaga'];
 
@@ -574,27 +577,29 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     item.packageId || item.package_name || item.packageName || (item.notes && item.notes.includes('Paket:'))
   );
 
-  // 1. Profit Paket Barang Jadi (Assembly List / BOM)
   const packageItems = items.filter(isPackageItem);
-  const packageRevenue = packageItems.reduce((sum, i) => sum + calculateItemTotal(i), 0);
-  const packageCogs = packageItems.reduce((sum, i) => sum + calculateItemModalCost(i), 0);
-  const packageProfit = packageRevenue - packageCogs;
+  const granularMatItems = items.filter(i => !isPackageItem(i) && i.type === 'material');
+  const granularOtherItems = items.filter(i => !isPackageItem(i) && i.type !== 'material');
+
+  const profitData = useMemo(() => calculateSegregatedProfit(items, packages), [items, packages]);
+
+  // 1. Profit Paket Barang Jadi (Assembly List / BOM)
+  const packageRevenue = profitData.pkgRev;
+  const packageCogs = profitData.pkgCost;
+  const packageProfit = profitData.pkgProfit;
 
   // 2. Profit Penjualan Material Granular (Bahan baku lepas di luar paket)
-  const granularMatItems = items.filter(i => !isPackageItem(i) && i.type === 'material');
-  const granularMatRevenue = granularMatItems.reduce((sum, i) => sum + calculateItemTotal(i), 0);
-  const granularMatCogs = granularMatItems.reduce((sum, i) => sum + calculateItemModalCost(i), 0);
-  const granularMatProfit = granularMatRevenue - granularMatCogs;
+  const granularMatRevenue = profitData.matRev;
+  const granularMatCogs = profitData.matCost;
+  const granularMatProfit = profitData.matProfit;
 
   // 3. Profit Jasa & Overhead Lepas (Labor & FOH di luar paket)
-  const granularOtherItems = items.filter(i => !isPackageItem(i) && i.type !== 'material');
-  const granularOtherRevenue = granularOtherItems.reduce((sum, i) => sum + calculateItemTotal(i), 0);
-  const granularOtherCogs = granularOtherItems.reduce((sum, i) => sum + calculateItemModalCost(i), 0);
-  const granularOtherProfit = granularOtherRevenue - granularOtherCogs;
+  const granularOtherRevenue = profitData.otherRev;
+  const granularOtherCogs = profitData.otherCost;
+  const granularOtherProfit = profitData.otherProfit;
 
-  const totalCalculatedRevenue = packageRevenue + granularMatRevenue + granularOtherRevenue;
-  const totalCalculatedCogs = packageCogs + granularMatCogs + granularOtherCogs;
-  const totalCalculatedProfit = totalCalculatedRevenue - totalCalculatedCogs;
+  const totalCalculatedRevenue = profitData.totalRev;
+  const totalCalculatedProfit = profitData.totalProfit;
   const grossMarginPercentage = totalCalculatedRevenue > 0 ? (totalCalculatedProfit / totalCalculatedRevenue) * 100 : 0;
 
   const handleSaveEstimation = async (silent = false) => {
@@ -1802,6 +1807,53 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                      })()}
                      <span className="text-xs font-normal ml-1">({grossMarginPercentage.toFixed(1)}%)</span>
                    </span>
+                 </div>
+               </div>
+
+               <div className="pt-3 border-t border-slate-800 space-y-1.5 text-xs">
+                 {/* Baris Profit Paket */}
+                 <div className="flex justify-between items-center text-slate-300">
+                   <span className="flex items-center gap-1.5">
+                     <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                     Profit Paket Barang Jadi (Karya Assembly):
+                   </span>
+                   <span className="font-semibold text-amber-400">
+                     {formatRupiah(profitData.pkgProfit)}
+                     <span className="text-[10px] text-slate-400 font-normal ml-1">
+                       ({profitData.pkgRev > 0 ? ((profitData.pkgProfit / profitData.pkgRev) * 100).toFixed(1) : 0}%)
+                     </span>
+                   </span>
+                 </div>
+
+                 {/* Baris Profit Material Lepas */}
+                 <div className="flex justify-between items-center text-slate-300">
+                   <span className="flex items-center gap-1.5">
+                     <span className="w-2 h-2 rounded-full bg-cyan-500"></span>
+                     Profit Penjualan Material Granular:
+                   </span>
+                   <span className="font-semibold text-cyan-400">
+                     {formatRupiah(profitData.matProfit)}
+                     <span className="text-[10px] text-slate-400 font-normal ml-1">
+                       ({profitData.matRev > 0 ? ((profitData.matProfit / profitData.matRev) * 100).toFixed(1) : 0}%)
+                     </span>
+                   </span>
+                 </div>
+
+                 {/* Baris Profit Jasa & Overhead */}
+                 <div className="flex justify-between items-center text-slate-300">
+                   <span className="flex items-center gap-1.5">
+                     <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                     Profit Jasa & Overhead Bebas:
+                   </span>
+                   <span className="font-semibold text-emerald-400">
+                     {formatRupiah(profitData.otherProfit)}
+                   </span>
+                 </div>
+
+                 {/* Grand Total Margin */}
+                 <div className="flex justify-between items-center text-sm font-bold text-emerald-400 pt-1.5 border-t border-slate-800/80">
+                   <span>TOTAL MARGIN (PROFIT GABUNGAN):</span>
+                   <span>{formatRupiah(profitData.totalProfit)}</span>
                  </div>
                </div>
             </div>

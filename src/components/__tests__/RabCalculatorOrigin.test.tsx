@@ -148,7 +148,7 @@ vi.mock('../../services/packageService', () => ({
       {
         id: 'pkg-cat-oven',
         name: 'PAKET PENGECATAN OVEN',
-        selling_price: 5000000,
+        selling_price: 600000,
         items: [],
       },
     ]),
@@ -270,4 +270,28 @@ describe('Component: RabCalculator (Source Package / Granular Origin Column)', (
     expect(granularBadge).toBeInTheDocument();
     expect(within(row).getByText('📋')).toBeInTheDocument();
   });
+
+  it('renders segregated 3-pillar profit breakdown in the financial footer below Margin (Profit)', async () => {
+    render(<RabCalculator spkId="spk-test-origin" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Baut Hex 12mm')).toBeInTheDocument();
+    });
+
+    // Check financial footer segregated profit labels
+    expect(screen.getByText(/Profit Paket Barang Jadi \(Karya Assembly\):/i)).toBeInTheDocument();
+    expect(screen.getByText(/Profit Penjualan Material Granular:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Profit Jasa & Overhead Bebas:/i)).toBeInTheDocument();
+    expect(screen.getByText(/TOTAL MARGIN \(PROFIT GABUNGAN\):/i)).toBeInTheDocument();
+
+    // Check values rendered
+    expect(screen.getAllByText(/620\.000/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('(21.4%)')).toBeInTheDocument();
+
+    expect(screen.getAllByText(/25\.000/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('(20.0%)')).toBeInTheDocument();
+
+    expect(screen.getAllByText(/645\.000/).length).toBeGreaterThanOrEqual(1);
+  });
 });
+

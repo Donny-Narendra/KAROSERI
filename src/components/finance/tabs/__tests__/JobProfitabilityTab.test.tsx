@@ -28,6 +28,13 @@ describe('Component: JobProfitabilityTab (Operational SPKs & Draft Exclusion)', 
       gross_profit: 17_500_000,
       gross_margin_percentage: 35.0,
       payment_status: 'PARTIAL',
+      package_revenue: 30_000_000,
+      package_cogs: 20_000_000,
+      package_profit: 10_000_000,
+      granular_material_revenue: 15_000_000,
+      granular_material_cogs: 10_000_000,
+      granular_material_profit: 5_000_000,
+      granular_other_profit: 2_500_000,
     },
     {
       spk_id: 'spk-completed-2',
@@ -45,6 +52,13 @@ describe('Component: JobProfitabilityTab (Operational SPKs & Draft Exclusion)', 
       gross_profit: 15_000_000,
       gross_margin_percentage: 37.5,
       payment_status: 'PAID',
+      package_revenue: 25_000_000,
+      package_cogs: 15_000_000,
+      package_profit: 10_000_000,
+      granular_material_revenue: 10_000_000,
+      granular_material_cogs: 7_000_000,
+      granular_material_profit: 3_000_000,
+      granular_other_profit: 2_000_000,
     },
     {
       spk_id: 'spk-draft-8698',
@@ -62,6 +76,13 @@ describe('Component: JobProfitabilityTab (Operational SPKs & Draft Exclusion)', 
       gross_profit: 0,
       gross_margin_percentage: 0,
       payment_status: 'UNBILLED',
+      package_revenue: 0,
+      package_cogs: 0,
+      package_profit: 0,
+      granular_material_revenue: 0,
+      granular_material_cogs: 0,
+      granular_material_profit: 0,
+      granular_other_profit: 0,
     },
     {
       spk_id: 'spk-pending-dp-9999',
@@ -79,6 +100,13 @@ describe('Component: JobProfitabilityTab (Operational SPKs & Draft Exclusion)', 
       gross_profit: 0,
       gross_margin_percentage: 0,
       payment_status: 'UNBILLED',
+      package_revenue: 0,
+      package_cogs: 0,
+      package_profit: 0,
+      granular_material_revenue: 0,
+      granular_material_cogs: 0,
+      granular_material_profit: 0,
+      granular_other_profit: 0,
     },
   ];
 
@@ -140,8 +168,8 @@ describe('Component: JobProfitabilityTab (Operational SPKs & Draft Exclusion)', 
     render(<JobProfitabilityTab />);
 
     await waitFor(() => {
-      expect(screen.getByText('Profit Paket (BOM)')).toBeInTheDocument();
-      expect(screen.getByText('Profit Mat. Granular')).toBeInTheDocument();
+      expect(screen.getByText('Laba Karya Paket (Assembly)')).toBeInTheDocument();
+      expect(screen.getByText('Laba Material Lepas (Granular)')).toBeInTheDocument();
       expect(screen.getByText('Profit Jasa & FOH')).toBeInTheDocument();
     });
 

@@ -326,6 +326,12 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
     expect(screen.getByText('Sub-Rincian Profitabilitas CO (3 Pilar):')).toBeInTheDocument();
     expect(screen.getByText(/Profit Jasa & FOH/i)).toBeInTheDocument();
 
+    // Verify Task 2 Footer Financial Segregated Breakdown
+    expect(screen.getByText(/Profit Paket Barang Jadi \(Karya Assembly\):/i)).toBeInTheDocument();
+    expect(screen.getByText(/Profit Penjualan Material Granular:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Profit Jasa & Overhead Bebas:/i)).toBeInTheDocument();
+    expect(screen.getByText(/TOTAL MARGIN \(PROFIT GABUNGAN\):/i)).toBeInTheDocument();
+
     // Submit form
     const submitBtn = screen.getByRole('button', { name: /Ajukan Change Order/i });
     fireEvent.submit(submitBtn.closest('form')!);

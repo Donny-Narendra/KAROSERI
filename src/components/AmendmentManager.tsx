@@ -18,6 +18,10 @@ import type { ChangeOrderRecord, ChangeOrderItemType } from '../types/database';
 import { ChangeOrderPackageModal } from './ChangeOrderPackageModal';
 import type { ExplodedChangeOrderItem } from '../utils/packageExplosion';
 import { parseDecimalValue } from '../utils/numberUtils';
+import { formatRupiah } from '../utils/formatters';
+import { calculateSegregatedProfit } from '../utils/financialCalculations';
+
+export { calculateSegregatedProfit };
 
 interface AmendmentManagerProps {
   spkId: string;
@@ -497,6 +501,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
     return granularOtherDraftItems.reduce((sum, i) => sum + (Number(i.quantity) * Number(i.cost_price || 0)), 0);
   }, [granularOtherDraftItems]);
   const granularOtherProfit = granularOtherRevenue - granularOtherCogs;
+  const profitData = useMemo(() => calculateSegregatedProfit(draftItems, packages), [draftItems, packages]);
 
   // Submit Change Order to backend (Decoupled final submission)
   const handleSubmitFinalChangeOrder = async (e?: React.FormEvent) => {
@@ -1529,6 +1534,53 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                         {profit.toLocaleString('id-ID')}
                         <span className="text-xs font-normal ml-1">({marginPct.toFixed(1)}%)</span>
                       </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-800 space-y-1.5 text-xs">
+                    {/* Baris Profit Paket */}
+                    <div className="flex justify-between items-center text-slate-300">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                        Profit Paket Barang Jadi (Karya Assembly):
+                      </span>
+                      <span className="font-semibold text-amber-400">
+                        {formatRupiah(profitData.pkgProfit)}
+                        <span className="text-[10px] text-slate-400 font-normal ml-1">
+                          ({profitData.pkgRev > 0 ? ((profitData.pkgProfit / profitData.pkgRev) * 100).toFixed(1) : 0}%)
+                        </span>
+                      </span>
+                    </div>
+
+                    {/* Baris Profit Material Lepas */}
+                    <div className="flex justify-between items-center text-slate-300">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-cyan-500"></span>
+                        Profit Penjualan Material Granular:
+                      </span>
+                      <span className="font-semibold text-cyan-400">
+                        {formatRupiah(profitData.matProfit)}
+                        <span className="text-[10px] text-slate-400 font-normal ml-1">
+                          ({profitData.matRev > 0 ? ((profitData.matProfit / profitData.matRev) * 100).toFixed(1) : 0}%)
+                        </span>
+                      </span>
+                    </div>
+
+                    {/* Baris Profit Jasa & Overhead */}
+                    <div className="flex justify-between items-center text-slate-300">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        Profit Jasa & Overhead Bebas:
+                      </span>
+                      <span className="font-semibold text-emerald-400">
+                        {formatRupiah(profitData.otherProfit)}
+                      </span>
+                    </div>
+
+                    {/* Grand Total Margin */}
+                    <div className="flex justify-between items-center text-sm font-bold text-emerald-400 pt-1.5 border-t border-slate-800/80">
+                      <span>TOTAL MARGIN (PROFIT GABUNGAN):</span>
+                      <span>{formatRupiah(profitData.totalProfit)}</span>
                     </div>
                   </div>
 

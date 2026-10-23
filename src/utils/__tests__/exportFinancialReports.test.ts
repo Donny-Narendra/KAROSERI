@@ -47,6 +47,8 @@ describe('Financial Report Export Engine & Mapping (exportFinancialReports)', ()
           package_revenue: 30_000_000,
           package_cogs: 21_000_000,
           package_profit: 9_000_000,
+          granular_material_revenue: 15_000_000,
+          granular_material_cogs: 12_000_000,
           granular_mat_revenue: 15_000_000,
           granular_mat_cogs: 12_000_000,
           granular_material_profit: 3_000_000,
@@ -70,8 +72,8 @@ describe('Financial Report Export Engine & Mapping (exportFinancialReports)', ()
       expect(row['Nomor SPK']).toBe('SPK-1001');
       expect(row['Nama Pelanggan']).toBe('PT Logistik Maju');
       expect(row['Pendapatan Tagihan (Rp)']).toBe(50_000_000);
-      expect(row['Profit Paket Assembly (Rp)']).toBe(9_000_000);
-      expect(row['Profit Material Granular (Rp)']).toBe(3_000_000);
+      expect(row['Laba Paket (Rp)']).toBe(9_000_000);
+      expect(row['Laba Material Lepas (Rp)']).toBe(3_000_000);
       expect(row['Profit Jasa & Overhead (Rp)']).toBe(1_000_000);
       expect(row['HPP Bahan/Material (Rp)']).toBe(25_000_000);
       expect(row['HPP Jasa/Borongan (Rp)']).toBe(10_000_000);

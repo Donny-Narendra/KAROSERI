@@ -145,6 +145,8 @@ describe('Service: financialReportsService (Exclude Draft SPK)', () => {
     expect(item.package_revenue).toBe(60_000_000);
     expect(item.package_cogs).toBe(40_000_000);
     expect(item.package_profit).toBe(20_000_000);
+    expect(item.granular_material_revenue).toBe(30_000_000);
+    expect(item.granular_material_cogs).toBe(18_000_000);
     expect(item.granular_mat_revenue).toBe(30_000_000);
     expect(item.granular_mat_cogs).toBe(18_000_000);
     expect(item.granular_material_profit).toBe(12_000_000);
