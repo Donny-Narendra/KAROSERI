@@ -1,80 +1,57 @@
-# Sprint 76 — Format Source Column with RAB or Change Order Prefix and Granular Fallback in Warehouse Tables
+# Sprint 77 — Refactor Change Order Form Layout to Match RAB Calculator Two-Column UI
 
-> **Duration**: 2026-10-22 to 2026-10-23
-> **Status**: Completed
+> **Duration**: 2026-10-23 to 2026-10-24
+> **Status**: In Progress
 
 ## Goal
-Implement a refined source origin labeling format for the `SUMBER / PAKET` column in both "Pending Requisitions (Mandor)" and "Recent Material Issues" tables across `/warehouse` and `/service-advisor` dashboards. The label must explicitly prefix document origin ("RAB" or "Change Order"), specify package name when applicable (e.g., `RAB • Paket: SLEBOR BELAKANG` / `Change Order • Paket: SLEBOR BELAKANG`), and fall back to "Granular" for non-packaged/loose items (e.g., `RAB • Granular` / `Change Order • Granular`), with distinct color-coded badges while preserving ascending WBS stage sorting (WBS 1 -> WBS 2 -> WBS 3 -> WBS 4 -> WBS 5).
+Refactor the Change Order creation form layout in `src/components/AmendmentManager.tsx` from row-based stacked cards into a unified 2-column Split Panel Grid matching the exact design and UX pattern of the RAB Calculator (`RabCalculator.tsx`):
+- Header: Keep `DESKRIPSI & JUSTIFIKASI PERUBAHAN PEKERJAAN *` at the top of the form.
+- Left Column (Input Builder): Assembly Package selection dropdown with modal trigger, Category switch toggles (`Bahan Baku (Material)`, `Jasa / Tukang (Labor)`, `Overhead (FOH)`), search/autocomplete inputs (Material master search, Labor with auto-suggest and custom name fallback, Overhead preset/custom input), Qty with decimal precision and auto-select on focus, Unit price & Cost price (HPP), interactive WBS 1 to 5 Allocation Grid with auto-validation status badge, and "+ Tambah ke Change Order" submit button.
+- Right Column (Live Item Review & Financial Summary): Live itemized table (`DESCRIPTION`, `TYPE` badge, `WBS`, `QTY`, `HARGA SATUAN`, `HARGA MODAL (HPP)`, `SUBTOTAL`, `AKSI` edit/delete), category budget cards (`PAGU MATERIAL`, `PAGU JASA (LABOR)`, `OVERHEAD`), WBS stage summary cards (WBS 1 to WBS 5), comprehensive financial totals (`TOTAL ESTIMATED COST (HPP MODAL CO)`, `TOTAL HARGA JUAL (QUOTATION CO)`, `MARGIN (PROFIT CO)`), and final action buttons (`Batal`, `Ajukan Change Order`).
 
 ## Scope
 
 ### Included
-- Refactor `src/utils/sourceOrigin.ts`:
-  - Export interface `SourceOriginResult` (`origin: 'RAB' | 'Change Order'`, `typeLabel: string`, `fullLabel: string`, `badgeClass: string`).
-  - Implement `resolveDetailedSource(item, req)`:
-    - Distinguishes document origin between `'Change Order'` and `'RAB'` via `change_order_id`, `change_order_item_id`, `source_type === 'CHANGE_ORDER'`, `is_change_order`, etc.
-    - Resolves package name from direct properties (`package_name`, `product_packages.name`, etc.) and note formats (`[Paket: ...]`).
-    - Cleans duplicate `Paket:` prefixes to avoid repeated labels.
-    - If package exists: returns `${origin} • Paket: ${cleanPackageName}` with theme badges (`bg-purple-950/70 text-purple-300 border border-purple-600/50` for Change Order, `bg-amber-950/70 text-amber-300 border border-amber-600/50` for RAB).
-    - If package does NOT exist: returns `${origin} • Granular` with theme badges (`bg-indigo-950/70 text-indigo-300 border border-indigo-600/50` for Change Order, `bg-blue-950/70 text-blue-300 border border-blue-600/50` for RAB).
-  - Update `resolveItemSource` and `extractIssueSource` to leverage `resolveDetailedSource` seamlessly.
-- Update `RequisitionApproval.tsx`:
-  - Render `resolveDetailedSource` output in the `SUMBER / PAKET` column with appropriate styling and tooltip.
-  - Maintain ascending WBS sorting for tickets and requisition items.
-- Update `RecentMaterialIssues.tsx`:
-  - Render `resolveDetailedSource` output in the `SUMBER / PAKET` column with appropriate styling.
-  - Ensure search query matches against `origin`, `typeLabel`, `fullLabel`, and package name.
-  - Maintain ascending WBS sorting and secondary timestamp sorting.
-- Update and add automated unit & integration tests:
-  - `src/utils/__tests__/sourceOrigin.test.ts`
-  - `src/components/__tests__/RequisitionApprovalWbsSort.test.tsx`
-  - `src/components/__tests__/RecentMaterialIssues.test.tsx`
-- Complete quality validation:
-  - Unit tests (`npm test`)
-  - Linter (`npx oxlint`)
-  - Static type checking (`tsc --noEmit`)
-  - Production build (`npm run build`)
+- Refactor `src/components/AmendmentManager.tsx`:
+  - Retain description and justification textarea at the top.
+  - Implement two-column responsive split grid: `grid grid-cols-1 lg:grid-cols-3 gap-8`.
+  - Left panel (`lg:col-span-1`):
+    - Assembly List package selector dropdown + "+ Paket Barang Jadi" modal trigger.
+    - Category toggle buttons: `Bahan Baku (Material)` vs `Jasa / Tukang (Labor)` vs `Overhead (FOH)`.
+    - Dedicated input forms for Material, Labor, and Overhead with auto-select on focus and decimal support.
+    - Interactive WBS Allocation Matrix (Total Qty, WBS 1 to WBS 5, Status badge with Sesuai/Sisa/Lebih).
+    - Local item addition/update logic that splits allocated quantities across WBS stages into draft items.
+  - Right panel (`lg:col-span-2`):
+    - Live review table with columns: `Description`, `Type`, `WBS`, `Qty`, `Harga Satuan`, `Harga Modal (HPP)`, `Subtotal`, `Aksi / Status` (Edit & Delete).
+    - Category budget cards: `PAGU MATERIAL`, `PAGU JASA (LABOR)`, `OVERHEAD`.
+    - WBS stage cost summary matrix (WBS 1 to WBS 5 with material, labor, overhead breakdowns).
+    - Real-time financial summary: `TOTAL ESTIMATED COST (HPP MODAL CO)`, `TOTAL HARGA JUAL (QUOTATION CO)`, `MARGIN (PROFIT CO)`.
+    - Final submission buttons: `Batal` and `Ajukan Change Order`.
+- Update and add comprehensive unit/component tests in `src/components/__tests__/AmendmentManager.test.tsx`:
+  - Test two-column layout rendering.
+  - Test WBS allocation grid behavior (validation, remainder badge).
+  - Test adding material with multi-WBS allocation splitting into right-hand table.
+  - Test category budget and WBS stage summaries.
+  - Verify existing tests continue passing.
+- Quality validation: Vitest tests, Oxlint linter, TypeScript compiler (`tsc --noEmit`), and production build (`npm run build`).
 
 ### Explicitly Excluded
-- Database schema changes (the optional schema migration is already prepared if needed).
-- Altering Gate 2 budget validation thresholds or approval state machines.
+- Database schema changes (backend table structures and migrations remain unchanged).
+- Modifying cashiers or warehouse approval workflows outside the Change Order creation form.
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| 1. Refactor `src/utils/sourceOrigin.ts` with `resolveDetailedSource` & update unit tests | Antigravity | ✅ Done | 0.5h |
-| 2. Apply `resolveDetailedSource` in `RequisitionApproval.tsx` & verify ascending WBS sort | Antigravity | ✅ Done | 0.5h |
-| 3. Apply `resolveDetailedSource` in `RecentMaterialIssues.tsx` & reactive search filter | Antigravity | ✅ Done | 0.5h |
-| 4. Update and expand automated component tests | Antigravity | ✅ Done | 0.5h |
-| 5. Run full quality gate (Vitest, Oxlint, TypeScript compiler, Production Build) | Antigravity | ✅ Done | 0.5h |
+| 1. Design & refactor `AmendmentManager.tsx` form state to support builder input & WBS allocation matrix | Antigravity | ⏳ In Progress | 1.0h |
+| 2. Implement Left Column builder component (Assembly list dropdown, Category toggle, Autocomplete, Dual pricing, WBS Matrix) | Antigravity | ⬜ Todo | 1.5h |
+| 3. Implement Right Column review table & financial summary (Item table, Category pagu, WBS stage cards, Margins, Final submit) | Antigravity | ⬜ Todo | 1.0h |
+| 4. Update and expand automated component tests in `AmendmentManager.test.tsx` | Antigravity | ⬜ Todo | 1.0h |
+| 5. Run full quality gate (Vitest, Oxlint, TypeScript compiler, Production Build) and verify UI | Antigravity | ⬜ Todo | 0.5h |
 
 ## Daily Log
 
-### 2026-10-22
-- Sprint 76 created.
-- Archived Sprint 75 into `.gsd/sprints/sprint-75-add-source-origin-column-and-package-name-with-ascending-wbs-sorting-in-warehouse-requisitions-and-recent-issues.md`.
-- Implemented `resolveDetailedSource` in `src/utils/sourceOrigin.ts`:
-  - Formats document origin (`RAB` vs `Change Order`).
-  - Resolves package names from direct attributes and note tags (`[Paket: ...]`), cleaning duplicate `Paket:` prefixes.
-  - Generates `${origin} • Paket: ${cleanName}` with amber (RAB) or purple (Change Order) theme classes.
-  - Falls back to `${origin} • Granular` with blue (RAB) or indigo (Change Order) theme classes.
-  - Updated `resolveItemSource` and `extractIssueSource` for backward and forward compatibility.
-- Updated `src/components/RequisitionApproval.tsx`:
-  - Uses `resolveDetailedSource` in the `SUMBER / PAKET` column.
-  - Verified ascending WBS sorting is preserved at both ticket and item levels.
-  - Cleaned up unused imports.
-- Updated `src/components/RecentMaterialIssues.tsx`:
-  - Uses `resolveDetailedSource` in the `SUMBER / PAKET` column (column index 2).
-  - Search query filters across `fullLabel`, `origin`, `typeLabel`, and package name.
-  - Preserves ascending WBS sorting and secondary timestamp sorting.
-  - Cleaned up unused imports.
-- Unit and Component Tests:
-  - `src/utils/__tests__/sourceOrigin.test.ts`: 19 tests passing.
-  - `src/components/__tests__/RequisitionApprovalWbsSort.test.tsx`: 4 tests passing.
-  - `src/components/__tests__/RecentMaterialIssues.test.tsx`: 13 tests passing.
-- Quality Gate:
-  - Vitest: 58 test files passed, 389 tests passed (0 failures).
-  - Oxlint: 0 warnings, 0 errors across 199 files.
-  - TypeScript: `tsc --noEmit` and `tsc -b` completed with 0 errors.
-  - Production build: `npm run build` generated cleanly in 501ms.
+### 2026-10-23
+- Sprint 77 initialized.
+- Archived Sprint 76 into `.gsd/sprints/sprint-76-format-source-column-with-rab-or-change-order-prefix-and-granular-fallback-in-warehouse-tables.md`.
+- Analyzed `RabCalculator.tsx` and `AmendmentManager.tsx` UI architectures and state models.
