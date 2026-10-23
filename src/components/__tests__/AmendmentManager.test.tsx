@@ -92,6 +92,9 @@ vi.mock('../../services/packageService', () => ({
             labor_name: null,
             quantity: 2,
             cost_per_unit: 450000,
+            default_wbs_allocation: {
+              'Sasis/Rangka': 2,
+            },
             material: {
               id: 'mat-1',
               name: 'Plat Besi 2mm',
@@ -110,6 +113,9 @@ vi.mock('../../services/packageService', () => ({
             labor_name: 'TUKANG LAS STRUKTUR SASIS',
             quantity: 4,
             cost_per_unit: 125000,
+            default_wbs_allocation: {
+              'Sasis/Rangka': 4,
+            },
             material: {
               id: 'mat-labor-1',
               name: 'TUKANG LAS STRUKTUR SASIS',
@@ -119,6 +125,30 @@ vi.mock('../../services/packageService', () => ({
               cost_price: 125000,
               current_stock: 99,
               category: 'labor',
+            },
+          },
+        ],
+      },
+      {
+        id: 'pkg-2',
+        name: 'PAKET MATERIAL EX CUBE',
+        selling_price: 5000000,
+        items: [
+          {
+            id: 'pi-cube-1',
+            item_type: 'MATERIAL',
+            material_id: 'mat-tes-2',
+            quantity: 5,
+            cost_per_unit: 200000,
+            default_wbs_allocation: {},
+            material: {
+              id: 'mat-tes-2',
+              name: 'material tes 2',
+              unit: 'pcs',
+              unit_price: 300000,
+              cost_price: 200000,
+              current_stock: 50,
+              category: 'RAW_MATERIAL',
             },
           },
         ],
@@ -600,4 +630,53 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
     expect(payload.items[1].item_type).toBe('LABOR');
     expect(payload.items[1].quantity).toBe(4);
   });
+
+  it('Verification 1 & 2: opens modal with selected package from dropdown and explodes per-component WBS matrix', async () => {
+    vi.mocked(spkService.getChangeOrders).mockResolvedValue([]);
+
+    render(<AmendmentManager spkId="spk-test-1" spkNo="SPK-2026-001" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Buat Change Order Baru')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Buat Change Order Baru'));
+
+    // Select "PAKET MATERIAL EX CUBE" from dropdown
+    const pkgSelect = screen.getByLabelText('Pilih Paket Assembly List');
+    fireEvent.change(pkgSelect, { target: { value: 'pkg-2' } });
+
+    // Verify modal is displayed and preselects PAKET MATERIAL EX CUBE (pkg-2)
+    await waitFor(() => {
+      expect(screen.getByText('Tambah Paket Barang Jadi (Assembly List)')).toBeInTheDocument();
+    });
+
+    const modalSelect = screen.getByLabelText(/Pilih Paket Barang Jadi \(Master BOM\)/i) as HTMLSelectElement;
+    expect(modalSelect.value).toBe('pkg-2');
+    expect(screen.getByText('material tes 2')).toBeInTheDocument();
+
+    // Allocate 2 to WBS 2 and 3 to WBS 3
+    const wbs2Input = screen.getByLabelText('material tes 2 WBS 2');
+    const wbs3Input = screen.getByLabelText('material tes 2 WBS 3');
+
+    fireEvent.change(wbs2Input, { target: { value: '2' } });
+    fireEvent.change(wbs3Input, { target: { value: '3' } });
+
+    // Click "Terapkan ke Change Order"
+    const applyBtn = screen.getByRole('button', { name: /Terapkan.*ke Change Order/i });
+    fireEvent.click(applyBtn);
+
+    // Modal closes
+    await waitFor(() => {
+      expect(screen.queryByText('Tambah Paket Barang Jadi (Assembly List)')).not.toBeInTheDocument();
+    });
+
+    // Check right review table: material tes 2 appears twice: WBS 2 (qty 2) and WBS 3 (qty 3)
+    const reviewItems = screen.getAllByText('material tes 2');
+    expect(reviewItems).toHaveLength(2);
+
+    expect(screen.getAllByText('WBS 2: Sasis/Rangka').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('WBS 3: Dinding/Fabrikasi').length).toBeGreaterThanOrEqual(1);
+  });
 });
+

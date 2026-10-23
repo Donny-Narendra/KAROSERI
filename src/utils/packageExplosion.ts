@@ -10,6 +10,16 @@ export const WBS_STAGES = [
   'WBS 5: Kelistrikan/Hidrolik',
 ];
 
+export const WBS_COLUMNS = [
+  { key: 'wbs1' as const, label: 'WBS 1', fullName: WBS_STAGES[0], category: 'Pembongkaran' },
+  { key: 'wbs2' as const, label: 'WBS 2', fullName: WBS_STAGES[1], category: 'Sasis/Rangka' },
+  { key: 'wbs3' as const, label: 'WBS 3', fullName: WBS_STAGES[2], category: 'Dinding/Fabrikasi' },
+  { key: 'wbs4' as const, label: 'WBS 4', fullName: WBS_STAGES[3], category: 'Cat/Finishing' },
+  { key: 'wbs5' as const, label: 'WBS 5', fullName: WBS_STAGES[4], category: 'Kelistrikan/Hidrolik' },
+] as const;
+
+export type WbsKey = typeof WBS_COLUMNS[number]['key'];
+
 export interface ExplodedChangeOrderItem {
   id: string;
   wbs_stage: string;
@@ -151,3 +161,101 @@ export const explodePackageToDraftItems = (
 
   return result;
 };
+
+export const explodePackageWithAllocations = (
+  pkg: ProductPackage,
+  allocations: Record<string, Record<string, number | string>>,
+  _packageMultiplier: number = 1
+): ExplodedChangeOrderItem[] => {
+  const rawItems = (pkg as any).package_items || pkg.items || [];
+  if (!rawItems || rawItems.length === 0) return [];
+
+  // 1. Calculate total BOM HPP of the package (single unit)
+  const totalBomHpp = rawItems.reduce((sum: number, item: any) => {
+    const mat = item.material || item.materials;
+    const cost = Number(item.cost_per_unit || mat?.cost_price || 0);
+    return sum + (Number(item.quantity || 0) * cost);
+  }, 0);
+
+  // Margin ratio: distribute selling price proportional to HPP
+  const marginRatio = totalBomHpp > 0 && Number(pkg.selling_price || 0) > 0 
+    ? Number(pkg.selling_price) / totalBomHpp 
+    : 1;
+
+  const result: ExplodedChangeOrderItem[] = [];
+
+  rawItems.forEach((item: any, itemIdx: number) => {
+    const mat = item.material || item.materials;
+    const rawType = item.item_type || mat?.item_type;
+    const rawName = item.name || item.description || item.labor_name || mat?.name || '';
+    const resolvedType = resolveItemType(rawType, mat?.item_type, rawName);
+    
+    let itemType: ChangeOrderItemType = 'MATERIAL';
+    if (resolvedType === 'OVERHEAD') {
+      itemType = 'OVERHEAD';
+    } else if (resolvedType === 'LABOR' || (!item.material_id && !mat?.id && (item.labor_name || isLaborKeyword(rawName)))) {
+      itemType = 'LABOR';
+    } else {
+      itemType = 'MATERIAL';
+    }
+
+    const itemName = rawName || (itemType === 'LABOR' ? (item.labor_name || 'Jasa / Pekerjaan Paket') : (mat?.name || 'Material Paket'));
+    const unit = item.unit || mat?.unit || (itemType === 'LABOR' ? 'jam' : itemType === 'OVERHEAD' ? 'hari' : 'pcs');
+    const materialId = itemType === 'MATERIAL' 
+      ? (item.material_id || mat?.id || null) 
+      : (itemType === 'LABOR' ? (item.material_id || null) : null);
+
+    const costPrice = Number(item.cost_per_unit || mat?.cost_price || 0);
+
+    // Calculate unit selling price:
+    let unitPrice = 0;
+    if (totalBomHpp > 0 && Number(pkg.selling_price || 0) > 0) {
+      unitPrice = Math.round(costPrice * marginRatio);
+    } else if (item.unit_price && Number(item.unit_price) > 0) {
+      unitPrice = Number(item.unit_price);
+    } else if (mat?.selling_price && Number(mat.selling_price) > 0) {
+      unitPrice = Number(mat.selling_price);
+    } else if (mat?.unit_price && Number(mat.unit_price) > 0) {
+      unitPrice = Number(mat.unit_price);
+    } else if (Number(pkg.selling_price || 0) > 0 && Number(item.quantity || 0) > 0) {
+      unitPrice = Math.round(Number(pkg.selling_price) / rawItems.length / Number(item.quantity));
+    } else {
+      unitPrice = costPrice;
+    }
+
+    const note = `Bagian dari paket: [${pkg.name}]`;
+    const itemKey = item.id || `pkg-item-${itemIdx}`;
+    const itemAlloc = allocations[itemKey] || allocations[item.id] || allocations[itemIdx] || {};
+
+    const stageDefinitions = [
+      { key: 'wbs1', stage: WBS_STAGES[0] },
+      { key: 'wbs2', stage: WBS_STAGES[1] },
+      { key: 'wbs3', stage: WBS_STAGES[2] },
+      { key: 'wbs4', stage: WBS_STAGES[3] },
+      { key: 'wbs5', stage: WBS_STAGES[4] },
+    ];
+
+    stageDefinitions.forEach(({ key, stage }, subIdx) => {
+      const qty = parseFloat(String(itemAlloc[key] ?? itemAlloc[stage] ?? '0')) || 0;
+      if (qty > 0) {
+        result.push({
+          id: `draft-pkg-${Date.now()}-${itemIdx}-${subIdx}-${Math.random().toString(36).substring(2, 6)}`,
+          wbs_stage: stage,
+          item_type: itemType,
+          material_id: materialId,
+          item_name: itemName,
+          quantity: Number(qty.toFixed(2)),
+          unit,
+          unit_price: unitPrice,
+          cost_price: costPrice,
+          package_source_id: pkg.id,
+          package_name: pkg.name,
+          notes: note,
+        });
+      }
+    });
+  });
+
+  return result;
+};
+

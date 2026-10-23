@@ -54,7 +54,16 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
   const [resolvedSpkNo, setResolvedSpkNo] = useState<string>(propSpkNo || '');
   const [masterMaterials, setMasterMaterials] = useState<Material[]>([]);
   const [packages, setPackages] = useState<ProductPackage[]>([]);
-  const [, setSelectedPackage] = useState<ProductPackage | null>(null);
+  const [selectedPackageId, setSelectedPackageId] = useState<string>('');
+
+  const handleOpenPackageModal = (packageId?: string) => {
+    if (packageId) {
+      setSelectedPackageId(packageId);
+    } else if (!selectedPackageId && packages.length > 0) {
+      setSelectedPackageId(packages[0].id);
+    }
+    setIsPackageSelectorOpen(true);
+  };
   const [expandedCoIds, setExpandedCoIds] = useState<Record<string, boolean>>({});
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('ALL');
 
@@ -153,7 +162,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
     } finally {
       setLoading(false);
     }
-  }, [spkId]);
+  }, [spkId, setExpandedCoIds]);
 
   useEffect(() => {
     if (spkId) {
@@ -632,10 +641,9 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                     aria-label="Pilih Paket Assembly List"
                     className="w-full bg-surface border border-border rounded px-3 py-2 text-sm text-text focus:outline-none focus:border-primary transition"
                     onChange={(e) => {
-                      const pkg = packages.find(p => p.id === e.target.value);
-                      if (pkg) {
-                        setSelectedPackage(pkg);
-                        setIsPackageSelectorOpen(true);
+                      const val = e.target.value;
+                      if (val) {
+                        handleOpenPackageModal(val);
                       }
                       e.target.value = '';
                     }}
@@ -650,7 +658,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                   </select>
                   <button
                     type="button"
-                    onClick={() => setIsPackageSelectorOpen(true)}
+                    onClick={() => handleOpenPackageModal(selectedPackageId || packages[0]?.id || '')}
                     className="w-full mt-1 px-3 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white rounded text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-sm cursor-pointer"
                   >
                     <span>📦</span>
@@ -1679,6 +1687,8 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
         onClose={() => setIsPackageSelectorOpen(false)}
         onApply={handleApplyPackage}
         packages={packages}
+        selectedPackageId={selectedPackageId}
+        onPackageChange={setSelectedPackageId}
       />
 
       {/* Confirmation Modal for Approval / Rejection */}
