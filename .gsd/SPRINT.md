@@ -1,56 +1,46 @@
-# Sprint 84 — Display Itemized Labor and Overhead Margins on Change Order Cards
+# Sprint 85 — Fix False Shared Exclusion of RAB and Change Order Labor Items in SPK Borongan Modal
 
 > **Duration**: 2026-10-24 to 2026-10-24
-> **Status**: Completed
+> **Status**: In Progress
 
 ## Goal
-Display itemized margin breakdown across 4 cost pillars (Assembly Packages, Granular Materials, Labor/Tukang, and Overhead/FOH) right below the `MARGIN LABA` metric on each Change Order accordion card in Service Advisor to deliver full financial transparency.
+Fix false shared exclusion of RAB and Change Order labor items sharing identical names in the SPK Borongan modal (`SpkBoronganPanel.tsx`), ensuring availability filtering isolates items strictly by unique database row ID (`rab_item_id` and `change_order_item_id`) rather than text description matching.
 
 ## Scope
 
 ### Included
-- **Task 1: Helper Perhitungan Margin per Item Type (`computeChangeOrderMargins`)**
-  - Implemented and exported `computeChangeOrderMargins(items: Array<any>): ChangeOrderMarginBreakdown` in `src/utils/financialCalculations.ts` and re-exported in `src/components/AmendmentManager.tsx`, `src/components/ChangeOrdersTab.tsx`, and `src/components/ItemizedChangeOrderForm.tsx`.
-  - Calculates `packageMargin`, `materialMargin`, `laborMargin`, `overheadMargin`, `totalProfit`, and respective revenues.
-  - Correctly segregates items based on package origin (`package_source_id`, `package_name`, `product_packages`, or notes prefix) and item types (`MATERIAL`, `LABOR`, `OVERHEAD`).
-- **Task 2: Accordion Card UI Itemized Margin Indicators**
-  - Updated `AmendmentManager.tsx` card header: beneath the `Margin Laba` metric, rendered itemized 4-pillar badges/indicators:
-    - 📦 Paket: `Rp X` (`bg-amber-500/10 text-amber-400 border border-amber-500/20`)
-    - 🧱 Material: `Rp X` (`bg-cyan-500/10 text-cyan-400 border border-cyan-500/20`)
-    - 🔧 Labor: `Rp X` (`bg-sky-500/10 text-sky-400 border border-sky-500/20`)
-    - ⚡ Overhead: `Rp X` (`bg-purple-500/10 text-purple-400 border border-purple-500/20`)
-  - Maintained elegant dark UI aesthetics with consistent pillar colors and non-overflowing wrap presentation.
-- **Task 3: Automated Testing & Quality Gate Verification**
-  - Added unit tests for `computeChangeOrderMargins` in `src/utils/__tests__/segregatedProfitCalculations.test.ts` (consistency, edge cases, formula accuracy).
-  - Added component tests in `src/components/__tests__/AmendmentManager.test.tsx` verifying card header rendering with 4-pillar margin values and legacy empty states.
-  - Ran TypeScript compiler (`tsc -b`), full Vitest suite (61 suites, 443 tests passing), and production build.
+- **Task 1: Database Migration for Source ID Tracking**
+  - Verify and guarantee `rab_item_id` and `change_order_item_id` foreign key columns in `spk_borongan` via idempotent migration `supabase/migrations/20261024030000_add_source_ids_to_spk_borongan.sql`.
+- **Task 2: Assignment Handler & Guide Panel ID-Based Exclusion in `SpkBoronganPanel.tsx`**
+  - Store selected item source metadata (`id`, `isChangeOrder`, `name`, `rate`) upon clicking `<<`.
+  - Persist explicit `rab_item_id` (null if Change Order) and `change_order_item_id` (null if RAB) upon submission.
+  - Refactor guide panel filtering (`availableLaborItems` / `filteredMaterials`) to exclude items exclusively using unique entity ID sets (`assignedRabItemIds` and `assignedCoItemIds`), preventing identically named items from different origins from mutually wiping each other out.
+  - Provide `src/components/mandor/SpkBoronganModal.tsx` export wrapper to align naming with `/mandor` architecture.
+  - Update `src/utils/rabItemAllocation.ts` to respect explicit source IDs and prevent false cross-origin text matches for SPK Borongan assignments.
+- **Task 3: Automated Testing & Verification**
+  - Unit tests in `src/utils/__tests__/rabItemAllocation.test.ts` for isolated origin matching.
+  - Component tests in `src/components/__tests__/SpkBoronganPanel.test.tsx` verifying:
+    1. Both identically named items (RAB @ Rp 100.000 and CO @ Rp 248.964) render together (2 Tersedia).
+    2. Assigning the CO item excludes only the CO item; the RAB item remains available (1 Tersedia).
+    3. Assigning the remaining RAB item results in 0 Tersedia.
+    4. Cancelling an assignment restores only the cancelled item.
+  - Static type check (`tsc -b`) and build verification (`npm run build`).
 
 ### Explicitly Excluded
-- Modifying SPK creation, WBS checklist, or material requisition flows.
+- Modifying Material Requisitions or Warehouse issue flows.
 - Modifying cashflow / billing calculator logic.
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| 1. Implement `computeChangeOrderMargins` helper in `financialCalculations.ts` & `AmendmentManager.tsx` | Antigravity | ✅ Completed | 0.5h |
-| 2. Add 4-pillar itemized margin indicators under `Margin Laba` in `AmendmentManager.tsx` | Antigravity | ✅ Completed | 0.5h |
-| 3. Add automated tests and verify quality gates (`npm test`, `tsc`, `npm run build`) | Antigravity | ✅ Completed | 0.5h |
+| 1. Create migration `20261024030000_add_source_ids_to_spk_borongan.sql` | Antigravity | 🔄 In Progress | 0.25h |
+| 2. Implement ID-based exclusion in `SpkBoronganPanel.tsx`, `src/components/mandor/SpkBoronganModal.tsx`, and `rabItemAllocation.ts` | Antigravity | ⬜ Todo | 0.75h |
+| 3. Add automated tests and verify quality gates (`npm test`, `tsc`, `npm run build`) | Antigravity | ⬜ Todo | 0.5h |
 
 ## Daily Log
 
 ### 2026-10-24
-- Initialized Sprint 84.
-- Archived Sprint 83 to `.gsd/sprints/sprint-83-add-source-origin-column-to-change-order-snapshot-table-in-service-advisor.md`.
-- Implemented Task 1:
-  - Created `ChangeOrderMarginBreakdown` interface and `computeChangeOrderMargins` function in `src/utils/financialCalculations.ts`.
-  - Re-exported in `src/components/AmendmentManager.tsx`, `src/components/ChangeOrdersTab.tsx`, and `src/components/ItemizedChangeOrderForm.tsx`.
-- Implemented Task 2:
-  - Updated Change Order accordion card header in `AmendmentManager.tsx` to calculate `margins = computeChangeOrderMargins(co.items || [])`.
-  - Rendered 4 itemized badges for Paket (amber), Material (cyan), Labor (sky), and Overhead (purple) below `Margin Laba`.
-- Implemented Task 3:
-  - Added 4 unit tests in `src/utils/__tests__/segregatedProfitCalculations.test.ts`.
-  - Added 2 integration/component tests in `src/components/__tests__/AmendmentManager.test.tsx`.
-  - Ran static typecheck: `tsc -b` passed with 0 errors.
-  - Ran full test suite: 61 test files, 443 tests passing (100% green).
-  - Built production bundle: `npm run build` succeeded in 433ms.
+- Initialized Sprint 85.
+- Archived Sprint 84 to `.gsd/sprints/sprint-84-display-itemized-labor-and-overhead-margins-on-change-order-cards.md`.
+- Baseline verification: 61 test files, 445 tests passed.
