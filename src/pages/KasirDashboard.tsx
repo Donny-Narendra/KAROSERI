@@ -6,8 +6,8 @@ import { DownPaymentModal } from '../components/DownPaymentModal';
 import { DpHistoryList } from '../components/DpHistoryList';
 import { BastModal } from '../components/BastModal';
 import { ConfirmationModal, type ConfirmationModalVariant } from '../components/ConfirmationModal';
-import { fetchDPHistory, fetchDpHistory, fetchApprovedChangeOrders } from '../services/billingService';
-import type { DPHistoryRecord, ApprovedChangeOrder } from '../services/billingService';
+import { fetchDPHistory, fetchDpHistory, fetchApprovedChangeOrders, calculateChangeOrderHppBreakdown } from '../services/billingService';
+import type { DPHistoryRecord, ApprovedChangeOrder, ChangeOrderHppBreakdown } from '../services/billingService';
 import { packageService } from '../services/packageService';
 import type { ProductPackage } from '../types/package';
 import { buildInvoicePrintPayload, printFinalInvoice } from '../utils/invoiceExport';
@@ -376,6 +376,20 @@ export const KasirDashboard: React.FC = () => {
     ? approvedChangeOrders.reduce((acc, curr) => acc + curr.total_amount, 0)
     : (selectedSpk ? selectedSpk.amendmentCost : 0);
 
+  const coHpp = useMemo<ChangeOrderHppBreakdown>(() => {
+    return calculateChangeOrderHppBreakdown(approvedChangeOrders);
+  }, [approvedChangeOrders]);
+
+  const actualMaterialCost = (selectedSpk?.materialCost || 0) + coHpp.coMaterialCost;
+  const actualLaborCost = (selectedSpk?.jasaCost || 0) + coHpp.coLaborCost;
+  const actualOverheadCost = (selectedSpk?.overheadCost || 0) + coHpp.coOverheadCost;
+  const totalModalHpp = actualMaterialCost + actualLaborCost + actualOverheadCost;
+
+  const currentManualAdj = selectedSpk ? (manualAdjustments[selectedSpk.id] || 0) : 0;
+  const totalHargaJual = selectedSpk ? (selectedSpk.quotationAmount + effectiveAmendmentCost + currentManualAdj) : 0;
+  const grossProfit = totalHargaJual - totalModalHpp;
+  const grossMarginPercentage = totalHargaJual > 0 ? (grossProfit / totalHargaJual) * 100 : 0;
+
   useEffect(() => {
     if (selectedSpk?.dbId) {
       void loadApprovedChangeOrders(selectedSpk.dbId);
@@ -402,8 +416,8 @@ export const KasirDashboard: React.FC = () => {
     if (!selectedSpk) return;
     
     const manualAdj = manualAdjustments[selectedSpk.id] || 0;
-    const totalHargaJual = selectedSpk.quotationAmount + effectiveAmendmentCost + manualAdj;
-    const totalAmount = Math.max(0, totalHargaJual - selectedSpk.dpAmount);
+    const computedTotalHargaJual = selectedSpk.quotationAmount + effectiveAmendmentCost + manualAdj;
+    const totalAmount = Math.max(0, computedTotalHargaJual - selectedSpk.dpAmount);
     
     const coCount = approvedChangeOrders.length;
     const coItemCount = approvedChangeOrders.reduce((sum, co) => sum + co.change_order_items.length, 0);
@@ -418,7 +432,7 @@ export const KasirDashboard: React.FC = () => {
         `• Harga Jual Dasar: ${formatCurrency(selectedSpk.quotationAmount)}\n` +
         (effectiveAmendmentCost !== 0 ? `• Perubahan Addendum: ${formatCurrency(effectiveAmendmentCost)}${coCount > 0 ? ` (${coCount} Addendum, ${coItemCount} item disetujui)` : ''}\n` : '') +
         (manualAdj !== 0 ? `• Penyesuaian Manual: ${manualAdj > 0 ? '+' : ''}${formatCurrency(manualAdj)}\n` : '') +
-        `• Total Harga Jual: ${formatCurrency(totalHargaJual)}\n` +
+        `• Total Harga Jual: ${formatCurrency(computedTotalHargaJual)}\n` +
         `• Uang Muka (DP): -${formatCurrency(selectedSpk.dpAmount)}\n` +
         `• Sisa Tagihan Akhir: ${formatCurrency(totalAmount)}\n\n` +
         `Faktur ini akan diterbitkan dengan status UNPAID. Lanjutkan proses ini?`,
@@ -435,8 +449,8 @@ export const KasirDashboard: React.FC = () => {
       .insert({
         spk_id: selectedSpk.dbId,
         dp_amount: selectedSpk.dpAmount,
-        actual_material_cost: selectedSpk.materialCost,
-        actual_labor_cost: selectedSpk.jasaCost,
+        actual_material_cost: actualMaterialCost,
+        actual_labor_cost: actualLaborCost,
         total_amount: totalAmount,
         status: 'UNPAID'
       });
@@ -983,20 +997,41 @@ export const KasirDashboard: React.FC = () => {
               {/* Cost Breakdown */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div className="bg-background rounded-lg border border-surface-border p-5 space-y-4">
-                  <h3 className="text-lg font-medium text-text-primary border-b border-surface-border pb-2">Internal Cost (Modal)</h3>
+                  <div className="flex justify-between items-center border-b border-surface-border pb-2">
+                    <h3 className="text-lg font-medium text-text-primary">Internal Cost (Modal)</h3>
+                    {coHpp.coTotalCost > 0 && (
+                      <span className="text-[11px] font-mono text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded">
+                        Termasuk CO: +{formatCurrency(coHpp.coTotalCost)}
+                      </span>
+                    )}
+                  </div>
                   
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-text-muted">Actual Material Cost</span>
-                    <span className="font-medium text-text-primary">{formatCurrency(selectedSpk.materialCost)}</span>
+                    <span className="font-medium text-text-primary">{formatCurrency(actualMaterialCost)}</span>
                   </div>
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-text-muted">Actual Labor Cost</span>
-                    <span className="font-medium text-text-primary">{formatCurrency(selectedSpk.jasaCost)}</span>
+                    <span className="font-medium text-text-primary">{formatCurrency(actualLaborCost)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-text-muted">Actual Overhead Cost</span>
+                    <span className="font-medium text-text-primary">{formatCurrency(actualOverheadCost)}</span>
                   </div>
                   
                   <div className="border-t border-surface-border/50 pt-3 flex justify-between items-center">
                     <span className="text-sm font-bold text-text-primary">Total Modal (HPP)</span>
-                    <span className="font-bold text-text-primary">{formatCurrency(selectedSpk.materialCost + selectedSpk.jasaCost)}</span>
+                    <span className="font-bold text-text-primary">{formatCurrency(totalModalHpp)}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center text-xs pt-2 border-t border-surface-border/40">
+                    <span className="text-emerald-400 font-semibold">Estimasi Laba Kotor (Gross Profit)</span>
+                    <span className="font-bold font-mono text-emerald-400">
+                      {formatCurrency(grossProfit)}
+                      <span className="text-[11px] text-emerald-400/80 ml-1.5 font-normal">
+                        ({grossMarginPercentage.toFixed(1)}%)
+                      </span>
+                    </span>
                   </div>
                 </div>
 
@@ -1108,7 +1143,7 @@ export const KasirDashboard: React.FC = () => {
 
                   <div className="border-t border-surface-border/50 pt-3 flex justify-between items-center">
                     <span className="text-sm font-bold text-text-primary">Total Harga Jual</span>
-                    <span className="font-bold text-text-primary">{formatCurrency(selectedSpk.quotationAmount + effectiveAmendmentCost + (manualAdjustments[selectedSpk.id] || 0))}</span>
+                    <span className="font-bold text-text-primary">{formatCurrency(totalHargaJual)}</span>
                   </div>
 
                   <div className="flex justify-between items-center text-sm text-status-danger">
@@ -1122,7 +1157,7 @@ export const KasirDashboard: React.FC = () => {
               <div className="bg-primary/5 border border-primary/20 rounded-lg p-5 flex justify-between items-center mb-8">
                 <span className="text-lg font-medium text-text-primary">Final Bill to Customer</span>
                 <span className="text-2xl font-bold text-primary">
-                  {formatCurrency(Math.max(0, (selectedSpk.quotationAmount + effectiveAmendmentCost + (manualAdjustments[selectedSpk.id] || 0)) - selectedSpk.dpAmount))}
+                  {formatCurrency(Math.max(0, totalHargaJual - selectedSpk.dpAmount))}
                 </span>
               </div>
 

@@ -41,6 +41,46 @@ export interface ApprovedChangeOrder {
   change_order_items: ApprovedChangeOrderItem[];
 }
 
+export interface ChangeOrderHppBreakdown {
+  coMaterialCost: number;
+  coLaborCost: number;
+  coOverheadCost: number;
+  coTotalCost: number;
+}
+
+/**
+ * Computes internal cost (HPP / COGS) breakdown from approved Change Orders
+ * segregated into Material, Labor, and Overhead pillars.
+ */
+export const calculateChangeOrderHppBreakdown = (
+  changeOrders: ApprovedChangeOrder[] | { status?: string; change_order_items?: any[] }[]
+): ChangeOrderHppBreakdown => {
+  const approvedItems = (changeOrders || [])
+    .filter((co: any) => !co.status || co.status === 'APPROVED')
+    .flatMap((co: any) => co.change_order_items || []);
+
+  const coMaterialCost = approvedItems
+    .filter((item: any) => String(item.item_type || 'MATERIAL').toUpperCase() === 'MATERIAL')
+    .reduce((sum: number, item: any) => sum + (Number(item.quantity || 1) * Number(item.cost_price || 0)), 0);
+
+  const coLaborCost = approvedItems
+    .filter((item: any) => String(item.item_type).toUpperCase() === 'LABOR')
+    .reduce((sum: number, item: any) => sum + (Number(item.quantity || 1) * Number(item.cost_price || 0)), 0);
+
+  const coOverheadCost = approvedItems
+    .filter((item: any) => String(item.item_type).toUpperCase() === 'OVERHEAD')
+    .reduce((sum: number, item: any) => sum + (Number(item.quantity || 1) * Number(item.cost_price || 0)), 0);
+
+  const coTotalCost = coMaterialCost + coLaborCost + coOverheadCost;
+
+  return {
+    coMaterialCost,
+    coLaborCost,
+    coOverheadCost,
+    coTotalCost,
+  };
+};
+
 interface RawPaymentRow {
   amount: number | null;
   payment_method: string | null;

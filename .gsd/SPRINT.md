@@ -1,7 +1,7 @@
 # Sprint 89 — Synchronize Financial Quotation and Cost Breakdown Between RAB Perubahan and Kasir Billing
 
 > **Duration**: 2026-10-24 to 2026-10-24
-> **Status**: In Progress
+> **Status**: Completed
 
 ## Goal
 Harmonize financial quotation (selling price) and internal cost breakdown (COGS/HPP) between Service Advisor ("RAB Perubahan" tab) and Kasir (Billing Calculator) using the Single Source of Truth (SSOT) principle, eliminating mathematical discrepancies across contract packages, granular items, and approved change orders.
@@ -39,12 +39,29 @@ Harmonize financial quotation (selling price) and internal cost breakdown (COGS/
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| Task 1: Incorporate approved Change Orders HPP into Kasir Internal Cost panel (`billingService.ts` / `KasirDashboard.tsx`) | Claude | ⬜ Todo | 0.5 |
-| Task 2: Distribute package selling price proportionally and reconcile header totals in `RabCalculator.tsx`, `PackageAllocationModal.tsx`, and `RabPerubahanTab.tsx` | Claude | ⬜ Todo | 0.75 |
-| Task 3: Align Gross Profit & 4-Pillar metrics between Kasir and RAB Perubahan | Claude | ⬜ Todo | 0.5 |
-| Task 4: Automated testing, SPK-3093 verification, linting, and production build | Claude | ⬜ Todo | 0.5 |
+| Task 1: Incorporate approved Change Orders HPP into Kasir Internal Cost panel (`billingService.ts` / `KasirDashboard.tsx`) | Claude | ✅ Done | 0.5 |
+| Task 2: Distribute package selling price proportionally and reconcile header totals in `RabCalculator.tsx`, `PackageAllocationModal.tsx`, and `RabPerubahanTab.tsx` | Claude | ✅ Done | 0.75 |
+| Task 3: Align Gross Profit & 4-Pillar metrics between Kasir and RAB Perubahan | Claude | ✅ Done | 0.5 |
+| Task 4: Automated testing, SPK-3093 verification, linting, and production build | Claude | ✅ Done | 0.5 |
 
 ## Daily Log
 
 ### 2026-10-24
 - Sprint created. Scope and objectives verified.
+- **Task 1 Completed**:
+  - Implemented `calculateChangeOrderHppBreakdown` in `src/services/billingService.ts` to aggregate Material, Labor, and Overhead HPP from approved Change Orders.
+  - Updated `src/pages/KasirDashboard.tsx` to calculate `actualMaterialCost`, `actualLaborCost`, `actualOverheadCost`, `totalModalHpp`, and display `Estimasi Laba Kotor (Gross Profit)` with percentage margin.
+  - Updated invoice generation to pass unified actual costs.
+- **Task 2 Completed**:
+  - Updated `src/components/PackageAllocationModal.tsx` and `src/components/RabCalculator.tsx` to distribute package selling price across exploded component rows based on proportional BOM cost weights while preserving underlying cost prices.
+  - Exported and integrated `computeProportionalPackageBreakdown` in `src/components/service_advisor/RabPerubahanTab.tsx` so existing exploded package rows are dynamically scaled to match package master selling price (including single-rupiah rounding correction on the final item).
+  - Preserved single-rupiah precision in `src/utils/rabPerubahanExport.ts`.
+- **Task 3 Completed**:
+  - Aligned Gross Profit formula across Kasir and RAB Perubahan: Total Harga Jual / Total Quotation Jual (Revisi) - Total Modal HPP.
+  - Verified 4-pillar margins and totals.
+- **Task 4 Completed**:
+  - Added unit tests in `src/services/__tests__/billingService.test.ts` for Change Order HPP breakdown.
+  - Added empirical verification tests in `src/components/__tests__/KasirChangeOrderBreakdown.test.tsx` and `src/components/service_advisor/__tests__/RabPerubahanTab.test.tsx` asserting SPK-3093 financial reconciliation (Jual: Rp 5.321.998, HPP: Rp 3.065.264, Profit: Rp 2.256.734, Margin: 42.4%).
+  - Ran `npm test` (all 63 test suites, 470 tests passing).
+  - Ran `npx oxlint` (0 errors).
+  - Ran `npm run build` (`tsc -b && vite build` passing cleanly).

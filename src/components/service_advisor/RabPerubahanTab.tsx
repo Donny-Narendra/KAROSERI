@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { spkService } from '../../services/spkService';
+import { packageService } from '../../services/packageService';
 import {
   FileSpreadsheet,
   Printer,
@@ -29,6 +30,72 @@ import { normalizeText } from '../../utils/rabItemAllocation';
 interface RabPerubahanTabProps {
   spkId: string;
   spk?: any;
+}
+
+export function computeProportionalPackageBreakdown(
+  items: any[],
+  fetchedPackages: any[],
+  getPkgKey: (item: any) => string | null,
+  getQty: (item: any) => number,
+  getCostPrice: (item: any) => number,
+  getSubtotal: (item: any) => number
+): Map<any, { unitPrice: number; subtotal: number }> {
+  const packageGroups = new Map<string, any[]>();
+  items.forEach((item) => {
+    const pkgKey = getPkgKey(item);
+    if (pkgKey) {
+      const list = packageGroups.get(pkgKey) || [];
+      list.push(item);
+      packageGroups.set(pkgKey, list);
+    }
+  });
+
+  const adjustments = new Map<any, { unitPrice: number; subtotal: number }>();
+
+  packageGroups.forEach((groupItems, pkgKey) => {
+    const matchedPkg = fetchedPackages.find(p => 
+      p.id === pkgKey || 
+      p.name === pkgKey || 
+      cleanPackageName(p.name) === pkgKey
+    );
+
+    const pkgSellingPrice = Number(
+      matchedPkg?.selling_price ?? 
+      groupItems[0]?.product_packages?.selling_price ?? 
+      0
+    );
+
+    if (pkgSellingPrice > 0) {
+      const currentSum = groupItems.reduce((sum, it) => sum + getSubtotal(it), 0);
+      if (currentSum < pkgSellingPrice) {
+        const totalCost = groupItems.reduce((sum, it) => sum + (getQty(it) * getCostPrice(it)), 0);
+        let accumulatedSelling = 0;
+
+        groupItems.forEach((it, idx) => {
+          const q = getQty(it);
+          const cost = getCostPrice(it);
+          const isLast = idx === groupItems.length - 1;
+
+          let itemSubtotal: number;
+          if (isLast) {
+            itemSubtotal = Math.max(0, pkgSellingPrice - accumulatedSelling);
+          } else if (totalCost > 0) {
+            const ratio = (q * cost) / totalCost;
+            itemSubtotal = Math.round(ratio * pkgSellingPrice);
+            accumulatedSelling += itemSubtotal;
+          } else {
+            itemSubtotal = Math.round(pkgSellingPrice / groupItems.length);
+            accumulatedSelling += itemSubtotal;
+          }
+
+          const itemUnitPrice = q > 0 ? Math.round(itemSubtotal / q) : itemSubtotal;
+          adjustments.set(it, { unitPrice: itemUnitPrice, subtotal: itemSubtotal });
+        });
+      }
+    }
+  });
+
+  return adjustments;
 }
 
 export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) => {
@@ -61,9 +128,16 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
     setError(null);
 
     try {
-      // 1. Fetch RAB Items
+      // 1. Fetch RAB Items & Packages
       let rabItemsRaw: any[] = [];
       let rabEstId: string | null = null;
+      let fetchedPackages: any[] = [];
+
+      try {
+        fetchedPackages = await packageService.getPackages();
+      } catch (pkgErr) {
+        console.warn('Could not fetch packages in RabPerubahanTab:', pkgErr);
+      }
 
       try {
         const { data: estData } = await supabase
@@ -78,7 +152,7 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
             .from('rab_items')
             .select(`
               *,
-              product_packages:package_id ( id, name )
+              product_packages:package_id ( id, name, selling_price )
             `)
             .eq('rab_estimation_id', estData.id);
 
@@ -97,7 +171,7 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
             .from('rab_items')
             .select(`
               *,
-              product_packages:package_id ( id, name )
+              product_packages:package_id ( id, name, selling_price )
             `)
             .eq('spk_id', spkId);
 
@@ -215,6 +289,30 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
       // 4. Transform RAB Items into Consolidated Format
       const consolidated: ConsolidatedRabItem[] = [];
 
+      // Pre-compute proportional package pricing for RAB items
+      const rabPackageAdjustments = computeProportionalPackageBreakdown(
+        rabItemsRaw,
+        fetchedPackages,
+        (it) => {
+          if (it.package_id) return it.package_id;
+          if (it.package_name) return cleanPackageName(it.package_name);
+          if (it.product_packages?.id) return it.product_packages.id;
+          if (it.product_packages?.name) return cleanPackageName(it.product_packages.name);
+          if (it.notes) {
+            const ext = extractPackageFromNotes(it.notes);
+            if (ext) return cleanPackageName(ext);
+          }
+          return null;
+        },
+        (it) => Number(it.quantity || it.labor_hours || (it.overhead_hours ? Number(it.overhead_hours) / 8 : 1)) || 1,
+        (it) => Number(it.cost_price || 0),
+        (it) => {
+          const q = Number(it.quantity || it.labor_hours || (it.overhead_hours ? Number(it.overhead_hours) / 8 : 1)) || 1;
+          const u = Number(it.unit_price || (it.item_total ? it.item_total / q : 0));
+          return Number(it.subtotal || it.item_total || q * u);
+        }
+      );
+
       rabItemsRaw.forEach((dbItem: any) => {
         const rawType = String(dbItem.item_type || '').toUpperCase();
         let itemType: 'MATERIAL' | 'LABOR' | 'OVERHEAD' = 'MATERIAL';
@@ -225,12 +323,13 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
         }
 
         const qty = Number(dbItem.quantity || dbItem.labor_hours || (dbItem.overhead_hours ? Number(dbItem.overhead_hours) / 8 : 1)) || 0;
-        let unitPrice = Number(dbItem.unit_price) || 0;
-        if (unitPrice === 0 && Number(dbItem.item_total || dbItem.subtotal || 0) > 0 && qty > 0) {
+        const adjusted = rabPackageAdjustments.get(dbItem);
+        let unitPrice = adjusted ? adjusted.unitPrice : (Number(dbItem.unit_price) || 0);
+        if (!adjusted && unitPrice === 0 && Number(dbItem.item_total || dbItem.subtotal || 0) > 0 && qty > 0) {
           unitPrice = Number(dbItem.item_total || dbItem.subtotal) / qty;
         }
         const costPrice = Number(dbItem.cost_price || 0);
-        const subtotal = Number(dbItem.subtotal || dbItem.item_total || qty * unitPrice);
+        const subtotal = adjusted ? adjusted.subtotal : Number(dbItem.subtotal || dbItem.item_total || qty * unitPrice);
 
         // Package detection
         let resolvedPkgName: string | null = null;
@@ -325,6 +424,25 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
       });
 
       // 5. Transform Approved Change Order Items into Consolidated Format
+      const coItemsFlat = approvedChangeOrders.flatMap((co: any) => co.items || []);
+      const coPackageAdjustments = computeProportionalPackageBreakdown(
+        coItemsFlat,
+        fetchedPackages,
+        (it) => {
+          if (it.package_source_id || it.package_id) return it.package_source_id || it.package_id;
+          if (it.package_name) return cleanPackageName(it.package_name);
+          if (it.product_packages?.name) return cleanPackageName(it.product_packages.name);
+          if (it.notes) {
+            const ext = extractPackageFromNotes(it.notes);
+            if (ext) return cleanPackageName(ext);
+          }
+          return null;
+        },
+        (it) => Number(it.quantity || 1),
+        (it) => Number(it.cost_price || 0),
+        (it) => Number(it.subtotal || (Number(it.quantity || 1) * Number(it.unit_price || 0)))
+      );
+
       approvedChangeOrders.forEach((co: any) => {
         const coItems = co.items || [];
         const coNumber = co.co_number || `CO-${co.id.substring(0, 6).toUpperCase()}`;
@@ -334,10 +452,11 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
           const itemType: 'MATERIAL' | 'LABOR' | 'OVERHEAD' =
             rawType === 'LABOR' ? 'LABOR' : rawType === 'OVERHEAD' ? 'OVERHEAD' : 'MATERIAL';
 
+          const coAdjusted = coPackageAdjustments.get(item);
           const qty = Number(item.quantity || 1);
-          const unitPrice = Number(item.unit_price || 0);
+          const unitPrice = coAdjusted ? coAdjusted.unitPrice : Number(item.unit_price || 0);
           const costPrice = Number(item.cost_price || 0);
-          const subtotal = Number(item.subtotal || qty * unitPrice);
+          const subtotal = coAdjusted ? coAdjusted.subtotal : Number(item.subtotal || qty * unitPrice);
 
           let resolvedPkgName: string | null = null;
           if (item.package_name) {
@@ -489,7 +608,7 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
   // Hitung seluruh item bertipe LABOR (baik granular maupun dari paket)
   const laborItems = useMemo(() => items.filter(item => item.item_type === 'LABOR'), [items]);
   const totalLaborRevenue = useMemo(() => 
-    laborItems.reduce((acc, item) => acc + (Number(item.quantity || 1) * Number(item.unit_price || 0)), 0),
+    laborItems.reduce((acc, item) => acc + (item.subtotal !== undefined && item.subtotal !== null ? Number(item.subtotal) : (Number(item.quantity || 1) * Number(item.unit_price || 0))), 0),
     [laborItems]
   );
   const totalLaborCogs = useMemo(() => 
@@ -500,7 +619,7 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
 
   // Subtotal filter untuk item yang sedang tampil di tabel
   const filteredTotalRevenue = useMemo(() => 
-    filteredItems.reduce((acc, item) => acc + (Number(item.quantity || 1) * Number(item.unit_price || 0)), 0),
+    filteredItems.reduce((acc, item) => acc + (item.subtotal !== undefined && item.subtotal !== null ? Number(item.subtotal) : (Number(item.quantity || 1) * Number(item.unit_price || 0))), 0),
     [filteredItems]
   );
   const filteredTotalCogs = useMemo(() => 

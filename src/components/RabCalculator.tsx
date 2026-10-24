@@ -701,9 +701,11 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
         matchedMat?.item_type || 
         (isLaborKeyword(payload.description) ? 'LABOR' : isOverheadKeyword(payload.description) ? 'OVERHEAD' : 'MATERIAL');
 
-      const costPrice = matchedMat?.cost_price !== undefined 
-        ? matchedMat.cost_price 
-        : (itemType === 'LABOR' ? payload.unitPrice : Math.round(payload.unitPrice * 0.8));
+      const costPrice = payload.costPrice !== undefined 
+        ? payload.costPrice 
+        : (matchedMat?.cost_price !== undefined 
+            ? matchedMat.cost_price 
+            : (itemType === 'LABOR' ? payload.unitPrice : Math.round(payload.unitPrice * 0.8)));
 
       return {
         id: Date.now().toString() + Math.random().toString(36).substr(2, 9),

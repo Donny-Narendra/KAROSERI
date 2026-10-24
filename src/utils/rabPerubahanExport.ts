@@ -71,7 +71,7 @@ export function computeRabPerubahanTotals(items: ConsolidatedRabItem[]): RabPeru
       const qty = Number(item.quantity || 1);
       const unitPrice = Number(item.unit_price) || 0;
       const costPrice = Number(item.cost_price) || 0;
-      const revenue = qty * unitPrice;
+      const revenue = item.subtotal !== undefined && item.subtotal !== null ? Number(item.subtotal) : qty * unitPrice;
       const cost = qty * costPrice;
 
       if (item.item_type === 'LABOR') {

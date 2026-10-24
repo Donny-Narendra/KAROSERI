@@ -10,6 +10,7 @@ export interface RabItemPayload {
   description: string;
   qty: number;
   unitPrice: number;
+  costPrice?: number;
   materialId?: string;
   unit?: string;
   package_name?: string;
@@ -110,6 +111,16 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
   const handleApply = () => {
     if (hasNegativeRemainder || totalAllocatedSum === 0) return;
 
+    const totalBomHpp = items.reduce((sum, it) => {
+      const mat = it.material;
+      const cost = Number(it.cost_per_unit || mat?.cost_price || 0);
+      return sum + (Number(it.quantity || 0) * cost);
+    }, 0);
+
+    const marginRatio = totalBomHpp > 0 && Number(packageData.selling_price || 0) > 0
+      ? Number(packageData.selling_price) / totalBomHpp
+      : 1;
+
     const payload: RabItemPayload[] = [];
     const templateToSave: Record<string, Record<string, number>> = {};
 
@@ -131,6 +142,10 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
 
       const description = itemName || (finalType === 'labor' ? 'Labor Item' : finalType === 'overhead' ? 'Overhead Item' : 'Material Item');
       const unit = item.material?.unit || (finalType === 'labor' ? 'lot' : finalType === 'overhead' ? 'hari' : 'pcs');
+      const costPrice = Number(item.cost_per_unit || item.material?.cost_price || 0);
+      const unitPrice = totalBomHpp > 0 && Number(packageData.selling_price || 0) > 0
+        ? Math.round(costPrice * marginRatio)
+        : (Number((item as any).unit_price) > 0 ? Number((item as any).unit_price) : costPrice);
 
       WBS_CATEGORIES.forEach((cat) => {
         const qty = parseFloat(allocations[idx]?.[cat]) || 0;
@@ -143,7 +158,8 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
             type: finalType,
             description,
             qty,
-            unitPrice: item.cost_per_unit,
+            unitPrice,
+            costPrice,
             materialId: finalType === 'material' ? (item.material_id || item.material?.id) : undefined,
             unit,
             package_name: packageData.name,

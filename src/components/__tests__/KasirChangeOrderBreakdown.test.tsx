@@ -243,4 +243,187 @@ describe('Component: KasirDashboard (Approved Change Order Itemized Breakdown & 
     expect(payloadPassed.approvedChangeOrders[0].order_number).toBe('CO-SPK2668-01');
     expect(payloadPassed.approvedChangeOrders[0].change_order_items).toHaveLength(2);
   });
+
+  it('correctly reconciles SPK-3093 financial figures: Total Harga Jual (Rp 5.321.998), Total Modal HPP (Rp 3.065.264), and Estimasi Laba Kotor (Rp 2.256.734)', async () => {
+    const spk3093DbId = 'spk-uuid-3093';
+
+    // Mock Package Catalog for SPK-3093
+    vi.mocked(packageService.getPackages).mockResolvedValueOnce([
+      {
+        id: 'pkg-dump-3093',
+        name: 'Paket Dump Truck Karoseri',
+        selling_price: 2000000,
+        items: [],
+      } as any,
+    ]);
+
+    // Mock Approved Change Orders for SPK-3093
+    const spk3093ApprovedCos: billingService.ApprovedChangeOrder[] = [
+      {
+        id: 'co-3093-1',
+        order_number: 'CO-3093-01',
+        co_number: 'CO-3093-01',
+        description: 'Pekerjaan Tambahan Sasis & Hidrolik',
+        wbs_stage: 'WBS 2: Sasis/Rangka',
+        total_amount: 3004998,
+        created_at: '2026-10-24T08:00:00Z',
+        approved_at: '2026-10-24T09:00:00Z',
+        approved_by: 'supervisor-1',
+        change_order_items: [
+          {
+            id: 'item-co-mat',
+            item_name: 'Plat Tambahan Bordes Sasis',
+            item_type: 'MATERIAL',
+            wbs_stage: 'WBS 2: Sasis/Rangka',
+            quantity: 1,
+            unit: 'lot',
+            unit_price: 1804998,
+            cost_price: 1154934,
+            subtotal: 1804998,
+          },
+          {
+            id: 'item-co-labor',
+            item_name: 'Jasa Pemasangan Hidrolik Tambahan',
+            item_type: 'LABOR',
+            wbs_stage: 'WBS 3: Fabrikasi',
+            quantity: 1,
+            unit: 'ls',
+            unit_price: 1200000,
+            cost_price: 950000,
+            subtotal: 1200000,
+          },
+        ],
+      },
+    ];
+    vi.spyOn(billingService, 'fetchApprovedChangeOrders').mockResolvedValueOnce(spk3093ApprovedCos);
+
+    const mockSpk3093Data = [
+      {
+        id: spk3093DbId,
+        spk_no: 'SPK-3093',
+        customer_name: 'PT Karoseri Mitra Mandiri',
+        vehicle_plate: 'B 3093 TXX',
+        vehicle_vin: 'MHF3093TXX001',
+        vehicle_number: 'B 3093 TXX',
+        vehicle_engine: 'ENG-3093',
+        status: 'ACTIVE',
+        dp_amount: 1500000,
+        total_estimated_cost: 960330,
+        qc_status: 'PASS',
+        allocation_status: 'FULL',
+        qc_inspections: [{ status: 'PASS', inspected_at: '2026-10-24T10:00:00Z' }],
+        invoices: [{ status: 'UNPAID', created_at: '2026-10-24T11:00:00Z' }],
+        inventory_transactions: [],
+        spk_amendments: [],
+      },
+    ];
+
+    const mockSupabaseFrom = vi.fn((table: string) => {
+      if (table === 'rab_estimations') {
+        return {
+          select: vi.fn().mockResolvedValue({
+            data: [
+              {
+                id: 'est-3093',
+                spk_id: spk3093DbId,
+                total_labor_cost: 250000,
+                total_overhead_cost: 0,
+                total_estimated_cost: 960330,
+              },
+            ],
+            error: null,
+          }),
+        };
+      }
+      if (table === 'rab_items') {
+        return {
+          select: vi.fn().mockResolvedValue({
+            data: [
+              {
+                rab_estimation_id: 'est-3093',
+                item_total: 400000,
+                package_id: 'pkg-dump-3093',
+              },
+              {
+                rab_estimation_id: 'est-3093',
+                item_total: 310330,
+                package_id: 'pkg-dump-3093',
+              },
+              {
+                rab_estimation_id: 'est-3093',
+                item_total: 317000,
+                package_id: null,
+              },
+            ],
+            error: null,
+          }),
+        };
+      }
+      if (table === 'spk') {
+        return {
+          select: vi.fn().mockReturnValue({
+            neq: vi.fn().mockReturnValue({
+              order: vi.fn().mockResolvedValue({
+                data: mockSpk3093Data,
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+        }),
+      };
+    });
+
+    vi.mocked(supabase.from).mockImplementation(mockSupabaseFrom as any);
+
+    render(<KasirDashboard />);
+
+    // 1. Switch to "Pelunasan Akhir" (FINAL tab)
+    const finalTabButton = screen.getByRole('button', { name: /Pelunasan Akhir/i });
+    fireEvent.click(finalTabButton);
+
+    // 2. Wait for SPK-3093 card to appear and click it
+    await waitFor(() => {
+      expect(screen.getByText('SPK-3093')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('SPK-3093'));
+
+    // 3. Wait for Change Orders to be fetched and Billing Calculator to display
+    await waitFor(() => {
+      expect(screen.getByText(/Change Orders \(Addendum\)/i)).toBeInTheDocument();
+    });
+
+    // 4. Verify Customer Billing figures
+    // Paket Assembly List: Rp 2.000.000
+    // Extra Item (Luar Paket): Rp 317.000
+    // Change Orders (Addendum): + Rp 3.004.998
+    // Total Harga Jual: Rp 5.321.998
+    expect(screen.getByText(/Rp\s*2\.000\.000/)).toBeInTheDocument();
+    expect(screen.getByText(/Rp\s*317\.000/)).toBeInTheDocument();
+    expect(screen.getByText(/\+\s*Rp\s*3\.004\.998/)).toBeInTheDocument();
+    expect(screen.getByText(/Rp\s*5\.321\.998/)).toBeInTheDocument();
+
+    // 5. Verify Internal Cost (Modal) figures
+    // Actual Material Cost: 710.330 + 1.154.934 = 1.865.264
+    // Actual Labor Cost: 250.000 + 950.000 = 1.200.000
+    // Actual Overhead Cost: 0
+    // Total Modal (HPP): 3.065.264
+    expect(screen.getByText(/Termasuk CO:\s*\+Rp\s*2\.104\.934/)).toBeInTheDocument();
+    expect(screen.getByText(/Rp\s*1\.865\.264/)).toBeInTheDocument();
+    expect(screen.getByText(/Rp\s*1\.200\.000/)).toBeInTheDocument();
+    expect(screen.getByText(/Rp\s*3\.065\.264/)).toBeInTheDocument();
+
+    // 6. Verify Estimasi Laba Kotor (Gross Profit)
+    // Gross Profit: 5.321.998 - 3.065.264 = 2.256.734
+    // Margin: 2.256.734 / 5.321.998 * 100 = 42.4%
+    expect(screen.getByText(/Rp\s*2\.256\.734/)).toBeInTheDocument();
+    expect(screen.getByText(/\(42\.4%\)/)).toBeInTheDocument();
+
+    // 7. Verify Final Bill to Customer: 5.321.998 - 1.500.000 = 3.821.998
+    expect(screen.getByText(/Rp\s*3\.821\.998/)).toBeInTheDocument();
+  });
 });

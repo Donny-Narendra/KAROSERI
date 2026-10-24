@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fetchApprovedChangeOrders, fetchDPHistory, fetchDpHistory } from '../billingService';
+import { fetchApprovedChangeOrders, fetchDPHistory, fetchDpHistory, calculateChangeOrderHppBreakdown } from '../billingService';
 import { supabase } from '../../lib/supabaseClient';
 
 vi.mock('../../lib/supabaseClient', () => ({
@@ -333,5 +333,124 @@ describe('Sprint 49: billingService.fetchApprovedChangeOrders Tests', () => {
 
     const result = await fetchDpHistory();
     expect(result).toEqual(mockFallbackData);
+  });
+});
+
+describe('Sprint 89: calculateChangeOrderHppBreakdown Tests', () => {
+  it('segregates approved change order items into MATERIAL, LABOR, and OVERHEAD costs', () => {
+    const mockChangeOrders = [
+      {
+        id: 'co-1',
+        status: 'APPROVED',
+        change_order_items: [
+          {
+            item_name: 'Plat Besi 3mm',
+            item_type: 'MATERIAL',
+            quantity: 2,
+            unit_price: 600000,
+            cost_price: 450000,
+            subtotal: 1200000,
+          },
+          {
+            item_name: 'Jasa Las Mandor',
+            item_type: 'LABOR',
+            quantity: 1,
+            unit_price: 500000,
+            cost_price: 350000,
+            subtotal: 500000,
+          },
+        ],
+      },
+      {
+        id: 'co-2',
+        status: 'APPROVED',
+        change_order_items: [
+          {
+            item_name: 'Baut & Dempul',
+            item_type: 'MATERIAL',
+            quantity: 5,
+            unit_price: 50000,
+            cost_price: 30000,
+            subtotal: 250000,
+          },
+          {
+            item_name: 'Sewa Alat Genset',
+            item_type: 'OVERHEAD',
+            quantity: 1,
+            unit_price: 300000,
+            cost_price: 200000,
+            subtotal: 300000,
+          },
+        ],
+      },
+      {
+        id: 'co-3',
+        status: 'REJECTED',
+        change_order_items: [
+          {
+            item_name: 'Unapproved Item',
+            item_type: 'MATERIAL',
+            quantity: 1,
+            unit_price: 1000000,
+            cost_price: 800000,
+            subtotal: 1000000,
+          },
+        ],
+      },
+    ];
+
+    const result = calculateChangeOrderHppBreakdown(mockChangeOrders as any);
+
+    // coMaterialCost: (2 * 450000) + (5 * 30000) = 900000 + 150000 = 1050000
+    expect(result.coMaterialCost).toBe(1050000);
+    // coLaborCost: 1 * 350000 = 350000
+    expect(result.coLaborCost).toBe(350000);
+    // coOverheadCost: 1 * 200000 = 200000
+    expect(result.coOverheadCost).toBe(200000);
+    // coTotalCost: 1050000 + 350000 + 200000 = 1600000
+    expect(result.coTotalCost).toBe(1600000);
+  });
+
+  it('handles empty change orders array or null gracefully', () => {
+    const result = calculateChangeOrderHppBreakdown([]);
+    expect(result).toEqual({
+      coMaterialCost: 0,
+      coLaborCost: 0,
+      coOverheadCost: 0,
+      coTotalCost: 0,
+    });
+  });
+
+  it('accurately reconciles SPK-3093 change order HPP scenario', () => {
+    // Initial cost: 960330 (Material 710330 + Labor 250000)
+    // Target Total COGS: 3065264 (Difference = 2104934)
+    const mockSpk3093ChangeOrders = [
+      {
+        id: 'co-spk-3093',
+        status: 'APPROVED',
+        change_order_items: [
+          { item_type: 'MATERIAL', quantity: 1, cost_price: 1354934, unit_price: 1804998 },
+          { item_type: 'LABOR', quantity: 1, cost_price: 550000, unit_price: 800000 },
+          { item_type: 'OVERHEAD', quantity: 1, cost_price: 200000, unit_price: 400000 },
+        ],
+      },
+    ];
+
+    const hpp = calculateChangeOrderHppBreakdown(mockSpk3093ChangeOrders as any);
+    expect(hpp.coMaterialCost).toBe(1354934);
+    expect(hpp.coLaborCost).toBe(550000);
+    expect(hpp.coOverheadCost).toBe(200000);
+    expect(hpp.coTotalCost).toBe(2104934);
+
+    const initialMaterial = 710330;
+    const initialLabor = 250000;
+    const initialOverhead = 0;
+
+    const actualMaterial = initialMaterial + hpp.coMaterialCost;
+    const actualLabor = initialLabor + hpp.coLaborCost;
+    const actualOverhead = initialOverhead + hpp.coOverheadCost;
+    const totalModalHpp = actualMaterial + actualLabor + actualOverhead;
+
+    expect(totalModalHpp).toBe(3065264);
   });
 });

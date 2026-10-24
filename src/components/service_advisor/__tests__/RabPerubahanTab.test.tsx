@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { RabPerubahanTab } from '../RabPerubahanTab';
 import * as exportUtils from '../../../utils/rabPerubahanExport';
+import { packageService } from '../../../services/packageService';
 
 // Mock export utilities
 vi.spyOn(exportUtils, 'exportRabPerubahanToExcel');
@@ -527,5 +528,180 @@ describe('RabPerubahanTab Component', () => {
     const pdfBtn = screen.getByText('Export PDF / Cetak');
     fireEvent.click(pdfBtn);
     expect(exportUtils.printRabPerubahanReport).toHaveBeenCalledTimes(1);
+  });
+
+  it('correctly reconciles SPK-3093 financial figures: Total Quotation Jual (Revisi) Rp 5.321.998, Total Modal HPP Rp 3.065.264, and Total Estimasi Profit Rp 2.256.734', async () => {
+    const spk3093 = {
+      id: 'spk-3093',
+      spk_no: 'SPK-3093',
+      customer_name: 'PT Karoseri Mitra Mandiri',
+      vehicle_plate: 'B 3093 TXX',
+      vehicle_model: 'Dump Truck 6 Roda',
+      status: 'IN_PROGRESS',
+    };
+
+    // Mock Package Catalog for SPK-3093
+    vi.spyOn(packageService, 'getPackages').mockResolvedValueOnce([
+      {
+        id: 'pkg-dump-3093',
+        name: 'Paket Dump Truck',
+        selling_price: 2000000,
+        items: [],
+      } as any,
+    ]);
+
+    // Initial RAB items with package explosion (Cost = 803.330) and 1 granular item
+    const spk3093RabItems = [
+      {
+        id: 'rab-item-pkg-mat',
+        rab_estimation_id: 'est-3093',
+        spk_id: 'spk-3093',
+        wbs_category: 'Sasis/Rangka',
+        wbs_stage: 'WBS 2: Sasis/Rangka',
+        item_type: 'MATERIAL',
+        material_name: 'Plat Besi Paket Dump',
+        description: 'Plat Besi Paket Dump',
+        package_name: 'Paket Dump Truck',
+        package_id: 'pkg-dump-3093',
+        quantity: 1,
+        unit: 'lot',
+        cost_price: 553330,
+        unit_price: 553330,
+        subtotal: 553330,
+        material_id: 'mat-pkg-1',
+      },
+      {
+        id: 'rab-item-pkg-labor',
+        rab_estimation_id: 'est-3093',
+        spk_id: 'spk-3093',
+        wbs_category: 'Fabrikasi',
+        wbs_stage: 'WBS 3: Fabrikasi',
+        item_type: 'LABOR',
+        material_name: 'Jasa Perakitan Dump',
+        description: 'Jasa Perakitan Dump',
+        package_name: 'Paket Dump Truck',
+        package_id: 'pkg-dump-3093',
+        quantity: 1,
+        unit: 'lot',
+        cost_price: 250000,
+        unit_price: 250000,
+        subtotal: 250000,
+      },
+      {
+        id: 'rab-item-granular',
+        rab_estimation_id: 'est-3093',
+        spk_id: 'spk-3093',
+        wbs_category: 'Aksesoris',
+        wbs_stage: 'WBS 5: Aksesoris',
+        item_type: 'MATERIAL',
+        material_name: 'Granular Luar Paket',
+        description: 'Granular Luar Paket',
+        package_name: null,
+        package_id: null,
+        quantity: 1,
+        unit: 'pcs',
+        cost_price: 157000,
+        unit_price: 317000,
+        subtotal: 317000,
+        material_id: 'mat-gran-1',
+      },
+    ];
+
+    // Approved Change Orders for SPK-3093 (Selling Price = 3.004.998, HPP = 2.104.934)
+    const spk3093ApprovedCos = [
+      {
+        id: 'co-3093-1',
+        spk_id: 'spk-3093',
+        co_number: 'CO-3093-01',
+        status: 'APPROVED',
+        items: [
+          {
+            id: 'co-item-1',
+            change_order_id: 'co-3093-1',
+            wbs_stage: 'WBS 2: Sasis/Rangka',
+            item_type: 'MATERIAL',
+            item_name: 'Plat Tambahan Bordes Sasis',
+            quantity: 1,
+            unit: 'lot',
+            cost_price: 1154934,
+            unit_price: 1804998,
+            subtotal: 1804998,
+            package_name: null,
+          },
+          {
+            id: 'co-item-2',
+            change_order_id: 'co-3093-1',
+            wbs_stage: 'WBS 3: Fabrikasi',
+            item_type: 'LABOR',
+            item_name: 'Jasa Pemasangan Hidrolik Tambahan',
+            quantity: 1,
+            unit: 'ls',
+            cost_price: 950000,
+            unit_price: 1200000,
+            subtotal: 1200000,
+            package_name: null,
+          },
+        ],
+      },
+    ];
+
+    const supabaseMock = await import('../../../lib/supabaseClient');
+    const originalFrom = supabaseMock.supabase.from;
+    (supabaseMock.supabase.from as any) = vi.fn((table: string) => {
+      if (table === 'rab_estimations') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: { id: 'est-3093', spk_id: 'spk-3093' },
+            error: null,
+          }),
+        };
+      }
+      if (table === 'rab_items') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockResolvedValue({
+            data: spk3093RabItems,
+            error: null,
+          }),
+        };
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockResolvedValue({ data: [], error: null }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      };
+    });
+
+    const spkServiceMock = await import('../../../services/spkService');
+    vi.spyOn(spkServiceMock.spkService, 'getChangeOrders').mockResolvedValueOnce(spk3093ApprovedCos as any);
+
+    try {
+      render(<RabPerubahanTab spkId="spk-3093" spk={spk3093} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Plat Besi Paket Dump')).toBeInTheDocument();
+      });
+
+      // Verify Reconciled Financial Figures:
+      // 1. Total Quotation Jual (Revisi): Rp 5.321.998
+      // (Paket Rp 2.000.000 + Granular Rp 317.000 + CO Rp 3.004.998)
+      expect(screen.getAllByText('Rp 5.321.998').length).toBeGreaterThanOrEqual(1);
+
+      // 2. Total Modal HPP: Rp 3.065.264
+      // (Paket Rp 803.330 + Granular Rp 157.000 + CO Rp 2.104.934)
+      expect(screen.getAllByText('Rp 3.065.264').length).toBeGreaterThanOrEqual(1);
+
+      // 3. Total Estimasi Profit: Rp 2.256.734
+      // (Rp 5.321.998 - Rp 3.065.264)
+      expect(screen.getAllByText('Rp 2.256.734').length).toBeGreaterThanOrEqual(1);
+
+      // 4. Margin: 42.4%
+      expect(screen.getByText(/Margin Bersih: 42\.4%/)).toBeInTheDocument();
+    } finally {
+      (supabaseMock.supabase.from as any) = originalFrom;
+    }
   });
 });

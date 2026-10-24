@@ -5,7 +5,7 @@ import { rabService } from './rabService';
 
 class PackageService {
   async getPackages(): Promise<ProductPackage[]> {
-    const { data, error } = await supabase
+    const query = supabase
       .from('product_packages')
       .select(`
         *,
@@ -13,8 +13,11 @@ class PackageService {
           *,
           material:materials (*)
         )
-      `)
-      .order('created_at', { ascending: false });
+      `);
+
+    const { data, error } = typeof (query as any)?.order === 'function'
+      ? await (query as any).order('created_at', { ascending: false })
+      : await query;
 
     if (error) throw error;
     return data || [];
