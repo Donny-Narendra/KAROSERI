@@ -1,67 +1,52 @@
-# Sprint 89 — Synchronize Financial Quotation and Cost Breakdown Between RAB Perubahan and Kasir Billing
+# Sprint 90 — Implement Itemized Assembly Package vs Granular Profit Segregation in RAB Perubahan and Job Profitability
 
 > **Duration**: 2026-10-24 to 2026-10-24
-> **Status**: Completed
+> **Status**: In Progress
 
 ## Goal
-Harmonize financial quotation (selling price) and internal cost breakdown (COGS/HPP) between Service Advisor ("RAB Perubahan" tab) and Kasir (Billing Calculator) using the Single Source of Truth (SSOT) principle, eliminating mathematical discrepancies across contract packages, granular items, and approved change orders.
+Implement a segregated 2-pillar profit calculation model (Itemized Assembly Packages vs. Granular / Non-Package Material, Labor, and Overhead) across the Service Advisor (`RabPerubahanTab.tsx`), financial exports (`rabPerubahanExport.ts`), and Executive Financial Reports (`JobProfitabilityTab.tsx`), preventing package assembly labor from contaminating standalone labor margins and giving workshop owners granular visibility into per-package margins.
 
 ## Scope
 
 ### Included
-- **Task 1: Harmonize Sales & COGS Formulas in `billingService.ts` & `KasirDashboard.tsx`**
-  - Incorporate approved Change Orders HPP (Material, Labor, Overhead) into the Kasir `Internal Cost (Modal)` panel.
-  - Calculate `Actual Material Cost = Initial Material Cost + coMaterialCost`.
-  - Calculate `Actual Labor Cost = Initial Labor Cost + coLaborCost`.
-  - Calculate `Actual Overhead Cost = Initial Overhead Cost + coOverheadCost`.
-  - Calculate `Total Modal (HPP) = Actual Material Cost + Actual Labor Cost + Actual Overhead Cost`.
-  - Reconcile `Total Harga Jual` with base quotation and approved change orders.
-- **Task 2: Proportional Package Selling Price Breakdown in `RabCalculator.tsx` & `RabPerubahanTab.tsx`**
-  - Distribute package selling price (`package.selling_price`) proportionally to component breakdown rows based on BOM cost weights:
-    $$\text{component.unit\_price} = \frac{\text{component.cost\_price}}{\text{totalCost}} \times \text{package.selling\_price}$$
-  - Ensure `RabPerubahanTab.tsx` respects the true package selling price (or scales package components) so $\sum \text{Subtotal RAB Awal} + \sum \text{Subtotal Approved Change Orders}$ exactly matches `Total Harga Jual` in Kasir.
-  - Reconcile `RabCalculator.tsx`, `PackageAllocationModal.tsx`, and `packageService.ts` when BOM explosion occurs.
-- **Task 3: Synchronize Gross Profit & Margin Indicators across Kasir and RAB Perubahan**
-  - In Kasir: $\text{Gross Profit} = \text{Total Harga Jual} - \text{Total Modal (HPP)}$.
-  - In RAB Perubahan: $\text{Total Estimasi Profit} = \text{Total Quotation Jual (Revisi)} - \text{Total Modal HPP}$.
-  - Ensure 4-pillar margins and totals match across both pages.
+- **Task 1: Segregated Profit Calculation Helper (`src/utils/profitCalculator.ts`)**
+  - Implement `computeSegregatedProjectProfit(items, packageMasters)` according to the mathematical model.
+  - Support Pilar 1 (Itemized packages: `packageId`, `packageName`, `instanceId`, `sellingPrice`, `materialCost`, `laborCost`, `overheadCost`, `totalCost`, `netProfit`, `marginPercentage`, plus totalPackageRevenue, totalPackageCost, totalPackageProfit).
+  - Support Pilar 2 (Granular / Non-Package: granularMaterial, granularLabor, granularOverhead with revenue, cost, profit, marginPct, plus totalGranularRevenue, totalGranularCost, totalGranularProfit).
+  - Calculate Grand Total project revenue, cost, profit, and margin percentage.
+  - Comprehensive unit test suite in `src/utils/__tests__/profitCalculator.test.ts`.
+- **Task 2: Refactor RAB Perubahan Profit Display & Export Integration (`RabPerubahanTab.tsx` & `rabPerubahanExport.ts`)**
+  - Reconstruct the profit section in `RabPerubahanTab.tsx` into a 2-pillar layout:
+    - Pilar 1: Itemized Assembly Packages breakdown table/cards showing each package's Selling Price, Material HPP, Labor HPP, Overhead HPP, Total HPP, Net Profit, and Margin %.
+    - Pilar 2: Granular / Lepas metrics (Material, Labor, Overhead).
+    - Ensure labor summary card (`data-testid="pillar-labor-card"`) reflects pure granular labor without contamination from internal package recipe labor.
+  - Update `computeRabPerubahanTotals` in `rabPerubahanExport.ts` to properly segregate package components (material, labor, overhead) into package costs, preventing package labor from being counted as granular labor.
+  - Update Excel (`exportRabPerubahanToExcel`) and PDF (`printRabPerubahanReport`) exports to reflect itemized package breakdown and segregated granular metrics.
+- **Task 3: Itemized Package vs Granular Profit Inspection in Job Profitability (`JobProfitabilityTab.tsx`)**
+  - Integrate itemized profit breakdown inspection in `JobProfitabilityTab.tsx`.
+  - Add interactive modal drill-down allowing owners to inspect the Itemized Assembly Margin vs Granular Segregated Margin per SPK.
+  - Reconcile table columns, footer aggregates, and export utilities.
 - **Task 4: Automated Testing & Verification**
-  - Add unit tests in `billingService.test.ts`, `KasirChangeOrderBreakdown.test.tsx`, `RabPerubahanTab.test.tsx`, and `packageAssemblyImport.test.ts`.
-  - Verify SPK-3093 scenarios (Total Harga Jual Rp 5.321.998, Total Modal HPP Rp 3.065.264, Gross Profit Rp 2.256.734).
-  - Verify Down Payment & remaining bill calculations.
-  - Run linting (`oxlint`) and production build (`npm run build`).
+  - Add unit tests for `profitCalculator.ts` covering multi-package, single-package, granular-only, and mixed scenarios.
+  - Update and expand test suites in `RabPerubahanTab.test.tsx`, `JobProfitabilityTab.test.tsx`, and `rabPerubahanExport.test.ts`.
+  - Verify SPK-3093 and mixed-scenario financial reconciliation.
+  - Run `npx oxlint` and `npm run build` / `npm test`.
 
 ### Explicitly Excluded
-- Database schema changes (calculations are handled in frontend service and presentation layers).
-- Altering previously issued finalized invoices in `invoices` table.
+- Modifying underlying PostgreSQL schema (calculations and segregation are performed using existing fields in frontend services and utilities).
+- Modifying finalized past invoice receipts in `invoices` table.
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| Task 1: Incorporate approved Change Orders HPP into Kasir Internal Cost panel (`billingService.ts` / `KasirDashboard.tsx`) | Claude | ✅ Done | 0.5 |
-| Task 2: Distribute package selling price proportionally and reconcile header totals in `RabCalculator.tsx`, `PackageAllocationModal.tsx`, and `RabPerubahanTab.tsx` | Claude | ✅ Done | 0.75 |
-| Task 3: Align Gross Profit & 4-Pillar metrics between Kasir and RAB Perubahan | Claude | ✅ Done | 0.5 |
-| Task 4: Automated testing, SPK-3093 verification, linting, and production build | Claude | ✅ Done | 0.5 |
+| Task 1: Create pure utility helper `computeSegregatedProjectProfit` in `src/utils/profitCalculator.ts` with unit tests | Claude | 🔄 In Progress | 0.5 |
+| Task 2: Reconstruct profit section in `RabPerubahanTab.tsx` & update `rabPerubahanExport.ts` with Itemized Assembly Margins | Claude | ⬜ Todo | 0.75 |
+| Task 3: Implement itemized profit breakdown drill-down in `JobProfitabilityTab.tsx` | Claude | ⬜ Todo | 0.5 |
+| Task 4: Automated testing, verification, linting, and production build | Claude | ⬜ Todo | 0.5 |
 
 ## Daily Log
 
 ### 2026-10-24
-- Sprint created. Scope and objectives verified.
-- **Task 1 Completed**:
-  - Implemented `calculateChangeOrderHppBreakdown` in `src/services/billingService.ts` to aggregate Material, Labor, and Overhead HPP from approved Change Orders.
-  - Updated `src/pages/KasirDashboard.tsx` to calculate `actualMaterialCost`, `actualLaborCost`, `actualOverheadCost`, `totalModalHpp`, and display `Estimasi Laba Kotor (Gross Profit)` with percentage margin.
-  - Updated invoice generation to pass unified actual costs.
-- **Task 2 Completed**:
-  - Updated `src/components/PackageAllocationModal.tsx` and `src/components/RabCalculator.tsx` to distribute package selling price across exploded component rows based on proportional BOM cost weights while preserving underlying cost prices.
-  - Exported and integrated `computeProportionalPackageBreakdown` in `src/components/service_advisor/RabPerubahanTab.tsx` so existing exploded package rows are dynamically scaled to match package master selling price (including single-rupiah rounding correction on the final item).
-  - Preserved single-rupiah precision in `src/utils/rabPerubahanExport.ts`.
-- **Task 3 Completed**:
-  - Aligned Gross Profit formula across Kasir and RAB Perubahan: Total Harga Jual / Total Quotation Jual (Revisi) - Total Modal HPP.
-  - Verified 4-pillar margins and totals.
-- **Task 4 Completed**:
-  - Added unit tests in `src/services/__tests__/billingService.test.ts` for Change Order HPP breakdown.
-  - Added empirical verification tests in `src/components/__tests__/KasirChangeOrderBreakdown.test.tsx` and `src/components/service_advisor/__tests__/RabPerubahanTab.test.tsx` asserting SPK-3093 financial reconciliation (Jual: Rp 5.321.998, HPP: Rp 3.065.264, Profit: Rp 2.256.734, Margin: 42.4%).
-  - Ran `npm test` (all 63 test suites, 470 tests passing).
-  - Ran `npx oxlint` (0 errors).
-  - Ran `npm run build` (`tsc -b && vite build` passing cleanly).
+- Sprint 89 archived to `.gsd/sprints/sprint-89-synchronize-financial-quotation-and-cost-breakdown-between-rab-perubahan-and-kasir-billing.md`.
+- Sprint 90 created. Scope, mathematical models, and architectural plan defined.

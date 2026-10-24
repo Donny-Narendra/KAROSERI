@@ -1,15 +1,15 @@
 ## Current Position
-- **Sprint**: Sprint 89 — Synchronize Financial Quotation and Cost Breakdown Between RAB Perubahan and Kasir Billing
-- **Status**: Sprint completed
+- **Sprint**: Sprint 90 — Implement Itemized Assembly Package vs Granular Profit Segregation in RAB Perubahan and Job Profitability
+- **Status**: Sprint in progress
 - **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness (paused for sprint)
 
 ## Last Session Summary
-Codebase mapping complete (/map):
-- 83 components & pages identified (11 pages, 72 operational components)
-- 9 services, 21 utilities, 6 domain/schema type definitions
-- 35 dependencies analyzed (16 production, 19 development)
-- 63 test suites, 470 automated tests (100% green)
-- 0 technical debt items found (all Sprints 43–89 fully resolved)
+- Sprint 89 archived to `.gsd/sprints/`
+- Sprint 90 initiated: 2-Pillar hybrid profit segregation model for Itemized Assembly Packages vs Granular Material, Labor, and Overhead in RAB Perubahan and Job Profitability
 
 ## Next Up
-- Review or resume Milestone roadmap or run `/sprint done` to archive Sprint 89.
+- Task 1: Create pure helper `computeSegregatedProjectProfit` in `src/utils/profitCalculator.ts` with unit tests
+- Task 2: Reconstruct profit section in `RabPerubahanTab.tsx` & update `rabPerubahanExport.ts`
+- Task 3: Implement itemized profit breakdown drill-down in `JobProfitabilityTab.tsx`
+- Task 4: Automated testing & verification
+
