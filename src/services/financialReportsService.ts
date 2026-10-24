@@ -90,28 +90,51 @@ export const financialReportsService = {
 
     return ((data || []) as any[])
       .filter(row => !['DRAFT', 'PENDING_PAYMENT'].includes(String(row.spk_status || '').toUpperCase()))
-      .map(row => ({
-        ...row,
-        total_revenue: Number(row.total_revenue || 0),
-        actual_material_cost: Number(row.actual_material_cost || 0),
-        actual_labor_cost: Number(row.actual_labor_cost || 0),
-        actual_overhead_cost: Number(row.actual_overhead_cost || 0),
-        total_cogs: Number(row.total_cogs || 0),
-        gross_profit: Number(row.gross_profit || 0),
-        gross_margin_percentage: Number(row.gross_margin_percentage || 0),
-        // 3-Pillar Segregated Profit Columns
-        package_revenue: Number(row.package_revenue || 0),
-        package_cogs: Number(row.package_cogs || 0),
-        package_profit: Number(row.package_profit || 0),
-        granular_material_revenue: Number(row.granular_material_revenue ?? row.granular_mat_revenue ?? 0),
-        granular_material_cogs: Number(row.granular_material_cogs ?? row.granular_mat_cogs ?? 0),
-        granular_mat_revenue: Number(row.granular_mat_revenue ?? row.granular_material_revenue ?? 0),
-        granular_mat_cogs: Number(row.granular_mat_cogs ?? row.granular_material_cogs ?? 0),
-        granular_material_profit: Number(row.granular_material_profit || 0),
-        granular_other_revenue: Number(row.granular_other_revenue || 0),
-        granular_other_cogs: Number(row.granular_other_cogs || 0),
-        granular_other_profit: Number(row.granular_other_profit || 0),
-      })) as SpkJobProfitability[];
+      .map(row => {
+        const total_revenue = Number(row.total_revenue || 0);
+        const total_cogs = Number(row.total_cogs || 0);
+        const gross_profit = Number(row.gross_profit ?? (total_revenue - total_cogs));
+        const gross_margin_percentage = Number(
+          row.gross_margin_percentage ?? (total_revenue > 0 ? (gross_profit / total_revenue) * 100 : 0)
+        );
+
+        const granular_labor_profit = Number(row.granular_labor_profit ?? 0);
+        const granular_overhead_profit = Number(row.granular_overhead_profit ?? row.granular_foh_profit ?? 0);
+        const granular_other_profit = Number(
+          row.granular_other_profit ?? (granular_labor_profit + granular_overhead_profit)
+        );
+
+        return {
+          ...row,
+          total_revenue,
+          actual_material_cost: Number(row.actual_material_cost ?? row.granular_mat_cogs ?? 0),
+          actual_labor_cost: Number(row.actual_labor_cost ?? row.granular_labor_cogs ?? 0),
+          actual_overhead_cost: Number(row.actual_overhead_cost ?? row.granular_foh_cogs ?? 0),
+          total_cogs,
+          gross_profit,
+          gross_margin_percentage,
+          payment_status: row.payment_status || 'UNBILLED',
+          // 4-Pillar Segregated Profit Columns
+          package_revenue: Number(row.package_revenue || 0),
+          package_cogs: Number(row.package_cogs || 0),
+          package_profit: Number(row.package_profit || 0),
+          granular_material_revenue: Number(row.granular_material_revenue ?? row.granular_mat_revenue ?? 0),
+          granular_material_cogs: Number(row.granular_material_cogs ?? row.granular_mat_cogs ?? 0),
+          granular_mat_revenue: Number(row.granular_mat_revenue ?? row.granular_material_revenue ?? 0),
+          granular_mat_cogs: Number(row.granular_mat_cogs ?? row.granular_material_cogs ?? 0),
+          granular_material_profit: Number(row.granular_material_profit || 0),
+          granular_labor_revenue: Number(row.granular_labor_revenue || 0),
+          granular_labor_cogs: Number(row.granular_labor_cogs || 0),
+          granular_labor_profit,
+          granular_foh_revenue: Number(row.granular_foh_revenue || 0),
+          granular_foh_cogs: Number(row.granular_foh_cogs || 0),
+          granular_overhead_profit,
+          granular_foh_profit: granular_overhead_profit,
+          granular_other_revenue: Number(row.granular_other_revenue ?? (Number(row.granular_labor_revenue || 0) + Number(row.granular_foh_revenue || 0))),
+          granular_other_cogs: Number(row.granular_other_cogs ?? (Number(row.granular_labor_cogs || 0) + Number(row.granular_foh_cogs || 0))),
+          granular_other_profit,
+        };
+      }) as SpkJobProfitability[];
   },
 
   /**

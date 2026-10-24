@@ -49,14 +49,21 @@ export interface SpkJobProfitabilityItem {
   gross_margin_percentage: number;
   payment_status: 'UNBILLED' | 'DRAFT' | 'PARTIAL' | 'PAID' | string;
 
-  // 3-Pillar Segregated Profit Columns (Sprint 82)
+  // 4-Pillar Segregated Profit Columns (Sprint 90)
   package_revenue: number;
   package_cogs: number;
   package_profit: number;
   granular_material_revenue: number;
   granular_material_cogs: number;
   granular_material_profit: number;
-  granular_other_profit: number;
+  granular_labor_revenue?: number;
+  granular_labor_cogs?: number;
+  granular_labor_profit?: number;
+  granular_foh_revenue?: number;
+  granular_foh_cogs?: number;
+  granular_overhead_profit?: number;
+  granular_foh_profit?: number;
+  granular_other_profit?: number;
 
   // Backwards-compatible aliases
   granular_mat_revenue?: number;

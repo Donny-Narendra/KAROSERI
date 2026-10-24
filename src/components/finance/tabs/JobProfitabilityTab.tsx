@@ -6,12 +6,14 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock,
-  ArrowUpDown
+  ArrowUpDown,
+  ChevronDown
 } from 'lucide-react';
 import { financialReportsService } from '../../../services/financialReportsService';
 import { exportToExcel, exportToCsv } from '../../../utils/exportFinancialReports';
 import type { SpkJobProfitability } from '../../../types/financialReports';
 import { ItemizedProfitModal } from '../ItemizedProfitModal';
+import { SpkPackageDetailAccordion } from '../SpkPackageDetailAccordion';
 
 interface JobProfitabilityTabProps {
   globalSearch?: string;
@@ -38,6 +40,7 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedSpkForBreakdown, setSelectedSpkForBreakdown] = useState<SpkJobProfitability | null>(null);
+  const [expandedSpkIds, setExpandedSpkIds] = useState<Set<string>>(new Set());
 
   // Local filters
   const [localSearch, setLocalSearch] = useState('');
@@ -45,6 +48,18 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
   const [paymentStatus, setPaymentStatus] = useState<string>('ALL');
   const [sortBy, setSortBy] = useState<'date' | 'revenue' | 'profit' | 'margin'>('date');
   const [sortAsc, setSortAsc] = useState(false);
+
+  const toggleExpandRow = (spkId: string) => {
+    setExpandedSpkIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(spkId)) {
+        next.delete(spkId);
+      } else {
+        next.add(spkId);
+      }
+      return next;
+    });
+  };
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -98,12 +113,12 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
     }
   };
 
-
-  // Aggregates for footer
+  // Aggregates for footer & summary cards
   const totalRevenueSum = sortedData.reduce((acc, curr) => acc + curr.total_revenue, 0);
   const totalPackageProfitSum = sortedData.reduce((acc, curr) => acc + (curr.package_profit || 0), 0);
   const totalGranularMatProfitSum = sortedData.reduce((acc, curr) => acc + (curr.granular_material_profit || 0), 0);
-  const totalGranularOtherProfitSum = sortedData.reduce((acc, curr) => acc + (curr.granular_other_profit || 0), 0);
+  const totalGranularLaborProfitSum = sortedData.reduce((acc, curr) => acc + (curr.granular_labor_profit || 0), 0);
+  const totalGranularFohProfitSum = sortedData.reduce((acc, curr) => acc + (curr.granular_overhead_profit || 0), 0);
   const totalMaterialSum = sortedData.reduce((acc, curr) => acc + curr.actual_material_cost, 0);
   const totalLaborSum = sortedData.reduce((acc, curr) => acc + curr.actual_labor_cost, 0);
   const totalOverheadSum = sortedData.reduce((acc, curr) => acc + (curr.actual_overhead_cost || 0), 0);
@@ -112,13 +127,13 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* 3-Pillar Segregated Profit Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="bg-surface/80 border border-amber-500/30 rounded-xl p-3.5 flex items-center justify-between">
+      {/* 4-Pillar Segregated Profit Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-surface/80 border border-amber-500/30 rounded-xl p-3.5 flex items-center justify-between shadow-sm">
           <div>
             <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-400 font-mono uppercase">
               <span>📦</span>
-              <span>Profit Paket Assembly (BOM)</span>
+              <span>Laba Paket Assembly</span>
             </div>
             <div className="text-lg font-bold font-mono text-text mt-1">
               {formatCurrency(totalPackageProfitSum)}
@@ -129,11 +144,11 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
           </div>
         </div>
 
-        <div className="bg-surface/80 border border-cyan-500/30 rounded-xl p-3.5 flex items-center justify-between">
+        <div className="bg-surface/80 border border-cyan-500/30 rounded-xl p-3.5 flex items-center justify-between shadow-sm">
           <div>
             <div className="flex items-center gap-1.5 text-xs font-semibold text-cyan-400 font-mono uppercase">
-              <span>📋</span>
-              <span>Profit Material Granular</span>
+              <span>🧱</span>
+              <span>Laba Material Lepas</span>
             </div>
             <div className="text-lg font-bold font-mono text-text mt-1">
               {formatCurrency(totalGranularMatProfitSum)}
@@ -144,17 +159,32 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
           </div>
         </div>
 
-        <div className="bg-surface/80 border border-purple-500/30 rounded-xl p-3.5 flex items-center justify-between">
+        <div className="bg-surface/80 border border-blue-500/30 rounded-xl p-3.5 flex items-center justify-between shadow-sm">
           <div>
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-purple-400 font-mono uppercase">
-              <span>⚙️</span>
-              <span>Profit Jasa & Overhead Lepas</span>
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-400 font-mono uppercase">
+              <span>🔧</span>
+              <span>Laba Labor Mandor</span>
             </div>
             <div className="text-lg font-bold font-mono text-text mt-1">
-              {formatCurrency(totalGranularOtherProfitSum)}
+              {formatCurrency(totalGranularLaborProfitSum)}
             </div>
             <div className="text-[11px] text-text-muted mt-0.5">
-              Kontribusi laba jasa borongan & operasional
+              Kontribusi margin borongan kerja mandor
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-surface/80 border border-purple-500/30 rounded-xl p-3.5 flex items-center justify-between shadow-sm">
+          <div>
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-purple-400 font-mono uppercase">
+              <span>⚡</span>
+              <span>Laba FOH (Overhead)</span>
+            </div>
+            <div className="text-lg font-bold font-mono text-text mt-1">
+              {formatCurrency(totalGranularFohProfitSum)}
+            </div>
+            <div className="text-[11px] text-text-muted mt-0.5">
+              Margin operasional & overhead pabrik
             </div>
           </div>
         </div>
@@ -202,7 +232,7 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
           <button
             onClick={() => fetchData()}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-hover hover:bg-surface-active text-text rounded-lg border border-border text-sm font-medium transition"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-hover hover:bg-surface-active text-text rounded-lg border border-border text-sm font-medium transition cursor-pointer"
             title="Refresh tabel"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -211,7 +241,7 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
           <button
             onClick={() => exportToExcel('profitability', sortedData)}
             disabled={!sortedData.length}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg text-sm font-medium transition disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg text-sm font-medium transition disabled:opacity-50 cursor-pointer"
             title="Unduh format Excel (.xlsx)"
           >
             <Download className="w-4 h-4" />
@@ -220,14 +250,13 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
           <button
             onClick={() => exportToCsv('profitability', sortedData)}
             disabled={!sortedData.length}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-hover hover:bg-surface-active text-text-muted hover:text-text border border-border rounded-lg text-sm font-medium transition disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-hover hover:bg-surface-active text-text-muted hover:text-text border border-border rounded-lg text-sm font-medium transition disabled:opacity-50 cursor-pointer"
             title="Unduh format CSV (.csv)"
           >
             <span>CSV</span>
           </button>
         </div>
       </div>
-
 
       {/* Error Notice */}
       {error && (
@@ -262,15 +291,18 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
                     <ArrowUpDown className="w-3 h-3" />
                   </div>
                 </th>
-                {/* Segregated Profit Columns */}
-                <th className="py-3 px-3 text-right text-amber-400" title="Profit Penjualan Paket Barang Jadi (Assembly)">
-                  Laba Karya Paket (Assembly)
+                {/* 4-Pillar Segregated Profit Columns */}
+                <th className="py-3 px-3 text-right text-amber-400" title="Profit Murni Penjualan Paket Barang Jadi (Assembly)">
+                  Laba Paket Assembly
                 </th>
-                <th className="py-3 px-3 text-right text-cyan-400" title="Markup Profit Penjualan Material Lepas (Granular)">
-                  Laba Material Lepas (Granular)
+                <th className="py-3 px-3 text-right text-cyan-400" title="Markup Margin Penjualan Material Lepasan (Granular)">
+                  Laba Material Lepas
                 </th>
-                <th className="py-3 px-3 text-right text-purple-400" title="Margin Pekerjaan Jasa Lepas & Overhead Bebas">
-                  Profit Jasa & FOH
+                <th className="py-3 px-3 text-right text-blue-400" title="Margin Pekerjaan Jasa/Borongan Mandor Lepasan (Granular)">
+                  Laba Labor Mandor
+                </th>
+                <th className="py-3 px-3 text-right text-purple-400" title="Margin Pembebanan Biaya Overhead Pabrik Lepasan (Granular FOH)">
+                  Laba FOH
                 </th>
                 <th className="py-3 px-3 text-right">Biaya Bahan</th>
                 <th className="py-3 px-3 text-right">Biaya Borongan</th>
@@ -299,7 +331,7 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
             <tbody className="divide-y divide-border/60">
               {loading ? (
                 <tr>
-                  <td colSpan={12} className="py-12 text-center text-text-muted">
+                  <td colSpan={13} className="py-12 text-center text-text-muted">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <RefreshCw className="w-6 h-6 animate-spin text-primary" />
                       <span>Memuat data profitabilitas...</span>
@@ -308,7 +340,7 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
                 </tr>
               ) : sortedData.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="py-12 text-center text-text-muted">
+                  <td colSpan={13} className="py-12 text-center text-text-muted">
                     Tidak ada catatan SPK yang memenuhi kriteria filter.
                   </td>
                 </tr>
@@ -335,80 +367,123 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
                     rowHighlight = 'hover:bg-surface-hover/50';
                   }
 
+                  const isExpanded = expandedSpkIds.has(row.spk_id);
+
                   return (
-                    <tr key={row.spk_id} className={`transition-colors ${rowHighlight}`}>
-                      <td className="py-3 px-4">
-                        <div className="font-mono font-semibold text-text">
-                          {row.spk_number}
-                        </div>
-                        <div className="text-xs text-text-muted">
-                          {row.customer_name} {row.vehicle_plate && `• ${row.vehicle_plate}`}
-                        </div>
-                        <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-hover border border-border text-text-muted">
-                            {row.spk_status}
+                    <React.Fragment key={row.spk_id}>
+                      <tr className={`transition-colors ${rowHighlight}`}>
+                        <td className="py-3 px-4">
+                          <div className="flex items-start gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => toggleExpandRow(row.spk_id)}
+                              className="p-1 mt-0.5 rounded hover:bg-surface-hover text-text-muted hover:text-amber-300 transition cursor-pointer"
+                              title={isExpanded ? 'Tutup rincian paket assembly' : 'Buka rincian paket assembly'}
+                              data-testid={`btn-expand-${row.spk_id}`}
+                              aria-expanded={isExpanded}
+                            >
+                              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180 text-amber-400' : ''}`} />
+                            </button>
+                            <div>
+                              <div className="font-mono font-semibold text-text">
+                                {row.spk_number}
+                              </div>
+                              <div className="text-xs text-text-muted">
+                                {row.customer_name} {row.vehicle_plate && `• ${row.vehicle_plate}`}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="mt-1 flex items-center gap-1.5 flex-wrap pl-6">
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-hover border border-border text-text-muted">
+                              {row.spk_status}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => toggleExpandRow(row.spk_id)}
+                              className="text-[10px] font-mono font-semibold text-amber-400 hover:text-amber-300 hover:underline flex items-center gap-0.5 cursor-pointer"
+                              title="Buka / Tutup Daftar Paket Assembly & HPP Gabungan"
+                            >
+                              <span>{isExpanded ? '▲ Sembunyikan Paket' : '▼ Daftar Paket'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedSpkForBreakdown(row)}
+                              className="text-[10px] font-mono font-semibold text-text-muted hover:text-text hover:underline flex items-center gap-1 cursor-pointer"
+                              title="Lihat Pemisahan Laba Paket Assembly & Granular"
+                              data-testid={`btn-breakdown-${row.spk_id}`}
+                            >
+                              <span>📦 Rincian Laba</span>
+                            </button>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 font-mono text-xs text-text-muted whitespace-nowrap">
+                          {new Date(row.registration_date).toLocaleDateString('id-ID', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono font-medium text-text">
+                          {formatCurrency(row.total_revenue)}
+                        </td>
+                        {/* 4-Pillar Segregated Profit Columns */}
+                        <td className="py-3 px-3 text-right font-mono text-amber-400 font-medium">
+                          {formatCurrency(row.package_profit || 0)}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono text-cyan-400 font-medium">
+                          {formatCurrency(row.granular_material_profit || 0)}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono text-blue-400 font-medium">
+                          {formatCurrency(row.granular_labor_profit || 0)}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono text-purple-400 font-medium">
+                          {formatCurrency(row.granular_overhead_profit || 0)}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono text-text-muted">
+                          {formatCurrency(row.actual_material_cost)}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono text-text-muted">
+                          {formatCurrency(row.actual_labor_cost)}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono text-text-muted">
+                          {formatCurrency(row.actual_overhead_cost || 0)}
+                        </td>
+                        <td className={`py-3 px-4 text-right font-mono font-bold ${row.gross_profit >= 0 ? 'text-emerald-400' : 'text-status-danger'}`}>
+                          {formatCurrency(row.gross_profit)}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span className={`inline-block font-mono text-xs px-2.5 py-0.5 rounded-full border font-bold ${marginBadge}`}>
+                            {margin.toFixed(1)}%
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedSpkForBreakdown(row)}
-                            className="text-[10px] font-mono font-semibold text-amber-400 hover:text-amber-300 hover:underline flex items-center gap-1 cursor-pointer"
-                            title="Lihat Pemisahan Laba Paket Assembly & Granular"
-                            data-testid={`btn-breakdown-${row.spk_id}`}
-                          >
-                            <span>📦 Rincian Laba</span>
-                          </button>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 font-mono text-xs text-text-muted whitespace-nowrap">
-                        {new Date(row.registration_date).toLocaleDateString('id-ID', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono font-medium text-text">
-                        {formatCurrency(row.total_revenue)}
-                      </td>
-                      {/* Segregated Profit Columns */}
-                      <td className="py-3 px-3 text-right font-mono text-amber-400 font-medium">
-                        {formatCurrency(row.package_profit || 0)}
-                      </td>
-                      <td className="py-3 px-3 text-right font-mono text-cyan-400 font-medium">
-                        {formatCurrency(row.granular_material_profit || 0)}
-                      </td>
-                      <td className="py-3 px-3 text-right font-mono text-purple-400 font-medium">
-                        {formatCurrency(row.granular_other_profit || 0)}
-                      </td>
-                      <td className="py-3 px-3 text-right font-mono text-text-muted">
-                        {formatCurrency(row.actual_material_cost)}
-                      </td>
-                      <td className="py-3 px-3 text-right font-mono text-text-muted">
-                        {formatCurrency(row.actual_labor_cost)}
-                      </td>
-                      <td className="py-3 px-3 text-right font-mono text-text-muted">
-                        {formatCurrency(row.actual_overhead_cost || 0)}
-                      </td>
-                      <td className={`py-3 px-4 text-right font-mono font-bold ${row.gross_profit >= 0 ? 'text-emerald-400' : 'text-status-danger'}`}>
-                        {formatCurrency(row.gross_profit)}
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <span className={`inline-block font-mono text-xs px-2.5 py-0.5 rounded-full border font-bold ${marginBadge}`}>
-                          {margin.toFixed(1)}%
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <span className={`inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-md border ${
-                          row.payment_status === 'PAID'
-                            ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                            : row.payment_status === 'PARTIAL'
-                            ? 'bg-blue-500/15 text-blue-400 border-blue-500/30'
-                            : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
-                        }`}>
-                          {row.payment_status === 'PAID' ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                          {row.payment_status}
-                        </span>
-                      </td>
-                    </tr>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span className={`inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-md border ${
+                            row.payment_status === 'PAID'
+                              ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                              : row.payment_status === 'PARTIAL'
+                              ? 'bg-blue-500/15 text-blue-400 border-blue-500/30'
+                              : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                          }`}>
+                            {row.payment_status === 'PAID' ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                            {row.payment_status}
+                          </span>
+                        </td>
+                      </tr>
+
+                      {/* Baris Ekspansi Detail SPK (Drawer/Accordion) */}
+                      {isExpanded && (
+                        <tr className="bg-surface-hover/30 border-b border-border">
+                          <td colSpan={13} className="p-3 sm:p-4 bg-background/50">
+                            <SpkPackageDetailAccordion
+                              spkId={row.spk_id}
+                              spkNumber={row.spk_number}
+                              customerName={row.customer_name}
+                              vehiclePlate={row.vehicle_plate}
+                            />
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   );
                 })
               )}
@@ -429,8 +504,11 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
                   <td className="py-3 px-3 text-right text-cyan-400">
                     {formatCurrency(totalGranularMatProfitSum)}
                   </td>
+                  <td className="py-3 px-3 text-right text-blue-400">
+                    {formatCurrency(totalGranularLaborProfitSum)}
+                  </td>
                   <td className="py-3 px-3 text-right text-purple-400">
-                    {formatCurrency(totalGranularOtherProfitSum)}
+                    {formatCurrency(totalGranularFohProfitSum)}
                   </td>
                   <td className="py-3 px-3 text-right text-text-muted">
                     {formatCurrency(totalMaterialSum)}

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { JobProfitabilityTab } from '../JobProfitabilityTab';
 import { financialReportsService } from '../../../../services/financialReportsService';
 import type { SpkJobProfitability } from '../../../../types/financialReports';
@@ -10,6 +10,35 @@ vi.mock('../../../../services/financialReportsService', () => ({
   },
 }));
 
+const mockRabPackageItems = [
+  {
+    id: 'it-pkg-mat',
+    rab_estimation_id: 'est-1',
+    spk_id: 'spk-active-1',
+    package_id: 'pkg-cube-1',
+    package_name: 'PAKET MATERIAL EX CUBE',
+    item_type: 'MATERIAL',
+    material_name: 'Bahan Rakitan Dump Cube',
+    quantity: 1,
+    cost_price: 553330,
+    unit_price: 553330,
+    subtotal: 553330,
+  },
+  {
+    id: 'it-pkg-labor',
+    rab_estimation_id: 'est-1',
+    spk_id: 'spk-active-1',
+    package_id: 'pkg-cube-1',
+    package_name: 'PAKET MATERIAL EX CUBE',
+    item_type: 'LABOR',
+    material_name: 'Upah Tukang Las Assembly Cube',
+    quantity: 1,
+    cost_price: 250000,
+    unit_price: 250000,
+    subtotal: 250000,
+  },
+];
+
 vi.mock('../../../../lib/supabaseClient', () => ({
   supabase: {
     from: vi.fn((table: string) => {
@@ -18,6 +47,12 @@ vi.mock('../../../../lib/supabaseClient', () => ({
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
           maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'est-1' }, error: null }),
+        };
+      }
+      if (table === 'rab_items') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockResolvedValue({ data: mockRabPackageItems, error: null }),
         };
       }
       return {
@@ -37,11 +72,13 @@ vi.mock('../../../../services/spkService', () => ({
 
 vi.mock('../../../../services/packageService', () => ({
   packageService: {
-    getPackages: vi.fn(async () => []),
+    getPackages: vi.fn(async () => [
+      { id: 'pkg-cube-1', name: 'PAKET MATERIAL EX CUBE', selling_price: 2000000 },
+    ]),
   },
 }));
 
-describe('Component: JobProfitabilityTab (Operational SPKs & Draft Exclusion)', () => {
+describe('Component: JobProfitabilityTab (Operational SPKs & 4-Pillar Segregated Margins)', () => {
   const mockProfitabilityData: SpkJobProfitability[] = [
     {
       spk_id: 'spk-active-1',
@@ -65,6 +102,8 @@ describe('Component: JobProfitabilityTab (Operational SPKs & Draft Exclusion)', 
       granular_material_revenue: 15_000_000,
       granular_material_cogs: 10_000_000,
       granular_material_profit: 5_000_000,
+      granular_labor_profit: 1_500_000,
+      granular_overhead_profit: 1_000_000,
       granular_other_profit: 2_500_000,
     },
     {
@@ -89,6 +128,8 @@ describe('Component: JobProfitabilityTab (Operational SPKs & Draft Exclusion)', 
       granular_material_revenue: 10_000_000,
       granular_material_cogs: 7_000_000,
       granular_material_profit: 3_000_000,
+      granular_labor_profit: 1_200_000,
+      granular_overhead_profit: 800_000,
       granular_other_profit: 2_000_000,
     },
     {
@@ -113,6 +154,8 @@ describe('Component: JobProfitabilityTab (Operational SPKs & Draft Exclusion)', 
       granular_material_revenue: 0,
       granular_material_cogs: 0,
       granular_material_profit: 0,
+      granular_labor_profit: 0,
+      granular_overhead_profit: 0,
       granular_other_profit: 0,
     },
     {
@@ -137,6 +180,8 @@ describe('Component: JobProfitabilityTab (Operational SPKs & Draft Exclusion)', 
       granular_material_revenue: 0,
       granular_material_cogs: 0,
       granular_material_profit: 0,
+      granular_labor_profit: 0,
+      granular_overhead_profit: 0,
       granular_other_profit: 0,
     },
   ];
@@ -157,7 +202,6 @@ describe('Component: JobProfitabilityTab (Operational SPKs & Draft Exclusion)', 
     });
 
     const defaultOption = screen.getByRole('option', { name: /Semua SPK Operasional \(Non-Draft\)/i });
-    expect(defaultOption).toBeInTheDocument();
     expect(defaultOption).toBeInTheDocument();
   });
 
@@ -187,31 +231,54 @@ describe('Component: JobProfitabilityTab (Operational SPKs & Draft Exclusion)', 
       expect(screen.getByText('SPK-2026-001')).toBeInTheDocument();
     });
 
-    // 2 operational SPKs: Total revenue = 50M + 40M = 90M (Rp 90.000.000)
-    // Total material = 20M + 15M = 35M
-    // Total labor = 10M + 8M = 18M
-    // Total FOH = 2.5M + 2M = 4.5M
-    // Total Gross Profit = 17.5M + 15M = 32.5M
     expect(screen.getByText(/Total Akumulasi \(2 SPK\):/i)).toBeInTheDocument();
   });
 
-  it('renders 3-pillar segregated profit columns and top summary cards', async () => {
+  it('renders 4-pillar segregated profit columns and top summary cards', async () => {
     render(<JobProfitabilityTab />);
 
     await waitFor(() => {
-      expect(screen.getByText('Laba Karya Paket (Assembly)')).toBeInTheDocument();
-      expect(screen.getByText('Laba Material Lepas (Granular)')).toBeInTheDocument();
-      expect(screen.getByText('Profit Jasa & FOH')).toBeInTheDocument();
+      expect(screen.getAllByText('Laba Paket Assembly').length).toBeGreaterThanOrEqual(2);
+      expect(screen.getAllByText('Laba Material Lepas').length).toBeGreaterThanOrEqual(2);
+      expect(screen.getAllByText('Laba Labor Mandor').length).toBeGreaterThanOrEqual(2);
+      expect(screen.getByText('Laba FOH')).toBeInTheDocument();
     });
 
     // Verify top summary cards
-    expect(screen.getByText(/Profit Paket Assembly \(BOM\)/i)).toBeInTheDocument();
-    expect(screen.getByText(/Profit Material Granular/i)).toBeInTheDocument();
-    expect(screen.getByText(/Profit Jasa & Overhead Lepas/i)).toBeInTheDocument();
+    expect(screen.getByText(/Laba FOH \(Overhead\)/i)).toBeInTheDocument();
+  });
+
+  it('toggles drawer/accordion detail row to display package assembly list with combined material and labor HPP', async () => {
+    render(<JobProfitabilityTab />);
+
+    await waitFor(() => {
+      expect(screen.getByText('SPK-2026-001')).toBeInTheDocument();
+    });
+
+    const expandBtn = screen.getByTestId('btn-expand-spk-active-1');
+    expect(expandBtn).toBeInTheDocument();
+    fireEvent.click(expandBtn);
+
+    // Verify package drawer/accordion opens with package items and combined HPP
+    await waitFor(() => {
+      expect(screen.getByText(/Daftar Paket Assembly & HPP Gabungan/i)).toBeInTheDocument();
+      expect(screen.getByText('PAKET MATERIAL EX CUBE')).toBeInTheDocument();
+      // Selling price: Rp 2.000.000
+      expect(screen.getAllByText(/2\.000\.000/).length).toBeGreaterThanOrEqual(1);
+      // Combined HPP (553.330 + 250.000 = 803.330)
+      expect(screen.getAllByText(/803\.330/).length).toBeGreaterThanOrEqual(1);
+      // Net profit: Rp 1.196.670
+      expect(screen.getAllByText(/1\.196\.670/).length).toBeGreaterThanOrEqual(1);
+    });
+
+    // Toggle close
+    fireEvent.click(expandBtn);
+    await waitFor(() => {
+      expect(screen.queryByText(/Daftar Paket Assembly & HPP Gabungan/i)).not.toBeInTheDocument();
+    });
   });
 
   it('opens ItemizedProfitModal drill-down when clicking Rincian Laba button and allows closing it', async () => {
-    const { fireEvent } = await import('@testing-library/react');
     render(<JobProfitabilityTab />);
 
     await waitFor(() => {
