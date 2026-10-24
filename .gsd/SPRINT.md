@@ -1,38 +1,60 @@
-# Sprint 86 — Fix Default WBS 2 Allocation Initial Value to Zero in Change Order Material Form
+# Sprint 87 — Implement RAB Perubahan (Consolidated Estimation & Fulfillment Audit) Tab with Export Features in Service Advisor
 
 > **Duration**: 2026-10-24 to 2026-10-24
 > **Status**: In Progress
 
 ## Goal
-Initialize the default WBS 2 allocation state and reset state to '0' (instead of '1') in the Change Order material builder form (`AmendmentManager.tsx` / `ItemizedChangeOrderForm.tsx`), ensuring all WBS stages (WBS 1 to 5) default to 0 and render an initial warning badge `Sisa: 1.00` until the user consciously assigns quantities to work breakdown stages.
+Implement a dedicated "RAB Perubahan" consolidated tab in the Service Advisor SPK detail view that unifies original estimation contract items (`rab_items`) with all approved change order items (`change_order_items`), evaluates real-time fulfillment/warehouse issuance status across all 3 cost elements (Material warehouse issues, Labor SPK Borongan assignments, and Overhead logs), renders a 4-pillar financial margin footer, and provides Excel (.xlsx) and printable PDF realization audit exports.
 
 ## Scope
 
 ### Included
-- Define reusable `DEFAULT_WBS_ALLOCATIONS` constant in `AmendmentManager.tsx` with all 5 stages mapped to `'0'`.
-- Update `wbsAllocations` useState initial state to use `DEFAULT_WBS_ALLOCATIONS`.
-- Update `resetBuilderInputs` to reset `wbsAllocations` to `DEFAULT_WBS_ALLOCATIONS`.
-- Verify `isAllocationMatch` and status badge rendering displays `Sisa: 1.00` upon opening form with `targetQty = 1` and all WBS stages set to 0.
-- Update existing tests in `AmendmentManager.test.tsx` that previously expected initial WBS 2 to be 1.
-- Add unit tests verifying initial WBS allocations are 0, status badge is `Sisa: 1.00`, allocation to 1 updates status to `Sesuai / Pas (0.00)`, and reset reverts WBS allocations back to 0.
-- Run test suite, oxlint, and production build.
+- **Task 1: Register New Navigation Tab in `ServiceAdvisorDashboard.tsx`**
+  - Update `activeTab` state type to `'rab' | 'amendments' | 'rab_perubahan' | 'wbs'`.
+  - Insert "RAB Perubahan" tab button between "Change Orders" and "WBS & QC".
+  - Wire tab content to render `<RabPerubahanTab spkId={selectedSpkId} spk={curSpk} />`.
+- **Task 2: Build `RabPerubahanTab.tsx` Component**
+  - Create `src/components/service_advisor/RabPerubahanTab.tsx` (and barrel/re-export if needed).
+  - Fetch `rab_items` (via `rabService.getRabItems(spkId)` or direct Supabase query with estimation/fallback).
+  - Fetch approved `change_orders` and their `change_order_items` via `spkService.getChangeOrders(spkId)`.
+  - Fetch warehouse physical issues (`material_issues`, approved `material_requisition_items`), labor work orders (`spk_borongan`), and overhead logs (`spk_overhead_logs`).
+  - Standardize into `ConsolidatedRabItem` records:
+    - Origin: `RAB` vs `Change Order`.
+    - Entry Method: `Paket: <Name>` vs `Granular`.
+    - Item Type: `MATERIAL`, `LABOR`, `OVERHEAD`.
+    - WBS Stage: WBS 1 through WBS 5 with canonical ordering.
+    - Quantity, Unit, Cost Price (HPP), Selling Price, Subtotal.
+    - Fulfillment Status: `FULFILLED` vs `PENDING` with fulfilled quantity tracking.
+  - Implement 4-pillar financial metrics calculation:
+    - Package Profit = Σ (Jual Paket - Modal Paket)
+    - Granular Material Profit = Σ (Jual Material Lepas - Modal Gudang)
+    - Labor Profit = Σ (Tarif Tagih Jasa - Modal Upah Pokok)
+    - Overhead Profit = Σ (Tarif Tagih FOH - Modal Biaya Riil)
+    - Total Revenue, Total HPP, Total Profit, Margin %.
+  - Provide filter controls: Filter Tipe (Semua/Material/Labor/Overhead), Filter Asal (Semua/RAB/Change Order), Filter Status Realisasi (Semua/Sudah Diambil/Belum Diambil), and Search keyword.
+  - Render dark-themed, responsive table matching RobelKaroseri design system with informative summary cards.
+- **Task 3: Implement Export XLSX & Export PDF Utilities**
+  - Create `src/utils/rabPerubahanExport.ts`:
+    - `exportRabPerubahanToExcel`: Generate `.xlsx` file (`RAB_Perubahan_[NoSPK]_[Nopol].xlsx`) containing project header metadata, consolidated table with formatted currency, formulas, and 4-pillar financial summary.
+    - `printRabPerubahanReport`: Generate official printable HTML view with RobelKaroseri workshop header, SPK metadata, consolidated realization items, fulfillment audit breakdown, totals, and tri-party signature blocks (Service Advisor, Mandor/Gudang, Konsumen/Owner).
+- **Task 4: Automated Testing & Verification**
+  - Create unit and component tests in `src/components/service_advisor/__tests__/RabPerubahanTab.test.tsx` and `src/utils/__tests__/rabPerubahanExport.test.ts`.
+  - Run `oxlint`, `tsc -b`, full `vitest` suite, and `npm run build`.
 
 ### Explicitly Excluded
-- Modifying WBS allocation logic for Product Package assemblies modal (`ChangeOrderPackageModal.tsx` which already uses empty string inputs).
-- Changing database schema or backend services.
+- Modifying cashier payment processing or invoice generation logic.
+- Altering database schema or writing new database migrations (existing tables and views are complete).
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| Task 1: Update initial state and reset logic in `AmendmentManager.tsx` | Claude | ✅ Done | 0.5 |
-| Task 2: Update existing and add new automated tests in `AmendmentManager.test.tsx` | Claude | ✅ Done | 0.5 |
-| Task 3: Quality validation (tests, linter, production build) | Claude | ✅ Done | 0.5 |
+| Task 1: Register "RAB Perubahan" tab in `ServiceAdvisorDashboard.tsx` | Claude | ⬜ Todo | 0.5 |
+| Task 2: Build `RabPerubahanTab.tsx` consolidated component with fulfillment tracking & 4-pillar metrics | Claude | ⬜ Todo | 1.5 |
+| Task 3: Build `rabPerubahanExport.ts` for XLSX export and printable PDF realization report | Claude | ⬜ Todo | 1.0 |
+| Task 4: Unit tests, component tests, linting, and build verification | Claude | ⬜ Todo | 1.0 |
 
 ## Daily Log
 
 ### 2026-10-24
-- Sprint created. Identified root causes in `src/components/AmendmentManager.tsx` at lines 165 and 252 where `'WBS 2: Sasis/Rangka': '1'` was hardcoded.
-- Task 1: Defined exported `DEFAULT_WBS_ALLOCATIONS` constant with all 5 WBS stages mapped to `'0'`, updated `wbsAllocations` useState initial value and `resetBuilderInputs` logic. Also exported `DEFAULT_WBS_ALLOCATIONS` from `ItemizedChangeOrderForm.tsx` and `ChangeOrdersTab.tsx`.
-- Task 2: Updated existing tests in `AmendmentManager.test.tsx` that previously relied on automatic WBS 2 = 1 allocation. Added 3 new unit tests verifying default 0 allocation, initial warning badge `Sisa: 1.00`, correct transition to `Sesuai / Pas (0.00)` on user allocation, and proper reset to 0 upon adding items or switching modes.
-- Task 3: Ran all 61 automated test suites (452 tests passed, 100% green). Verified 0 errors with `npx oxlint`. Successfully built production bundle via `npm run build`.
+- Sprint created. Scope and technical architecture analyzed.

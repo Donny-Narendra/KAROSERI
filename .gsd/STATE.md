@@ -1,6 +1,6 @@
 ## Current Position
-- **Sprint**: Sprint 86 — Fix Default WBS 2 Allocation Initial Value to Zero in Change Order Material Form
-- **Status**: Sprint in progress (All tasks implemented & verified)
+- **Sprint**: Sprint 87 — Implement RAB Perubahan (Consolidated Estimation & Fulfillment Audit) Tab with Export Features in Service Advisor
+- **Status**: Sprint in progress
 - **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness (paused for sprint)
 
 ## Last Session Summary
@@ -11,19 +11,23 @@ Codebase mapping complete (/map on 2026-10-24).
 - 61 test suites / 452 automated unit & component tests passing (100% green)
 - 0 technical debt items found (0 code smells / 0 TODOs / clean static analysis)
 
-## Sprint 86 Summary
-- **Change Order Builder Form (`AmendmentManager.tsx`, `ItemizedChangeOrderForm.tsx`, `ChangeOrdersTab.tsx`):**
-  - Replaced hardcoded `'WBS 2: Sasis/Rangka': '1'` initial and reset state with reusable `DEFAULT_WBS_ALLOCATIONS` constant where all 5 stages (WBS 1 to 5) default to `'0'`.
-  - Updated `resetBuilderInputs` to reset `wbsAllocations` to all zeros whenever items are added, cancelled, or when switching between Material, Labor, and Overhead modes.
-  - Verified that on initial load with `targetQty = 1` and all WBS stages = 0, the form correctly highlights remaining allocation with badge `Sisa: 1.00` and displays the informative prompt until the user explicitly allocates stages.
-- **Automated Testing (`AmendmentManager.test.tsx`):**
-  - Updated legacy test assertions where WBS 2 was previously assumed to be automatically filled as 1.
-  - Added 3 dedicated Sprint 86 verification tests covering initial all-zero WBS inputs, initial `Sisa: 1.00` badge, dynamic transition to `Sesuai / Pas (0.00)` on user allocation, and proper reset back to zero.
-- **Quality & Verification Status:**
-  - Automated Tests: 61 test suites, 452 tests passing (100% green, +3 tests added).
-  - TypeScript Static Analysis: Clean compilation with 0 errors (`tsc -b`).
-  - Linter Check: 0 errors (`npx oxlint`).
-  - Production Build: Clean bundle generated (`npm run build`).
+## Sprint 87 Scope & Architecture
+- **Tab Navigation (`ServiceAdvisorDashboard.tsx`)**:
+  - Add `'rab_perubahan'` tab between Change Orders and WBS & QC.
+- **Consolidated Component (`src/components/service_advisor/RabPerubahanTab.tsx`)**:
+  - Data unification of contract items (`rab_items`) and approved amendment items (`change_order_items`).
+  - Fulfillment check:
+    - Material: `material_issues` / `material_requisition_items` (APPROVED/ISSUED).
+    - Labor: `spk_borongan` (ACTIVE/COMPLETED).
+    - Overhead: `spk_overhead_logs`.
+  - 4-pillar financial margin footer:
+    - Package profit, granular material profit, labor profit, overhead profit, grand total revenue, COGS, and profit.
+- **Export Utilities (`src/utils/rabPerubahanExport.ts`)**:
+  - `exportRabPerubahanToExcel`: XLSX export with columns, subtotals, fulfillment status, and 4-pillar margin summary.
+  - `printRabPerubahanReport`: Official printable report with workshop letterhead, tables, warehouse fulfillment stats, and 3-way sign-off.
 
 ## Next Up
-- User verification or review.
+- Execute Task 1: Register Tab in `ServiceAdvisorDashboard.tsx`
+- Execute Task 2: Implement `RabPerubahanTab.tsx`
+- Execute Task 3: Implement `rabPerubahanExport.ts`
+- Execute Task 4: Tests, Lint, and Build verification
