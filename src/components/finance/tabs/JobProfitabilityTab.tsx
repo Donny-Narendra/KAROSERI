@@ -11,6 +11,7 @@ import {
 import { financialReportsService } from '../../../services/financialReportsService';
 import { exportToExcel, exportToCsv } from '../../../utils/exportFinancialReports';
 import type { SpkJobProfitability } from '../../../types/financialReports';
+import { ItemizedProfitModal } from '../ItemizedProfitModal';
 
 interface JobProfitabilityTabProps {
   globalSearch?: string;
@@ -36,6 +37,7 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
   const [data, setData] = useState<SpkJobProfitability[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedSpkForBreakdown, setSelectedSpkForBreakdown] = useState<SpkJobProfitability | null>(null);
 
   // Local filters
   const [localSearch, setLocalSearch] = useState('');
@@ -342,10 +344,19 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
                         <div className="text-xs text-text-muted">
                           {row.customer_name} {row.vehicle_plate && `• ${row.vehicle_plate}`}
                         </div>
-                        <div className="mt-1">
+                        <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-hover border border-border text-text-muted">
                             {row.spk_status}
                           </span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedSpkForBreakdown(row)}
+                            className="text-[10px] font-mono font-semibold text-amber-400 hover:text-amber-300 hover:underline flex items-center gap-1 cursor-pointer"
+                            title="Lihat Pemisahan Laba Paket Assembly & Granular"
+                            data-testid={`btn-breakdown-${row.spk_id}`}
+                          >
+                            <span>📦 Rincian Laba</span>
+                          </button>
                         </div>
                       </td>
                       <td className="py-3 px-4 font-mono text-xs text-text-muted whitespace-nowrap">
@@ -447,6 +458,21 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
           </table>
         </div>
       </div>
+
+      {/* 2-Pillar Itemized Profit Drill-Down Modal */}
+      {selectedSpkForBreakdown && (
+        <ItemizedProfitModal
+          isOpen={true}
+          onClose={() => setSelectedSpkForBreakdown(null)}
+          spkId={selectedSpkForBreakdown.spk_id}
+          spkNumber={selectedSpkForBreakdown.spk_number}
+          customerName={selectedSpkForBreakdown.customer_name}
+          vehiclePlate={selectedSpkForBreakdown.vehicle_plate}
+          rowRevenue={selectedSpkForBreakdown.total_revenue}
+          rowGrossProfit={selectedSpkForBreakdown.gross_profit}
+          rowMarginPercentage={selectedSpkForBreakdown.gross_margin_percentage}
+        />
+      )}
     </div>
   );
 };

@@ -163,7 +163,7 @@ describe('rabPerubahanExport: Consolidated Calculations & Export Engines', () =>
       expect(totals.materialFulfilledPercentage).toBe(100);
     });
 
-    it('aggregates all labor items including assembly components into labor totals', () => {
+    it('correctly segregates package assembly labor into itemized packages and isolates granular labor', () => {
       const itemsWithPackageLabor: ConsolidatedRabItem[] = [
         {
           id: 'l1',
@@ -237,9 +237,23 @@ describe('rabPerubahanExport: Consolidated Calculations & Export Engines', () =>
 
       const totals = computeRabPerubahanTotals(itemsWithPackageLabor);
 
-      expect(totals.laborCost).toBe(2100000);
-      expect(totals.laborRevenue).toBe(2882794);
-      expect(totals.laborProfit).toBe(782794);
+      // Granular labor is strictly isolated (only item l3: cost 120k, rev 150k, profit 30k)
+      expect(totals.laborCost).toBe(120000);
+      expect(totals.laborRevenue).toBe(150000);
+      expect(totals.laborProfit).toBe(30000);
+
+      // Package assembly labor is captured inside package totals
+      expect(totals.packageCost).toBe(1980000); // 80k + 900k + 1000k
+      expect(totals.packageRevenue).toBe(2732794); // 100k + 1247113 + 1385681
+      expect(totals.packageProfit).toBe(752794);
+
+      // Itemized packages are exposed
+      expect(totals.itemizedPackages).toBeDefined();
+      expect(totals.itemizedPackages).toHaveLength(2);
+      const bakPkg = totals.itemizedPackages?.find(p => p.packageName.includes('BAK DUMP STANDAR'));
+      expect(bakPkg?.laborCost).toBe(980000); // 80k + 900k
+      const hydPkg = totals.itemizedPackages?.find(p => p.packageName.includes('TAMBAHAN HIDROLIK'));
+      expect(hydPkg?.laborCost).toBe(1000000);
     });
   });
 

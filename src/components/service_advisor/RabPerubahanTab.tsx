@@ -26,13 +26,14 @@ import {
 import { formatWbsBadge, getWbsBadgeClass, getWbsWeight } from '../../utils/wbsSort';
 import { cleanPackageName, extractPackageFromNotes } from '../../utils/sourceOrigin';
 import { normalizeText } from '../../utils/rabItemAllocation';
+import { computeSegregatedProjectProfit } from '../../utils/profitCalculator';
 
 interface RabPerubahanTabProps {
   spkId: string;
   spk?: any;
 }
 
-export function computeProportionalPackageBreakdown(
+function computeProportionalPackageBreakdown(
   items: any[],
   fetchedPackages: any[],
   getPkgKey: (item: any) => string | null,
@@ -100,6 +101,7 @@ export function computeProportionalPackageBreakdown(
 
 export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) => {
   const [items, setItems] = useState<ConsolidatedRabItem[]>([]);
+  const [packagesCatalog, setPackagesCatalog] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -135,6 +137,7 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
 
       try {
         fetchedPackages = await packageService.getPackages();
+        setPackagesCatalog(fetchedPackages);
       } catch (pkgErr) {
         console.warn('Could not fetch packages in RabPerubahanTab:', pkgErr);
       }
@@ -605,17 +608,20 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
   // Format currency helper
   const formatRupiah = useCallback((val: number): string => `Rp ${Number(val || 0).toLocaleString('id-ID')}`, []);
 
-  // Hitung seluruh item bertipe LABOR (baik granular maupun dari paket)
-  const laborItems = useMemo(() => items.filter(item => item.item_type === 'LABOR'), [items]);
-  const totalLaborRevenue = useMemo(() => 
-    laborItems.reduce((acc, item) => acc + (item.subtotal !== undefined && item.subtotal !== null ? Number(item.subtotal) : (Number(item.quantity || 1) * Number(item.unit_price || 0))), 0),
-    [laborItems]
-  );
-  const totalLaborCogs = useMemo(() => 
-    laborItems.reduce((acc, item) => acc + (Number(item.quantity || 1) * Number(item.cost_price || 0)), 0),
-    [laborItems]
-  );
-  const totalLaborMargin = totalLaborRevenue - totalLaborCogs;
+  // 2-Pillar Segregated Profit Breakdown
+  const segregatedProfit = useMemo(() => {
+    return computeSegregatedProjectProfit(items, packagesCatalog);
+  }, [items, packagesCatalog]);
+
+  // Overall Financial & Fulfillment Metrics
+  const totals = useMemo(() => {
+    return computeRabPerubahanTotals(items, packagesCatalog);
+  }, [items, packagesCatalog]);
+
+  // Pure Granular Labor metrics (strictly isolated from internal package recipe labor)
+  const totalLaborRevenue = segregatedProfit.granularLabor.revenue;
+  const totalLaborCogs = segregatedProfit.granularLabor.cost;
+  const totalLaborMargin = segregatedProfit.granularLabor.profit;
 
   // Subtotal filter untuk item yang sedang tampil di tabel
   const filteredTotalRevenue = useMemo(() => 
@@ -627,11 +633,6 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
     [filteredItems]
   );
   const filteredTotalMargin = filteredTotalRevenue - filteredTotalCogs;
-
-  // Overall Financial & Fulfillment Metrics
-  const totals = useMemo(() => {
-    return computeRabPerubahanTotals(items);
-  }, [items]);
 
   const handleExportExcel = () => {
     exportRabPerubahanToExcel(spkDetails, items, totals);
@@ -805,86 +806,185 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
         </div>
       </div>
 
-      {/* 4-Pillar Segregated Profit Breakdown Banner */}
-      <div className="bg-surface border border-border rounded-xl p-4">
-        <div className="flex items-center justify-between border-b border-border/60 pb-2 mb-3">
+      {/* 2-Pillar Segregated Profit Breakdown Banner */}
+      <div className="bg-surface border border-border rounded-xl p-5 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border/60 pb-3 gap-2">
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-amber-400" />
-            <h4 className="text-xs font-bold text-text uppercase tracking-wider">
+            <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+            <h4 className="text-sm font-bold text-text uppercase tracking-wider">
               Rincian Pemisahan Profit 4 Pilar (Segregated Margins)
             </h4>
+            <span className="text-[10px] text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20 font-mono">
+              Model Hibrida 2 Pilar
+            </span>
           </div>
-          <span className="text-[11px] text-text-muted font-mono">
-            Akumulasi Kontrak Awal + Approved Amandemen
+          <span className="text-xs text-text-muted font-mono">
+            Akumulasi Kontrak Awal + Approved Change Orders
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* Pillar 1: Package Profit */}
-          <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/20">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-amber-400 flex items-center gap-1">
-                📦 Paket Barang Jadi
+        {/* PILAR 1: Keuntungan per Paket Barang Jadi (Itemized Assembly Margin) */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 text-xs font-bold font-mono">
+                PILAR 1
               </span>
-              <span className="text-[10px] font-mono text-amber-400/80">Paket Assembly</span>
+              <h5 className="text-xs font-bold text-text uppercase tracking-wide">
+                Keuntungan per Paket Barang Jadi (Itemized Assembly Margin)
+              </h5>
             </div>
-            <div className="text-base font-bold text-text font-mono mt-1">
-              Rp {totals.packageProfit.toLocaleString('id-ID')}
-            </div>
-            <div className="text-[11px] text-text-muted flex justify-between mt-1">
-              <span>Jual: Rp {totals.packageRevenue.toLocaleString('id-ID')}</span>
-              <span>Modal: Rp {totals.packageCost.toLocaleString('id-ID')}</span>
-            </div>
+            <span className="text-[11px] text-text-muted font-mono">
+              {segregatedProfit.packages.length} Paket Terdaftar
+            </span>
           </div>
 
-          {/* Pillar 2: Granular Material Profit */}
-          <div className="p-3 rounded-lg bg-cyan-500/5 border border-cyan-500/20">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-cyan-400 flex items-center gap-1">
-                🧱 Material Granular
+          {segregatedProfit.packages.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {segregatedProfit.packages.map((pkg) => (
+                <div key={pkg.packageId} className="bg-surface-hover/70 border border-amber-500/30 rounded-xl p-4 flex flex-col justify-between space-y-3 shadow-sm hover:border-amber-500/50 transition">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                        <span>📦</span>
+                        <span>{pkg.packageName}</span>
+                      </div>
+                      <div className="text-[10px] text-text-muted font-mono mt-0.5">
+                        Resep Manufaktur Assembly
+                      </div>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold border ${
+                      pkg.marginPercentage >= 25 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' :
+                      pkg.marginPercentage >= 15 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40' :
+                      'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+                    }`}>
+                      {pkg.marginPercentage.toFixed(1)}%
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5 pt-2 border-t border-border/50 text-xs">
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-text-muted text-[11px]">Harga Jual Paket:</span>
+                      <span className="font-mono font-bold text-text">{formatRupiah(pkg.sellingPrice)}</span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1 py-1.5 px-2 bg-background/80 rounded-lg text-[10px] font-mono border border-border/40 text-text-muted">
+                      <div>
+                        <div>Bahan (M)</div>
+                        <div className="text-text font-semibold">{formatRupiah(pkg.materialCost)}</div>
+                      </div>
+                      <div>
+                        <div>Upah (L)</div>
+                        <div className="text-text font-semibold">{formatRupiah(pkg.laborCost)}</div>
+                      </div>
+                      <div>
+                        <div>FOH (O)</div>
+                        <div className="text-text font-semibold">{formatRupiah(pkg.overheadCost)}</div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-baseline pt-1">
+                      <span className="text-text-muted text-[11px]">Total Modal HPP:</span>
+                      <span className="font-mono text-text font-semibold">{formatRupiah(pkg.totalCost)}</span>
+                    </div>
+                    <div className="flex justify-between items-baseline pt-1 border-t border-border/40">
+                      <span className="text-text font-semibold text-[11px]">Laba Bersih Paket:</span>
+                      <span className={`font-mono font-bold ${pkg.netProfit >= 0 ? 'text-emerald-400' : 'text-status-danger'}`}>
+                        {formatRupiah(pkg.netProfit)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-3 bg-surface-hover/40 border border-border/60 rounded-xl text-center text-xs text-text-muted">
+              Tidak ada paket barang jadi pada SPK ini. Seluruh item tercatat sebagai penjualan lepas (Granular).
+            </div>
+          )}
+
+          {segregatedProfit.packages.length > 0 && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs bg-amber-500/10 border border-amber-500/20 px-3.5 py-2.5 rounded-lg font-mono gap-2">
+              <span className="text-amber-400 font-semibold flex items-center gap-1.5">
+                <span>Total Seluruh Paket ({segregatedProfit.packages.length} Unit)</span>
               </span>
-              <span className="text-[10px] font-mono text-cyan-400/80">Material Lepas</span>
+              <div className="flex items-center gap-4 flex-wrap">
+                <span className="text-text-muted">Jual: <strong className="text-text">{formatRupiah(totals.packageRevenue)}</strong></span>
+                <span className="text-text-muted">HPP: <strong className="text-text">{formatRupiah(totals.packageCost)}</strong></span>
+                <span className="text-text-muted">Laba Bersih: <strong className="text-emerald-400">{formatRupiah(totals.packageProfit)}</strong></span>
+              </div>
             </div>
-            <div className="text-base font-bold text-text font-mono mt-1">
-              Rp {totals.granularMaterialProfit.toLocaleString('id-ID')}
+          )}
+        </div>
+
+        {/* PILAR 2: Keuntungan Penjualan Lepas / Granular (Non-Paket) */}
+        <div className="space-y-3 pt-3 border-t border-border/60">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/30 text-xs font-bold font-mono">
+                PILAR 2
+              </span>
+              <h5 className="text-xs font-bold text-text uppercase tracking-wide">
+                Keuntungan Penjualan Lepas / Granular (Non-Paket)
+              </h5>
             </div>
-            <div className="text-[11px] text-text-muted flex justify-between mt-1">
-              <span>Jual: Rp {totals.granularMaterialRevenue.toLocaleString('id-ID')}</span>
-              <span>Modal: Rp {totals.granularMaterialCost.toLocaleString('id-ID')}</span>
-            </div>
+            <span className="text-[11px] text-text-muted font-mono">
+              Bahan & Jasa Lepas di Luar Resep Paket
+            </span>
           </div>
 
-          {/* Kartu Pilar Labor */}
-          <div data-testid="pillar-labor-card" className="bg-slate-900/80 border border-slate-800 rounded-lg p-3">
-            <div className="flex justify-between items-center text-xs text-slate-400 mb-1">
-              <span className="flex items-center gap-1.5 text-blue-400 font-semibold">
-                🔧 Labor (Jasa Mandor)
-              </span>
-              <span className="text-[10px] text-slate-500">Upah Borongan</span>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Card 1: Granular Material */}
+            <div className="p-3.5 rounded-xl bg-cyan-500/5 border border-cyan-500/20 flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-cyan-400 flex items-center gap-1.5">
+                  <span>🧱</span>
+                  <span>Material Granular (Bahan Lepas)</span>
+                </span>
+                <span className="text-[10px] font-mono text-cyan-400/80">Non-Paket</span>
+              </div>
+              <div className="text-base font-bold text-text font-mono mt-2">
+                {formatRupiah(totals.granularMaterialProfit)}
+              </div>
+              <div className="text-[11px] text-text-muted flex justify-between mt-2 pt-2 border-t border-cyan-500/10 font-mono">
+                <span>Jual: <strong className="text-text">{formatRupiah(totals.granularMaterialRevenue)}</strong></span>
+                <span>Modal: <strong className="text-text">{formatRupiah(totals.granularMaterialCost)}</strong></span>
+              </div>
             </div>
-            <div className="text-lg font-bold text-slate-100 font-mono">
-              {formatRupiah(totalLaborMargin)}
-            </div>
-            <div className="flex justify-between items-center text-[11px] text-slate-400 pt-1.5 border-t border-slate-800/60 mt-1.5">
-              <span>Jual: <strong className="text-slate-200">{formatRupiah(totalLaborRevenue)}</strong></span>
-              <span>Modal: <strong className="text-slate-200">{formatRupiah(totalLaborCogs)}</strong></span>
-            </div>
-          </div>
 
-          {/* Pillar 4: Overhead Profit */}
-          <div className="p-3 rounded-lg bg-purple-500/5 border border-purple-500/20">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-purple-400 flex items-center gap-1">
-                ⚡ Overhead Pabrik (FOH)
-              </span>
-              <span className="text-[10px] font-mono text-purple-400/80">FOH Riil</span>
+            {/* Card 2: Granular Labor */}
+            <div data-testid="pillar-labor-card" className="p-3.5 rounded-xl bg-blue-500/5 border border-blue-500/20 flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-blue-400">
+                  🔧 Labor (Jasa Mandor)
+                </span>
+                <span className="text-[10px] font-mono text-blue-400/80">Non-Paket</span>
+              </div>
+              <div className="text-base font-bold text-text font-mono mt-2">
+                {formatRupiah(totalLaborMargin)}
+              </div>
+              <div className="text-[11px] text-text-muted flex justify-between mt-2 pt-2 border-t border-blue-500/10 font-mono">
+                <span>Jual: <strong className="text-text">{formatRupiah(totalLaborRevenue)}</strong></span>
+                <span>Modal: <strong className="text-text">{formatRupiah(totalLaborCogs)}</strong></span>
+              </div>
             </div>
-            <div className="text-base font-bold text-text font-mono mt-1">
-              Rp {totals.overheadProfit.toLocaleString('id-ID')}
-            </div>
-            <div className="text-[11px] text-text-muted flex justify-between mt-1">
-              <span>Jual: Rp {totals.overheadRevenue.toLocaleString('id-ID')}</span>
-              <span>Modal: Rp {totals.overheadCost.toLocaleString('id-ID')}</span>
+
+            {/* Card 3: Granular Overhead */}
+            <div className="p-3.5 rounded-xl bg-purple-500/5 border border-purple-500/20 flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-purple-400 flex items-center gap-1.5">
+                  <span>⚡</span>
+                  <span>Overhead Pabrik (FOH)</span>
+                </span>
+                <span className="text-[10px] font-mono text-purple-400/80">Non-Paket</span>
+              </div>
+              <div className="text-base font-bold text-text font-mono mt-2">
+                {formatRupiah(totals.overheadProfit)}
+              </div>
+              <div className="text-[11px] text-text-muted flex justify-between mt-2 pt-2 border-t border-purple-500/10 font-mono">
+                <span>Jual: <strong className="text-text">{formatRupiah(totals.overheadRevenue)}</strong></span>
+                <span>Modal: <strong className="text-text">{formatRupiah(totals.overheadCost)}</strong></span>
+              </div>
             </div>
           </div>
         </div>

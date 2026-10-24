@@ -1,5 +1,10 @@
 import * as XLSX from 'xlsx';
 import { formatWbsBadge, getWbsWeight } from './wbsSort';
+import {
+  computeSegregatedProjectProfit,
+  type PackageProfitDetail,
+  type PackageMasterLookup
+} from './profitCalculator';
 
 export interface RabPerubahanSpkDetails {
   id?: string;
@@ -53,41 +58,24 @@ export interface RabPerubahanTotals {
   materialFulfilledCount: number;
   materialTotalCount: number;
   materialFulfilledPercentage: number;
+  itemizedPackages?: PackageProfitDetail[];
 }
 
 /**
- * Calculates segregated 4-pillar profits and summary metrics for consolidated RAB Perubahan items.
+ * Calculates segregated 2-pillar profits (Itemized Assembly Packages vs Granular Non-Package items)
+ * and fulfillment metrics for consolidated RAB Perubahan items.
  */
-export function computeRabPerubahanTotals(items: ConsolidatedRabItem[]): RabPerubahanTotals {
-  let packageRevenue = 0, packageCost = 0;
-  let granularMaterialRevenue = 0, granularMaterialCost = 0;
-  let laborRevenue = 0, laborCost = 0;
-  let overheadRevenue = 0, overheadCost = 0;
+export function computeRabPerubahanTotals(
+  items: ConsolidatedRabItem[],
+  packageMasters?: PackageMasterLookup
+): RabPerubahanTotals {
+  const profitResult = computeSegregatedProjectProfit(items, packageMasters);
+
   let materialFulfilledCount = 0;
   let materialTotalCount = 0;
 
   if (Array.isArray(items)) {
     items.forEach(item => {
-      const qty = Number(item.quantity || 1);
-      const unitPrice = Number(item.unit_price) || 0;
-      const costPrice = Number(item.cost_price) || 0;
-      const revenue = item.subtotal !== undefined && item.subtotal !== null ? Number(item.subtotal) : qty * unitPrice;
-      const cost = qty * costPrice;
-
-      if (item.item_type === 'LABOR') {
-        laborRevenue += revenue;
-        laborCost += cost;
-      } else if (item.item_type === 'OVERHEAD') {
-        overheadRevenue += revenue;
-        overheadCost += cost;
-      } else if (item.is_package) {
-        packageRevenue += revenue;
-        packageCost += cost;
-      } else if (item.item_type === 'MATERIAL') {
-        granularMaterialRevenue += revenue;
-        granularMaterialCost += cost;
-      }
-
       if (item.item_type === 'MATERIAL') {
         materialTotalCount += 1;
         if (item.fulfillment_status === 'FULFILLED') {
@@ -97,41 +85,31 @@ export function computeRabPerubahanTotals(items: ConsolidatedRabItem[]): RabPeru
     });
   }
 
-  const packageProfit = packageRevenue - packageCost;
-  const granularMaterialProfit = granularMaterialRevenue - granularMaterialCost;
-  const laborProfit = laborRevenue - laborCost;
-  const overheadProfit = overheadRevenue - overheadCost;
-
-  const totalRevenue = packageRevenue + granularMaterialRevenue + laborRevenue + overheadRevenue;
-  const totalCogs = packageCost + granularMaterialCost + laborCost + overheadCost;
-  const totalProfit = totalRevenue - totalCogs;
-  const marginPercentage = totalRevenue > 0
-    ? Math.round(((totalProfit / totalRevenue) * 100) * 100) / 100
-    : 0;
   const materialFulfilledPercentage = materialTotalCount > 0
     ? Math.round((materialFulfilledCount / materialTotalCount) * 100)
     : 100;
 
   return {
-    packageRevenue,
-    packageCost,
-    packageProfit,
-    granularMaterialRevenue,
-    granularMaterialCost,
-    granularMaterialProfit,
-    laborRevenue,
-    laborCost,
-    laborProfit,
-    overheadRevenue,
-    overheadCost,
-    overheadProfit,
-    totalRevenue,
-    totalCogs,
-    totalProfit,
-    marginPercentage,
+    packageRevenue: profitResult.totalPackageRevenue,
+    packageCost: profitResult.totalPackageCost,
+    packageProfit: profitResult.totalPackageProfit,
+    granularMaterialRevenue: profitResult.granularMaterial.revenue,
+    granularMaterialCost: profitResult.granularMaterial.cost,
+    granularMaterialProfit: profitResult.granularMaterial.profit,
+    laborRevenue: profitResult.granularLabor.revenue,
+    laborCost: profitResult.granularLabor.cost,
+    laborProfit: profitResult.granularLabor.profit,
+    overheadRevenue: profitResult.granularOverhead.revenue,
+    overheadCost: profitResult.granularOverhead.cost,
+    overheadProfit: profitResult.granularOverhead.profit,
+    totalRevenue: profitResult.grandTotalRevenue,
+    totalCogs: profitResult.grandTotalCost,
+    totalProfit: profitResult.grandTotalProfit,
+    marginPercentage: profitResult.grandTotalMarginPercentage,
     materialFulfilledCount,
     materialTotalCount,
     materialFulfilledPercentage,
+    itemizedPackages: profitResult.packages,
   };
 }
 
@@ -205,11 +183,20 @@ export function exportRabPerubahanToExcel(
   wsData.push(["", "", "", "", "", "", "", "", "", "Total Profit SPK Revisi", calcTotals.totalProfit]);
   wsData.push(["", "", "", "", "", "", "", "", "", "Margin Laba Bersih (%)", `${calcTotals.marginPercentage}%`]);
   wsData.push([""]);
-  wsData.push(["", "", "", "", "", "", "", "", "", "RINCIAN MARGIN 4 PILAR:", ""]);
-  wsData.push(["", "", "", "", "", "", "", "", "", "• Laba Paket Barang Jadi", calcTotals.packageProfit]);
-  wsData.push(["", "", "", "", "", "", "", "", "", "• Laba Material Granular", calcTotals.granularMaterialProfit]);
-  wsData.push(["", "", "", "", "", "", "", "", "", "• Margin Labor (Jasa Tukang)", calcTotals.laborProfit]);
-  wsData.push(["", "", "", "", "", "", "", "", "", "• Margin Overhead Pabrik (FOH)", calcTotals.overheadProfit]);
+  wsData.push(["", "", "", "", "", "", "", "", "", "PILAR 1: KEUNTUNGAN KARYA PAKET BARANG JADI (ITEMIZED ASSEMBLY MARGIN)", ""]);
+  if (calcTotals.itemizedPackages && calcTotals.itemizedPackages.length > 0) {
+    calcTotals.itemizedPackages.forEach(p => {
+      wsData.push(["", "", "", "", "", "", "", "", "", `• ${p.packageName}`, `Jual: Rp ${p.sellingPrice.toLocaleString('id-ID')} | HPP: Rp ${p.totalCost.toLocaleString('id-ID')} (Mat: ${p.materialCost.toLocaleString('id-ID')}, Lab: ${p.laborCost.toLocaleString('id-ID')}, FOH: ${p.overheadCost.toLocaleString('id-ID')}) | Laba: Rp ${p.netProfit.toLocaleString('id-ID')} (${p.marginPercentage}%)`]);
+    });
+    wsData.push(["", "", "", "", "", "", "", "", "", "Total Laba Paket Barang Jadi", calcTotals.packageProfit]);
+  } else {
+    wsData.push(["", "", "", "", "", "", "", "", "", "• (Tidak ada paket assembly pada SPK ini)", "-"]);
+  }
+  wsData.push([""]);
+  wsData.push(["", "", "", "", "", "", "", "", "", "PILAR 2: KEUNTUNGAN PENJUALAN LEPAS / GRANULAR (NON-PAKET)", ""]);
+  wsData.push(["", "", "", "", "", "", "", "", "", "• Laba Material Granular (Bahan Lepas)", calcTotals.granularMaterialProfit]);
+  wsData.push(["", "", "", "", "", "", "", "", "", "• Margin Labor Granular (Upah Borongan Mandor Lepas)", calcTotals.laborProfit]);
+  wsData.push(["", "", "", "", "", "", "", "", "", "• Margin Overhead Granular (Sewa Alat / FOH Lepas)", calcTotals.overheadProfit]);
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
 
@@ -585,26 +572,64 @@ export function printRabPerubahanReport(
 
       <div class="pillars-grid">
         <div class="pillar-card pkg">
-          <div class="pillar-title">Profit Paket Jadi</div>
+          <div class="pillar-title">Profit Paket Assembly</div>
           <div class="pillar-val">Rp ${calcTotals.packageProfit.toLocaleString('id-ID')}</div>
-          <div class="pillar-sub">Revenue: Rp ${calcTotals.packageRevenue.toLocaleString('id-ID')}</div>
+          <div class="pillar-sub">Revenue: Rp ${calcTotals.packageRevenue.toLocaleString('id-ID')} | HPP: Rp ${calcTotals.packageCost.toLocaleString('id-ID')}</div>
         </div>
         <div class="pillar-card mat">
           <div class="pillar-title">Profit Material Lepas</div>
           <div class="pillar-val">Rp ${calcTotals.granularMaterialProfit.toLocaleString('id-ID')}</div>
-          <div class="pillar-sub">Revenue: Rp ${calcTotals.granularMaterialRevenue.toLocaleString('id-ID')}</div>
+          <div class="pillar-sub">Revenue: Rp ${calcTotals.granularMaterialRevenue.toLocaleString('id-ID')} | HPP: Rp ${calcTotals.granularMaterialCost.toLocaleString('id-ID')}</div>
         </div>
         <div class="pillar-card lab">
-          <div class="pillar-title">Margin Labor / Jasa</div>
+          <div class="pillar-title">Margin Labor Lepas</div>
           <div class="pillar-val">Rp ${calcTotals.laborProfit.toLocaleString('id-ID')}</div>
-          <div class="pillar-sub">Revenue: Rp ${calcTotals.laborRevenue.toLocaleString('id-ID')}</div>
+          <div class="pillar-sub">Revenue: Rp ${calcTotals.laborRevenue.toLocaleString('id-ID')} | HPP: Rp ${calcTotals.laborCost.toLocaleString('id-ID')}</div>
         </div>
         <div class="pillar-card ovh">
-          <div class="pillar-title">Margin Overhead / FOH</div>
+          <div class="pillar-title">Margin Overhead Lepas</div>
           <div class="pillar-val">Rp ${calcTotals.overheadProfit.toLocaleString('id-ID')}</div>
-          <div class="pillar-sub">Revenue: Rp ${calcTotals.overheadRevenue.toLocaleString('id-ID')}</div>
+          <div class="pillar-sub">Revenue: Rp ${calcTotals.overheadRevenue.toLocaleString('id-ID')} | HPP: Rp ${calcTotals.overheadCost.toLocaleString('id-ID')}</div>
         </div>
       </div>
+
+      ${calcTotals.itemizedPackages && calcTotals.itemizedPackages.length > 0 ? `
+        <div style="margin-bottom: 16px; border: 1px solid #fed7aa; border-radius: 6px; padding: 10px 14px; background: #fffaf5;">
+          <div style="font-size: 11px; font-weight: 700; color: #b45309; text-transform: uppercase; margin-bottom: 6px;">
+            Pilar 1: Keuntungan per Paket Barang Jadi (Itemized Assembly Margin)
+          </div>
+          <table style="margin-bottom: 0;">
+            <thead>
+              <tr style="background: #ffedd5; font-size: 10px;">
+                <th style="padding: 4px 8px; text-align: left;">Nama Paket</th>
+                <th style="padding: 4px 8px; text-align: right;">Harga Jual</th>
+                <th style="padding: 4px 8px; text-align: right;">HPP Material</th>
+                <th style="padding: 4px 8px; text-align: right;">HPP Labor</th>
+                <th style="padding: 4px 8px; text-align: right;">HPP FOH</th>
+                <th style="padding: 4px 8px; text-align: right;">Total HPP</th>
+                <th style="padding: 4px 8px; text-align: right;">Laba Bersih</th>
+                <th style="padding: 4px 8px; text-align: center;">Margin %</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${calcTotals.itemizedPackages.map(pkg => `
+                <tr style="font-size: 10px;">
+                  <td style="padding: 4px 8px; font-weight: 600;">${pkg.packageName}</td>
+                  <td style="padding: 4px 8px; text-align: right;">Rp ${pkg.sellingPrice.toLocaleString('id-ID')}</td>
+                  <td style="padding: 4px 8px; text-align: right;">Rp ${pkg.materialCost.toLocaleString('id-ID')}</td>
+                  <td style="padding: 4px 8px; text-align: right;">Rp ${pkg.laborCost.toLocaleString('id-ID')}</td>
+                  <td style="padding: 4px 8px; text-align: right;">Rp ${pkg.overheadCost.toLocaleString('id-ID')}</td>
+                  <td style="padding: 4px 8px; text-align: right; font-weight: 600;">Rp ${pkg.totalCost.toLocaleString('id-ID')}</td>
+                  <td style="padding: 4px 8px; text-align: right; font-weight: 700; color: ${pkg.netProfit >= 0 ? '#059669' : '#dc2626'};">
+                    Rp ${pkg.netProfit.toLocaleString('id-ID')}
+                  </td>
+                  <td style="padding: 4px 8px; text-align: center; font-weight: 700;">${pkg.marginPercentage}%</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      ` : ''}
 
       <table>
         <thead>

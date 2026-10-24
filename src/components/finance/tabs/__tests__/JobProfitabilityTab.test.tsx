@@ -10,6 +10,37 @@ vi.mock('../../../../services/financialReportsService', () => ({
   },
 }));
 
+vi.mock('../../../../lib/supabaseClient', () => ({
+  supabase: {
+    from: vi.fn((table: string) => {
+      if (table === 'rab_estimations') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'est-1' }, error: null }),
+        };
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      };
+    }),
+  },
+}));
+
+vi.mock('../../../../services/spkService', () => ({
+  spkService: {
+    getChangeOrders: vi.fn(async () => []),
+  },
+}));
+
+vi.mock('../../../../services/packageService', () => ({
+  packageService: {
+    getPackages: vi.fn(async () => []),
+  },
+}));
+
 describe('Component: JobProfitabilityTab (Operational SPKs & Draft Exclusion)', () => {
   const mockProfitabilityData: SpkJobProfitability[] = [
     {
@@ -177,5 +208,34 @@ describe('Component: JobProfitabilityTab (Operational SPKs & Draft Exclusion)', 
     expect(screen.getByText(/Profit Paket Assembly \(BOM\)/i)).toBeInTheDocument();
     expect(screen.getByText(/Profit Material Granular/i)).toBeInTheDocument();
     expect(screen.getByText(/Profit Jasa & Overhead Lepas/i)).toBeInTheDocument();
+  });
+
+  it('opens ItemizedProfitModal drill-down when clicking Rincian Laba button and allows closing it', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    render(<JobProfitabilityTab />);
+
+    await waitFor(() => {
+      expect(screen.getByText('SPK-2026-001')).toBeInTheDocument();
+    });
+
+    const breakdownBtn = screen.getByTestId('btn-breakdown-spk-active-1');
+    expect(breakdownBtn).toBeInTheDocument();
+    fireEvent.click(breakdownBtn);
+
+    // Verify modal is displayed
+    await waitFor(() => {
+      expect(screen.getByText('Rincian Laba Paket Barang Jadi vs Penjualan Lepas')).toBeInTheDocument();
+      expect(screen.getByText('Model Hibrida 2 Pilar')).toBeInTheDocument();
+      expect(screen.getByText('PILAR 1')).toBeInTheDocument();
+      expect(screen.getByText('PILAR 2')).toBeInTheDocument();
+    });
+
+    // Close modal
+    const closeBtn = screen.getByText('Tutup');
+    fireEvent.click(closeBtn);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Rincian Laba Paket Barang Jadi vs Penjualan Lepas')).not.toBeInTheDocument();
+    });
   });
 });

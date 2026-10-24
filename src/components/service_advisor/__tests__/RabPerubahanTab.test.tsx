@@ -339,7 +339,7 @@ describe('RabPerubahanTab Component', () => {
     //    Total Granular Mat Rev = 1.160.000, Cost = 700.000, Profit = 460.000
     // 3. Labor (co-item-2): Rev 350k, Cost 200k -> Profit 150.000
     // 4. Overhead (rab-item-3): Rev 450k, Cost 300k -> Profit 150.000
-    expect(screen.getByText('Rp 500.000')).toBeInTheDocument(); // Package profit
+    expect(screen.getAllByText('Rp 500.000').length).toBeGreaterThanOrEqual(1); // Package profit & total
     expect(screen.getByText('Rp 460.000')).toBeInTheDocument(); // Granular material profit
     expect(screen.getAllByText('Rp 150.000').length).toBeGreaterThanOrEqual(2); // Labor & Overhead profit
   });
@@ -492,14 +492,16 @@ describe('RabPerubahanTab Component', () => {
         expect(screen.getByText('Jasa Las Dasar (Paket)')).toBeInTheDocument();
       });
 
-      // Verify Labor card numbers
-      // Jual: Rp 2.882.794
-      // Modal: Rp 2.100.000
-      // Margin: Rp 782.794
+      // Verify Granular Labor card numbers (isolated from package recipe labor)
+      // Granular Item rab-l3: Jual Rp 150.000, Modal Rp 120.000, Margin Rp 30.000
       const laborCard = screen.getByTestId('pillar-labor-card');
-      expect(within(laborCard).getByText('Rp 782.794')).toBeInTheDocument();
-      expect(within(laborCard).getByText('Rp 2.882.794')).toBeInTheDocument();
-      expect(within(laborCard).getByText('Rp 2.100.000')).toBeInTheDocument();
+      expect(within(laborCard).getByText('Rp 30.000')).toBeInTheDocument();
+      expect(within(laborCard).getByText(/150\.000/)).toBeInTheDocument();
+      expect(within(laborCard).getByText(/120\.000/)).toBeInTheDocument();
+
+      // Verify Package Assembly Items are categorized in Pilar 1
+      expect(screen.getByText('BAK DUMP STANDAR')).toBeInTheDocument();
+      expect(screen.getByText('PAKET HIDROLIK')).toBeInTheDocument();
 
       // Filter by type: LABOR
       const typeSelect = screen.getByLabelText(/Filter Tipe/i);
