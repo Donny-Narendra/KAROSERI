@@ -608,15 +608,31 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
   // Format currency helper
   const formatRupiah = useCallback((val: number): string => `Rp ${Number(val || 0).toLocaleString('id-ID')}`, []);
 
+  // Master packages map lookup for computeSegregatedProjectProfit
+  const masterPackagesMap = useMemo(() => {
+    const map = new Map<string, { selling_price: number; name: string }>();
+    if (Array.isArray(packagesCatalog)) {
+      packagesCatalog.forEach((p: any) => {
+        if (p?.id) {
+          map.set(p.id, {
+            selling_price: Number(p.selling_price || 0),
+            name: p.name || '',
+          });
+        }
+      });
+    }
+    return map;
+  }, [packagesCatalog]);
+
   // 2-Pillar Segregated Profit Breakdown
   const segregatedProfit = useMemo(() => {
-    return computeSegregatedProjectProfit(items, packagesCatalog);
-  }, [items, packagesCatalog]);
+    return computeSegregatedProjectProfit(items, masterPackagesMap);
+  }, [items, masterPackagesMap]);
 
   // Overall Financial & Fulfillment Metrics
   const totals = useMemo(() => {
-    return computeRabPerubahanTotals(items, packagesCatalog);
-  }, [items, packagesCatalog]);
+    return computeRabPerubahanTotals(items, masterPackagesMap);
+  }, [items, masterPackagesMap]);
 
   // Pure Granular Labor metrics (strictly isolated from internal package recipe labor)
   const totalLaborRevenue = segregatedProfit.granularLabor.revenue;
@@ -806,24 +822,26 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
         </div>
       </div>
 
-      {/* 2-Pillar Segregated Profit Breakdown Banner */}
-      <div className="bg-surface border border-border rounded-xl p-5 space-y-4">
+      {/* Tabel Ringkasan Margin 2 Pilar (Segregated Margins) */}
+      <div className="bg-surface border border-border rounded-xl p-5 space-y-5 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border/60 pb-3 gap-2">
           <div className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-            <h4 className="text-sm font-bold text-text uppercase tracking-wider">
-              Rincian Pemisahan Profit 4 Pilar (Segregated Margins)
-            </h4>
-            <span className="text-[10px] text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20 font-mono">
-              Model Hibrida 2 Pilar
-            </span>
+            <div>
+              <h4 className="text-sm font-bold text-text uppercase tracking-wider">
+                Rincian Pemisahan Profit 4 Pilar (Segregated Margins)
+              </h4>
+              <div className="text-[11px] text-text-muted">
+                Tabel Ringkasan Margin 2 Pilar • Model Hibrida 2 Pilar
+              </div>
+            </div>
           </div>
           <span className="text-xs text-text-muted font-mono">
             Akumulasi Kontrak Awal + Approved Change Orders
           </span>
         </div>
 
-        {/* PILAR 1: Keuntungan per Paket Barang Jadi (Itemized Assembly Margin) */}
+        {/* Grup A: Rincian Paket Barang Jadi */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -831,7 +849,7 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
                 PILAR 1
               </span>
               <h5 className="text-xs font-bold text-text uppercase tracking-wide">
-                Keuntungan per Paket Barang Jadi (Itemized Assembly Margin)
+                Grup A: Rincian Paket Barang Jadi (Itemized Assembly Margin)
               </h5>
             </div>
             <span className="text-[11px] text-text-muted font-mono">
@@ -840,84 +858,98 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
           </div>
 
           {segregatedProfit.packages.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {segregatedProfit.packages.map((pkg) => (
-                <div key={pkg.packageId} className="bg-surface-hover/70 border border-amber-500/30 rounded-xl p-4 flex flex-col justify-between space-y-3 shadow-sm hover:border-amber-500/50 transition">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-                        <span>📦</span>
-                        <span>{pkg.packageName}</span>
-                      </div>
-                      <div className="text-[10px] text-text-muted font-mono mt-0.5">
-                        Resep Manufaktur Assembly
-                      </div>
-                    </div>
-                    <span className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold border ${
-                      pkg.marginPercentage >= 25 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' :
-                      pkg.marginPercentage >= 15 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40' :
-                      'bg-rose-500/20 text-rose-400 border border-rose-500/40'
-                    }`}>
-                      {pkg.marginPercentage.toFixed(1)}%
-                    </span>
-                  </div>
-
-                  <div className="space-y-1.5 pt-2 border-t border-border/50 text-xs">
-                    <div className="flex justify-between items-baseline">
-                      <span className="text-text-muted text-[11px]">Harga Jual Paket:</span>
-                      <span className="font-mono font-bold text-text">{formatRupiah(pkg.sellingPrice)}</span>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-1 py-1.5 px-2 bg-background/80 rounded-lg text-[10px] font-mono border border-border/40 text-text-muted">
-                      <div>
-                        <div>Bahan (M)</div>
-                        <div className="text-text font-semibold">{formatRupiah(pkg.materialCost)}</div>
-                      </div>
-                      <div>
-                        <div>Upah (L)</div>
-                        <div className="text-text font-semibold">{formatRupiah(pkg.laborCost)}</div>
-                      </div>
-                      <div>
-                        <div>FOH (O)</div>
-                        <div className="text-text font-semibold">{formatRupiah(pkg.overheadCost)}</div>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-baseline pt-1">
-                      <span className="text-text-muted text-[11px]">Total Modal HPP:</span>
-                      <span className="font-mono text-text font-semibold">{formatRupiah(pkg.totalCost)}</span>
-                    </div>
-                    <div className="flex justify-between items-baseline pt-1 border-t border-border/40">
-                      <span className="text-text font-semibold text-[11px]">Laba Bersih Paket:</span>
-                      <span className={`font-mono font-bold ${pkg.netProfit >= 0 ? 'text-emerald-400' : 'text-status-danger'}`}>
-                        {formatRupiah(pkg.netProfit)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div className="overflow-x-auto border border-border/70 rounded-xl">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-surface-hover/80 text-text-muted uppercase text-[10px] tracking-wider border-b border-border">
+                    <th className="py-2.5 px-3 font-semibold">Item Paket Assembly</th>
+                    <th className="py-2.5 px-3 font-semibold text-right">Jual</th>
+                    <th className="py-2.5 px-3 font-semibold text-right">HPP (Bahan + Upah + FOH)</th>
+                    <th className="py-2.5 px-3 font-semibold text-right">Laba</th>
+                    <th className="py-2.5 px-3 font-semibold text-center">Margin %</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/50">
+                  {segregatedProfit.packages.map((pkg) => (
+                    <tr key={pkg.packageId} className="hover:bg-surface-hover/40 transition">
+                      <td className="py-3 px-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">📦</span>
+                          <div>
+                            <span className="font-bold text-amber-300 font-mono text-xs">
+                              [ 📦 <span>{pkg.packageName}</span> ]
+                            </span>
+                            <div className="text-[10px] text-text-muted font-mono">
+                              Resep Manufaktur Assembly
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-3 text-right font-mono font-bold text-text">
+                        <span>Jual: </span>
+                        <span>{formatRupiah(pkg.sellingPrice)}</span>
+                      </td>
+                      <td className="py-3 px-3 text-right font-mono">
+                        <div className="font-semibold text-text">
+                          <span>HPP: </span>
+                          <span>{formatRupiah(pkg.totalCost)}</span>
+                        </div>
+                        <div className="text-[10px] text-text-muted">
+                          (Bahan: {formatRupiah(pkg.materialCost)} + Upah: {formatRupiah(pkg.laborCost)} + FOH: {formatRupiah(pkg.overheadCost)})
+                        </div>
+                      </td>
+                      <td className="py-3 px-3 text-right font-mono font-bold">
+                        <span className={pkg.netProfit >= 0 ? 'text-emerald-400' : 'text-status-danger'}>
+                          <span>Laba: </span>
+                          <span>{formatRupiah(pkg.netProfit)}</span>
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-center">
+                        <span className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold border ${
+                          pkg.marginPercentage >= 25 ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' :
+                          pkg.marginPercentage >= 15 ? 'bg-amber-500/20 text-amber-400 border-amber-500/40' :
+                          'bg-rose-500/20 text-rose-400 border-rose-500/40'
+                        }`}>
+                          {pkg.marginPercentage.toFixed(1)}%
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-amber-500/10 font-mono text-xs font-semibold border-t border-amber-500/30">
+                    <td className="py-2.5 px-3 text-amber-400">
+                      Total Seluruh Paket ({segregatedProfit.packages.length} Unit)
+                    </td>
+                    <td className="py-2.5 px-3 text-right text-text">
+                      <span>Jual: </span>
+                      <span>{formatRupiah(segregatedProfit.totalPackageRevenue)}</span>
+                    </td>
+                    <td className="py-2.5 px-3 text-right text-text">
+                      <span>HPP: </span>
+                      <span>{formatRupiah(segregatedProfit.totalPackageCost)}</span>
+                    </td>
+                    <td className="py-2.5 px-3 text-right text-emerald-400 font-bold">
+                      <span>Laba: </span>
+                      <span>{formatRupiah(segregatedProfit.totalPackageProfit)}</span>
+                    </td>
+                    <td className="py-2.5 px-3 text-center text-emerald-400 font-bold">
+                      {segregatedProfit.totalPackageRevenue > 0
+                        ? ((segregatedProfit.totalPackageProfit / segregatedProfit.totalPackageRevenue) * 100).toFixed(1)
+                        : '0.0'}%
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
           ) : (
             <div className="p-3 bg-surface-hover/40 border border-border/60 rounded-xl text-center text-xs text-text-muted">
               Tidak ada paket barang jadi pada SPK ini. Seluruh item tercatat sebagai penjualan lepas (Granular).
             </div>
           )}
-
-          {segregatedProfit.packages.length > 0 && (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs bg-amber-500/10 border border-amber-500/20 px-3.5 py-2.5 rounded-lg font-mono gap-2">
-              <span className="text-amber-400 font-semibold flex items-center gap-1.5">
-                <span>Total Seluruh Paket ({segregatedProfit.packages.length} Unit)</span>
-              </span>
-              <div className="flex items-center gap-4 flex-wrap">
-                <span className="text-text-muted">Jual: <strong className="text-text">{formatRupiah(totals.packageRevenue)}</strong></span>
-                <span className="text-text-muted">HPP: <strong className="text-text">{formatRupiah(totals.packageCost)}</strong></span>
-                <span className="text-text-muted">Laba Bersih: <strong className="text-emerald-400">{formatRupiah(totals.packageProfit)}</strong></span>
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* PILAR 2: Keuntungan Penjualan Lepas / Granular (Non-Paket) */}
+        {/* Grup B: Rincian Item Granular (Lepasan) */}
         <div className="space-y-3 pt-3 border-t border-border/60">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -925,7 +957,7 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
                 PILAR 2
               </span>
               <h5 className="text-xs font-bold text-text uppercase tracking-wide">
-                Keuntungan Penjualan Lepas / Granular (Non-Paket)
+                Grup B: Rincian Item Granular (Lepasan)
               </h5>
             </div>
             <span className="text-[11px] text-text-muted font-mono">
@@ -933,58 +965,116 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {/* Card 1: Granular Material */}
-            <div className="p-3.5 rounded-xl bg-cyan-500/5 border border-cyan-500/20 flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-cyan-400 flex items-center gap-1.5">
-                  <span>🧱</span>
-                  <span>Material Granular (Bahan Lepas)</span>
+          <div className="space-y-2">
+            {/* Row 1: Material Granular */}
+            <div className="p-3 rounded-xl bg-cyan-500/5 border border-cyan-500/20 flex flex-col md:flex-row md:items-center justify-between gap-2 text-xs font-mono">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🔩</span>
+                <span className="font-bold text-cyan-400">
+                  🔩 Material Granular
                 </span>
-                <span className="text-[10px] font-mono text-cyan-400/80">Non-Paket</span>
+                <span className="text-[10px] text-cyan-400/70 border border-cyan-500/30 px-1.5 py-0.5 rounded">Bahan Lepas Non-Paket</span>
               </div>
-              <div className="text-base font-bold text-text font-mono mt-2">
-                {formatRupiah(totals.granularMaterialProfit)}
-              </div>
-              <div className="text-[11px] text-text-muted flex justify-between mt-2 pt-2 border-t border-cyan-500/10 font-mono">
-                <span>Jual: <strong className="text-text">{formatRupiah(totals.granularMaterialRevenue)}</strong></span>
-                <span>Modal: <strong className="text-text">{formatRupiah(totals.granularMaterialCost)}</strong></span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-text-muted">Jual: <strong className="text-text">{formatRupiah(segregatedProfit.granularMaterial.revenue)}</strong></span>
+                <span className="text-text-muted">- Modal: <strong className="text-text">{formatRupiah(segregatedProfit.granularMaterial.cost)}</strong></span>
+                <span className="text-text-muted">= Laba: <strong className="text-emerald-400">{formatRupiah(segregatedProfit.granularMaterial.profit)}</strong></span>
+                <span className="text-cyan-400/90 font-semibold">({segregatedProfit.granularMaterial.marginPct.toFixed(1)}%)</span>
               </div>
             </div>
 
-            {/* Card 2: Granular Labor */}
-            <div data-testid="pillar-labor-card" className="p-3.5 rounded-xl bg-blue-500/5 border border-blue-500/20 flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-blue-400">
+            {/* Row 2: Labor Granular */}
+            <div data-testid="pillar-labor-card" className="p-3 rounded-xl bg-blue-500/5 border border-blue-500/20 flex flex-col md:flex-row md:items-center justify-between gap-2 text-xs font-mono">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🔧</span>
+                <span className="font-bold text-blue-400">
                   🔧 Labor (Jasa Mandor)
                 </span>
-                <span className="text-[10px] font-mono text-blue-400/80">Non-Paket</span>
+                <span className="text-[10px] text-blue-400/70 border border-blue-500/30 px-1.5 py-0.5 rounded">Granular Non-Paket</span>
               </div>
-              <div className="text-base font-bold text-text font-mono mt-2">
-                {formatRupiah(totalLaborMargin)}
-              </div>
-              <div className="text-[11px] text-text-muted flex justify-between mt-2 pt-2 border-t border-blue-500/10 font-mono">
-                <span>Jual: <strong className="text-text">{formatRupiah(totalLaborRevenue)}</strong></span>
-                <span>Modal: <strong className="text-text">{formatRupiah(totalLaborCogs)}</strong></span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-text-muted">Jual: <strong className="text-text">{formatRupiah(totalLaborRevenue)}</strong></span>
+                <span className="text-text-muted">- Modal: <strong className="text-text">{formatRupiah(totalLaborCogs)}</strong></span>
+                <span className="text-text-muted">= Laba: <strong className="text-emerald-400">{formatRupiah(totalLaborMargin)}</strong></span>
+                <span className="text-blue-400/90 font-semibold">({segregatedProfit.granularLabor.marginPct.toFixed(1)}%)</span>
               </div>
             </div>
 
-            {/* Card 3: Granular Overhead */}
-            <div className="p-3.5 rounded-xl bg-purple-500/5 border border-purple-500/20 flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-purple-400 flex items-center gap-1.5">
-                  <span>⚡</span>
-                  <span>Overhead Pabrik (FOH)</span>
+            {/* Row 3: Overhead Granular */}
+            <div className="p-3 rounded-xl bg-purple-500/5 border border-purple-500/20 flex flex-col md:flex-row md:items-center justify-between gap-2 text-xs font-mono">
+              <div className="flex items-center gap-2">
+                <span className="text-base">⚡</span>
+                <span className="font-bold text-purple-400">
+                  ⚡ Overhead Pabrik (FOH)
                 </span>
-                <span className="text-[10px] font-mono text-purple-400/80">Non-Paket</span>
+                <span className="text-[10px] text-purple-400/70 border border-purple-500/30 px-1.5 py-0.5 rounded">Overhead Granular Non-Paket</span>
               </div>
-              <div className="text-base font-bold text-text font-mono mt-2">
-                {formatRupiah(totals.overheadProfit)}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-text-muted">Jual: <strong className="text-text">{formatRupiah(totals.overheadRevenue)}</strong></span>
+                <span className="text-text-muted">- Modal: <strong className="text-text">{formatRupiah(totals.overheadCost)}</strong></span>
+                <span className="text-text-muted">= Laba: <strong className="text-emerald-400">{formatRupiah(totals.overheadProfit)}</strong></span>
+                <span className="text-purple-400/90 font-semibold">({segregatedProfit.granularOverhead.marginPct.toFixed(1)}%)</span>
               </div>
-              <div className="text-[11px] text-text-muted flex justify-between mt-2 pt-2 border-t border-purple-500/10 font-mono">
-                <span>Jual: <strong className="text-text">{formatRupiah(totals.overheadRevenue)}</strong></span>
-                <span>Modal: <strong className="text-text">{formatRupiah(totals.overheadCost)}</strong></span>
+            </div>
+          </div>
+        </div>
+
+        {/* Grup C: Akumulasi Akhir */}
+        <div className="space-y-3 pt-3 border-t border-border/60">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-xs font-bold font-mono">
+                REKONSILIASI
+              </span>
+              <h5 className="text-xs font-bold text-text uppercase tracking-wide">
+                Grup C: Akumulasi Akhir
+              </h5>
+            </div>
+            <span className="text-xs font-mono text-emerald-400 font-bold">
+              Margin Total: {segregatedProfit.grandTotalMarginPercentage.toFixed(1)}%
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="p-3.5 rounded-xl bg-background border border-border flex flex-col">
+              <span className="text-[11px] text-text-muted font-medium">
+                Total Quotation Jual (Revisi)
+              </span>
+              <span className="text-lg font-bold font-mono text-text mt-1">
+                {formatRupiah(segregatedProfit.grandTotalRevenue)}
+              </span>
+              <span className="text-[10px] text-text-muted font-mono mt-0.5">
+                = grandTotalRevenue
+              </span>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-background border border-border flex flex-col">
+              <span className="text-[11px] text-text-muted font-medium">
+                Total Modal HPP
+              </span>
+              <span className="text-lg font-bold font-mono text-text mt-1">
+                {formatRupiah(segregatedProfit.grandTotalCost)}
+              </span>
+              <span className="text-[10px] text-text-muted font-mono mt-0.5">
+                = grandTotalCost (Bahan + Upah + FOH)
+              </span>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-emerald-300 font-medium">
+                  Total Profit SPK Revisi
+                </span>
+                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/20 px-1.5 py-0.5 rounded">
+                  {segregatedProfit.grandTotalMarginPercentage.toFixed(1)}% Margin
+                </span>
               </div>
+              <span className={`text-lg font-bold font-mono mt-1 ${segregatedProfit.grandTotalProfit >= 0 ? 'text-emerald-400' : 'text-status-danger'}`}>
+                {formatRupiah(segregatedProfit.grandTotalProfit)}
+              </span>
+              <span className="text-[10px] text-text-muted font-mono mt-0.5">
+                = grandTotalProfit (Laba Bersih SPK)
+              </span>
             </div>
           </div>
         </div>
