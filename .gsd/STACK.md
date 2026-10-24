@@ -6,7 +6,7 @@
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
-| Node.js | v20+ / v22+ (Types ^24.19.2 / Installed 24.21.0) | JavaScript runtime & tooling execution |
+| Node.js | v20+ / v22+ / v24+ (Types ^24.19.2 / Installed 24.21.0) | JavaScript runtime & tooling execution |
 | Vite | ^8.3.4 (Installed 8.3.4) | Next-generation frontend bundler & dev server |
 
 ## Dependencies
@@ -60,9 +60,9 @@
 
 | Service | Provider | Purpose |
 |---------|----------|---------|
-| Database & Auth | Supabase (PostgreSQL 15+) | Managed PostgreSQL (100 migrations), Row Level Security, Auth sessions, Views, RPCs, Hard-gate Triggers |
+| Database & Auth | Supabase (PostgreSQL 15+) | Managed PostgreSQL (101 migrations), Row Level Security, Auth sessions, Views, RPCs, Hard-gate Triggers |
 | Media Storage & CDN | Cloudinary | Unsigned image uploads for vehicle intake and progress gallery |
-| Test Runner & Suite | Vitest & Testing Library | 63 test files, 470 automated unit/component tests (100% green) |
+| Test Runner & Suite | Vitest & Testing Library | 66 test files, 481 automated unit/component tests (100% green) |
 
 ## Configuration
 
@@ -91,6 +91,6 @@
 | `lucide-react` | 1.59.0 | 1.61.0 | 1.61.0 | Low | Safe icon additions and optimizations |
 | `oxlint` | 1.88.0 | 1.89.0 | 1.89.0 | Low | Linter rules update; zero breaking changes |
 | `postcss` | 8.5.30 | 8.5.31 | 8.5.31 | Low | Safe semver patch release |
-| `react-i18next` | 17.1.0 | 17.1.7 | 17.1.7 | Low | Safe semver patch release |
+| `react-i18next` | 17.1.0 | 17.1.8 | 17.1.8 | Low | Safe semver patch release |
 | `typescript` | 6.0.3 | 6.0.3 | 7.0.2 | Medium | Major version bump; defer until major milestone |
 | `vite` | 8.3.4 | 8.3.5 | 8.3.5 | Low | Safe semver patch release |
