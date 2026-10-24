@@ -1,20 +1,17 @@
 ## Current Position
 - **Sprint**: Sprint 88 — Fix Labor Summary Card Calculation and Reactive Filter Totals in RAB Perubahan Tab
-- **Status**: Sprint in progress
+- **Status**: Sprint completed (All tasks implemented & verified)
 - **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness (paused for sprint)
 
 ## Last Session Summary
-Codebase mapping complete (/map on 2026-10-24).
-- 83 components identified (11 pages, 72 operational components)
-- 35 dependencies analyzed (16 production, 19 dev)
-- 100 database migrations verified
-- 63 test suites / 462 automated unit & component tests passing (100% green)
-- 0 technical debt items found (0 code smells / 0 TODOs / clean static analysis)
-
-## Sprint 88 Goal
-Align and fix the 4-pillar Labor summary card calculation on the "RAB Perubahan" tab in Service Advisor to aggregate all labor items (both granular and package assembly components), ensure the labor margin, revenue, and COGS match empirical totals, and synchronize the reactive filter subtotal badge dynamically when filtering by item type or attributes.
+Sprint 88 complete:
+- Fixed 4-pillar Labor summary card calculation on "RAB Perubahan" tab in Service Advisor.
+- Prioritized `item.item_type === 'LABOR'` in `computeRabPerubahanTotals` so both package assembly labor components and granular labor are aggregated together without omission.
+- Updated `RabPerubahanTab.tsx` with `formatRupiah`, dedicated labor aggregates (`totalLaborRevenue`, `totalLaborCogs`, `totalLaborMargin`), and reactive filtered totals.
+- Synchronized "Labor (Jasa Mandor)" card to display Jual: Rp 2.882.794, Modal: Rp 2.100.000, Margin: Rp 782.794.
+- Synchronized "Subtotal Filter" badge to display `Subtotal Filter: Rp 2.882.794` when filtered to Labor (Jasa).
+- Added comprehensive unit and integration tests (63 suites, 465 tests passing, 100% green).
+- Clean `tsc -b`, `oxlint` (0 errors), and production build `npm run build`.
 
 ## Next Up
-- Task 1: Update `computeRabPerubahanTotals` in `rabPerubahanExport.ts`
-- Task 2: Update `RabPerubahanTab.tsx` labor aggregation, card rendering, and filter badge
-- Task 3: Unit and component tests, linting, and quality gate verification
+- User review / verification.

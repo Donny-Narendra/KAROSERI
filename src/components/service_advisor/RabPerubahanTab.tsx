@@ -483,14 +483,36 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
     });
   }, [items, filterType, filterOrigin, filterStatus, filterWbs, searchTerm]);
 
+  // Format currency helper
+  const formatRupiah = useCallback((val: number): string => `Rp ${Number(val || 0).toLocaleString('id-ID')}`, []);
+
+  // Hitung seluruh item bertipe LABOR (baik granular maupun dari paket)
+  const laborItems = useMemo(() => items.filter(item => item.item_type === 'LABOR'), [items]);
+  const totalLaborRevenue = useMemo(() => 
+    laborItems.reduce((acc, item) => acc + (Number(item.quantity || 1) * Number(item.unit_price || 0)), 0),
+    [laborItems]
+  );
+  const totalLaborCogs = useMemo(() => 
+    laborItems.reduce((acc, item) => acc + (Number(item.quantity || 1) * Number(item.cost_price || 0)), 0),
+    [laborItems]
+  );
+  const totalLaborMargin = totalLaborRevenue - totalLaborCogs;
+
+  // Subtotal filter untuk item yang sedang tampil di tabel
+  const filteredTotalRevenue = useMemo(() => 
+    filteredItems.reduce((acc, item) => acc + (Number(item.quantity || 1) * Number(item.unit_price || 0)), 0),
+    [filteredItems]
+  );
+  const filteredTotalCogs = useMemo(() => 
+    filteredItems.reduce((acc, item) => acc + (Number(item.quantity || 1) * Number(item.cost_price || 0)), 0),
+    [filteredItems]
+  );
+  const filteredTotalMargin = filteredTotalRevenue - filteredTotalCogs;
+
   // Overall Financial & Fulfillment Metrics
   const totals = useMemo(() => {
     return computeRabPerubahanTotals(items);
   }, [items]);
-
-  const filteredTotals = useMemo(() => {
-    return computeRabPerubahanTotals(filteredItems);
-  }, [filteredItems]);
 
   const handleExportExcel = () => {
     exportRabPerubahanToExcel(spkDetails, items, totals);
@@ -713,20 +735,20 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
             </div>
           </div>
 
-          {/* Pillar 3: Labor Profit */}
-          <div className="p-3 rounded-lg bg-sky-500/5 border border-sky-500/20">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-sky-400 flex items-center gap-1">
+          {/* Kartu Pilar Labor */}
+          <div data-testid="pillar-labor-card" className="bg-slate-900/80 border border-slate-800 rounded-lg p-3">
+            <div className="flex justify-between items-center text-xs text-slate-400 mb-1">
+              <span className="flex items-center gap-1.5 text-blue-400 font-semibold">
                 🔧 Labor (Jasa Mandor)
               </span>
-              <span className="text-[10px] font-mono text-sky-400/80">Upah Borongan</span>
+              <span className="text-[10px] text-slate-500">Upah Borongan</span>
             </div>
-            <div className="text-base font-bold text-text font-mono mt-1">
-              Rp {totals.laborProfit.toLocaleString('id-ID')}
+            <div className="text-lg font-bold text-slate-100 font-mono">
+              {formatRupiah(totalLaborMargin)}
             </div>
-            <div className="text-[11px] text-text-muted flex justify-between mt-1">
-              <span>Jual: Rp {totals.laborRevenue.toLocaleString('id-ID')}</span>
-              <span>Modal: Rp {totals.laborCost.toLocaleString('id-ID')}</span>
+            <div className="flex justify-between items-center text-[11px] text-slate-400 pt-1.5 border-t border-slate-800/60 mt-1.5">
+              <span>Jual: <strong className="text-slate-200">{formatRupiah(totalLaborRevenue)}</strong></span>
+              <span>Modal: <strong className="text-slate-200">{formatRupiah(totalLaborCogs)}</strong></span>
             </div>
           </div>
 
@@ -842,9 +864,12 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
           <span>
             Menampilkan <strong className="text-text font-mono">{filteredItems.length}</strong> dari <strong className="text-text font-mono">{items.length}</strong> item konsolidasi
           </span>
-          {filteredItems.length !== items.length && (
-            <span className="font-mono text-primary">
-              Subtotal Filter: Rp {filteredTotals.totalRevenue.toLocaleString('id-ID')}
+          {(filteredItems.length !== items.length || filterType !== 'ALL' || filterOrigin !== 'ALL' || filterStatus !== 'ALL' || filterWbs !== 'ALL' || searchTerm.trim() !== '') && (
+            <span
+              className="font-mono text-primary font-bold cursor-help"
+              title={`HPP Modal Filter: ${formatRupiah(filteredTotalCogs)} • Margin Filter: ${formatRupiah(filteredTotalMargin)}`}
+            >
+              Subtotal Filter: {formatRupiah(filteredTotalRevenue)}
             </span>
           )}
         </div>

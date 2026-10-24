@@ -68,24 +68,24 @@ export function computeRabPerubahanTotals(items: ConsolidatedRabItem[]): RabPeru
 
   if (Array.isArray(items)) {
     items.forEach(item => {
-      const qty = Number(item.quantity) || 0;
+      const qty = Number(item.quantity || 1);
       const unitPrice = Number(item.unit_price) || 0;
       const costPrice = Number(item.cost_price) || 0;
       const revenue = qty * unitPrice;
       const cost = qty * costPrice;
 
-      if (item.is_package) {
-        packageRevenue += revenue;
-        packageCost += cost;
-      } else if (item.item_type === 'MATERIAL') {
-        granularMaterialRevenue += revenue;
-        granularMaterialCost += cost;
-      } else if (item.item_type === 'LABOR') {
+      if (item.item_type === 'LABOR') {
         laborRevenue += revenue;
         laborCost += cost;
       } else if (item.item_type === 'OVERHEAD') {
         overheadRevenue += revenue;
         overheadCost += cost;
+      } else if (item.is_package) {
+        packageRevenue += revenue;
+        packageCost += cost;
+      } else if (item.item_type === 'MATERIAL') {
+        granularMaterialRevenue += revenue;
+        granularMaterialCost += cost;
       }
 
       if (item.item_type === 'MATERIAL') {

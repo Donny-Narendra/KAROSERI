@@ -162,6 +162,85 @@ describe('rabPerubahanExport: Consolidated Calculations & Export Engines', () =>
       expect(totals.materialTotalCount).toBe(0);
       expect(totals.materialFulfilledPercentage).toBe(100);
     });
+
+    it('aggregates all labor items including assembly components into labor totals', () => {
+      const itemsWithPackageLabor: ConsolidatedRabItem[] = [
+        {
+          id: 'l1',
+          source_origin: 'RAB',
+          source_label: 'RAB',
+          is_package: true,
+          package_name: 'BAK DUMP STANDAR',
+          item_type: 'LABOR',
+          wbs_stage: 'WBS 1: Pembongkaran',
+          description: 'Jasa Las Sub-Assembly (Paket)',
+          quantity: 1,
+          unit: 'lot',
+          cost_price: 80000,
+          unit_price: 100000,
+          subtotal: 100000,
+          fulfillment_status: 'FULFILLED',
+          fulfillment_qty: 1,
+        },
+        {
+          id: 'l2',
+          source_origin: 'RAB',
+          source_label: 'RAB',
+          is_package: true,
+          package_name: 'BAK DUMP STANDAR',
+          item_type: 'LABOR',
+          wbs_stage: 'WBS 2: Sasis/Rangka',
+          description: 'Jasa Pasang Main Frame (Paket)',
+          quantity: 1,
+          unit: 'lot',
+          cost_price: 900000,
+          unit_price: 1247113,
+          subtotal: 1247113,
+          fulfillment_status: 'FULFILLED',
+          fulfillment_qty: 1,
+        },
+        {
+          id: 'l3',
+          source_origin: 'RAB',
+          source_label: 'RAB',
+          is_package: false,
+          package_name: null,
+          item_type: 'LABOR',
+          wbs_stage: 'WBS 3: Dinding/Fabrikasi',
+          description: 'Jasa Pasang Engsel Granular',
+          quantity: 1,
+          unit: 'lot',
+          cost_price: 120000,
+          unit_price: 150000,
+          subtotal: 150000,
+          fulfillment_status: 'PENDING',
+          fulfillment_qty: 0,
+        },
+        {
+          id: 'l4',
+          source_origin: 'CHANGE_ORDER',
+          source_label: 'Change Order (CO-001)',
+          is_package: true,
+          package_name: 'PAKET TAMBAHAN HIDROLIK',
+          item_type: 'LABOR',
+          wbs_stage: 'WBS 5: Kelistrikan/Hidrolik',
+          description: 'Jasa Instalasi PTO Hidrolik (Paket)',
+          quantity: 1,
+          unit: 'lot',
+          cost_price: 1000000,
+          unit_price: 1385681,
+          subtotal: 1385681,
+          fulfillment_status: 'FULFILLED',
+          fulfillment_qty: 1,
+        },
+      ];
+
+      const totals = computeRabPerubahanTotals(itemsWithPackageLabor);
+
+      expect(totals.laborCost).toBe(2100000);
+      expect(totals.laborRevenue).toBe(2882794);
+      expect(totals.laborProfit).toBe(782794);
+    });
   });
 
   describe('exportRabPerubahanToExcel', () => {

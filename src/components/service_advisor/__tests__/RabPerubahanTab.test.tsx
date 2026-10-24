@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { RabPerubahanTab } from '../RabPerubahanTab';
 import * as exportUtils from '../../../utils/rabPerubahanExport';
 
@@ -365,6 +365,150 @@ describe('RabPerubahanTab Component', () => {
 
     expect(screen.getByText('Baut Chassis M16')).toBeInTheDocument();
     expect(screen.queryByText('Besi Plat Siku 50x50')).not.toBeInTheDocument();
+  });
+
+  it('calculates Labor summary card and reactive filter subtotal badge accurately when filtered to LABOR', async () => {
+    render(<RabPerubahanTab spkId="spk-999" spk={defaultSpk} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Konsolidasi Estimasi Biaya & Audit Realisasi Lapangan')).toBeInTheDocument();
+    });
+
+    // Check Labor card rendered with totalLaborMargin (150.000), Jual (350.000), Modal (200.000)
+    const laborCard = screen.getByTestId('pillar-labor-card');
+    expect(within(laborCard).getByText('🔧 Labor (Jasa Mandor)')).toBeInTheDocument();
+    expect(within(laborCard).getByText('Rp 150.000')).toBeInTheDocument();
+    expect(within(laborCard).getByText('Rp 350.000')).toBeInTheDocument();
+    expect(within(laborCard).getByText('Rp 200.000')).toBeInTheDocument();
+
+    // Select Labor filter
+    const typeSelect = screen.getByLabelText(/Filter Tipe/i);
+    fireEvent.change(typeSelect, { target: { value: 'LABOR' } });
+
+    // Badge Subtotal Filter should show Rp 350.000
+    expect(screen.getByText(/Subtotal Filter: Rp 350.000/)).toBeInTheDocument();
+  });
+
+  it('aggregates all labor items including package assembly components and matches empirical totals', async () => {
+    // 4 labor items: 80k+100k, 900k+1.247.113, 120k+150k, 1M+1.385.681
+    // Total modal: 2.100.000, Total jual: 2.882.794, Margin: 782.794
+    const fourLaborItems = [
+      {
+        id: 'rab-l1',
+        rab_estimation_id: 'est-four',
+        spk_id: 'spk-four',
+        wbs_stage: 'WBS 1: Pembongkaran',
+        item_type: 'LABOR',
+        description: 'Jasa Las Dasar (Paket)',
+        package_name: 'BAK DUMP STANDAR',
+        quantity: 1,
+        unit: 'lot',
+        cost_price: 80000,
+        unit_price: 100000,
+        subtotal: 100000,
+      },
+      {
+        id: 'rab-l2',
+        rab_estimation_id: 'est-four',
+        spk_id: 'spk-four',
+        wbs_stage: 'WBS 2: Sasis/Rangka',
+        item_type: 'LABOR',
+        description: 'Jasa Rangka Utama (Paket)',
+        package_name: 'BAK DUMP STANDAR',
+        quantity: 1,
+        unit: 'lot',
+        cost_price: 900000,
+        unit_price: 1247113,
+        subtotal: 1247113,
+      },
+      {
+        id: 'rab-l3',
+        rab_estimation_id: 'est-four',
+        spk_id: 'spk-four',
+        wbs_stage: 'WBS 3: Dinding/Fabrikasi',
+        item_type: 'LABOR',
+        description: 'Jasa Pasang Engsel Granular',
+        package_name: null,
+        quantity: 1,
+        unit: 'lot',
+        cost_price: 120000,
+        unit_price: 150000,
+        subtotal: 150000,
+      },
+      {
+        id: 'rab-l4',
+        rab_estimation_id: 'est-four',
+        spk_id: 'spk-four',
+        wbs_stage: 'WBS 5: Kelistrikan/Hidrolik',
+        item_type: 'LABOR',
+        description: 'Jasa Instalasi Pompa Hidrolik (Paket)',
+        package_name: 'PAKET HIDROLIK',
+        quantity: 1,
+        unit: 'lot',
+        cost_price: 1000000,
+        unit_price: 1385681,
+        subtotal: 1385681,
+      },
+    ];
+
+    const supabaseMock = await import('../../../lib/supabaseClient');
+    const originalFrom = supabaseMock.supabase.from;
+    (supabaseMock.supabase.from as any) = vi.fn((table: string) => {
+      if (table === 'rab_estimations') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: { id: 'est-four', spk_id: 'spk-four' },
+            error: null,
+          }),
+        };
+      }
+      if (table === 'rab_items') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockResolvedValue({
+            data: fourLaborItems,
+            error: null,
+          }),
+        };
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockResolvedValue({ data: [], error: null }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      };
+    });
+
+    const spkServiceMock = await import('../../../services/spkService');
+    vi.spyOn(spkServiceMock.spkService, 'getChangeOrders').mockResolvedValueOnce([]);
+
+    try {
+      render(<RabPerubahanTab spkId="spk-four" spk={{ id: 'spk-four', spk_no: 'SPK-FOUR' }} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Jasa Las Dasar (Paket)')).toBeInTheDocument();
+      });
+
+      // Verify Labor card numbers
+      // Jual: Rp 2.882.794
+      // Modal: Rp 2.100.000
+      // Margin: Rp 782.794
+      const laborCard = screen.getByTestId('pillar-labor-card');
+      expect(within(laborCard).getByText('Rp 782.794')).toBeInTheDocument();
+      expect(within(laborCard).getByText('Rp 2.882.794')).toBeInTheDocument();
+      expect(within(laborCard).getByText('Rp 2.100.000')).toBeInTheDocument();
+
+      // Filter by type: LABOR
+      const typeSelect = screen.getByLabelText(/Filter Tipe/i);
+      fireEvent.change(typeSelect, { target: { value: 'LABOR' } });
+
+      // Badge Subtotal Filter should show exactly Rp 2.882.794
+      expect(screen.getByText(/Subtotal Filter: Rp 2.882.794/)).toBeInTheDocument();
+    } finally {
+      (supabaseMock.supabase.from as any) = originalFrom;
+    }
   });
 
   it('triggers export functions when clicking Export XLSX and Export PDF buttons', async () => {
