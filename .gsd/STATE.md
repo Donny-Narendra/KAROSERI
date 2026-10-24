@@ -1,7 +1,7 @@
 ## Current Position
-- **Sprint**: Sprint 85 — Fix False Shared Exclusion of RAB and Change Order Labor Items in SPK Borongan Modal (Completed)
-- **Status**: Sprint Completed (2026-10-24)
-- **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness (ready to resume)
+- **Sprint**: Sprint 86 — Fix Default WBS 2 Allocation Initial Value to Zero in Change Order Material Form
+- **Status**: Sprint in progress
+- **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness (paused for sprint)
 
 ## Sprint 85 Summary
 - **Database & Data Layer:**
