@@ -83,6 +83,14 @@ const WBS_CATEGORIES = [
   { id: 'WBS 5: Kelistrikan/Hidrolik', stageKey: 'Kelistrikan/Hidrolik', shortLabel: 'WBS 5', label: 'WBS 5: Kelistrikan/Hidrolik' },
 ];
 
+export const DEFAULT_WBS_ALLOCATIONS: Record<string, string> = {
+  'WBS 1: Pembongkaran': '0',
+  'WBS 2: Sasis/Rangka': '0',
+  'WBS 3: Dinding/Fabrikasi': '0',
+  'WBS 4: Cat/Finishing': '0',
+  'WBS 5: Kelistrikan/Hidrolik': '0',
+};
+
 export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo: propSpkNo }) => {
   const { profile } = useAuth();
   const [changeOrders, setChangeOrders] = useState<ChangeOrderRecord[]>([]);
@@ -161,11 +169,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
   // Target Quantity & WBS Allocations for the Builder
   const [targetQty, setTargetQty] = useState<string | number>('1');
   const [wbsAllocations, setWbsAllocations] = useState<Record<string, string>>({
-    'WBS 1: Pembongkaran': '0',
-    'WBS 2: Sasis/Rangka': '1',
-    'WBS 3: Dinding/Fabrikasi': '0',
-    'WBS 4: Cat/Finishing': '0',
-    'WBS 5: Kelistrikan/Hidrolik': '0',
+    ...DEFAULT_WBS_ALLOCATIONS,
   });
 
   // Modal confirmation state
@@ -247,13 +251,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
   const resetBuilderInputs = (mode: 'material' | 'labor' | 'overhead' = itemMode) => {
     setEditingDraftId(null);
     setTargetQty('1');
-    setWbsAllocations({
-      'WBS 1: Pembongkaran': '0',
-      'WBS 2: Sasis/Rangka': '1',
-      'WBS 3: Dinding/Fabrikasi': '0',
-      'WBS 4: Cat/Finishing': '0',
-      'WBS 5: Kelistrikan/Hidrolik': '0',
-    });
+    setWbsAllocations({ ...DEFAULT_WBS_ALLOCATIONS });
 
     if (mode === 'material') {
       setMaterialForm({
@@ -311,13 +309,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
     setTargetQty(item.quantity);
 
     // Set allocations focused on this item's WBS stage
-    const allocs: Record<string, string> = {
-      'WBS 1: Pembongkaran': '0',
-      'WBS 2: Sasis/Rangka': '0',
-      'WBS 3: Dinding/Fabrikasi': '0',
-      'WBS 4: Cat/Finishing': '0',
-      'WBS 5: Kelistrikan/Hidrolik': '0',
-    };
+    const allocs: Record<string, string> = { ...DEFAULT_WBS_ALLOCATIONS };
     allocs[item.wbs_stage] = String(item.quantity);
     setWbsAllocations(allocs);
 

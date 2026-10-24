@@ -404,6 +404,10 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
     expect(spinbuttons[0]).toHaveValue(120000);
     expect(spinbuttons[1]).toHaveValue(150000);
 
+    // Allocate WBS stage (WBS 2: Sasis/Rangka = 1)
+    const wbs2Input = screen.getByLabelText(/Alokasi WBS 2: Sasis\/Rangka/i);
+    fireEvent.change(wbs2Input, { target: { value: '1' } });
+
     // Add to Change Order
     const addItemBtn = screen.getByRole('button', { name: /\+ Tambah ke Change Order/i });
     fireEvent.click(addItemBtn);
@@ -466,6 +470,10 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
     fireEvent.change(spinbuttons[0], { target: { value: '150000' } });
     fireEvent.change(spinbuttons[1], { target: { value: '250000' } });
 
+    // Allocate WBS stage (WBS 2: Sasis/Rangka = 1)
+    const wbs2Input = screen.getByLabelText(/Alokasi WBS 2: Sasis\/Rangka/i);
+    fireEvent.change(wbs2Input, { target: { value: '1' } });
+
     // Add to Change Order
     const addItemBtn = screen.getByRole('button', { name: /\+ Tambah ke Change Order/i });
     fireEvent.click(addItemBtn);
@@ -520,12 +528,15 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
 
     expect(matInput).toHaveValue('Plat Besi 2mm');
 
+    // Initial state with targetQty = 1 and all WBS = 0 displays Sisa: 1.00
+    expect(screen.getByText(/Sisa: 1.00/i)).toBeInTheDocument();
+
     // Change total target qty to 2
     const targetQtyInput = screen.getByLabelText(/Qty \(Target\)/i);
     fireEvent.change(targetQtyInput, { target: { value: '2' } });
 
-    // Initially WBS 2 has 1, remaining is 1.00 ("Sisa: 1.00")
-    expect(screen.getByText(/Sisa: 1.00/i)).toBeInTheDocument();
+    // With targetQty = 2 and all WBS = 0, remaining is 2.00 ("Sisa: 2.00")
+    expect(screen.getByText(/Sisa: 2.00/i)).toBeInTheDocument();
 
     // Allocate 1 to WBS 2 and 1 to WBS 3
     const wbs2Input = screen.getByLabelText(/Alokasi WBS 2: Sasis\/Rangka/i);
@@ -784,6 +795,10 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
       const option = screen.getByTestId('material-option-mat-1');
       fireEvent.mouseDown(option);
       fireEvent.click(option);
+
+      // Allocate WBS stage so validation moves to unit price check
+      const wbs2Input = screen.getByLabelText(/Alokasi WBS 2: Sasis\/Rangka/i);
+      fireEvent.change(wbs2Input, { target: { value: '1' } });
 
       // Set unit price to 0
       const spinbuttons = screen.getAllByRole('spinbutton');
@@ -1461,6 +1476,106 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
         expect(screen.queryByTestId('co-margin-labor-co-empty-2')).toBeNull();
         expect(screen.queryByTestId('co-margin-overhead-co-empty-2')).toBeNull();
       });
+    });
+  });
+
+  describe('Sprint 86: Default WBS Allocations Initial Value to Zero in Change Order Form', () => {
+    it('Verifikasi 1: opens form and verifies all WBS inputs 1 through 5 display 0 and status badge is Sisa: 1.00', async () => {
+      vi.mocked(spkService.getChangeOrders).mockResolvedValue([]);
+
+      render(<AmendmentManager spkId="spk-test-1" spkNo="SPK-2026-001" />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Buat Change Order Baru')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Buat Change Order Baru'));
+
+      // Check all 5 WBS allocation inputs are '0'
+      const wbs1Input = screen.getByLabelText(/Alokasi WBS 1: Pembongkaran/i) as HTMLInputElement;
+      const wbs2Input = screen.getByLabelText(/Alokasi WBS 2: Sasis\/Rangka/i) as HTMLInputElement;
+      const wbs3Input = screen.getByLabelText(/Alokasi WBS 3: Dinding\/Fabrikasi/i) as HTMLInputElement;
+      const wbs4Input = screen.getByLabelText(/Alokasi WBS 4: Cat\/Finishing/i) as HTMLInputElement;
+      const wbs5Input = screen.getByLabelText(/Alokasi WBS 5: Kelistrikan\/Hidrolik/i) as HTMLInputElement;
+
+      expect(wbs1Input.value).toBe('0');
+      expect(wbs2Input.value).toBe('0');
+      expect(wbs3Input.value).toBe('0');
+      expect(wbs4Input.value).toBe('0');
+      expect(wbs5Input.value).toBe('0');
+
+      // Status badge shows Sisa: 1.00
+      expect(screen.getByText('Sisa: 1.00')).toBeInTheDocument();
+      expect(screen.getByText(/Harap tentukan alokasi tahapan WBS \(sisa 1\.00 dari target 1\)\./i)).toBeInTheDocument();
+    });
+
+    it('Verifikasi 2: allocating WBS 2 = 1 updates status to Sesuai / Pas (0.00), and adding item resets WBS back to 0', async () => {
+      vi.mocked(spkService.getChangeOrders).mockResolvedValue([]);
+
+      render(<AmendmentManager spkId="spk-test-1" spkNo="SPK-2026-001" />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Buat Change Order Baru')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Buat Change Order Baru'));
+
+      // Select material
+      const matInput = screen.getByPlaceholderText('Cari material gudang...');
+      fireEvent.focus(matInput);
+      fireEvent.change(matInput, { target: { value: 'Plat' } });
+      const option = screen.getByTestId('material-option-mat-1');
+      fireEvent.mouseDown(option);
+      fireEvent.click(option);
+
+      const wbs2Input = screen.getByLabelText(/Alokasi WBS 2: Sasis\/Rangka/i) as HTMLInputElement;
+      expect(wbs2Input.value).toBe('0');
+
+      // Enter WBS 2 = 1
+      fireEvent.change(wbs2Input, { target: { value: '1' } });
+      expect(wbs2Input.value).toBe('1');
+      expect(screen.getByText('Sesuai / Pas (0.00)')).toBeInTheDocument();
+
+      // Click + Tambah ke Change Order
+      const addItemBtn = screen.getByRole('button', { name: /\+ Tambah ke Change Order/i });
+      fireEvent.click(addItemBtn);
+
+      // Verify item added
+      await waitFor(() => {
+        expect(screen.getByText('Plat Besi 2mm')).toBeInTheDocument();
+      });
+
+      // After adding, form inputs are reset and WBS 2 is back to 0
+      expect(wbs2Input.value).toBe('0');
+      expect(screen.getByText('Sisa: 1.00')).toBeInTheDocument();
+    });
+
+    it('Verifikasi 3: switching modes (Material -> Labor -> Overhead) preserves 0 default allocations and Sisa: 1.00', async () => {
+      vi.mocked(spkService.getChangeOrders).mockResolvedValue([]);
+
+      render(<AmendmentManager spkId="spk-test-1" spkNo="SPK-2026-001" />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Buat Change Order Baru')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Buat Change Order Baru'));
+
+      // Switch to Labor
+      const addLaborBtn = screen.getByRole('button', { name: /\+ Item Jasa \/ Mandor/i });
+      fireEvent.click(addLaborBtn);
+
+      const wbs2Labor = screen.getByLabelText(/Alokasi WBS 2: Sasis\/Rangka/i) as HTMLInputElement;
+      expect(wbs2Labor.value).toBe('0');
+      expect(screen.getByText('Sisa: 1.00')).toBeInTheDocument();
+
+      // Switch to Overhead
+      const addOverheadBtn = screen.getByRole('button', { name: /\+ Item Overhead \(FOH\)/i });
+      fireEvent.click(addOverheadBtn);
+
+      const wbs2Overhead = screen.getByLabelText(/Alokasi WBS 2: Sasis\/Rangka/i) as HTMLInputElement;
+      expect(wbs2Overhead.value).toBe('0');
+      expect(screen.getByText('Sisa: 1.00')).toBeInTheDocument();
     });
   });
 });
