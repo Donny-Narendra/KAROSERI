@@ -11,12 +11,12 @@ WHERE id IN (
                rab_estimation_id,
                COALESCE(package_id::text, ''),
                COALESCE(material_id::text, ''),
-               COALESCE(description, ''),
-               COALESCE(wbs_category, ''),
-               COALESCE(item_type, ''),
-               quantity,
-               unit_price,
-               cost_price
+               COALESCE(description::text, ''),
+               COALESCE(wbs_category::text, ''),
+               COALESCE(item_type::text, ''),
+               COALESCE(quantity, 0),
+               COALESCE(unit_price, 0),
+               COALESCE(cost_price, 0)
              ORDER BY created_at ASC, id ASC
            ) AS rnum
     FROM public.rab_items
