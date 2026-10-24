@@ -1,17 +1,16 @@
 ## Current Position
-- **Sprint**: Sprint 90 — Implement Itemized Assembly Package vs Granular Profit Segregation in RAB Perubahan and Job Profitability
-- **Status**: Codebase Mapped ✓
-- **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness (ready to resume)
+- **Sprint**: Sprint 91 — Deduplicate Rab Items and Enforce Client and Query-Level Uniqueness
+- **Status**: Sprint in progress
+- **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness (paused for sprint)
 
 ## Last Session Summary
-Codebase mapping complete.
-- 74 components identified across 11 pages and specialized workshop modules
-- 35 dependencies analyzed (16 production, 19 dev)
-- 9 services, 22 utilities, 6 type definitions
-- 101 PostgreSQL migrations, 8 database views, 13 stored procedures / RPCs, 8 triggers
-- 66 test files, 481 automated unit & component tests passing (100% green)
-- Production build passing (`tsc -b && vite build` in 453ms) and clean linter (0 errors in `oxlint`)
-- 0 code smells / technical debt items (0 TODO, FIXME, HACK, or XXX markers)
+- Sprint 90 completed and archived to `.gsd/sprints/sprint-90-implement-itemized-assembly-package-vs-granular-profit-segregation-in-rab-perubahan-and-job-profitability.md`.
+- Sprint 91 initialized: Deduplicate Rab Items and Enforce Client and Query-Level Uniqueness.
+- Clean up duplicate `rab_items` rows in PostgreSQL, implement composite key deduplication at service and component levels, and install mutation lock / debounce in `RabCalculator.tsx` and `PackageAllocationModal.tsx`.
 
 ## Next Up
-- `/plan` — create execution plans with full context or resume milestone work.
+- Task 1: Create SQL migration `20261024050000_deduplicate_rab_items.sql`
+- Task 2: Create pure deduplication utility `rabDeduplication.ts` with unit tests and integrate into `rabService.ts`
+- Task 3: Enforce client-level deduplication in `RabCalculator.tsx` and `RabPerubahanTab.tsx`
+- Task 4: Implement mutation lock and click debounce in `PackageAllocationModal.tsx` and `RabCalculator.tsx`
+- Task 5: Automated testing, verification, lint check, and production build
