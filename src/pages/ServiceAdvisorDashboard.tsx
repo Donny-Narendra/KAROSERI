@@ -20,6 +20,9 @@ import { InventoryManager } from '../components/InventoryManager';
 import { RecentMaterialIssues } from '../components/RecentMaterialIssues';
 import { SpkFilterListBox, type SpkFilterItem } from '../components/SpkFilterListBox';
 import { RecentApprovedMaterials, type StockAuditItem } from '../components/RecentApprovedMaterials';
+import { RabPerubahanTab } from '../components/service_advisor/RabPerubahanTab';
+
+export type AdvisorTab = 'rab' | 'amendments' | 'rab_perubahan' | 'wbs';
 
 export const ServiceAdvisorDashboard: React.FC = () => {
   const { profile, signOut } = useAuth();
@@ -29,7 +32,7 @@ export const ServiceAdvisorDashboard: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [selectedSpkId, setSelectedSpkId] = useState<string | null>(null);
   const [isEditCredentialMode, setIsEditCredentialMode] = useState(false);
-  const [activeTab, setActiveTab] = useState<'wbs' | 'amendments' | 'rab'>('rab');
+  const [activeTab, setActiveTab] = useState<AdvisorTab>('rab');
   const [listTab, setListTab] = useState<'active' | 'cancelled'>('active');
   const [cancellingSpkId, setCancellingSpkId] = useState<string | null>(null);
   const [viewingGallerySpk, setViewingGallerySpk] = useState<any | null>(null);
@@ -369,7 +372,7 @@ export const ServiceAdvisorDashboard: React.FC = () => {
               );
             })()}
 
-            {/* Tabs for RAB, Change Orders, WBS */}
+            {/* Tabs for RAB, Change Orders, RAB Perubahan, WBS */}
             <div className="bg-surface border border-border rounded-lg overflow-hidden p-6 mb-6">
                <div className="flex gap-2 border-b border-border pb-0">
                  <button 
@@ -385,6 +388,17 @@ export const ServiceAdvisorDashboard: React.FC = () => {
                    Change Orders
                  </button>
                  <button 
+                   type="button"
+                   onClick={() => setActiveTab('rab_perubahan')}
+                   className={`px-4 py-2 text-sm font-medium border-b-2 transition cursor-pointer ${
+                     activeTab === 'rab_perubahan'
+                       ? 'border-amber-500 text-amber-400 bg-amber-500/10'
+                       : 'border-transparent text-text-muted hover:text-text'
+                   }`}
+                 >
+                   RAB Perubahan
+                 </button>
+                 <button 
                    onClick={() => setActiveTab('wbs')}
                    className={`px-4 py-2 text-sm font-medium border-b-2 transition cursor-pointer ${activeTab === 'wbs' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-text'}`}
                  >
@@ -397,6 +411,11 @@ export const ServiceAdvisorDashboard: React.FC = () => {
               <RabCalculator spkId={selectedSpkId} />
             ) : activeTab === 'amendments' ? (
               <AmendmentManager spkId={selectedSpkId} spkNo={spks.find(s => s.id === selectedSpkId)?.spk_no} />
+            ) : activeTab === 'rab_perubahan' ? (
+              <RabPerubahanTab
+                spkId={selectedSpkId}
+                spk={spks.find(s => s.id === selectedSpkId)}
+              />
             ) : (
               <WbsChecklist spkId={selectedSpkId} />
             )}
