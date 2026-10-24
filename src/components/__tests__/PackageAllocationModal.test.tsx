@@ -239,4 +239,41 @@ describe('Component: PackageAllocationModal (Assembly Package item_type Propagat
     expect(payloads[0].description).toBe('TUKANG LAS RANGKA');
     expect(payloads[0].materialId).toBeUndefined();
   });
+
+  it('locks mutation and disables submit button during execution to prevent double submission', async () => {
+    let resolveApply: () => void = () => {};
+    const handleApply = vi.fn(() => new Promise<void>((res) => { resolveApply = res; }));
+
+    render(
+      <PackageAllocationModal
+        packageData={mockPackage}
+        isOpen={true}
+        onClose={vi.fn()}
+        onApply={handleApply}
+      />
+    );
+
+    const inputs = screen.getAllByRole('spinbutton') as HTMLInputElement[];
+    fireEvent.change(inputs[0], { target: { value: '10' } });
+    fireEvent.change(inputs[5], { target: { value: '1' } });
+    fireEvent.change(inputs[10], { target: { value: '1' } });
+
+    const applyButton = screen.getByRole('button', { name: /Terapkan ke RAB/i });
+    expect(applyButton).not.toBeDisabled();
+
+    // First click
+    fireEvent.click(applyButton);
+    expect(handleApply).toHaveBeenCalledTimes(1);
+
+    // Immediate second click (simulating rapid double click)
+    fireEvent.click(applyButton);
+    expect(handleApply).toHaveBeenCalledTimes(1);
+
+    // Button should be disabled and show loading state
+    expect(applyButton).toBeDisabled();
+    expect(screen.getByText(/Menerapkan.../i)).toBeInTheDocument();
+
+    // Resolve apply promise
+    resolveApply();
+  });
 });

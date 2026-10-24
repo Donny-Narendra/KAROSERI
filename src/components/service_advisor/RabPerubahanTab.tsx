@@ -27,6 +27,7 @@ import { formatWbsBadge, getWbsBadgeClass, getWbsWeight } from '../../utils/wbsS
 import { cleanPackageName, extractPackageFromNotes } from '../../utils/sourceOrigin';
 import { normalizeText } from '../../utils/rabItemAllocation';
 import { computeSegregatedProjectProfit } from '../../utils/profitCalculator';
+import { deduplicateRabItems } from '../../utils/rabDeduplication';
 
 interface RabPerubahanTabProps {
   spkId: string;
@@ -192,6 +193,9 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
           console.warn('Could not query rab_items fallback:', err);
         }
       }
+
+      // Enforce client-side deduplication on raw fetched RAB items
+      rabItemsRaw = deduplicateRabItems(rabItemsRaw);
 
       // 2. Fetch Approved Change Orders & Items
       let changeOrders: any[] = [];
@@ -557,7 +561,9 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
         return a.description.localeCompare(b.description);
       });
 
-      setItems(consolidated);
+      // Deduplicate consolidated items (protecting against duplicated Change Order or hybrid items)
+      const dedupedConsolidated = deduplicateRabItems(consolidated);
+      setItems(dedupedConsolidated);
     } catch (err: any) {
       console.error('Error fetching consolidated RAB Perubahan data:', err);
       setError(err.message || 'Gagal memuat data konsolidasi RAB Perubahan.');

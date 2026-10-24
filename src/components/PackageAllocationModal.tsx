@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { X, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
 import type { ProductPackage } from '../types/package';
 import { parseDecimal } from '../utils/numberUtils';
 import { isLaborKeyword, isOverheadKeyword } from '../utils/itemClassification';
@@ -21,7 +21,7 @@ interface PackageAllocationModalProps {
   packageData: ProductPackage;
   isOpen: boolean;
   onClose: () => void;
-  onApply: (allocatedItems: RabItemPayload[], isComplete: boolean, templateToSave?: Record<string, Record<string, number>>) => void;
+  onApply: (allocatedItems: RabItemPayload[], isComplete: boolean, templateToSave?: Record<string, Record<string, number>>) => Promise<void> | void;
   existingItems?: {
     wbsCategory: string;
     type: 'material' | 'labor' | 'overhead';
@@ -54,9 +54,11 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
 }) => {
   const [allocations, setAllocations] = useState<AllocationState>({});
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (isOpen && packageData.items) {
+      setIsSubmitting(false);
       const initial: AllocationState = {};
       packageData.items.forEach((item, idx) => {
         initial[idx] = {};
@@ -108,68 +110,73 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
     return total + itemTotal;
   }, 0);
 
-  const handleApply = () => {
-    if (hasNegativeRemainder || totalAllocatedSum === 0) return;
+  const handleApply = async () => {
+    if (isSubmitting || hasNegativeRemainder || totalAllocatedSum === 0) return;
+    setIsSubmitting(true);
 
-    const totalBomHpp = items.reduce((sum, it) => {
-      const mat = it.material;
-      const cost = Number(it.cost_per_unit || mat?.cost_price || 0);
-      return sum + (Number(it.quantity || 0) * cost);
-    }, 0);
+    try {
+      const totalBomHpp = items.reduce((sum, it) => {
+        const mat = it.material;
+        const cost = Number(it.cost_per_unit || mat?.cost_price || 0);
+        return sum + (Number(it.quantity || 0) * cost);
+      }, 0);
 
-    const marginRatio = totalBomHpp > 0 && Number(packageData.selling_price || 0) > 0
-      ? Number(packageData.selling_price) / totalBomHpp
-      : 1;
+      const marginRatio = totalBomHpp > 0 && Number(packageData.selling_price || 0) > 0
+        ? Number(packageData.selling_price) / totalBomHpp
+        : 1;
 
-    const payload: RabItemPayload[] = [];
-    const templateToSave: Record<string, Record<string, number>> = {};
+      const payload: RabItemPayload[] = [];
+      const templateToSave: Record<string, Record<string, number>> = {};
 
-    items.forEach((item, idx) => {
-      if (item.id && saveAsTemplate) {
-        templateToSave[item.id] = {};
-      }
-      const rawType = item.item_type || item.material?.item_type;
-      const itemName = item.labor_name || item.material?.name || '';
-      const itemCategory = item.material?.category || '';
-      const combined = `${itemName} ${itemCategory}`.toLowerCase();
-      
-      let finalType: 'material' | 'labor' | 'overhead' = 'material';
-      if (rawType === 'LABOR' || isLaborKeyword(combined)) {
-        finalType = 'labor';
-      } else if (rawType === 'OVERHEAD' || isOverheadKeyword(combined)) {
-        finalType = 'overhead';
-      }
-
-      const description = itemName || (finalType === 'labor' ? 'Labor Item' : finalType === 'overhead' ? 'Overhead Item' : 'Material Item');
-      const unit = item.material?.unit || (finalType === 'labor' ? 'lot' : finalType === 'overhead' ? 'hari' : 'pcs');
-      const costPrice = Number(item.cost_per_unit || item.material?.cost_price || 0);
-      const unitPrice = totalBomHpp > 0 && Number(packageData.selling_price || 0) > 0
-        ? Math.round(costPrice * marginRatio)
-        : (Number((item as any).unit_price) > 0 ? Number((item as any).unit_price) : costPrice);
-
-      WBS_CATEGORIES.forEach((cat) => {
-        const qty = parseFloat(allocations[idx]?.[cat]) || 0;
+      items.forEach((item, idx) => {
         if (item.id && saveAsTemplate) {
-          templateToSave[item.id][cat] = qty;
+          templateToSave[item.id] = {};
         }
-        if (qty > 0) {
-          payload.push({
-            wbsCategory: cat,
-            type: finalType,
-            description,
-            qty,
-            unitPrice,
-            costPrice,
-            materialId: finalType === 'material' ? (item.material_id || item.material?.id) : undefined,
-            unit,
-            package_name: packageData.name,
-            package_id: packageData.id,
-          });
+        const rawType = item.item_type || item.material?.item_type;
+        const itemName = item.labor_name || item.material?.name || '';
+        const itemCategory = item.material?.category || '';
+        const combined = `${itemName} ${itemCategory}`.toLowerCase();
+        
+        let finalType: 'material' | 'labor' | 'overhead' = 'material';
+        if (rawType === 'LABOR' || isLaborKeyword(combined)) {
+          finalType = 'labor';
+        } else if (rawType === 'OVERHEAD' || isOverheadKeyword(combined)) {
+          finalType = 'overhead';
         }
-      });
-    });
 
-    onApply(payload, isComplete, saveAsTemplate ? templateToSave : undefined);
+        const description = itemName || (finalType === 'labor' ? 'Labor Item' : finalType === 'overhead' ? 'Overhead Item' : 'Material Item');
+        const unit = item.material?.unit || (finalType === 'labor' ? 'lot' : finalType === 'overhead' ? 'hari' : 'pcs');
+        const costPrice = Number(item.cost_per_unit || item.material?.cost_price || 0);
+        const unitPrice = totalBomHpp > 0 && Number(packageData.selling_price || 0) > 0
+          ? Math.round(costPrice * marginRatio)
+          : (Number((item as any).unit_price) > 0 ? Number((item as any).unit_price) : costPrice);
+
+        WBS_CATEGORIES.forEach((cat) => {
+          const qty = parseFloat(allocations[idx]?.[cat]) || 0;
+          if (item.id && saveAsTemplate) {
+            templateToSave[item.id][cat] = qty;
+          }
+          if (qty > 0) {
+            payload.push({
+              wbsCategory: cat,
+              type: finalType,
+              description,
+              qty,
+              unitPrice,
+              costPrice,
+              materialId: finalType === 'material' ? (item.material_id || item.material?.id) : undefined,
+              unit,
+              package_name: packageData.name,
+              package_id: packageData.id,
+            });
+          }
+        });
+      });
+
+      await onApply(payload, isComplete, saveAsTemplate ? templateToSave : undefined);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -281,10 +288,11 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
           </button>
           <button 
             onClick={handleApply}
-            disabled={hasNegativeRemainder || totalAllocatedSum === 0}
-            className="bg-primary hover:bg-primary-hover text-white px-5 py-2 rounded font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={hasNegativeRemainder || totalAllocatedSum === 0 || isSubmitting}
+            className="bg-primary hover:bg-primary-hover text-white px-5 py-2 rounded font-medium transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
-            Terapkan ke RAB
+            {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+            {isSubmitting ? 'Menerapkan...' : 'Terapkan ke RAB'}
           </button>
         </div>
       </div>

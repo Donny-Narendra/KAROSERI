@@ -18,6 +18,7 @@ import { formatRupiah } from '../utils/formatters';
 import { calculateSegregatedProfit } from '../utils/financialCalculations';
 
 import { rabService, type RabItem, type RabSpkDetails, type DbRabItemRecord } from '../services/rabService';
+import { deduplicateRabItems } from '../utils/rabDeduplication';
 
 export type { RabItem, RabSpkDetails, DbRabItemRecord };
 export { calculateSegregatedProfit };
@@ -26,6 +27,9 @@ const LABOR_KEYWORDS = ['jasa', 'ongkos', 'borongan', 'tukang', 'upah', 'tenaga'
 
 export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   const [items, setItems] = useState<RabItem[]>([]);
+  const isMutatingRef = useRef(false);
+  const isApplyingPackageRef = useRef(false);
+  const isAddingItemRef = useRef(false);
   const [manualAllocations, setManualAllocations] = useState<Record<string, string>>({});
   const [bayHourlyRate, setBayHourlyRate] = useState<number>(0);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -199,7 +203,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
             setAllocationStatus(spkData.allocation_status);
           }
         }
-        setItems(loadedItems);
+        setItems(deduplicateRabItems(loadedItems));
       } catch (err) {
         console.error("Gagal memuat data RAB:", err);
       }
@@ -243,6 +247,8 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       });
       return;
     }
+    if (isAddingItemRef.current) return;
+
     const effectiveUnitPrice = laborUnitPrice > 0 ? laborUnitPrice : (laborForm.estimatedCost || 0);
     const effectiveCostPrice = laborCostPrice > 0 ? laborCostPrice : effectiveUnitPrice;
     if (!laborForm.name.trim() || effectiveUnitPrice <= 0) return;
@@ -258,6 +264,9 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       });
       return;
     }
+
+    isAddingItemRef.current = true;
+    isMutatingRef.current = true;
 
     const newLaborItemsToPush: RabItem[] = [];
     wbsCategories.forEach(cat => {
@@ -285,7 +294,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
 
     const prevEditingId = editingId;
     const baseItems = prevEditingId ? items.filter(i => i.id !== prevEditingId) : items;
-    setItems([...baseItems, ...newLaborItemsToPush]);
+    setItems(deduplicateRabItems([...baseItems, ...newLaborItemsToPush]));
     setEditingId(null);
     setIsLaborSuggestOpen(false);
 
@@ -331,11 +340,16 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
         if (persisted && persisted.length > 0) {
           setItems(prev => {
             const filtered = prev.filter(p => !newLaborItemsToPush.some(temp => temp.id === p.id));
-            return [...filtered, ...persisted];
+            return deduplicateRabItems([...filtered, ...persisted]);
           });
         }
       } catch (err) {
         console.error("Gagal menyimpan item jasa ke database:", err);
+      } finally {
+        isAddingItemRef.current = false;
+        setTimeout(() => {
+          isMutatingRef.current = false;
+        }, 600);
       }
     })();
   };
@@ -379,6 +393,8 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       });
       return;
     }
+    if (isAddingItemRef.current) return;
+
     const currentQty = parseDecimalValue(newItem.qty);
     if (!newItem.description || currentQty <= 0 || newItem.unitPrice === undefined) return;
     
@@ -389,6 +405,9 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     const isAllocationPassed = Math.abs(remaining) < 0.001 && currentQty > 0;
     
     if (!isAllocationPassed || currentQty <= 0) return;
+
+    isAddingItemRef.current = true;
+    isMutatingRef.current = true;
 
     const matchedMat = materials.find(m => m.id === newItem.materialId);
     const costPrice = matchedMat?.cost_price !== undefined 
@@ -422,7 +441,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
 
     const prevEditingId = editingId;
     const baseItems = prevEditingId ? items.filter(i => i.id !== prevEditingId) : items;
-    setItems([...baseItems, ...newItemsToPush]);
+    setItems(deduplicateRabItems([...baseItems, ...newItemsToPush]));
     setEditingId(null);
     setManualAllocations({});
     
@@ -455,11 +474,16 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
         if (persisted && persisted.length > 0) {
           setItems(prev => {
             const filtered = prev.filter(p => !newItemsToPush.some(temp => temp.id === p.id));
-            return [...filtered, ...persisted];
+            return deduplicateRabItems([...filtered, ...persisted]);
           });
         }
       } catch (err) {
         console.error("Gagal menyimpan item ke database:", err);
+      } finally {
+        isAddingItemRef.current = false;
+        setTimeout(() => {
+          isMutatingRef.current = false;
+        }, 600);
       }
     })();
   };
@@ -660,7 +684,9 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     if (isInitialLoad || isDocumentLocked) return;
     
     const timer = setTimeout(() => {
-      handleSaveEstimationRef.current(true); // true = silent save
+      if (!isMutatingRef.current) {
+        handleSaveEstimationRef.current(true); // true = silent save
+      }
     }, 500);
 
     return () => clearTimeout(timer);
@@ -677,95 +703,104 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       return;
     }
     if (!selectedPackage) return;
+    if (isApplyingPackageRef.current) return;
+
+    isApplyingPackageRef.current = true;
+    isMutatingRef.current = true;
+
     const pkgId = selectedPackage.id;
+    const pkgName = selectedPackage.name;
 
-    if (templateToSave) {
-      try {
-        for (const [itemId, allocation] of Object.entries(templateToSave)) {
-          await packageService.updatePackageItemDefaultAllocation(itemId, allocation);
+    try {
+      if (templateToSave) {
+        try {
+          for (const [itemId, allocation] of Object.entries(templateToSave)) {
+            await packageService.updatePackageItemDefaultAllocation(itemId, allocation);
+          }
+          // Force refresh packages to get the new templates in state
+          const pkgs = await packageService.getPackages();
+          setPackages(pkgs);
+        } catch (err) {
+          console.error("Failed to save template:", err);
         }
-        // Force refresh packages to get the new templates in state
-        const pkgs = await packageService.getPackages();
-        setPackages(pkgs);
-      } catch (err) {
-        console.error("Failed to save template:", err);
       }
-    }
 
-    const newItems = allocatedItems.map((payload) => {
-      const payloadMatId = payload.materialId;
-      const matchedMat = materials.find(m => (payloadMatId && m.id === payloadMatId) || m.name.toLowerCase() === payload.description.toLowerCase());
-      
-      const itemType: 'MATERIAL' | 'LABOR' | 'OVERHEAD' = 
-        (payload.type ? (payload.type.toUpperCase() as 'MATERIAL' | 'LABOR' | 'OVERHEAD') : undefined) ||
-        matchedMat?.item_type || 
-        (isLaborKeyword(payload.description) ? 'LABOR' : isOverheadKeyword(payload.description) ? 'OVERHEAD' : 'MATERIAL');
+      const newItems = allocatedItems.map((payload) => {
+        const payloadMatId = payload.materialId;
+        const matchedMat = materials.find(m => (payloadMatId && m.id === payloadMatId) || m.name.toLowerCase() === payload.description.toLowerCase());
+        
+        const itemType: 'MATERIAL' | 'LABOR' | 'OVERHEAD' = 
+          (payload.type ? (payload.type.toUpperCase() as 'MATERIAL' | 'LABOR' | 'OVERHEAD') : undefined) ||
+          matchedMat?.item_type || 
+          (isLaborKeyword(payload.description) ? 'LABOR' : isOverheadKeyword(payload.description) ? 'OVERHEAD' : 'MATERIAL');
 
-      const costPrice = payload.costPrice !== undefined 
-        ? payload.costPrice 
-        : (matchedMat?.cost_price !== undefined 
-            ? matchedMat.cost_price 
-            : (itemType === 'LABOR' ? payload.unitPrice : Math.round(payload.unitPrice * 0.8)));
+        const costPrice = payload.costPrice !== undefined 
+          ? payload.costPrice 
+          : (matchedMat?.cost_price !== undefined 
+              ? matchedMat.cost_price 
+              : (itemType === 'LABOR' ? payload.unitPrice : Math.round(payload.unitPrice * 0.8)));
 
-      return {
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        wbsCategory: payload.wbsCategory,
-        type: itemType.toLowerCase() as 'material' | 'labor' | 'overhead',
-        description: payload.description,
-        qty: payload.qty,
-        unit: payload.unit || matchedMat?.unit || (itemType === 'LABOR' ? 'lot' : itemType === 'OVERHEAD' ? 'hari' : 'pcs'),
-        unitPrice: payload.unitPrice,
-        costPrice,
-        subtotal: payload.qty * payload.unitPrice,
-        isLocked: false,
-        packageId: pkgId,
-        package_name: selectedPackage.name,
-        packageName: selectedPackage.name,
-        notes: `Paket: ${selectedPackage.name}`,
-        materialId: itemType === 'MATERIAL' ? (payloadMatId || matchedMat?.id) : undefined,
-      };
-    });
-    
-    setItems((prev) => [
-      ...prev.filter(i => i.packageId !== pkgId),
-      ...newItems
-    ]);
-    setAllocationStatus(isComplete ? 'COMPLETE' : 'PARTIAL');
-    setIsPackageModalOpen(false);
-    setSelectedPackage(null);
-
-    // Mutasi database langsung secara permanen
-    (async () => {
-      try {
-        await rabService.deletePackageRabItems(spkId, pkgId);
-        const payloads = newItems.map(i => ({
-          wbsCategory: i.wbsCategory,
-          type: i.type,
-          description: i.description,
-          qty: i.qty,
-          unit: i.unit,
-          unitPrice: i.unitPrice,
-          costPrice: i.costPrice,
-          materialId: i.materialId,
+        return {
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          wbsCategory: payload.wbsCategory,
+          type: itemType.toLowerCase() as 'material' | 'labor' | 'overhead',
+          description: payload.description,
+          qty: payload.qty,
+          unit: payload.unit || matchedMat?.unit || (itemType === 'LABOR' ? 'lot' : itemType === 'OVERHEAD' ? 'hari' : 'pcs'),
+          unitPrice: payload.unitPrice,
+          costPrice,
+          subtotal: payload.qty * payload.unitPrice,
+          isLocked: false,
           packageId: pkgId,
-          package_name: selectedPackage.name,
-          packageName: selectedPackage.name,
-          notes: i.notes || `Paket: ${selectedPackage.name}`,
-        }));
-        const persisted = await rabService.insertRabItems(spkId, payloads);
-        if (persisted && persisted.length > 0) {
-          setItems(prev => {
-            const filtered = prev.filter(p => !newItems.some(temp => temp.id === p.id));
-            return [...filtered, ...persisted];
-          });
-        }
-        await supabase.from('spk').update({
-          allocation_status: isComplete ? 'COMPLETE' : 'PARTIAL'
-        }).eq('id', spkId);
-      } catch (err) {
-        console.error("Gagal menyimpan alokasi paket ke database:", err);
+          package_name: pkgName,
+          packageName: pkgName,
+          notes: `Paket: ${pkgName}`,
+          materialId: itemType === 'MATERIAL' ? (payloadMatId || matchedMat?.id) : undefined,
+        };
+      });
+      
+      setItems((prev) => deduplicateRabItems([
+        ...prev.filter(i => i.packageId !== pkgId),
+        ...newItems
+      ]));
+      setAllocationStatus(isComplete ? 'COMPLETE' : 'PARTIAL');
+      setIsPackageModalOpen(false);
+      setSelectedPackage(null);
+
+      // Mutasi database langsung secara permanen
+      await rabService.deletePackageRabItems(spkId, pkgId);
+      const payloads = newItems.map(i => ({
+        wbsCategory: i.wbsCategory,
+        type: i.type,
+        description: i.description,
+        qty: i.qty,
+        unit: i.unit,
+        unitPrice: i.unitPrice,
+        costPrice: i.costPrice,
+        materialId: i.materialId,
+        packageId: pkgId,
+        package_name: pkgName,
+        packageName: pkgName,
+        notes: i.notes || `Paket: ${pkgName}`,
+      }));
+      const persisted = await rabService.insertRabItems(spkId, payloads);
+      if (persisted && persisted.length > 0) {
+        setItems(prev => {
+          const filtered = prev.filter(p => !newItems.some(temp => temp.id === p.id));
+          return deduplicateRabItems([...filtered, ...persisted]);
+        });
       }
-    })();
+      await supabase.from('spk').update({
+        allocation_status: isComplete ? 'COMPLETE' : 'PARTIAL'
+      }).eq('id', spkId);
+    } catch (err) {
+      console.error("Gagal menyimpan alokasi paket ke database:", err);
+    } finally {
+      isApplyingPackageRef.current = false;
+      setTimeout(() => {
+        isMutatingRef.current = false;
+      }, 600);
+    }
   };
 
   const appliedPackagesData = packages.filter(p => items.some(i => i.packageId === p.id));

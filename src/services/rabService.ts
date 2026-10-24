@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
+import { deduplicateRabItems } from '../utils/rabDeduplication';
 
 export interface DbRabItemRecord {
   id: string;
@@ -264,7 +265,7 @@ export class RabService {
     return {
       estimation: estData as RabEstimationSummary | null,
       spk: spkData as unknown as RabSpkDetails | null,
-      items
+      items: deduplicateRabItems(items)
     };
   }
 
@@ -289,10 +290,11 @@ export class RabService {
       packageName?: string | null;
     }>
   ): Promise<RabItem[]> {
-    if (!spkId || itemsToInsert.length === 0) return [];
+    const uniqueItemsToInsert = deduplicateRabItems(itemsToInsert);
+    if (!spkId || uniqueItemsToInsert.length === 0) return [];
     const estimationId = await this.ensureRabEstimation(spkId);
 
-    const rows = itemsToInsert.map(item => {
+    const rows = uniqueItemsToInsert.map(item => {
       const itemType = (item.type ? item.type.toUpperCase() : 'MATERIAL') as 'MATERIAL' | 'LABOR' | 'OVERHEAD';
       const unitPrice = Number(item.unitPrice) || 0;
       const costPrice = item.costPrice !== undefined
@@ -494,6 +496,7 @@ export class RabService {
     allocationStatus?: string
   ): Promise<void> {
     const estimationId = await this.ensureRabEstimation(spkId);
+    const uniqueItems = deduplicateRabItems(items);
 
     // Hapus item lama yang ada di estimasi ini
     const { error: delError } = await supabase
@@ -506,8 +509,8 @@ export class RabService {
       throw delError;
     }
 
-    if (items.length > 0) {
-      const rows = items.map(item => {
+    if (uniqueItems.length > 0) {
+      const rows = uniqueItems.map(item => {
         const itemType = (item.type ? item.type.toUpperCase() : 'MATERIAL') as 'MATERIAL' | 'LABOR' | 'OVERHEAD';
         const unitPrice = Number(item.unitPrice) || 0;
         const costPrice = item.costPrice !== undefined
