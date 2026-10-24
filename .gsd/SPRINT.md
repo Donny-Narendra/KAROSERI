@@ -1,52 +1,41 @@
-# Sprint 87 — Implement RAB Perubahan (Consolidated Estimation & Fulfillment Audit) Tab with Export Features in Service Advisor
+# Sprint 88 — Fix Labor Summary Card Calculation and Reactive Filter Totals in RAB Perubahan Tab
 
 > **Duration**: 2026-10-24 to 2026-10-24
-> **Status**: Completed
+> **Status**: In Progress
 
 ## Goal
-Implement a dedicated "RAB Perubahan" consolidated tab in the Service Advisor SPK detail view that unifies original estimation contract items (`rab_items`) with all approved change order items (`change_order_items`), evaluates real-time fulfillment/warehouse issuance status across all 3 cost elements (Material warehouse issues, Labor SPK Borongan assignments, and Overhead logs), renders a 4-pillar financial margin footer, and provides Excel (.xlsx) and printable PDF realization audit exports.
+Align and fix the 4-pillar Labor summary card calculation on the "RAB Perubahan" tab in Service Advisor to aggregate all labor items (both granular and package assembly components), ensure the labor margin, revenue, and COGS match empirical totals, and synchronize the reactive filter subtotal badge dynamically when filtering by item type or attributes.
 
 ## Scope
 
 ### Included
-- **Task 1: Register New Navigation Tab in `ServiceAdvisorDashboard.tsx`**
-  - Updated `activeTab` state type to `AdvisorTab = 'rab' | 'amendments' | 'rab_perubahan' | 'wbs'`.
-  - Inserted "RAB Perubahan" tab button between "Change Orders" and "WBS & QC".
-  - Wired tab content to render `<RabPerubahanTab spkId={selectedSpkId} spk={curSpk} />`.
-- **Task 2: Build `RabPerubahanTab.tsx` Component**
-  - Created `src/components/service_advisor/RabPerubahanTab.tsx`.
-  - Unified `rab_items` and approved `change_order_items` into `ConsolidatedRabItem` records.
-  - Linked real-time physical fulfillment across Material (warehouse approvals/issues), Labor (SPK Borongan active/completed work orders), and Overhead (spk_overhead_logs).
-  - Built 4-pillar segregated margins (Package Profit, Granular Material Profit, Labor Margin, and Overhead FOH Margin).
-  - Provided live multi-filter controls (Category, Origin, Fulfillment Status, WBS stage, and keyword search).
-  - Designed dark-themed RobelKaroseri responsive UI with informative summary cards.
-- **Task 3: Implement Export XLSX & Export PDF Utilities**
-  - Created `src/utils/rabPerubahanExport.ts`:
-    - `exportRabPerubahanToExcel`: Generates structured spreadsheet `.xlsx` with project metadata, formatted columns, 4-pillar summary rows, and fulfillment status.
-    - `printRabPerubahanReport`: Official printable HTML view with workshop letterhead, project info, consolidated tables with WBS grouping, warehouse absorption progress, and tri-party signature blocks.
-- **Task 4: Automated Testing & Verification**
-  - Created unit tests in `src/utils/__tests__/rabPerubahanExport.test.ts`.
-  - Created component integration tests in `src/components/service_advisor/__tests__/RabPerubahanTab.test.tsx`.
-  - Verified static typing (`tsc -b`), linter (`oxlint`), full test suite (63 suites, 462 tests passed, 100% green), and production build (`npm run build`).
+- **Task 1: Fix Labor Aggregation in Calculation Utilities (`rabPerubahanExport.ts`)**
+  - Update `computeRabPerubahanTotals` so labor items (`item.item_type === 'LABOR'`) are prioritized before package checks, ensuring all labor items (whether granular or part of an assembly BOM package) are aggregated into `laborRevenue`, `laborCost`, and `laborProfit`.
+  - Maintain non-double-counting integrity for `packageRevenue`, `granularMaterialRevenue`, and `overheadRevenue`.
+- **Task 2: Fix Labor Summary Card & Reactive Filter Subtotal in `RabPerubahanTab.tsx`**
+  - Define `formatRupiah` utility helper for consistent Indonesian currency representation.
+  - Compute dedicated labor totals (`laborItems`, `totalLaborRevenue`, `totalLaborCogs`, `totalLaborMargin`).
+  - Compute reactive filtered totals (`filteredTotalRevenue`, `filteredTotalCogs`, `filteredTotalMargin`).
+  - Update the "Labor (Jasa Mandor)" card to display the full labor selling price, modal cost, and profit margin.
+  - Ensure the "Subtotal Filter" badge dynamically displays the active filtered total (matching Rp 2.882.794 when filtered to Labor).
+- **Task 3: Automated Testing & Verification**
+  - Add unit tests in `rabPerubahanExport.test.ts` for package labor items aggregation.
+  - Add integration tests in `RabPerubahanTab.test.tsx` verifying Labor card numbers (Modal: Rp 2.100.000, Jual: Rp 2.882.794, Margin: Rp 782.794) and filter reactivity.
+  - Validate with TypeScript type check (`tsc -b`), linter (`oxlint`), Vitest suite, and production build (`npm run build`).
 
 ### Explicitly Excluded
-- Modifying cashier payment processing or invoice generation logic.
-- Altering database schema or writing new database migrations (existing tables and views are complete).
+- Database schema changes (calculations are performed on aggregated contract and change order items in frontend service layer).
+- Modifying cashier billing calculations or invoice printing layouts.
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| Task 1: Register "RAB Perubahan" tab in `ServiceAdvisorDashboard.tsx` | Claude | ✅ Done | 0.5 |
-| Task 2: Build `RabPerubahanTab.tsx` consolidated component with fulfillment tracking & 4-pillar metrics | Claude | ✅ Done | 1.5 |
-| Task 3: Build `rabPerubahanExport.ts` for XLSX export and printable PDF realization report | Claude | ✅ Done | 1.0 |
-| Task 4: Unit tests, component tests, linting, and build verification | Claude | ✅ Done | 1.0 |
+| Task 1: Update `computeRabPerubahanTotals` in `rabPerubahanExport.ts` for all labor items | Claude | ⬜ Todo | 0.5 |
+| Task 2: Update `RabPerubahanTab.tsx` labor aggregation, card rendering, and filter badge | Claude | ⬜ Todo | 0.5 |
+| Task 3: Unit and component tests, linting, and quality gate verification | Claude | ⬜ Todo | 0.5 |
 
 ## Daily Log
 
 ### 2026-10-24
-- Sprint created. Scope and technical architecture analyzed.
-- Task 1: Updated `ServiceAdvisorDashboard.tsx` with `AdvisorTab` type, inserted the "RAB Perubahan" tab button between "Change Orders" and "WBS & QC", and wired tab content to `RabPerubahanTab`.
-- Task 2: Created `src/components/service_advisor/RabPerubahanTab.tsx` with full data fetching, consolidation of `rab_items` and approved `change_order_items`, real-time fulfillment checks for material, labor, and overhead, 4-pillar segregated margin cards, dynamic multi-attribute filters, and summary table footer.
-- Task 3: Created `src/utils/rabPerubahanExport.ts` featuring `computeRabPerubahanTotals`, `exportRabPerubahanToExcel` (.xlsx generator with formatted columns and totals), and `printRabPerubahanReport` (official printable document with letterhead, WBS grouping, and 3-way sign-off).
-- Task 4: Created test suites in `rabPerubahanExport.test.ts` (4 unit tests) and `RabPerubahanTab.test.tsx` (6 integration tests). Verified with `oxlint` (0 errors), `tsc -b` (0 errors), full test suite run (63 files, 462 tests passing, 100% green), and production bundle build (`npm run build`).
+- Sprint created. Scope and objectives verified.
