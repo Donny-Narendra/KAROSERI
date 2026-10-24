@@ -35,7 +35,7 @@ export const financialReportsService = {
       throw new Error(`Gagal mengambil ringkasan eksekutif: ${error.message}`);
     }
 
-    const res = data as any;
+    const res = (data || {}) as any;
     return {
       total_projects: Number(res?.total_projects || 0),
       total_revenue: Number(res?.total_revenue || 0),
@@ -409,7 +409,18 @@ export const financialReportsService = {
       console.error('Error running financial sanity audit:', error);
       throw new Error(`Gagal menjalankan audit integritas keuangan: ${error.message}`);
     }
-    return data as FinancialSanityAuditResult;
+    const res = (data || {}) as any;
+    return {
+      is_healthy: Boolean(res?.is_healthy ?? true),
+      over_budget_count: Number(res?.over_budget_count || 0),
+      over_budget_items: Array.isArray(res?.over_budget_items) ? res.over_budget_items : [],
+      negative_margin_count: Number(res?.negative_margin_count || 0),
+      negative_margin_items: Array.isArray(res?.negative_margin_items) ? res.negative_margin_items : [],
+      unbilled_completed_count: Number(res?.unbilled_completed_count || 0),
+      unbilled_completed_items: Array.isArray(res?.unbilled_completed_items) ? res.unbilled_completed_items : [],
+      critical_receivables_count: Number(res?.critical_receivables_count || 0),
+      critical_receivables_items: Array.isArray(res?.critical_receivables_items) ? res.critical_receivables_items : [],
+    };
   },
 
   /**

@@ -101,7 +101,7 @@ function computeProportionalPackageBreakdown(
 }
 
 export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) => {
-  const [items, setItems] = useState<ConsolidatedRabItem[]>([]);
+  const [items, setConsolidatedItems] = useState<ConsolidatedRabItem[]>([]);
   const [packagesCatalog, setPackagesCatalog] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -294,7 +294,7 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
       }
 
       // 4. Transform RAB Items into Consolidated Format
-      const consolidated: ConsolidatedRabItem[] = [];
+      const mappedRabItems: ConsolidatedRabItem[] = [];
 
       // Pre-compute proportional package pricing for RAB items
       const rabPackageAdjustments = computeProportionalPackageBreakdown(
@@ -409,7 +409,7 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
           }
         }
 
-        consolidated.push({
+        mappedRabItems.push({
           id: dbItem.id,
           source_origin: 'RAB',
           source_label: 'RAB',
@@ -450,6 +450,7 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
         (it) => Number(it.subtotal || (Number(it.quantity || 1) * Number(it.unit_price || 0)))
       );
 
+      const mappedCoItems: ConsolidatedRabItem[] = [];
       approvedChangeOrders.forEach((co: any) => {
         const coItems = co.items || [];
         const coNumber = co.co_number || `CO-${co.id.substring(0, 6).toUpperCase()}`;
@@ -530,7 +531,7 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
             }
           }
 
-          consolidated.push({
+          mappedCoItems.push({
             id: item.id,
             source_origin: 'CHANGE_ORDER',
             source_label: `Change Order (${coNumber})`,
@@ -553,17 +554,21 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
         });
       });
 
+      // Deduplicate and consolidate items from rab_items and change_order_items
+      const rawConsolidated = [...mappedRabItems, ...mappedCoItems];
+      const deduplicatedConsolidated = Array.from(
+        new Map(rawConsolidated.map(item => [item.id, item])).values()
+      );
+
       // Sort items by canonical WBS stage ascending, then description
-      consolidated.sort((a, b) => {
+      deduplicatedConsolidated.sort((a, b) => {
         const wA = getWbsWeight(a.wbs_stage);
         const wB = getWbsWeight(b.wbs_stage);
         if (wA !== wB) return wA - wB;
         return a.description.localeCompare(b.description);
       });
 
-      // Deduplicate consolidated items (protecting against duplicated Change Order or hybrid items)
-      const dedupedConsolidated = deduplicateRabItems(consolidated);
-      setItems(dedupedConsolidated);
+      setConsolidatedItems(deduplicatedConsolidated);
     } catch (err: any) {
       console.error('Error fetching consolidated RAB Perubahan data:', err);
       setError(err.message || 'Gagal memuat data konsolidasi RAB Perubahan.');

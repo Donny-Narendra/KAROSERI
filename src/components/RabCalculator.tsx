@@ -26,10 +26,14 @@ export { calculateSegregatedProfit };
 const LABOR_KEYWORDS = ['jasa', 'ongkos', 'borongan', 'tukang', 'upah', 'tenaga'];
 
 export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
-  const [items, setItems] = useState<RabItem[]>([]);
+  const [items, setRabItems] = useState<RabItem[]>([]);
+  const setItems = setRabItems;
   const isMutatingRef = useRef(false);
   const isApplyingPackageRef = useRef(false);
   const isAddingItemRef = useRef(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const lastPackageSaveTimeRef = useRef<number>(0);
+  const lastItemAddTimeRef = useRef<number>(0);
   const [manualAllocations, setManualAllocations] = useState<Record<string, string>>({});
   const [bayHourlyRate, setBayHourlyRate] = useState<number>(0);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -193,7 +197,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       }
     };
 
-    const fetchExistingRab = async () => {
+    const fetchRabData = async () => {
       if (!spkId) return;
       try {
         const { spk: spkData, items: loadedItems } = await rabService.loadRabItems(spkId);
@@ -203,11 +207,16 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
             setAllocationStatus(spkData.allocation_status);
           }
         }
-        setItems(deduplicateRabItems(loadedItems));
+        const data = deduplicateRabItems(loadedItems || []);
+        const uniqueItems = Array.from(
+          new Map(data.map((item: any) => [item.id, item])).values()
+        );
+        setRabItems(uniqueItems);
       } catch (err) {
         console.error("Gagal memuat data RAB:", err);
       }
     };
+    const fetchExistingRab = fetchRabData;
 
     const fetchPackages = async () => {
       try {
@@ -247,7 +256,8 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       });
       return;
     }
-    if (isAddingItemRef.current) return;
+    const now = Date.now();
+    if (isSaving || isAddingItemRef.current || (now - lastItemAddTimeRef.current < 1000)) return;
 
     const effectiveUnitPrice = laborUnitPrice > 0 ? laborUnitPrice : (laborForm.estimatedCost || 0);
     const effectiveCostPrice = laborCostPrice > 0 ? laborCostPrice : effectiveUnitPrice;
@@ -265,6 +275,8 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       return;
     }
 
+    lastItemAddTimeRef.current = now;
+    setIsSaving(true);
     isAddingItemRef.current = true;
     isMutatingRef.current = true;
 
@@ -346,10 +358,11 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       } catch (err) {
         console.error("Gagal menyimpan item jasa ke database:", err);
       } finally {
+        setIsSaving(false);
         isAddingItemRef.current = false;
         setTimeout(() => {
           isMutatingRef.current = false;
-        }, 600);
+        }, 1000);
       }
     })();
   };
@@ -393,7 +406,8 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       });
       return;
     }
-    if (isAddingItemRef.current) return;
+    const now = Date.now();
+    if (isSaving || isAddingItemRef.current || (now - lastItemAddTimeRef.current < 1000)) return;
 
     const currentQty = parseDecimalValue(newItem.qty);
     if (!newItem.description || currentQty <= 0 || newItem.unitPrice === undefined) return;
@@ -406,6 +420,8 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     
     if (!isAllocationPassed || currentQty <= 0) return;
 
+    lastItemAddTimeRef.current = now;
+    setIsSaving(true);
     isAddingItemRef.current = true;
     isMutatingRef.current = true;
 
@@ -480,10 +496,11 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       } catch (err) {
         console.error("Gagal menyimpan item ke database:", err);
       } finally {
+        setIsSaving(false);
         isAddingItemRef.current = false;
         setTimeout(() => {
           isMutatingRef.current = false;
-        }, 600);
+        }, 1000);
       }
     })();
   };
@@ -703,8 +720,15 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
       return;
     }
     if (!selectedPackage) return;
-    if (isApplyingPackageRef.current) return;
 
+    // Pencegahan double-submission pada alokasi paket (interval < 1 detik)
+    const now = Date.now();
+    if (isSaving || isApplyingPackageRef.current || (now - lastPackageSaveTimeRef.current < 1000)) {
+      return;
+    }
+
+    lastPackageSaveTimeRef.current = now;
+    setIsSaving(true);
     isApplyingPackageRef.current = true;
     isMutatingRef.current = true;
 
@@ -796,10 +820,11 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     } catch (err) {
       console.error("Gagal menyimpan alokasi paket ke database:", err);
     } finally {
+      setIsSaving(false);
       isApplyingPackageRef.current = false;
       setTimeout(() => {
         isMutatingRef.current = false;
-      }, 600);
+      }, 1000);
     }
   };
 
@@ -1936,6 +1961,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
           packageData={selectedPackage}
           existingItems={items.filter(i => i.packageId === selectedPackage.id)}
           isOpen={isPackageModalOpen}
+          isSaving={isSaving}
           onClose={() => {
             setIsPackageModalOpen(false);
             setSelectedPackage(null);

@@ -98,4 +98,53 @@ describe('RabPerubahanTab Deduplication Verification', () => {
     const rabBadges = screen.getAllByText('📋 RAB');
     expect(rabBadges).toHaveLength(1);
   });
+
+  it('deduplicates consolidated rows when mappedRabItems and mappedCoItems share duplicate IDs', async () => {
+    vi.spyOn(supabase, 'from').mockImplementation((table: string) => {
+      if (table === 'rab_estimations') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn(async () => ({ data: { id: 'est-test' }, error: null })),
+        } as any;
+      }
+      if (table === 'rab_items') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn(async () => ({
+            data: [
+              {
+                id: 'shared-id-100',
+                spk_id: 'spk-test',
+                wbs_category: 'Sasis/Rangka',
+                item_type: 'MATERIAL',
+                material_name: 'Pipa Kotak 50x50',
+                quantity: 5,
+                unit: 'btg',
+                cost_price: 100000,
+                unit_price: 150000,
+                subtotal: 750000,
+              },
+            ],
+            error: null,
+          })),
+        } as any;
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockReturnThis(),
+        then: vi.fn((resolve: any) => resolve({ data: [], error: null })),
+      } as any;
+    });
+
+    render(<RabPerubahanTab spkId="spk-test" spk={{ spk_no: 'SPK-TEST' }} />);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Memuat konsolidasi/i)).not.toBeInTheDocument();
+    });
+
+    const itemCells = screen.getAllByText('Pipa Kotak 50x50');
+    expect(itemCells).toHaveLength(1);
+  });
 });

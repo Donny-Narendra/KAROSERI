@@ -100,4 +100,67 @@ describe('RabCalculator Deduplication Verification', () => {
     expect(amounts.length).toBeGreaterThan(0);
     expect(screen.queryByText(/1\.440\.000/)).not.toBeInTheDocument();
   });
+
+  it('deduplicates items with identical id using new Map values', async () => {
+    vi.spyOn(supabase, 'from').mockImplementation((table: string) => {
+      if (table === 'workshop_settings') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: { bay_hourly_rate: 25000 }, error: null }),
+        } as any;
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: null, error: null }),
+      } as any;
+    });
+
+    vi.spyOn(rabService, 'loadRabItems').mockResolvedValue({
+      estimation: null,
+      spk: {
+        id: 'spk-999',
+        spk_no: 'SPK-999',
+        customer_name: 'PT Test',
+        status: 'DRAFT',
+      } as any,
+      items: [
+        {
+          id: 'item-duplicate-id',
+          wbsCategory: 'Sasis/Rangka',
+          type: 'material',
+          description: 'Besi UNP 100',
+          qty: 4,
+          unit: 'btg',
+          unitPrice: 200000,
+          costPrice: 150000,
+          subtotal: 800000,
+          isLocked: false,
+        },
+        {
+          id: 'item-duplicate-id', // Exact same ID
+          wbsCategory: 'Sasis/Rangka',
+          type: 'material',
+          description: 'Besi UNP 100 (duplicate ID)',
+          qty: 4,
+          unit: 'btg',
+          unitPrice: 200000,
+          costPrice: 150000,
+          subtotal: 800000,
+          isLocked: false,
+        },
+      ],
+    });
+
+    render(<RabCalculator spkId="spk-999" />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Besi UNP 100/)).toBeInTheDocument();
+    });
+
+    // Should only have 1 row in the table
+    const tableCells = screen.getAllByText(/Besi UNP 100/);
+    expect(tableCells).toHaveLength(1);
+  });
 });

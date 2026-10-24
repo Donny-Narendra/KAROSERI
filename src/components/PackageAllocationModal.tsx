@@ -29,6 +29,7 @@ interface PackageAllocationModalProps {
     qty: number;
     unitPrice: number;
   }[];
+  isSaving?: boolean;
 }
 
 const WBS_CATEGORIES = [
@@ -51,6 +52,7 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
   onClose,
   onApply,
   existingItems,
+  isSaving = false,
 }) => {
   const [allocations, setAllocations] = useState<AllocationState>({});
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
@@ -288,11 +290,11 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
           </button>
           <button 
             onClick={handleApply}
-            disabled={hasNegativeRemainder || totalAllocatedSum === 0 || isSubmitting}
+            disabled={hasNegativeRemainder || totalAllocatedSum === 0 || isSubmitting || isSaving}
             className="bg-primary hover:bg-primary-hover text-white px-5 py-2 rounded font-medium transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
-            {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-            {isSubmitting ? 'Menerapkan...' : 'Terapkan ke RAB'}
+            {(isSubmitting || isSaving) && <Loader2 className="w-4 h-4 animate-spin" />}
+            {isSubmitting || isSaving ? 'Menerapkan...' : 'Terapkan ke RAB'}
           </button>
         </div>
       </div>

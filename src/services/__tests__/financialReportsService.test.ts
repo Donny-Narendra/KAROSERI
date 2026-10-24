@@ -154,4 +154,43 @@ describe('Service: financialReportsService (Exclude Draft SPK)', () => {
     expect(item.granular_other_cogs).toBe(7_000_000);
     expect(item.granular_other_profit).toBe(3_000_000);
   });
+
+  it('safely falls back to zero on getExecutiveSummary when RPC returns null or empty object', async () => {
+    vi.mocked(supabase.rpc).mockResolvedValueOnce({
+      data: null,
+      error: null,
+    } as any);
+
+    const summary = await financialReportsService.getExecutiveSummary();
+    expect(summary.total_projects).toBe(0);
+    expect(summary.total_revenue).toBe(0);
+    expect(summary.total_actual_material_cost).toBe(0);
+    expect(summary.total_actual_labor_cost).toBe(0);
+    expect(summary.total_actual_overhead_cost).toBe(0);
+    expect(summary.total_cogs).toBe(0);
+    expect(summary.total_gross_profit).toBe(0);
+    expect(summary.average_gross_margin).toBe(0);
+    expect(summary.total_inventory_valuation).toBe(0);
+    expect(summary.total_inventory_market_value).toBe(0);
+    expect(summary.total_outstanding_receivables).toBe(0);
+    expect(summary.units_pending_handover).toBe(0);
+  });
+
+  it('safely falls back to 0 anomalies and is_healthy: true on getSanityAudit when RPC returns null', async () => {
+    vi.mocked(supabase.rpc).mockResolvedValueOnce({
+      data: null,
+      error: null,
+    } as any);
+
+    const audit = await financialReportsService.getSanityAudit();
+    expect(audit.is_healthy).toBe(true);
+    expect(audit.over_budget_count).toBe(0);
+    expect(audit.over_budget_items).toEqual([]);
+    expect(audit.negative_margin_count).toBe(0);
+    expect(audit.negative_margin_items).toEqual([]);
+    expect(audit.unbilled_completed_count).toBe(0);
+    expect(audit.unbilled_completed_items).toEqual([]);
+    expect(audit.critical_receivables_count).toBe(0);
+    expect(audit.critical_receivables_items).toEqual([]);
+  });
 });
