@@ -173,16 +173,17 @@ describe('Component: RabCalculator (Source Package / Granular Origin Column)', (
     const headers = within(estimationTable).getAllByRole('columnheader');
     const headerTexts = headers.map(h => h.textContent?.trim());
     
-    // Header order: Description, Sumber / Paket, Type, WBS, Qty, Harga Satuan, Harga Modal (HPP), Subtotal, Aksi / Status
-    expect(headerTexts[0]).toMatch(/Description/i);
-    expect(headerTexts[1]).toMatch(/Sumber \/ Paket/i);
-    expect(headerTexts[2]).toMatch(/Type/i);
-    expect(headerTexts[3]).toMatch(/WBS/i);
-    expect(headerTexts[4]).toMatch(/Qty/i);
-    expect(headerTexts[5]).toMatch(/Harga Satuan/i);
-    expect(headerTexts[6]).toMatch(/Harga Modal \(HPP\)/i);
-    expect(headerTexts[7]).toMatch(/Subtotal/i);
-    expect(headerTexts[8]).toMatch(/Aksi \/ Status/i);
+    // Header order: No, Description, Sumber / Paket, Type, WBS, Qty, Harga Satuan, Harga Modal (HPP), Subtotal, Aksi / Status
+    expect(headerTexts[0]).toMatch(/No/i);
+    expect(headerTexts[1]).toMatch(/Description/i);
+    expect(headerTexts[2]).toMatch(/Sumber \/ Paket/i);
+    expect(headerTexts[3]).toMatch(/Type/i);
+    expect(headerTexts[4]).toMatch(/WBS/i);
+    expect(headerTexts[5]).toMatch(/Qty/i);
+    expect(headerTexts[6]).toMatch(/Harga Satuan/i);
+    expect(headerTexts[7]).toMatch(/Harga Modal \(HPP\)/i);
+    expect(headerTexts[8]).toMatch(/Subtotal/i);
+    expect(headerTexts[9]).toMatch(/Aksi \/ Status/i);
   });
 
   it('renders [ 📦 Paket: Nama Paket ] badge with amber theme when item has package_name', async () => {

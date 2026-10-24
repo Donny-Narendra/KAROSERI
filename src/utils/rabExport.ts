@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import { sortRabItems } from './rabSort';
 
 export interface RabExportSpkDetails {
   spk_no?: string | null;
@@ -9,13 +10,24 @@ export interface RabExportSpkDetails {
 }
 
 export interface RabExportItem {
-  wbsCategory: string;
-  type: 'material' | 'labor' | 'overhead' | string;
-  description: string;
-  qty: number;
-  unitPrice: number;
+  wbsCategory?: string;
+  wbs_category?: string;
+  wbs_stage?: string;
+  type?: 'material' | 'labor' | 'overhead' | string;
+  item_type?: string;
+  description?: string;
+  material_name?: string;
+  qty?: number;
+  quantity?: number | string;
+  unit?: string;
+  unitPrice?: number;
+  unit_price?: number | string;
+  costPrice?: number;
+  cost_price?: number | string;
+  subtotal?: number;
   package_name?: string | null;
   packageName?: string | null;
+  package_id?: string | null;
   packageId?: string | null;
   notes?: string | null;
   /** @deprecated Waste factor is permanently eliminated */
@@ -60,8 +72,10 @@ export const getRabItemSourceOrigin = (item: RabExportItem): { label: string; is
 export const exportRabToExcel = (
   spkDetails: RabExportSpkDetails | null | undefined,
   rabItems: RabExportItem[],
-  totals: RabExportTotals
+  totals?: RabExportTotals
 ) => {
+  const sortedExportItems = sortRabItems(rabItems);
+
   const wsData: (string | number)[][] = [
     ["RAB ESTIMATION - ROBEL KAROSERI"],
     [""],
@@ -71,41 +85,64 @@ export const exportRabToExcel = (
     ["Model Kendaraan", spkDetails?.vehicle_model || "-"],
     ["Tanggal", new Date().toLocaleDateString('id-ID')],
     [""],
-    ["WBS Category", "Deskripsi", "Sumber / Paket", "Tipe", "Qty", "Harga Satuan", "Subtotal"]
+    [
+      'NO',
+      'DESCRIPTION',
+      'SUMBER / PAKET',
+      'TYPE',
+      'WBS',
+      'QTY',
+      'HARGA SATUAN',
+      'HARGA MODAL (HPP)',
+      'SUBTOTAL'
+    ]
   ];
 
-  const wbsCategories = [
-    'Pembongkaran',
-    'Sasis/Rangka',
-    'Dinding/Fabrikasi',
-    'Cat/Finishing',
-    'Kelistrikan/Hidrolik'
-  ];
+  let totalQuotationSum = 0;
+  let totalHppSum = 0;
 
-  wbsCategories.forEach(cat => {
-    const itemsInCat = rabItems.filter(item => item.wbsCategory === cat);
-    if (itemsInCat.length > 0) {
-      itemsInCat.forEach(item => {
-        const subtotal = item.qty * item.unitPrice;
-        const sourceOrigin = getRabItemSourceOrigin(item);
-        wsData.push([
-          item.wbsCategory,
-          item.description,
-          sourceOrigin.label,
-          item.type,
-          item.qty,
-          item.unitPrice,
-          subtotal
-        ]);
-      });
-    }
+  sortedExportItems.forEach((item, index) => {
+    const sourceOrigin = getRabItemSourceOrigin(item);
+    const description = item.description || item.material_name || '-';
+    const itemType = (item.item_type || item.type || 'MATERIAL').toUpperCase();
+    const wbs = item.wbs_stage || item.wbs_category || item.wbsCategory || '-';
+
+    const qty = Number(item.quantity ?? item.qty ?? 1);
+    const unit = item.unit || (itemType.includes('LABOR') || itemType.includes('JASA') ? 'lot' : 'pcs');
+    const unitPrice = Number(item.unit_price ?? item.unitPrice ?? 0);
+    const costPrice = Number(item.cost_price ?? item.costPrice ?? unitPrice);
+    const subtotal = Number(item.subtotal ?? (qty * unitPrice));
+
+    totalQuotationSum += subtotal;
+    totalHppSum += (qty * costPrice);
+
+    wsData.push([
+      index + 1,
+      description,
+      sourceOrigin.label,
+      itemType,
+      wbs,
+      `${qty} ${unit}`,
+      unitPrice,
+      costPrice,
+      subtotal
+    ]);
   });
 
+  const finalQuotation = totals?.grandTotal ?? totalQuotationSum;
+  const finalHpp = totalHppSum;
+  const marginProfit = finalQuotation - finalHpp;
+  const marginPercentage = finalQuotation > 0 ? ((marginProfit / finalQuotation) * 100).toFixed(2) : '0.00';
+
   wsData.push([""]);
-  wsData.push(["", "", "", "", "", "Subtotal Material", totals.material]);
-  wsData.push(["", "", "", "", "", "Subtotal Jasa", totals.labor]);
-  wsData.push(["", "", "", "", "", "Overhead", totals.overhead]);
-  wsData.push(["", "", "", "", "", "Grand Total", totals.grandTotal]);
+  if (totals && (totals.material > 0 || totals.labor > 0 || totals.overhead > 0)) {
+    wsData.push(["", "", "", "", "", "", "", "Subtotal Material", totals.material]);
+    wsData.push(["", "", "", "", "", "", "", "Subtotal Jasa", totals.labor]);
+    wsData.push(["", "", "", "", "", "", "", "Overhead", totals.overhead]);
+  }
+  wsData.push(["", "", "", "", "", "", "", "Total Harga Jual (Quotation)", finalQuotation]);
+  wsData.push(["", "", "", "", "", "", "", "Total Modal (HPP)", finalHpp]);
+  wsData.push(["", "", "", "", "", "", "", `Margin Profit (${marginPercentage}%)`, marginProfit]);
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
   const wb = XLSX.utils.book_new();
@@ -123,6 +160,7 @@ export const printRabQuotation = (
   const printWindow = window.open('', '_blank');
   if (!printWindow) return;
 
+  const sortedItems = sortRabItems(rabItems);
   const wbsCategories = [
     'Pembongkaran',
     'Sasis/Rangka',
@@ -133,7 +171,7 @@ export const printRabQuotation = (
 
   let tableHtml = '';
   wbsCategories.forEach(cat => {
-    const itemsInCat = rabItems.filter(item => item.wbsCategory === cat);
+    const itemsInCat = sortedItems.filter(item => (item.wbsCategory || item.wbs_category || item.wbs_stage) === cat);
     if (itemsInCat.length > 0) {
       tableHtml += `
         <tr class="wbs-header">
@@ -141,7 +179,9 @@ export const printRabQuotation = (
         </tr>
       `;
       itemsInCat.forEach(item => {
-        const subtotal = item.qty * item.unitPrice;
+        const qty = Number(item.qty ?? item.quantity ?? 1);
+        const unitPrice = Number(item.unitPrice ?? item.unit_price ?? 0);
+        const subtotal = Number(item.subtotal ?? (qty * unitPrice));
         const sourceOrigin = getRabItemSourceOrigin(item);
         const originSubtext = sourceOrigin.isPackage
           ? `<div style="font-size: 11px; color: #b45309; font-weight: 500; margin-top: 2px;">📦 ${sourceOrigin.label}</div>`
@@ -150,12 +190,12 @@ export const printRabQuotation = (
         tableHtml += `
           <tr>
             <td>
-              <div style="font-weight: 600;">${item.description}</div>
+              <div style="font-weight: 600;">${item.description || item.material_name || '-'}</div>
               ${originSubtext}
             </td>
-            <td>${item.type}</td>
-            <td>${item.qty}</td>
-            <td>Rp ${item.unitPrice.toLocaleString('id-ID')}</td>
+            <td>${(item.item_type || item.type || 'MATERIAL').toUpperCase()}</td>
+            <td>${qty} ${item.unit || (item.type === 'labor' ? 'lot' : 'pcs')}</td>
+            <td>Rp ${unitPrice.toLocaleString('id-ID')}</td>
             <td>Rp ${subtotal.toLocaleString('id-ID')}</td>
           </tr>
         `;

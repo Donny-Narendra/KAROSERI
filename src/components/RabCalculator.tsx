@@ -12,6 +12,7 @@ import type { ProductPackage } from '../types/package';
 import { PackageAllocationModal } from './PackageAllocationModal';
 import type { RabItemPayload } from './PackageAllocationModal';
 import { exportRabToExcel, printRabQuotation } from '../utils/rabExport';
+import { sortRabItems } from '../utils/rabSort';
 import { parseDecimalValue } from '../utils/numberUtils';
 import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
 import { formatRupiah } from '../utils/formatters';
@@ -841,6 +842,10 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   const manualRemaining = overheadRemaining;
   const isAllocationPassed = Math.abs(manualRemaining) < 0.001 && totalQty > 0;
 
+  const sortedDisplayItems = useMemo(() => {
+    return sortRabItems(items);
+  }, [items]);
+
   return (
     <div className="bg-surface border border-border rounded-lg overflow-hidden">
       <div className="px-5 py-4 border-b border-border bg-surface-hover flex items-center justify-between flex-wrap gap-3">
@@ -1578,6 +1583,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                 <table className="w-full text-left text-sm text-text">
                   <thead className="bg-surface sticky top-0 border-b border-border text-text-muted font-mono text-xs uppercase shadow-sm">
                     <tr>
+                      <th className="px-3 py-3 text-center w-12">No</th>
                       <th className="px-3 py-3">Description</th>
                       <th className="px-3 py-3 text-left">Sumber / Paket</th>
                       <th className="px-3 py-3">Type</th>
@@ -1590,8 +1596,11 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {items.map((item) => (
+                    {sortedDisplayItems.map((item, index) => (
                       <tr key={item.id} className="hover:bg-surface-hover/30 transition">
+                        <td className="px-3 py-3 text-center font-mono text-xs text-text-muted">
+                          {index + 1}
+                        </td>
                         <td className="px-3 py-3 font-medium">
                           <div className="flex flex-col gap-0.5">
                             <div className="flex items-center gap-1.5">

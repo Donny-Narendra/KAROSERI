@@ -132,36 +132,54 @@ describe('rabExport: Source Origin & Package Column Synchronization', () => {
       expect(XLSX.utils.aoa_to_sheet).toHaveBeenCalledTimes(1);
       const generatedData = vi.mocked(XLSX.utils.aoa_to_sheet).mock.calls[0][0] as (string | number)[][];
 
-      // Check header row: ["WBS Category", "Deskripsi", "Sumber / Paket", "Tipe", "Qty", "Harga Satuan", "Subtotal"]
-      const headerRow = generatedData.find(row => row && row[0] === 'WBS Category');
+      // Check header row: ['NO', 'DESCRIPTION', 'SUMBER / PAKET', 'TYPE', 'WBS', 'QTY', 'HARGA SATUAN', 'HARGA MODAL (HPP)', 'SUBTOTAL']
+      const headerRow = generatedData.find(row => row && row[0] === 'NO');
       expect(headerRow).toBeDefined();
       expect(headerRow).toEqual([
-        'WBS Category',
-        'Deskripsi',
-        'Sumber / Paket',
-        'Tipe',
-        'Qty',
-        'Harga Satuan',
-        'Subtotal',
+        'NO',
+        'DESCRIPTION',
+        'SUMBER / PAKET',
+        'TYPE',
+        'WBS',
+        'QTY',
+        'HARGA SATUAN',
+        'HARGA MODAL (HPP)',
+        'SUBTOTAL',
       ]);
 
-      // Row 1: Package item
+      // Row 1: Package item (Packages sorted before granular within WBS 1: Pembongkaran)
       const packageRow = generatedData.find(row => row && row[1] === 'Bongkar Bodi Lama');
       expect(packageRow).toBeDefined();
+      expect(packageRow?.[0]).toBe(1);
       expect(packageRow?.[2]).toBe('Paket: PAKET PEROBAKAN');
-      expect(packageRow?.[3]).toBe('labor');
+      expect(packageRow?.[3]).toBe('LABOR');
+      expect(packageRow?.[4]).toBe('Pembongkaran');
 
       // Row 2: Granular item
       const granularRow = generatedData.find(row => row && row[1] === 'Baut Lepas 10mm');
       expect(granularRow).toBeDefined();
+      expect(granularRow?.[0]).toBe(2);
       expect(granularRow?.[2]).toBe('Granular');
-      expect(granularRow?.[3]).toBe('material');
+      expect(granularRow?.[3]).toBe('MATERIAL');
+      expect(granularRow?.[4]).toBe('Pembongkaran');
 
-      // Check summary totals row offset (5 empty string cells before label)
+      // Check summary totals row offset (7 empty string cells before label)
       const subtotalMaterialRow = generatedData.find(row => row && row.includes('Subtotal Material'));
       expect(subtotalMaterialRow).toBeDefined();
-      expect(subtotalMaterialRow?.[5]).toBe('Subtotal Material');
-      expect(subtotalMaterialRow?.[6]).toBe(40000);
+      expect(subtotalMaterialRow?.[7]).toBe('Subtotal Material');
+      expect(subtotalMaterialRow?.[8]).toBe(40000);
+
+      const quotationRow = generatedData.find(row => row && row.includes('Total Harga Jual (Quotation)'));
+      expect(quotationRow).toBeDefined();
+      expect(quotationRow?.[7]).toBe('Total Harga Jual (Quotation)');
+      expect(quotationRow?.[8]).toBe(340000);
+
+      const hppRow = generatedData.find(row => row && row.includes('Total Modal (HPP)'));
+      expect(hppRow).toBeDefined();
+      expect(hppRow?.[7]).toBe('Total Modal (HPP)');
+
+      const marginRow = generatedData.find(row => row && typeof row[7] === 'string' && row[7].startsWith('Margin Profit'));
+      expect(marginRow).toBeDefined();
 
       expect(XLSX.writeFile).toHaveBeenCalledTimes(1);
     });

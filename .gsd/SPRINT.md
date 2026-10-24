@@ -1,48 +1,64 @@
-# Sprint 92 — Fix Missing actual_material_cost and gross_margin_percentage in Financial Reporting Views and RPC
+# Sprint 93 — Align Sorting Logic and Column Headers Between RAB Calculator Web Table and XLSX Export
 
-> **Duration**: 2026-10-24 to 2026-10-24
+> **Duration**: 2026-10-25 to 2026-10-25
 > **Status**: Completed
 
 ## Goal
-Restore backward-compatible aliases `actual_material_cost`, `actual_labor_cost`, `actual_overhead_cost`, and `gross_margin_percentage` to PostgreSQL view `view_spk_job_profitability`, and ensure RPC `get_financial_executive_summary` and financial audit sanity checks handle draft and empty SPK states safely without throwing column errors on `/finance-reports`.
+Synchronize the column headers, column order, sorting order (WBS ascending -> Package items first -> Item name ascending), and summary metrics between the RAB Calculator web table and the XLSX export utility (`rabExport.ts`).
 
 ## Scope
 
 ### Included
-- **Task 1: SQL Database Migration (`supabase/migrations/20261024060000_fix_financial_view_columns.sql`)**
-  - Update `public.view_spk_job_profitability` to provide aliases:
-    - `actual_material_cost` (alias of `granular_mat_cogs`)
-    - `actual_labor_cost` (alias of `granular_labor_cogs`)
-    - `actual_overhead_cost` (alias of `granular_foh_cogs`)
-    - `gross_margin_percentage` (calculated gross margin % with div-by-zero guard)
-  - Ensure `public.view_corporate_monthly_pnl` is recreated cleanly.
-  - Update `public.get_financial_executive_summary` RPC with null-safe handling and COALESCE fallbacks for zero active SPK records.
-  - Grant permissions to `authenticated` and `anon`.
-- **Task 2: Service Layer Verification & Fallback (`src/services/financialReportsService.ts`)**
-  - Verify `getExecutiveSummary()`, `getJobProfitability()`, and `getSanityAudit()` work with restored columns.
-  - Apply clean zero (`0`) default fallbacks on summary and sanity audit responses when database returns empty/null.
-- **Task 3: Automated Testing & Verification**
-  - Verify service and component unit tests pass.
-  - Verify `npx oxlint` (0 errors) and `npm run build` pass cleanly.
+- **Task 1: Centralized RAB Sorting & WBS Weight Helper (`src/utils/rabSort.ts`)**
+  - Created `getWbsWeight(wbs)` to rank WBS stages 1 to 5:
+    - 1: Pembongkaran
+    - 2: Sasis/Rangka
+    - 3: Dinding/Fabrikasi
+    - 4: Pengecatan / Cat / Finishing
+    - 5: Kelistrikan / Hidrolik
+    - Default: 99
+  - Created `sortRabItems(items)` with 3-tier deterministic sorting:
+    1. Primary: WBS stage ascending
+    2. Secondary: Package items before granular items
+    3. Tertiary: Alphabetical item name (case-insensitive)
+  - Supports both camelCase (`wbsCategory`, `packageName`, `packageId`, `description`) and snake_case (`wbs_category`, `wbs_stage`, `package_name`, `package_id`, `material_name`) fields without mutating the input array.
+- **Task 2: Apply Sorting & Column Structure to Web Table (`src/components/RabCalculator.tsx`)**
+  - Memoized sorted items via `const sortedDisplayItems = useMemo(() => sortRabItems(items), [items]);`
+  - Updated web table header and column sequence:
+    `NO` | `DESCRIPTION` | `SUMBER / PAKET` | `TYPE` | `WBS` | `QTY` | `HARGA SATUAN` | `HARGA MODAL (HPP)` | `SUBTOTAL` | `AKSI / STATUS`
+  - Rendered row index `index + 1` in the first `NO` column.
+- **Task 3: Align Column Headers, Sorting, & Financial Summary in Excel Export (`src/utils/rabExport.ts`)**
+  - Sorted export items using `sortRabItems(rabItems)` before generating sheet rows.
+  - Set XLSX table header row to:
+    `['NO', 'DESCRIPTION', 'SUMBER / PAKET', 'TYPE', 'WBS', 'QTY', 'HARGA SATUAN', 'HARGA MODAL (HPP)', 'SUBTOTAL']`
+  - Populated each data row with row index, description, package/granular source label, uppercase item type, WBS stage label, quantity with unit, unit price, cost price (HPP), and subtotal.
+  - Appended summary rows at the bottom for Total Penawaran (Quotation), Total Modal (HPP), and Margin Profit (Rp & %).
+  - Aligned `printRabQuotation` to use the same sorting mechanism.
+- **Task 4: Automated Testing & Verification**
+  - Added unit tests in `src/utils/__tests__/rabSort.test.ts` verifying WBS weights, package precedence, alphabetical sorting, and array immutability.
+  - Updated `src/utils/__tests__/rabExport.test.ts` to assert identical column headers and row formatting.
+  - Updated `src/components/__tests__/RabCalculatorOrigin.test.tsx` to assert the `NO` column.
+  - Verified all 71 test suites (512 tests) pass, zero oxlint errors, and production build succeeds (`tsc -b && vite build` in 1.96s).
 
 ### Explicitly Excluded
-- Changing business logic of package vs granular profit segregation in calculations.
-- Modifying unrelated SPK registration or cashier workflows.
+- Changing database schema or backend RPC functions.
+- Altering SPK Borongan or Material Requisition workflows.
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| Task 1: Create SQL migration `20261024060000_fix_financial_view_columns.sql` | Claude | ✅ Done | 0.25 |
-| Task 2: Service layer verification & zero fallback in `financialReportsService.ts` | Claude | ✅ Done | 0.25 |
-| Task 3: Automated testing, lint check, and production build | Claude | ✅ Done | 0.25 |
+| Task 1: Create centralized sorting helper in `src/utils/rabSort.ts` | Claude | ✅ Done | 0.25 |
+| Task 2: Align web table columns and sorting in `src/components/RabCalculator.tsx` | Claude | ✅ Done | 0.25 |
+| Task 3: Align columns, sorting, and totals in `src/utils/rabExport.ts` | Claude | ✅ Done | 0.25 |
+| Task 4: Add unit tests, verify linting, and validate production build | Claude | ✅ Done | 0.25 |
 
 ## Daily Log
 
-### 2026-10-24
-- Sprint 91 archived to `.gsd/sprints/sprint-91-deduplicate-rab-items-and-enforce-client-and-query-level-uniqueness.md`.
-- Sprint 92 initialized: Fix Missing actual_material_cost and gross_margin_percentage in Financial Reporting Views and RPC.
-- Root cause identified: Migration `20261024040000_update_job_profitability_package_breakdown.sql` isolated package breakdown but dropped legacy columns `actual_material_cost`, `actual_labor_cost`, `actual_overhead_cost`, and `gross_margin_percentage`, causing RPC `get_financial_executive_summary` and `audit_financial_sanity_check` to fail.
-- Task 1: Created `supabase/migrations/20261024060000_fix_financial_view_columns.sql` restoring `actual_material_cost`, `actual_labor_cost`, `actual_overhead_cost`, and `gross_margin_percentage` to `view_spk_job_profitability`, recreating `view_corporate_monthly_pnl`, and updating `get_financial_executive_summary` and `audit_financial_sanity_check` RPCs with null safety.
-- Task 2: Verified service layer in `src/services/financialReportsService.ts` with safe null fallbacks on `getExecutiveSummary()` and `getSanityAudit()`, returning clean 0 values when database has no active SPKs.
-- Task 3: Added unit tests in `src/services/__tests__/financialReportsService.test.ts` and `src/components/finance/__tests__/FinancialAuditPanel.test.tsx`. Ran 70 vitest test files (497 tests passed, 100% green), verified `npx oxlint` (0 errors), and verified production build `npm run build` (423ms).
+### 2026-10-25
+- Sprint 92 closed and archived.
+- Sprint 93 initialized: Align Sorting Logic and Column Headers Between RAB Calculator Web Table and XLSX Export.
+- Task 1: Built `src/utils/rabSort.ts` exporting `getWbsWeight`, `isItemFromPackage`, and `sortRabItems`.
+- Task 2: Updated `src/components/RabCalculator.tsx` to memoize `sortedDisplayItems` and add `NO` column.
+- Task 3: Updated `src/utils/rabExport.ts` to sort items before XLSX sheet creation, align 9 column headers identically with the web table, and append Total Penawaran (Quotation), Total Modal (HPP), and Margin Profit summary rows.
+- Task 4: Added comprehensive unit tests in `src/utils/__tests__/rabSort.test.ts` (15 tests), updated `rabExport.test.ts` and `RabCalculatorOrigin.test.tsx`. Passed 71 test suites (512 tests), zero oxlint errors, and successful production build.
