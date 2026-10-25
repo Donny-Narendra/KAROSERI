@@ -181,4 +181,42 @@ describe('Component: ExecutiveKpiCards', () => {
     expect(screen.getByText(/Sehat \(≥25%\)/i)).toBeInTheDocument();
     expect(screen.getByText(/HPP:\s*Rp\s*3\.065\.264/i)).toBeInTheDocument();
   });
+
+  it('enforces flex-wrap and overflow protection on Card 5 to prevent desktop badge overflow', () => {
+    const summarySpk3093: FinancialExecutiveSummary = {
+      total_projects: 1,
+      total_revenue: 5_322_000,
+      total_actual_material_cost: 837_264,
+      total_actual_labor_cost: 2_100_000,
+      total_actual_overhead_cost: 128_000,
+      total_cogs: 3_065_264,
+      total_gross_profit: 2_256_736,
+      average_gross_margin: 42.4,
+      total_inventory_valuation: 10_000_000,
+      total_inventory_market_value: 12_000_000,
+      total_outstanding_receivables: 0,
+      units_pending_handover: 0,
+    };
+
+    render(<ExecutiveKpiCards summary={summarySpk3093} isLoading={false} />);
+
+    // Find Card 5 container
+    const card5Title = screen.getByText(/5\. Laba Operasional & Margin %/i);
+    const card5Parent = card5Title.closest('.overflow-hidden');
+    expect(card5Parent).toBeInTheDocument();
+    expect(card5Parent).toHaveClass('overflow-hidden', 'min-w-0');
+
+    // Find profit & badge flex container
+    const badgeElement = screen.getByText('42.4%');
+    const flexContainer = badgeElement.parentElement;
+    expect(flexContainer).toHaveClass('flex', 'flex-wrap', 'items-baseline', 'gap-1.5');
+
+    // Find nominal element
+    const nominalElement = screen.getByText(/2\.256\.736/);
+    expect(nominalElement).toHaveClass('text-base', 'xl:text-lg', 'font-extrabold', 'font-mono');
+
+    // Verify badge classes
+    expect(badgeElement).toHaveClass('inline-flex', 'items-center', 'px-1.5', 'py-0.5', 'rounded', 'text-[10px]', 'font-bold', 'shrink-0');
+  });
 });
+
