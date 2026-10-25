@@ -128,9 +128,98 @@ describe('Service: dashboardService (Owner SPK Financial Metrics)', () => {
       expect(metrics.totalRealisasiAktual).toBe(8000000);
       expect(metrics.isOverbudget).toBe(false);
     });
+
+    it('correctly reconciles SPK-3093 scenario: Total Tagihan Rp 5.322.000, Total HPP Rp 3.065.264, Margin 42.4%', () => {
+      const mockPackages = [
+        {
+          id: 'pkg-dump-3093',
+          name: 'Paket Dump Truck Karoseri',
+          selling_price: 2000000,
+        },
+      ];
+
+      const spk3093 = {
+        id: 'spk-3093',
+        spk_no: 'SPK-3093',
+        total_estimated_cost: 960330,
+        rab_items: [
+          {
+            id: 'item-pkg-mat',
+            package_id: 'pkg-dump-3093',
+            package_name: 'Paket Dump Truck Karoseri',
+            quantity: 1,
+            cost_price: 553330,
+            unit_price: 553330,
+            subtotal: 553330,
+          },
+          {
+            id: 'item-pkg-labor',
+            package_id: 'pkg-dump-3093',
+            package_name: 'Paket Dump Truck Karoseri',
+            quantity: 1,
+            cost_price: 250000,
+            unit_price: 250000,
+            subtotal: 250000,
+          },
+          {
+            id: 'item-granular',
+            package_id: null,
+            package_name: null,
+            quantity: 1,
+            cost_price: 157000,
+            unit_price: 317000,
+            subtotal: 317000,
+          },
+        ],
+        change_orders: [
+          {
+            id: 'co-3093-1',
+            status: 'APPROVED',
+            total_amount: 3004998,
+            cost_adjustment: 2104934,
+            change_order_items: [
+              {
+                id: 'co-mat-1',
+                quantity: 1,
+                cost_price: 1154934,
+                unit_price: 1804998,
+                subtotal: 1804998,
+              },
+              {
+                id: 'co-labor-1',
+                quantity: 1,
+                cost_price: 950000,
+                unit_price: 1200000,
+                subtotal: 1200000,
+              },
+            ],
+          },
+        ],
+      };
+
+      const metrics = calculateSpkFinancialMetrics(spk3093, mockPackages);
+
+      // Total HPP: (553330 + 250000 + 157000) + (1154934 + 950000) = 960330 + 2104934 = 3065264
+      expect(metrics.rabHpp).toBe(960330);
+      expect(metrics.coHpp).toBe(2104934);
+      expect(metrics.totalHpp).toBe(3065264);
+
+      // Selling Price Awal: Paket 2.000.000 + Granular 317.000 = 2.317.000
+      expect(metrics.sellingPriceAwal).toBe(2317000);
+      expect(metrics.coRevenue).toBe(3004998);
+
+      // Total Tagihan: 2.317.000 + 3.004.998 = 5.321.998 -> rounded to 5.322.000
+      expect(metrics.totalTagihan).toBe(5322000);
+
+      // Projected Profit and Margin %
+      const profit = metrics.totalTagihan - metrics.totalHpp;
+      expect(profit).toBe(2256736);
+      const marginPct = (profit / metrics.totalTagihan) * 100;
+      expect(marginPct).toBeCloseTo(42.4, 1);
+    });
   });
 
-  describe('fetchOwnerDashboardSpks', () => {
+  describe('fetchOwnerDashboardSpks & fetchActiveSpkMonitoring', () => {
     it('fetches SPKs and decorates them with financial metrics and top-level fields', async () => {
       const mockSpkData = [
         {
@@ -174,5 +263,12 @@ describe('Service: dashboardService (Owner SPK Financial Metrics)', () => {
       expect(row.financials.varianceAmount).toBe(23000000);
       expect(row.is_overbudget).toBe(false);
     });
+
+    it('aliases fetchActiveSpkMonitoring to fetchOwnerDashboardSpks', async () => {
+      const spy = vi.spyOn(dashboardService, 'fetchOwnerDashboardSpks').mockResolvedValueOnce([] as any);
+      await dashboardService.fetchActiveSpkMonitoring();
+      expect(spy).toHaveBeenCalledTimes(1);
+    });
   });
 });
+

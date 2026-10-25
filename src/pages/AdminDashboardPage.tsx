@@ -218,7 +218,10 @@ export const AdminDashboardPage: React.FC = () => {
   const pendingAmendments = spks.flatMap(s => (s.spk_amendments || []).map((a: any) => ({...a, spk_no: s.spk_no, customer_name: s.customer_name}))).filter((a: any) => a.status === 'PENDING');
   const pendingAmendmentsCount = pendingAmendments.length;
 
-  const totalWipValue = activeSpks.reduce((sum: number, spk: any) => sum + (Number(spk.financials?.totalHpp || spk.total_estimated_cost) || 0), 0);
+  const totalWipValue = activeSpks.reduce((sum: number, spk: any) => {
+    const fin = spk.financials || dashboardService.calculateSpkFinancialMetrics(spk);
+    return sum + (Number(fin.totalTagihan ?? spk.total_tagihan ?? 0) || 0);
+  }, 0);
   const formattedWip = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(totalWipValue);
 
   const overbudgetCount = spks.filter(s => s.is_overbudget === true || s.material_gate_status === 'OVERBUDGET' || s.financials?.isOverbudget === true).length;
@@ -227,38 +230,18 @@ export const AdminDashboardPage: React.FC = () => {
   const validSpksForCosting = spks.filter(s => !['CANCELLED', 'DRAFT', 'PENDING_PAYMENT'].includes(s.status));
   let totalProjectedCost = 0;
   let totalActualCost = 0;
+  let totalTagihanCosting = 0;
 
   validSpksForCosting.forEach(spk => {
-    let estCost = 0;
-    let laborCost = 0;
-    let overheadCost = 0;
-    if (spk.rab_estimations && spk.rab_estimations.length > 0) {
-      estCost = Number(spk.rab_estimations[0].total_estimated_cost || 0);
-      laborCost = Number(spk.rab_estimations[0].total_labor_cost || 0);
-      overheadCost = Number(spk.rab_estimations[0].total_overhead_cost || 0);
-    } else if (spk.total_estimated_cost) {
-      estCost = Number(spk.total_estimated_cost);
-      laborCost = estCost * 0.3; 
-    }
-    let actualMaterial = 0;
-    if (spk.inventory_transactions && spk.inventory_transactions.length > 0) {
-      actualMaterial = spk.inventory_transactions.reduce((acc: number, curr: any) => {
-        const isCustomerSupplied = curr.materials?.is_customer_supplied === true;
-        if (isCustomerSupplied) return acc;
-        const price = curr.custom_unit_price !== null && curr.custom_unit_price !== undefined 
-                      ? curr.custom_unit_price 
-                      : (curr.materials?.unit_price || 0);
-        return acc + (Number(curr.quantity_issued) * Number(price));
-      }, 0);
-    }
-    if (actualMaterial === 0 && estCost > 0) {
-      actualMaterial = Math.max(0, estCost - laborCost - overheadCost);
-    }
-    totalProjectedCost += estCost;
-    totalActualCost += (actualMaterial + laborCost + overheadCost);
+    const fin = spk.financials || dashboardService.calculateSpkFinancialMetrics(spk);
+    totalProjectedCost += (fin.totalHpp || 0);
+    totalActualCost += (fin.totalRealisasiAktual || 0);
+    totalTagihanCosting += (fin.totalTagihan || 0);
   });
   
-  const marginPercentage = totalProjectedCost > 0 ? ((totalProjectedCost - totalActualCost) / totalProjectedCost) * 100 : 0;
+  const marginPercentage = totalTagihanCosting > 0 
+    ? ((totalTagihanCosting - totalProjectedCost) / totalTagihanCosting) * 100 
+    : 0;
 
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
@@ -467,7 +450,7 @@ export const AdminDashboardPage: React.FC = () => {
                 <div className="text-right">
                   <p className="text-sm text-text-muted font-mono mb-1">Profit Margin</p>
                   <span className={`text-xl font-bold ${marginPercentage >= 0 ? 'text-status-success' : 'text-status-danger'}`}>
-                    {marginPercentage > 0 ? '+' : ''}{marginPercentage.toFixed(2)}%
+                    {marginPercentage > 0 ? '+' : ''}{marginPercentage.toFixed(1)}%
                   </span>
                 </div>
               </div>

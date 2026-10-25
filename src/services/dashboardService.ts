@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
+import { cleanPackageName } from '../utils/sourceOrigin';
 
 export interface SpkFinancialMetrics {
   rabHpp: number;
@@ -45,6 +46,7 @@ export interface DashboardSpkItem {
   } | null;
   [key: string]: any;
   rab_estimations?: any[];
+  rab_items?: any[];
   inventory_transactions?: any[];
   material_issues?: any[];
   spk_amendments?: any[];
@@ -64,44 +66,113 @@ export interface DashboardSpkItem {
  * 3. Realisasi Biaya Aktual (Material Approved + Borongan Labor + Overhead FOH)
  * 4. Indikator Varian & Overbudget Real-time
  */
-export function calculateSpkFinancialMetrics(spk: any): SpkFinancialMetrics {
+export function calculateSpkFinancialMetrics(spk: any, packagesCatalog?: any[]): SpkFinancialMetrics {
   // 1. Total HPP (Modal = RAB Cost + CO Cost)
-  const rabHpp = Number(
-    spk?.total_estimated_cost || 
-    spk?.rab_estimations?.[0]?.total_estimated_cost || 
-    0
-  );
+  let rabHpp = 0;
+  const rabItems = Array.isArray(spk?.rab_items) ? spk.rab_items : [];
+
+  if (rabItems.length > 0) {
+    rabHpp = rabItems.reduce((sum: number, item: any) => {
+      const q = Number(item.quantity ?? item.labor_hours ?? (item.overhead_hours ? Number(item.overhead_hours) / 8 : 1)) || 1;
+      const c = Number(item.cost_price || 0);
+      return sum + (q * c);
+    }, 0);
+  } else {
+    rabHpp = Number(
+      spk?.total_estimated_cost || 
+      spk?.rab_estimations?.[0]?.total_estimated_cost || 
+      0
+    );
+  }
 
   // Ambil change orders jika ada, fallback ke spk_amendments
   const coSource = Array.isArray(spk?.change_orders) && spk.change_orders.length > 0
     ? spk.change_orders
     : (Array.isArray(spk?.spk_amendments) ? spk.spk_amendments : []);
 
-  const coHpp = coSource
-    .filter((co: any) => co && (co.status === 'APPROVED' || String(co.status).toUpperCase() === 'APPROVED'))
-    .reduce((sum: number, co: any) => {
-      const cost = Number(co.total_cost || co.cost_amount || co.cost_adjustment || 0);
-      return sum + (isNaN(cost) ? 0 : cost);
-    }, 0);
+  const approvedCos = coSource.filter(
+    (co: any) => co && (co.status === 'APPROVED' || String(co.status).toUpperCase() === 'APPROVED')
+  );
+
+  const coHpp = approvedCos.reduce((sum: number, co: any) => {
+    const coItems = Array.isArray(co.change_order_items)
+      ? co.change_order_items
+      : (Array.isArray(co.items) ? co.items : []);
+
+    if (coItems.length > 0) {
+      const itemsHpp = coItems.reduce((itemSum: number, item: any) => {
+        const q = Number(item.quantity || 1);
+        const c = Number(item.cost_price || 0);
+        return itemSum + (q * c);
+      }, 0);
+      return sum + itemsHpp;
+    }
+    const cost = Number(co.total_cost || co.cost_amount || co.cost_adjustment || 0);
+    return sum + (isNaN(cost) ? 0 : cost);
+  }, 0);
 
   const totalHpp = rabHpp + coHpp;
 
   // 2. Total Tagihan (Revenue = Quotation/Kontrak Awal + CO Selling Price)
-  const sellingPriceAwal = Number(
-    spk?.total_selling_price || 
-    spk?.final_bill_amount || 
-    spk?.invoices?.[0]?.total_amount || 
-    (rabHpp > 0 ? rabHpp * 1.25 : 0)
-  );
+  let sellingPriceAwal = 0;
+  if (rabItems.length > 0) {
+    const uniquePackages = new Map<string, number>();
+    let nonPackageAmount = 0;
 
-  const coRevenue = coSource
-    .filter((co: any) => co && (co.status === 'APPROVED' || String(co.status).toUpperCase() === 'APPROVED'))
-    .reduce((sum: number, co: any) => {
-      const revenue = Number(co.total_amount || co.selling_price || 0);
-      return sum + (isNaN(revenue) ? 0 : revenue);
-    }, 0);
+    rabItems.forEach((item: any) => {
+      const pkgId = item.package_id || item.package_source_id;
+      const pkgName = item.package_name || item.product_packages?.name;
+      const pkgKey = pkgId || (pkgName ? cleanPackageName(pkgName) : null);
 
-  const totalTagihan = sellingPriceAwal + coRevenue;
+      if (pkgKey) {
+        let pkgSellingPrice = Number(item.product_packages?.selling_price || 0);
+        if (!pkgSellingPrice && packagesCatalog) {
+          const matched = packagesCatalog.find((p: any) => 
+            (pkgId && p.id === pkgId) || 
+            (pkgName && p.name === pkgName) || 
+            (pkgName && cleanPackageName(p.name) === cleanPackageName(pkgName))
+          );
+          if (matched) pkgSellingPrice = Number(matched.selling_price || 0);
+        }
+        if (pkgSellingPrice > 0) {
+          uniquePackages.set(pkgKey, pkgSellingPrice);
+        }
+      } else {
+        const q = Number(item.quantity ?? item.labor_hours ?? (item.overhead_hours ? Number(item.overhead_hours) / 8 : 1)) || 1;
+        const u = Number(item.unit_price || 0);
+        const sub = Number(item.subtotal ?? item.item_total ?? (q * u));
+        nonPackageAmount += isNaN(sub) ? 0 : sub;
+      }
+    });
+
+    let packageSellingTotal = 0;
+    uniquePackages.forEach((price) => {
+      packageSellingTotal += price;
+    });
+
+    sellingPriceAwal = packageSellingTotal + nonPackageAmount;
+  }
+
+  // Fallback if no rab_items or calculated 0
+  if (sellingPriceAwal === 0) {
+    sellingPriceAwal = Number(
+      spk?.total_selling_price || 
+      spk?.final_bill_amount || 
+      spk?.invoices?.[0]?.total_amount || 
+      (rabHpp > 0 ? rabHpp * 1.25 : 0)
+    );
+  }
+
+  const coRevenue = approvedCos.reduce((sum: number, co: any) => {
+    const revenue = Number(co.total_amount ?? co.selling_price ?? co.cost_adjustment ?? 0);
+    return sum + (isNaN(revenue) ? 0 : revenue);
+  }, 0);
+
+  let totalTagihan = sellingPriceAwal + coRevenue;
+  // If close to nearest thousand (within 10 rupiah due to integer division rounding in component exploded prices)
+  if (totalTagihan > 0 && Math.abs(totalTagihan - Math.round(totalTagihan / 1000) * 1000) <= 10) {
+    totalTagihan = Math.round(totalTagihan / 1000) * 1000;
+  }
 
   // 3. Realisasi Biaya Aktual (Material Approved + Borongan Labor + Overhead FOH)
   let materialIssuedCost = 0;
@@ -178,15 +249,46 @@ export const dashboardService = {
    */
   async fetchOwnerDashboardSpks(): Promise<DashboardSpkItem[]> {
     let spkRows: any[] = [];
+    let packagesList: any[] = [];
+
+    try {
+      const { data: pkgs } = await supabase
+        .from('product_packages')
+        .select('id, name, selling_price');
+      if (pkgs) packagesList = pkgs;
+    } catch (pkgErr) {
+      console.warn('Could not fetch product_packages in dashboardService:', pkgErr);
+    }
 
     // Coba query komprehensif relasi terlebih dahulu
     const { data, error } = await supabase.from('spk').select(`
       *,
       cancelled_by_profile:profiles!cancelled_by ( id, full_name, role ),
-      rab_estimations ( total_estimated_cost, total_labor_cost, total_overhead_cost ),
+      rab_estimations ( id, total_estimated_cost, total_labor_cost, total_overhead_cost ),
+      rab_items (
+        id,
+        spk_id,
+        package_id,
+        package_name,
+        item_type,
+        quantity,
+        cost_price,
+        unit_price,
+        subtotal,
+        item_total,
+        product_packages:package_id ( id, name, selling_price )
+      ),
       inventory_transactions ( quantity_issued, custom_unit_price, materials ( unit_price, is_customer_supplied ) ),
+      material_issues ( id, quantity, unit_price, total_cost, wbs_stage, material_id ),
       spk_amendments ( id, description, cost_adjustment, status, created_at, spk_id ),
-      change_orders ( id, co_number, total_amount, cost_adjustment, status ),
+      change_orders (
+        id,
+        co_number,
+        total_amount,
+        cost_adjustment,
+        status,
+        change_order_items ( id, quantity, cost_price, unit_price, subtotal, package_name, package_source_id )
+      ),
       spk_borongan ( id, contract_value, total_amount, status ),
       spk_overhead_logs ( id, total_amount, frequency_qty, rate_per_unit ),
       invoices ( id, status, total_amount, dp_amount )
@@ -197,7 +299,7 @@ export const dashboardService = {
       const fallbackRes = await supabase.from('spk').select(`
         *,
         cancelled_by_profile:profiles!cancelled_by ( id, full_name, role ),
-        rab_estimations ( total_estimated_cost, total_labor_cost, total_overhead_cost ),
+        rab_estimations ( id, total_estimated_cost, total_labor_cost, total_overhead_cost ),
         inventory_transactions ( quantity_issued, custom_unit_price, materials ( unit_price, is_customer_supplied ) ),
         spk_amendments ( id, description, cost_adjustment, status, created_at, spk_id )
       `).order('created_at', { ascending: false });
@@ -212,12 +314,22 @@ export const dashboardService = {
       try {
         const spkIds = spkRows.map(s => s.id).filter(Boolean);
         if (spkIds.length > 0) {
-          const [coRes, borongRes, ohlRes, invRes] = await Promise.allSettled([
-            supabase.from('change_orders').select('*').in('spk_id', spkIds),
+          const [rabItemsRes, coRes, borongRes, ohlRes, matIssuesRes, invRes] = await Promise.allSettled([
+            supabase.from('rab_items').select('*, product_packages:package_id ( id, name, selling_price )').in('spk_id', spkIds),
+            supabase.from('change_orders').select('*, change_order_items (*)').in('spk_id', spkIds),
             supabase.from('spk_borongan').select('*').in('spk_id', spkIds),
             supabase.from('spk_overhead_logs').select('*').in('spk_id', spkIds),
+            supabase.from('material_issues').select('*').in('spk_id', spkIds),
             supabase.from('invoices').select('id, spk_id, status, total_amount, dp_amount').in('spk_id', spkIds),
           ]);
+
+          const rabItemsMap: Record<string, any[]> = {};
+          if (rabItemsRes.status === 'fulfilled' && rabItemsRes.value.data) {
+            rabItemsRes.value.data.forEach((item: any) => {
+              if (!rabItemsMap[item.spk_id]) rabItemsMap[item.spk_id] = [];
+              rabItemsMap[item.spk_id].push(item);
+            });
+          }
 
           const coMap: Record<string, any[]> = {};
           if (coRes.status === 'fulfilled' && coRes.value.data) {
@@ -243,6 +355,14 @@ export const dashboardService = {
             });
           }
 
+          const matIssuesMap: Record<string, any[]> = {};
+          if (matIssuesRes.status === 'fulfilled' && matIssuesRes.value.data) {
+            matIssuesRes.value.data.forEach((mi: any) => {
+              if (!matIssuesMap[mi.spk_id]) matIssuesMap[mi.spk_id] = [];
+              matIssuesMap[mi.spk_id].push(mi);
+            });
+          }
+
           const invMap: Record<string, any[]> = {};
           if (invRes.status === 'fulfilled' && invRes.value.data) {
             invRes.value.data.forEach((inv: any) => {
@@ -253,9 +373,11 @@ export const dashboardService = {
 
           spkRows = spkRows.map(s => ({
             ...s,
+            rab_items: rabItemsMap[s.id] || s.rab_items || [],
             change_orders: coMap[s.id] || s.change_orders || [],
             spk_borongan: borongMap[s.id] || s.spk_borongan || [],
             spk_overhead_logs: ohlMap[s.id] || s.spk_overhead_logs || [],
+            material_issues: matIssuesMap[s.id] || s.material_issues || [],
             invoices: invMap[s.id] || s.invoices || [],
           }));
         }
@@ -267,7 +389,7 @@ export const dashboardService = {
     }
 
     return spkRows.map(spk => {
-      const financials = calculateSpkFinancialMetrics(spk);
+      const financials = calculateSpkFinancialMetrics(spk, packagesList);
       const invoice = Array.isArray(spk.invoices) && spk.invoices.length > 0 ? spk.invoices[0] : null;
       const paymentStatus = spk.payment_status || (invoice?.status === 'LUNAS' ? 'PAID' : (invoice?.status || 'UNPAID'));
       const dpAmount = Number(spk.dp_amount !== undefined && spk.dp_amount !== null ? spk.dp_amount : (invoice?.dp_amount || 0));
@@ -284,4 +406,12 @@ export const dashboardService = {
       };
     });
   },
+
+  /**
+   * Alias fetchActiveSpkMonitoring for owner dashboard monitoring
+   */
+  async fetchActiveSpkMonitoring(): Promise<DashboardSpkItem[]> {
+    return this.fetchOwnerDashboardSpks();
+  },
 };
+
