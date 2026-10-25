@@ -88,6 +88,10 @@ export interface WbsCostVarianceItem {
   total_overhead_budget: number;
   actual_overhead_spent: number;
   overhead_variance: number;
+  total_wbs_budget?: number;
+  total_actual_wbs_spent?: number;
+  total_wbs_variance?: number;
+  wbs_budget_status?: string;
 }
 export type WbsCostVariance = WbsCostVarianceItem;
 

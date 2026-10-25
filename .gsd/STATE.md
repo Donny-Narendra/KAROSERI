@@ -1,23 +1,25 @@
 ## Current Position
-- **Sprint**: Sprint 95 — Reconcile Financial Reports and Executive Dashboard with Validated RAB Perubahan Totals
+- **Sprint**: Sprint 96 — Enforce Live Database Aggregation for Pagu, Realisasi, and Variance (Zero Hardcoded Values)
 - **Status**: Sprint completed ✓
 - **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness
 
 ## Last Session Summary
-- Sprint 95 completed:
+- Sprint 96 completed:
   * Database Migration:
-    - Created `supabase/migrations/20261025010000_reconcile_financial_reports_view.sql` which upgrades `view_spk_job_profitability` to aggregate package summary (`pkg_material_cogs`, `pkg_labor_cogs`, `pkg_foh_cogs`) and granular summary.
-    - Accurately computes `total_revenue` (Rp 5.322.000), `actual_material_cost` (Rp 837.264), `actual_labor_cost` (Rp 2.100.000), `actual_overhead_cost` (Rp 128.000), and `total_cogs` (Rp 3.065.264).
-    - Accurately computes 4-pillar profits: `package_profit` (Rp 2.192.336), `granular_material_profit` (Rp 2.400), `granular_labor_profit` (Rp 30.000), `granular_overhead_profit` (Rp 32.000), `gross_profit` (Rp 2.256.736), `gross_margin_percentage` (42.4%).
-    - Recreated `view_corporate_monthly_pnl` and updated RPC `get_financial_executive_summary`.
-  * Frontend & Service Alignment:
-    - `ExecutiveKpiCards.tsx`: 6 decoupled executive cards reflect exact figures (Omzet Rp 5.322.000, Bahan Rp 837.264, Mandor Rp 2.100.000, FOH Rp 128.000, Laba Operasional Rp 2.256.736 / 42.4% margin, HPP Rp 3.065.264).
-    - `JobProfitabilityTab.tsx`: 4 top summary cards and table rows render the reconciled 4-pillar profits and comprehensive cost breakdown.
-  * Automated Tests & Verification:
-    - Added reconciliation tests in `src/components/finance/__tests__/ExecutiveKpiCards.test.tsx`.
-    - Added reconciliation tests in `src/components/finance/tabs/__tests__/JobProfitabilityTab.test.tsx`.
-    - Added reconciliation tests in `src/services/__tests__/financialReportsService.test.ts`.
-    - Verified all 72 test files (518 tests green), 0 oxlint errors, and successful production build.
+    - Created and applied `supabase/migrations/20261025020000_enforce_live_db_aggregation_wbs_variance.sql`.
+    - Created `public.goods_issues` view over approved warehouse `inventory_transactions`.
+    - Synchronized `rab_items.wbs_stage` with `wbs_category_to_stage(wbs_category)`.
+    - Recreated `public.view_wbs_cost_variance` with pure transaction queries from `rab_items`, `change_order_items` (APPROVED), `goods_issues`, `spk_borongan`, and `spk_overhead_logs`.
+    - Columns: `total_material_budget`, `total_labor_budget`, `total_overhead_budget`, `total_wbs_budget`, `actual_material_spent`, `actual_labor_spent`, `actual_overhead_spent`, `total_actual_wbs_spent`, `material_variance`, `labor_variance`, `overhead_variance`, `total_wbs_variance`, and `wbs_budget_status`.
+  * Frontend Audit & Alignment:
+    - Audited `src/components/finance/tabs/WbsCostVarianceTab.tsx` and confirmed zero static mockup data (no `dummyWbs`, `MOCK_VARIANCE`, fallback constants).
+    - Rendered table cells directly using `formatRupiah` from Supabase row columns for all 3 pillars (Material, Labor, Overhead).
+    - Integrated live `wbs_budget_status` badge.
+    - Added compatibility export in `src/components/finance/WbsCostVarianceTab.tsx`.
+    - Updated `src/types/financialReports.ts` and `src/services/financialReportsService.ts`.
+  * Testing & Verification:
+    - Added unit test coverage in `src/components/finance/tabs/__tests__/WbsCostVarianceTab.test.tsx` and `src/services/__tests__/financialReportsService.test.ts`.
+    - Verified all 72 test suites (521 tests passed), 0 oxlint errors, and successful production build.
 
 ## Next Up
-- Sprint 95 ready to close/archive or proceed with next sprint/milestone task.
+- Sprint 96 ready to close or proceed with next request.

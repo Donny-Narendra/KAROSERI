@@ -200,6 +200,14 @@ export const financialReportsService = {
       total_overhead_budget: Number(row.total_overhead_budget || 0),
       actual_overhead_spent: Number(row.actual_overhead_spent || 0),
       overhead_variance: Number(row.overhead_variance || 0),
+      total_wbs_budget: Number(row.total_wbs_budget ?? (Number(row.total_material_budget || 0) + Number(row.total_labor_budget || 0) + Number(row.total_overhead_budget || 0))),
+      total_actual_wbs_spent: Number(row.total_actual_wbs_spent ?? (Number(row.actual_material_spent || 0) + Number(row.actual_labor_spent || 0) + Number(row.actual_overhead_spent || 0))),
+      total_wbs_variance: Number(row.total_wbs_variance ?? (Number(row.material_variance || 0) + Number(row.labor_variance || 0) + Number(row.overhead_variance || 0))),
+      wbs_budget_status: row.wbs_budget_status || (
+        (Number(row.material_variance || 0) < 0 || Number(row.labor_variance || 0) < 0 || Number(row.overhead_variance || 0) < 0)
+          ? 'OVERBUDGET'
+          : 'HEMAT / DALAM BATAS'
+      ),
     })) as WbsCostVariance[];
 
     if (overBudgetOnly) {

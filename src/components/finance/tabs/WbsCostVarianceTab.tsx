@@ -12,6 +12,8 @@ import { exportToExcel, exportToCsv } from '../../../utils/exportFinancialReport
 import { supabase } from '../../../lib/supabaseClient';
 import type { WbsCostVariance } from '../../../types/financialReports';
 
+import { formatRupiah } from '../../../utils/formatters';
+
 interface WbsCostVarianceTabProps {
   globalSearch?: string;
   refreshTrigger?: number;
@@ -23,14 +25,6 @@ interface SpkOption {
   customer_name: string;
   vehicle_plate?: string;
 }
-
-const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    maximumFractionDigits: 0,
-  }).format(amount || 0);
-};
 
 export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
   globalSearch = '',
@@ -290,37 +284,37 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right font-mono text-text">
-                        {formatCurrency(row.total_material_budget)}
+                        {formatRupiah(row.total_material_budget)}
                       </td>
                       <td className="py-3 px-4 text-right font-mono text-text-muted">
-                        {formatCurrency(row.actual_material_spent)}
+                        {formatRupiah(row.actual_material_spent)}
                       </td>
                       <td className={`py-3 px-4 text-right font-mono font-bold border-r border-border/30 ${
                         isMatOver ? 'text-status-danger' : 'text-emerald-400'
                       }`}>
-                        {formatCurrency(row.material_variance)}
+                        {formatRupiah(row.material_variance)}
                       </td>
                       <td className="py-3 px-4 text-right font-mono text-text">
-                        {formatCurrency(row.total_labor_budget)}
+                        {formatRupiah(row.total_labor_budget)}
                       </td>
                       <td className="py-3 px-4 text-right font-mono text-text-muted">
-                        {formatCurrency(row.actual_labor_spent)}
+                        {formatRupiah(row.actual_labor_spent)}
                       </td>
                       <td className={`py-3 px-4 text-right font-mono font-bold border-r border-border/30 ${
                         isLaborOver ? 'text-status-danger' : 'text-emerald-400'
                       }`}>
-                        {formatCurrency(row.labor_variance)}
+                        {formatRupiah(row.labor_variance)}
                       </td>
                       <td className="py-3 px-4 text-right font-mono text-text">
-                        {formatCurrency(row.total_overhead_budget || 0)}
+                        {formatRupiah(row.total_overhead_budget || 0)}
                       </td>
                       <td className="py-3 px-4 text-right font-mono text-text-muted">
-                        {formatCurrency(row.actual_overhead_spent || 0)}
+                        {formatRupiah(row.actual_overhead_spent || 0)}
                       </td>
                       <td className={`py-3 px-4 text-right font-mono font-bold border-r border-border/30 ${
                         isOverheadOver ? 'text-status-danger' : 'text-emerald-400'
                       }`}>
-                        {formatCurrency(row.overhead_variance || 0)}
+                        {formatRupiah(row.overhead_variance || 0)}
                       </td>
                       <td className="py-3 px-4 text-center">
                         <span className={`inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full border ${
@@ -331,12 +325,12 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
                           {isTotalOver ? (
                             <>
                               <TrendingDown className="w-3 h-3 text-rose-400" />
-                              <span>OVERBUDGET</span>
+                              <span>{row.wbs_budget_status || 'OVERBUDGET'}</span>
                             </>
                           ) : (
                             <>
                               <TrendingUp className="w-3 h-3 text-emerald-400" />
-                              <span>HEMAT</span>
+                              <span>{row.wbs_budget_status || 'HEMAT'}</span>
                             </>
                           )}
                         </span>
@@ -355,31 +349,31 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
                     Total Akumulasi:
                   </td>
                   <td className="py-3 px-4 text-right text-text">
-                    {formatCurrency(totalMatBudget)}
+                    {formatRupiah(totalMatBudget)}
                   </td>
                   <td className="py-3 px-4 text-right text-text-muted">
-                    {formatCurrency(totalMatSpent)}
+                    {formatRupiah(totalMatSpent)}
                   </td>
                   <td className={`py-3 px-4 text-right border-r border-border/30 ${totalMatVariance < 0 ? 'text-status-danger' : 'text-emerald-400'}`}>
-                    {formatCurrency(totalMatVariance)}
+                    {formatRupiah(totalMatVariance)}
                   </td>
                   <td className="py-3 px-4 text-right text-text">
-                    {formatCurrency(totalLaborBudget)}
+                    {formatRupiah(totalLaborBudget)}
                   </td>
                   <td className="py-3 px-4 text-right text-text-muted">
-                    {formatCurrency(totalLaborSpent)}
+                    {formatRupiah(totalLaborSpent)}
                   </td>
                   <td className={`py-3 px-4 text-right border-r border-border/30 ${totalLaborVariance < 0 ? 'text-status-danger' : 'text-emerald-400'}`}>
-                    {formatCurrency(totalLaborVariance)}
+                    {formatRupiah(totalLaborVariance)}
                   </td>
                   <td className="py-3 px-4 text-right text-text">
-                    {formatCurrency(totalOverheadBudget)}
+                    {formatRupiah(totalOverheadBudget)}
                   </td>
                   <td className="py-3 px-4 text-right text-text-muted">
-                    {formatCurrency(totalOverheadSpent)}
+                    {formatRupiah(totalOverheadSpent)}
                   </td>
                   <td className={`py-3 px-4 text-right border-r border-border/30 ${totalOverheadVariance < 0 ? 'text-status-danger' : 'text-emerald-400'}`}>
-                    {formatCurrency(totalOverheadVariance)}
+                    {formatRupiah(totalOverheadVariance)}
                   </td>
                   <td className="py-3 px-4 text-center">
                     <span className={`inline-block px-2 py-0.5 rounded text-[11px] ${

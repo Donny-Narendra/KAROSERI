@@ -144,4 +144,64 @@ describe('Component: WbsCostVarianceTab (3-Pillar Modular Table)', () => {
     const footerOverheadVars = screen.getAllByText(/300\.000/);
     expect(footerOverheadVars.some(cell => cell.className.includes('text-status-danger'))).toBe(true);
   });
+
+  it('renders Material and Labor pillars purely from live Supabase row columns', async () => {
+    render(<WbsCostVarianceTab />);
+
+    await waitFor(() => {
+      // Row 1 Material: 20M, 18M, 2M
+      expect(screen.getAllByText(/20\.000\.000/).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText(/18\.000\.000/).length).toBeGreaterThanOrEqual(1);
+      // Row 1 Labor: 10M, 9M, 1M
+      expect(screen.getAllByText(/10\.000\.000/).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText(/9\.000\.000/).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText(/1\.000\.000/).length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  it('renders wbs_budget_status from Supabase data and badges appropriately', async () => {
+    const liveCustomData: WbsCostVariance[] = [
+      {
+        spk_id: 'spk-live-1',
+        spk_number: 'SPK-3093',
+        customer_name: 'UD. HWA HWA NGAWI',
+        vehicle_plate: 'AE 4566 SFG',
+        wbs_stage: 'WBS 1: Pembongkaran',
+        total_material_budget: 163600,
+        actual_material_spent: 0,
+        material_variance: 163600,
+        total_labor_budget: 80000,
+        actual_labor_spent: 0,
+        labor_variance: 80000,
+        total_overhead_budget: 0,
+        actual_overhead_spent: 0,
+        overhead_variance: 0,
+        total_wbs_budget: 243600,
+        total_actual_wbs_spent: 0,
+        total_wbs_variance: 243600,
+        wbs_budget_status: 'HEMAT / DALAM BATAS',
+      },
+    ];
+
+    vi.mocked(financialReportsService.getWbsCostVariance).mockResolvedValue(liveCustomData);
+
+    render(<WbsCostVarianceTab />);
+
+    await waitFor(() => {
+      expect(financialReportsService.getWbsCostVariance).toHaveBeenCalled();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Memuat analisis varian/i)).not.toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('SPK-3093')).toBeInTheDocument();
+      expect(screen.getAllByText(/163\.600/).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText(/80\.000/).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText('HEMAT / DALAM BATAS')).toBeInTheDocument();
+    });
+  });
 });
+
+

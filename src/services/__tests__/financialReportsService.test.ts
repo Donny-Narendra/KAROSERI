@@ -256,4 +256,80 @@ describe('Service: financialReportsService (Exclude Draft SPK)', () => {
     expect(item.granular_labor_profit).toBe(30_000);
     expect(item.granular_overhead_profit).toBe(32_000);
   });
+
+  it('fetches live aggregation from view_wbs_cost_variance with zero hardcoded values', async () => {
+    const mockQueryBuilder: any = {
+      select: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      or: vi.fn().mockReturnThis(),
+      then: vi.fn(),
+    };
+
+    const rawVarianceRows = [
+      {
+        spk_id: 'spk-uuid-3093',
+        spk_number: 'SPK-3093',
+        customer_name: 'UD. HWA HWA NGAWI',
+        vehicle_plate: 'AE 4566 sfg',
+        wbs_stage: 'WBS 1: Pembongkaran',
+        total_material_budget: '163600',
+        total_labor_budget: '80000',
+        total_overhead_budget: '0',
+        total_wbs_budget: '243600',
+        actual_material_spent: '0',
+        actual_labor_spent: '0',
+        actual_overhead_spent: '0',
+        total_actual_wbs_spent: '0',
+        material_variance: '163600',
+        labor_variance: '80000',
+        overhead_variance: '0',
+        total_wbs_variance: '243600',
+        wbs_budget_status: 'HEMAT / DALAM BATAS',
+      },
+      {
+        spk_id: 'spk-uuid-3093',
+        spk_number: 'SPK-3093',
+        customer_name: 'UD. HWA HWA NGAWI',
+        vehicle_plate: 'AE 4566 sfg',
+        wbs_stage: 'WBS 5: Kelistrikan/Hidrolik',
+        total_material_budget: '208888',
+        total_labor_budget: '1120000',
+        total_overhead_budget: '128000',
+        total_wbs_budget: '1456888',
+        actual_material_spent: '0',
+        actual_labor_spent: '0',
+        actual_overhead_spent: '0',
+        total_actual_wbs_spent: '0',
+        material_variance: '208888',
+        labor_variance: '1120000',
+        overhead_variance: '128000',
+        total_wbs_variance: '1456888',
+        wbs_budget_status: 'HEMAT / DALAM BATAS',
+      },
+    ];
+
+    mockQueryBuilder.then.mockImplementation((resolve: any) =>
+      resolve({ data: rawVarianceRows, error: null })
+    );
+
+    vi.mocked(supabase.from).mockReturnValue(mockQueryBuilder as any);
+
+    const result = await financialReportsService.getWbsCostVariance({ spkId: 'spk-uuid-3093' });
+
+    expect(supabase.from).toHaveBeenCalledWith('view_wbs_cost_variance');
+    expect(mockQueryBuilder.eq).toHaveBeenCalledWith('spk_id', 'spk-uuid-3093');
+    expect(result).toHaveLength(2);
+
+    expect(result[0].total_material_budget).toBe(163600);
+    expect(result[0].total_labor_budget).toBe(80000);
+    expect(result[0].total_wbs_budget).toBe(243600);
+    expect(result[0].material_variance).toBe(163600);
+    expect(result[0].wbs_budget_status).toBe('HEMAT / DALAM BATAS');
+
+    expect(result[1].total_overhead_budget).toBe(128000);
+    expect(result[1].total_labor_budget).toBe(1120000);
+    expect(result[1].total_wbs_budget).toBe(1456888);
+  });
 });
+
