@@ -3,7 +3,7 @@
 -- Description: Reconcile view_spk_job_profitability and get_financial_executive_summary
 --              with validated RAB Perubahan and Kasir Billing figures.
 --              Includes comprehensive package component HPP (Material, Labor, Overhead)
---              and consolidated quotation totals across initial RAB and approved COs.
+--              and master package selling price resolution for initial RAB & approved COs.
 -- ==============================================================================
 
 -- 1. Drop dependent views first
@@ -12,58 +12,81 @@ DROP VIEW IF EXISTS public.view_spk_job_profitability CASCADE;
 
 -- 2. Perbarui View view_spk_job_profitability agar menyerap nilai paket utuh dan biaya total
 CREATE OR REPLACE VIEW public.view_spk_job_profitability AS
-WITH consolidated_items AS (
-  -- RAB Awal
+WITH rab_pkg AS (
+  SELECT 
+    ri.spk_id,
+    ri.package_id,
+    COALESCE(MAX(pp.selling_price), SUM(ri.quantity * ri.unit_price)) AS pkg_selling_price,
+    SUM(ri.quantity * ri.cost_price) AS pkg_cogs,
+    SUM(CASE WHEN ri.item_type = 'MATERIAL' THEN ri.quantity * ri.cost_price ELSE 0 END) AS pkg_mat_cogs,
+    SUM(CASE WHEN ri.item_type = 'LABOR' THEN ri.quantity * ri.cost_price ELSE 0 END) AS pkg_labor_cogs,
+    SUM(CASE WHEN ri.item_type = 'OVERHEAD' THEN ri.quantity * ri.cost_price ELSE 0 END) AS pkg_foh_cogs
+  FROM public.rab_items ri
+  LEFT JOIN public.product_packages pp ON ri.package_id = pp.id
+  WHERE ri.package_id IS NOT NULL
+  GROUP BY ri.spk_id, ri.package_id, COALESCE(ri.package_name, '')
+),
+co_pkg AS (
+  SELECT 
+    co.spk_id,
+    coi.package_source_id AS package_id,
+    COALESCE(MAX(pp.selling_price), SUM(coi.quantity * coi.unit_price)) AS pkg_selling_price,
+    SUM(coi.quantity * coi.cost_price) AS pkg_cogs,
+    SUM(CASE WHEN coi.item_type = 'MATERIAL' THEN coi.quantity * coi.cost_price ELSE 0 END) AS pkg_mat_cogs,
+    SUM(CASE WHEN coi.item_type = 'LABOR' THEN coi.quantity * coi.cost_price ELSE 0 END) AS pkg_labor_cogs,
+    SUM(CASE WHEN coi.item_type = 'OVERHEAD' THEN coi.quantity * coi.cost_price ELSE 0 END) AS pkg_foh_cogs
+  FROM public.change_order_items coi
+  JOIN public.change_orders co ON coi.change_order_id = co.id
+  LEFT JOIN public.product_packages pp ON coi.package_source_id = pp.id
+  WHERE co.status = 'APPROVED' AND (coi.package_source_id IS NOT NULL OR coi.package_name IS NOT NULL)
+  GROUP BY co.spk_id, coi.package_source_id, COALESCE(coi.package_instance_id::text, coi.package_name, '')
+),
+package_summary AS (
   SELECT 
     spk_id,
-    package_id,
+    COALESCE(SUM(pkg_selling_price), 0) AS package_revenue,
+    COALESCE(SUM(pkg_cogs), 0) AS package_cogs,
+    COALESCE(SUM(pkg_mat_cogs), 0) AS pkg_material_cogs,
+    COALESCE(SUM(pkg_labor_cogs), 0) AS pkg_labor_cogs,
+    COALESCE(SUM(pkg_foh_cogs), 0) AS pkg_foh_cogs
+  FROM (
+    SELECT * FROM rab_pkg
+    UNION ALL
+    SELECT * FROM co_pkg
+  ) all_pkg
+  GROUP BY spk_id
+),
+granular_items AS (
+  SELECT 
+    spk_id,
     item_type,
     quantity,
     unit_price,
     cost_price
   FROM public.rab_items
+  WHERE package_id IS NULL AND (package_name IS NULL OR package_name = '')
   UNION ALL
-  -- Approved Change Orders
   SELECT 
     co.spk_id,
-    coi.package_source_id AS package_id,
     coi.item_type,
     coi.quantity,
     coi.unit_price,
     coi.cost_price
   FROM public.change_order_items coi
   JOIN public.change_orders co ON coi.change_order_id = co.id
-  WHERE co.status = 'APPROVED'
-),
-package_summary AS (
-  -- Agregasi per paket
-  SELECT 
-    ci.spk_id,
-    -- Total Omzet Paket (Gunakan harga jual paket master jika terikat paket, atau akumulasi unit_price)
-    COALESCE(SUM(ci.quantity * ci.unit_price), 0) AS package_revenue,
-    COALESCE(SUM(ci.quantity * ci.cost_price), 0) AS package_cogs,
-    COALESCE(SUM(CASE WHEN ci.item_type = 'MATERIAL' THEN ci.quantity * ci.cost_price ELSE 0 END), 0) AS pkg_material_cogs,
-    COALESCE(SUM(CASE WHEN ci.item_type = 'LABOR' THEN ci.quantity * ci.cost_price ELSE 0 END), 0) AS pkg_labor_cogs,
-    COALESCE(SUM(CASE WHEN ci.item_type = 'OVERHEAD' THEN ci.quantity * ci.cost_price ELSE 0 END), 0) AS pkg_foh_cogs
-  FROM consolidated_items ci
-  WHERE ci.package_id IS NOT NULL
-  GROUP BY ci.spk_id
+  WHERE co.status = 'APPROVED' AND coi.package_source_id IS NULL AND (coi.package_name IS NULL OR coi.package_name = '')
 ),
 granular_summary AS (
-  -- Agregasi non-paket (Granular)
   SELECT 
-    ci.spk_id,
-    -- Revenue Granular
-    COALESCE(SUM(CASE WHEN ci.item_type = 'MATERIAL' THEN ci.quantity * ci.unit_price ELSE 0 END), 0) AS granular_mat_revenue,
-    COALESCE(SUM(CASE WHEN ci.item_type = 'LABOR' THEN ci.quantity * ci.unit_price ELSE 0 END), 0) AS granular_labor_revenue,
-    COALESCE(SUM(CASE WHEN ci.item_type = 'OVERHEAD' THEN ci.quantity * ci.unit_price ELSE 0 END), 0) AS granular_foh_revenue,
-    -- COGS Granular
-    COALESCE(SUM(CASE WHEN ci.item_type = 'MATERIAL' THEN ci.quantity * ci.cost_price ELSE 0 END), 0) AS granular_mat_cogs,
-    COALESCE(SUM(CASE WHEN ci.item_type = 'LABOR' THEN ci.quantity * ci.cost_price ELSE 0 END), 0) AS granular_labor_cogs,
-    COALESCE(SUM(CASE WHEN ci.item_type = 'OVERHEAD' THEN ci.quantity * ci.cost_price ELSE 0 END), 0) AS granular_foh_cogs
-  FROM consolidated_items ci
-  WHERE ci.package_id IS NULL
-  GROUP BY ci.spk_id
+    spk_id,
+    COALESCE(SUM(CASE WHEN item_type = 'MATERIAL' THEN quantity * unit_price ELSE 0 END), 0) AS granular_mat_revenue,
+    COALESCE(SUM(CASE WHEN item_type = 'LABOR' THEN quantity * unit_price ELSE 0 END), 0) AS granular_labor_revenue,
+    COALESCE(SUM(CASE WHEN item_type = 'OVERHEAD' THEN quantity * unit_price ELSE 0 END), 0) AS granular_foh_revenue,
+    COALESCE(SUM(CASE WHEN item_type = 'MATERIAL' THEN quantity * cost_price ELSE 0 END), 0) AS granular_mat_cogs,
+    COALESCE(SUM(CASE WHEN item_type = 'LABOR' THEN quantity * cost_price ELSE 0 END), 0) AS granular_labor_cogs,
+    COALESCE(SUM(CASE WHEN item_type = 'OVERHEAD' THEN quantity * cost_price ELSE 0 END), 0) AS granular_foh_cogs
+  FROM granular_items
+  GROUP BY spk_id
 )
 SELECT 
   s.id AS spk_id,
