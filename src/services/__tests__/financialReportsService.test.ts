@@ -193,4 +193,67 @@ describe('Service: financialReportsService (Exclude Draft SPK)', () => {
     expect(audit.critical_receivables_count).toBe(0);
     expect(audit.critical_receivables_items).toEqual([]);
   });
+
+  it('correctly maps SPK-3093 with package component HPP (Material Rp 837.264, Labor Rp 2.100.000, Overhead Rp 128.000) and Total Omzet Rp 5.322.000', async () => {
+    const mockQueryBuilder = {
+      order: vi.fn().mockReturnThis(),
+      not: vi.fn().mockReturnThis(),
+      then: vi.fn(),
+    };
+
+    const rawDbRows = [
+      {
+        spk_id: 'spk-uuid-3093',
+        spk_number: 'SPK-3093',
+        customer_name: 'PT Karoseri Handal',
+        vehicle_plate: 'B 3093 TXX',
+        spk_status: 'ACTIVE',
+        registration_date: '2026-10-25',
+        total_revenue: '5322000',
+        actual_material_cost: '837264',
+        actual_labor_cost: '2100000',
+        actual_overhead_cost: '128000',
+        total_cogs: '3065264',
+        gross_profit: '2256736',
+        gross_margin_percentage: '42.4',
+        package_revenue: '4792000',
+        package_cogs: '2599664',
+        package_profit: '2192336',
+        granular_mat_revenue: '270000',
+        granular_mat_cogs: '267600',
+        granular_material_profit: '2400',
+        granular_labor_revenue: '130000',
+        granular_labor_cogs: '100000',
+        granular_labor_profit: '30000',
+        granular_foh_revenue: '130000',
+        granular_foh_cogs: '98000',
+        granular_overhead_profit: '32000',
+        payment_status: 'UNBILLED',
+      },
+    ];
+
+    mockQueryBuilder.then.mockImplementation((resolve: any) =>
+      resolve({ data: rawDbRows, error: null })
+    );
+
+    vi.mocked(supabase.from).mockReturnValue({
+      select: vi.fn().mockReturnValue(mockQueryBuilder),
+    } as any);
+
+    const result = await financialReportsService.getJobProfitability();
+
+    expect(result).toHaveLength(1);
+    const item = result[0];
+    expect(item.total_revenue).toBe(5_322_000);
+    expect(item.actual_material_cost).toBe(837_264);
+    expect(item.actual_labor_cost).toBe(2_100_000);
+    expect(item.actual_overhead_cost).toBe(128_000);
+    expect(item.total_cogs).toBe(3_065_264);
+    expect(item.gross_profit).toBe(2_256_736);
+    expect(item.gross_margin_percentage).toBe(42.4);
+    expect(item.package_profit).toBe(2_192_336);
+    expect(item.granular_material_profit).toBe(2_400);
+    expect(item.granular_labor_profit).toBe(30_000);
+    expect(item.granular_overhead_profit).toBe(32_000);
+  });
 });

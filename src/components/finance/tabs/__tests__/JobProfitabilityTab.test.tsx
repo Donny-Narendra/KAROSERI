@@ -305,4 +305,69 @@ describe('Component: JobProfitabilityTab (Operational SPKs & 4-Pillar Segregated
       expect(screen.queryByText('Rincian Laba Paket Barang Jadi vs Penjualan Lepas')).not.toBeInTheDocument();
     });
   });
+
+  it('correctly renders SPK-3093 reconciled figures and 4-pillar profit cards matching RAB Perubahan totals', async () => {
+    const mockSpk3093Row: SpkJobProfitability = {
+      spk_id: 'spk-uuid-3093',
+      spk_number: 'SPK-3093',
+      customer_name: 'PT Karoseri Handal',
+      customer_phone: '08123456789',
+      vehicle_plate: 'B 3093 TXX',
+      spk_status: 'ACTIVE',
+      registration_date: '2026-10-25T08:00:00Z',
+      total_revenue: 5_322_000,
+      actual_material_cost: 837_264,
+      actual_labor_cost: 2_100_000,
+      actual_overhead_cost: 128_000,
+      total_cogs: 3_065_264,
+      gross_profit: 2_256_736,
+      gross_margin_percentage: 42.4,
+      payment_status: 'UNBILLED',
+      // 4-Pillar Segregated Profit Columns
+      package_revenue: 4_792_000,
+      package_cogs: 2_599_664,
+      package_profit: 2_192_336, // Paket Test 1 Rp 835.000 + Paket EX CUBE Rp 1.357.336
+      granular_material_revenue: 270_000,
+      granular_material_cogs: 267_600,
+      granular_material_profit: 2_400,
+      granular_labor_revenue: 130_000,
+      granular_labor_cogs: 100_000,
+      granular_labor_profit: 30_000,
+      granular_foh_revenue: 130_000,
+      granular_foh_cogs: 98_000,
+      granular_overhead_profit: 32_000,
+    };
+
+    vi.mocked(financialReportsService.getJobProfitability).mockResolvedValueOnce([mockSpk3093Row]);
+
+    render(<JobProfitabilityTab />);
+
+    await waitFor(() => {
+      expect(screen.getByText('SPK-3093')).toBeInTheDocument();
+    });
+
+    // 1. Four Pillar Top Cards
+    // Laba Paket Assembly: Rp 2.192.336
+    expect(screen.getAllByText(/2\.192\.336/).length).toBeGreaterThanOrEqual(1);
+    // Laba Material Lepas: Rp 2.400
+    expect(screen.getAllByText(/2\.400/).length).toBeGreaterThanOrEqual(1);
+    // Laba Labor Mandor: Rp 30.000
+    expect(screen.getAllByText(/30\.000/).length).toBeGreaterThanOrEqual(1);
+    // Laba FOH (Overhead): Rp 32.000
+    expect(screen.getAllByText(/32\.000/).length).toBeGreaterThanOrEqual(1);
+
+    // 2. Table Row for SPK-3093
+    // Pendapatan: Rp 5.322.000
+    expect(screen.getAllByText(/5\.322\.000/).length).toBeGreaterThanOrEqual(1);
+    // Biaya Bahan: Rp 837.264
+    expect(screen.getAllByText(/837\.264/).length).toBeGreaterThanOrEqual(1);
+    // Biaya Borongan: Rp 2.100.000
+    expect(screen.getAllByText(/2\.100\.000/).length).toBeGreaterThanOrEqual(1);
+    // Biaya Overhead: Rp 128.000
+    expect(screen.getAllByText(/128\.000/).length).toBeGreaterThanOrEqual(1);
+    // Laba Kotor (Gross): Rp 2.256.736
+    expect(screen.getAllByText(/2\.256\.736/).length).toBeGreaterThanOrEqual(1);
+    // Margin: 42.4%
+    expect(screen.getAllByText(/42\.4%/).length).toBeGreaterThanOrEqual(1);
+  });
 });

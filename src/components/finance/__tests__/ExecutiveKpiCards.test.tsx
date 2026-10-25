@@ -136,4 +136,49 @@ describe('Component: ExecutiveKpiCards', () => {
     expect(screen.getByText(/0 Proyek/i)).toBeInTheDocument();
     expect(screen.getByText('Semua Unit Bebas Piutang')).toBeInTheDocument();
   });
+
+  it('correctly renders reconciled RAB Perubahan & Kasir Billing totals for SPK-3093', () => {
+    const summarySpk3093: FinancialExecutiveSummary = {
+      total_projects: 1,
+      total_revenue: 5_322_000,
+      total_actual_material_cost: 837_264,
+      total_actual_labor_cost: 2_100_000,
+      total_actual_overhead_cost: 128_000,
+      total_cogs: 3_065_264,
+      total_gross_profit: 2_256_736,
+      average_gross_margin: 42.4,
+      total_inventory_valuation: 10_000_000,
+      total_inventory_market_value: 12_000_000,
+      total_outstanding_receivables: 0,
+      units_pending_handover: 0,
+    };
+
+    render(<ExecutiveKpiCards summary={summarySpk3093} isLoading={false} />);
+
+    // Card 1: Total Omzet SPK (Rp 5.322.000)
+    expect(screen.getByText(/1\. Total Omzet SPK/i)).toBeInTheDocument();
+    expect(screen.getByText(/5\.322\.000/)).toBeInTheDocument();
+
+    // Card 2: Biaya Bahan Baku Riil (Rp 837.264)
+    expect(screen.getByText(/2\. Biaya Bahan Baku Riil/i)).toBeInTheDocument();
+    expect(screen.getByText(/837\.264/)).toBeInTheDocument();
+    expect(screen.getByText(/15\.7% dari Omzet/i)).toBeInTheDocument();
+
+    // Card 3: Borongan Mandor (Rp 2.100.000)
+    expect(screen.getByText(/3\. Borongan Mandor/i)).toBeInTheDocument();
+    expect(screen.getByText(/2\.100\.000/)).toBeInTheDocument();
+    expect(screen.getByText(/39\.5% dari Omzet/i)).toBeInTheDocument();
+
+    // Card 4: Biaya Overhead Pabrikasi (Rp 128.000)
+    expect(screen.getByText(/4\. Biaya Overhead Pabrikasi/i)).toBeInTheDocument();
+    expect(screen.getByText(/128\.000/)).toBeInTheDocument();
+    expect(screen.getByText(/2\.4% dari Omzet/i)).toBeInTheDocument();
+
+    // Card 5: Laba Operasional (Rp 2.256.736) & Margin (42.4%) & Total Modal HPP (Rp 3.065.264)
+    expect(screen.getByText(/5\. Laba Operasional & Margin %/i)).toBeInTheDocument();
+    expect(screen.getByText(/2\.256\.736/)).toBeInTheDocument();
+    expect(screen.getByText('42.4%')).toBeInTheDocument();
+    expect(screen.getByText(/Sehat \(≥25%\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/HPP:\s*Rp\s*3\.065\.264/i)).toBeInTheDocument();
+  });
 });
