@@ -1,31 +1,45 @@
-import React, { useState, useId } from 'react';
+import React, { useState, useId, useMemo } from 'react';
 import type { MonthlyCorporatePnL } from '../../types/operatingExpenses';
 import { formatRupiah } from '../../utils/formatters';
 import { DollarSign, PieChart } from 'lucide-react';
 
-interface CorporatePnLChartsProps {
-  data: MonthlyCorporatePnL[];
+export interface CorporatePnLChartsProps {
+  data?: MonthlyCorporatePnL[];
+  pnlData?: MonthlyCorporatePnL[];
 }
 
-export const CorporatePnLCharts: React.FC<CorporatePnLChartsProps> = ({ data }) => {
+export const CorporatePnLCharts: React.FC<CorporatePnLChartsProps> = ({ data, pnlData: propPnlData }) => {
   const chartId = useId();
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [hoveredDonutSlice, setHoveredDonutSlice] = useState<string | null>(null);
 
-  // Sort chronologically ascending
-  const sortedData = [...data].sort((a, b) => 
-    new Date(a.report_month).getTime() - new Date(b.report_month).getTime()
-  );
+  const pnlData = useMemo(() => propPnlData || data || [], [propPnlData, data]);
 
-  if (sortedData.length === 0) {
-    return (
-      <div className="bg-surface border border-border rounded-xl p-8 text-center text-text-muted">
-        <DollarSign className="w-8 h-8 mx-auto mb-2 opacity-40 text-primary" />
-        <p className="text-sm font-medium">Belum ada data bulanan untuk grafik analisis Laba Rugi.</p>
-        <p className="text-xs text-text-muted/70 mt-1">Data akan otomatis ter-generate dari SPK aktif dan pencatatan OPEX.</p>
-      </div>
+  // Hitung ulang metrik grafik setiap kali data pnlData berubah
+  const chartSeries = useMemo(() => {
+    return pnlData.map(item => ({
+      month: item.report_month,
+      omzet: Number(item.total_revenue || 0),
+      totalExpense: Number(item.total_cogs || 0) + Number(item.total_opex || 0),
+      cogs: Number(item.total_cogs || 0),
+      opex: Number(item.total_opex || 0),
+      netProfit: Number(item.net_operating_profit || 0),
+      bep: Number((item as any).bep_revenue || 0) || (
+        (item.gross_profit || 0) > 0 && (item.total_revenue || 0) > 0 
+          ? (item.total_opex || 0) / ((item.gross_profit || 0) / (item.total_revenue || 0))
+          : (item.total_cogs || 0) + (item.total_opex || 0)
+      )
+    }));
+  }, [pnlData]);
+
+  // Sort chronologically ascending
+  const sortedData = useMemo(() => {
+    // Rely on chartSeries count to maintain dependency synchronization
+    if (chartSeries.length === 0) return [];
+    return [...pnlData].sort((a, b) => 
+      new Date(a.report_month).getTime() - new Date(b.report_month).getTime()
     );
-  }
+  }, [pnlData, chartSeries]);
 
   const formatMonth = (dateStr: string) => {
     try {
@@ -36,43 +50,47 @@ export const CorporatePnLCharts: React.FC<CorporatePnLChartsProps> = ({ data }) 
     }
   };
 
-  // Aggregated totals across all months for the Cost Structure Donut
-  const aggMaterial = sortedData.reduce((s, d) => s + d.total_material_cogs, 0);
-  const aggLabor = sortedData.reduce((s, d) => s + d.total_labor_cogs, 0);
-  const aggFoh = sortedData.reduce((s, d) => s + d.total_foh_cogs, 0);
-  const aggSalary = sortedData.reduce((s, d) => s + d.opex_salary, 0);
-  const aggUtility = sortedData.reduce((s, d) => s + d.opex_utility, 0);
-  const aggNetProfit = sortedData.reduce((s, d) => s + Math.max(0, d.net_operating_profit), 0);
-  const aggOtherOpex = sortedData.reduce((s, d) => s + d.opex_rent + d.opex_amenities + d.opex_others, 0);
-
-  const totalDonutBasis = aggMaterial + aggLabor + aggFoh + aggSalary + aggUtility + aggOtherOpex + aggNetProfit;
-
-  const donutSlices = [
-    { id: 'material', label: 'Material (Bahan Baku)', amount: aggMaterial, color: '#38BDF8' }, // Sky 400
-    { id: 'labor', label: 'Labor (Upah Borongan)', amount: aggLabor, color: '#FB923C' }, // Orange 400
-    { id: 'foh', label: 'Overhead Stasiun (FOH)', amount: aggFoh, color: '#A855F7' }, // Purple 500
-    { id: 'salary', label: 'Beban Gaji Staf', amount: aggSalary, color: '#EC4899' }, // Pink 500
-    { id: 'utility', label: 'Listrik & Utilitas', amount: aggUtility, color: '#EAB308' }, // Yellow 500
-    { id: 'otherOpex', label: 'Sewa & Amenities', amount: aggOtherOpex, color: '#64748B' }, // Slate 500
-    { id: 'netProfit', label: 'Laba Bersih Riil', amount: aggNetProfit, color: '#10B981' }, // Emerald 500
-  ].map(s => ({
-    ...s,
-    percentage: totalDonutBasis > 0 ? (s.amount / totalDonutBasis) * 100 : 0,
-  }));
-
-  // Svg donut metrics
+  // Svg donut metrics constants
   const donutSize = 190;
   const strokeWidth = 26;
   const radius = (donutSize - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
 
-  let accumulatedPercent = 0;
-  const donutArcs = donutSlices.map(s => {
-    const strokeDasharray = `${(s.percentage / 100) * circumference} ${circumference}`;
-    const strokeDashoffset = -((accumulatedPercent / 100) * circumference);
-    accumulatedPercent += s.percentage;
-    return { ...s, strokeDasharray, strokeDashoffset };
-  });
+  // Aggregated totals across all months for the Cost Structure Donut
+  const { totalDonutBasis, donutSlices, donutArcs } = useMemo(() => {
+    const aggMaterial = sortedData.reduce((s, d) => s + d.total_material_cogs, 0);
+    const aggLabor = sortedData.reduce((s, d) => s + d.total_labor_cogs, 0);
+    const aggFoh = sortedData.reduce((s, d) => s + d.total_foh_cogs, 0);
+    const aggSalary = sortedData.reduce((s, d) => s + d.opex_salary, 0);
+    const aggUtility = sortedData.reduce((s, d) => s + d.opex_utility, 0);
+    const aggNetProfit = sortedData.reduce((s, d) => s + Math.max(0, d.net_operating_profit), 0);
+    const aggOtherOpex = sortedData.reduce((s, d) => s + d.opex_rent + d.opex_amenities + d.opex_others, 0);
+
+    const totalBasis = aggMaterial + aggLabor + aggFoh + aggSalary + aggUtility + aggOtherOpex + aggNetProfit;
+
+    const slices = [
+      { id: 'material', label: 'Material (Bahan Baku)', amount: aggMaterial, color: '#38BDF8' }, // Sky 400
+      { id: 'labor', label: 'Labor (Upah Borongan)', amount: aggLabor, color: '#FB923C' }, // Orange 400
+      { id: 'foh', label: 'Overhead Stasiun (FOH)', amount: aggFoh, color: '#A855F7' }, // Purple 500
+      { id: 'salary', label: 'Beban Gaji Staf', amount: aggSalary, color: '#EC4899' }, // Pink 500
+      { id: 'utility', label: 'Listrik & Utilitas', amount: aggUtility, color: '#EAB308' }, // Yellow 500
+      { id: 'otherOpex', label: 'Sewa & Amenities', amount: aggOtherOpex, color: '#64748B' }, // Slate 500
+      { id: 'netProfit', label: 'Laba Bersih Riil', amount: aggNetProfit, color: '#10B981' }, // Emerald 500
+    ].map(s => ({
+      ...s,
+      percentage: totalBasis > 0 ? (s.amount / totalBasis) * 100 : 0,
+    }));
+
+    let accumulatedPercent = 0;
+    const arcs = slices.map(s => {
+      const strokeDasharray = `${(s.percentage / 100) * circumference} ${circumference}`;
+      const strokeDashoffset = -((accumulatedPercent / 100) * circumference);
+      accumulatedPercent += s.percentage;
+      return { ...s, strokeDasharray, strokeDashoffset };
+    });
+
+    return { totalDonutBasis: totalBasis, donutSlices: slices, donutArcs: arcs };
+  }, [sortedData, circumference]);
 
   // Trend Bar & Line Chart Metrics
   const chartHeight = 230;
@@ -80,42 +98,69 @@ export const CorporatePnLCharts: React.FC<CorporatePnLChartsProps> = ({ data }) 
   const paddingBottom = 30;
   const effectiveHeight = chartHeight - paddingTop - paddingBottom;
 
-  // Max scale includes revenue, stacked costs (cogs + opex), and BEP line
-  const maxVal = Math.max(
-    ...sortedData.map(d => Math.max(
-      d.total_revenue, 
-      d.total_cogs + d.total_opex,
-      // BEP approximate line: if gross profit margin > 0, BEP = opex / (gross_margin)
-      d.gross_profit > 0 && d.total_revenue > 0 ? (d.total_opex / (d.gross_profit / d.total_revenue)) : d.total_cogs + d.total_opex
-    )),
-    1000000
-  );
+  const { maxVal, totalWidth, netProfitPoints, netLinePath, bepLinePath } = useMemo(() => {
+    const calculatedMax = Math.max(
+      ...sortedData.map(d => Math.max(
+        d.total_revenue, 
+        d.total_cogs + d.total_opex,
+        d.gross_profit > 0 && d.total_revenue > 0 ? (d.total_opex / (d.gross_profit / d.total_revenue)) : d.total_cogs + d.total_opex
+      )),
+      1000000
+    );
 
-  const totalWidth = Math.max(500, sortedData.length * 120);
+    const calculatedWidth = Math.max(500, sortedData.length * 120);
+    const netPoints: { x: number; y: number; val: number }[] = [];
+    const bPoints: { x: number; y: number; val: number }[] = [];
 
-  // Line points for Net Profit and BEP
-  const netProfitPoints: { x: number; y: number; val: number }[] = [];
-  const bepPoints: { x: number; y: number; val: number }[] = [];
+    sortedData.forEach((d, idx) => {
+      const colWidth = calculatedWidth / (sortedData.length || 1);
+      const x = idx * colWidth + colWidth / 2;
 
-  sortedData.forEach((d, idx) => {
-    const colWidth = totalWidth / sortedData.length;
-    const x = idx * colWidth + colWidth / 2;
+      // Net Profit y
+      const netY = paddingTop + (effectiveHeight - (Math.max(0, d.net_operating_profit) / calculatedMax) * effectiveHeight);
+      netPoints.push({ x, y: netY, val: d.net_operating_profit });
 
-    // Net Profit y
-    const netY = paddingTop + (effectiveHeight - (Math.max(0, d.net_operating_profit) / maxVal) * effectiveHeight);
-    netProfitPoints.push({ x, y: netY, val: d.net_operating_profit });
+      // BEP y
+      const cmr = d.total_revenue > 0 ? (d.gross_profit / d.total_revenue) : 0;
+      const bepRev = cmr > 0 ? (d.total_opex / cmr) : (d.total_cogs + d.total_opex);
+      const bepY = paddingTop + (effectiveHeight - (Math.min(calculatedMax, bepRev) / calculatedMax) * effectiveHeight);
+      bPoints.push({ x, y: bepY, val: bepRev });
+    });
 
-    // BEP y
-    const cmr = d.total_revenue > 0 ? (d.gross_profit / d.total_revenue) : 0;
-    const bepRev = cmr > 0 ? (d.total_opex / cmr) : (d.total_cogs + d.total_opex);
-    const bepY = paddingTop + (effectiveHeight - (Math.min(maxVal, bepRev) / maxVal) * effectiveHeight);
-    bepPoints.push({ x, y: bepY, val: bepRev });
-  });
+    const netLine = netPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+    const bepLine = bPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
 
-  const netLinePath = netProfitPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-  const bepLinePath = bepPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+    return {
+      maxVal: calculatedMax,
+      totalWidth: calculatedWidth,
+      netProfitPoints: netPoints,
+      bepPoints: bPoints,
+      netLinePath: netLine,
+      bepLinePath: bepLine
+    };
+  }, [sortedData, effectiveHeight]);
 
-  const activeDonutItem = donutSlices.find(s => s.id === hoveredDonutSlice);
+  const activeDonutItem = useMemo(() => {
+    return donutSlices.find(s => s.id === hoveredDonutSlice);
+  }, [donutSlices, hoveredDonutSlice]);
+
+  // Active Month Data for bottom label display: either hovered month or latest available month
+  const activeMonthData = useMemo(() => {
+    if (hoveredIndex !== null && sortedData[hoveredIndex]) {
+      return sortedData[hoveredIndex];
+    }
+    return sortedData[sortedData.length - 1] || sortedData[0];
+  }, [hoveredIndex, sortedData]);
+
+  if (sortedData.length === 0) {
+    return (
+      <div className="bg-surface border border-border rounded-xl p-8 text-center text-text-muted">
+        <DollarSign className="w-8 h-8 mx-auto mb-2 opacity-40 text-primary" />
+        <p className="text-sm font-medium">Belum ada data bulanan untuk grafik analisis Laba Rugi.</p>
+        <p className="text-xs text-text-muted/70 mt-1">Data akan otomatis ter-generate dari SPK aktif dan pencatatan OPEX.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -333,31 +378,33 @@ export const CorporatePnLCharts: React.FC<CorporatePnLChartsProps> = ({ data }) 
           </div>
         </div>
 
-        {/* Hover Summary Tooltip */}
-        {hoveredIndex !== null && sortedData[hoveredIndex] && (
+        {/* Teks Label Bawah Grafik: Ringkasan Metrik Bulan Aktif / Hover */}
+        {activeMonthData && (
           <div className="p-3 rounded-xl bg-surface-hover/80 border border-border text-xs grid grid-cols-2 sm:grid-cols-4 gap-2.5 animate-in fade-in duration-150">
             <div>
-              <span className="text-[10px] text-text-muted block">Bulan</span>
+              <span className="text-[10px] text-text-muted block">
+                {hoveredIndex !== null ? 'Bulan (Hover)' : 'Bulan Aktif'}
+              </span>
               <span className="font-bold text-text font-display">
-                {formatMonth(sortedData[hoveredIndex].report_month)}
+                {formatMonth(activeMonthData.report_month)}
               </span>
             </div>
             <div>
               <span className="text-[10px] text-blue-400 block font-semibold">Omzet Penjualan</span>
               <span className="font-bold font-mono text-blue-400">
-                {formatRupiah(sortedData[hoveredIndex].total_revenue)}
+                {formatRupiah(activeMonthData.total_revenue)}
               </span>
             </div>
             <div>
               <span className="text-[10px] text-rose-400 block font-semibold">HPP + OPEX</span>
               <span className="font-bold font-mono text-rose-400">
-                {formatRupiah(sortedData[hoveredIndex].total_cogs + sortedData[hoveredIndex].total_opex)}
+                {formatRupiah(activeMonthData.total_cogs + activeMonthData.total_opex)}
               </span>
             </div>
             <div>
               <span className="text-[10px] text-emerald-400 block font-semibold">Laba Bersih (EBIT)</span>
               <span className="font-bold font-mono text-emerald-400">
-                {formatRupiah(sortedData[hoveredIndex].net_operating_profit)}
+                {formatRupiah(activeMonthData.net_operating_profit)}
               </span>
             </div>
           </div>

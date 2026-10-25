@@ -1,5 +1,18 @@
+import React from 'react';
 import { OpexLoggingModal } from './OpexLoggingModal';
+import type { OpexLoggingModalProps } from './OpexLoggingModal';
 
-export { OpexLoggingModal as OperatingExpenseManagerModal };
-export type { OpexLoggingModalProps as OperatingExpenseManagerModalProps } from './OpexLoggingModal';
-export default OpexLoggingModal;
+export interface OperatingExpenseManagerModalProps extends OpexLoggingModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onExpenseChanged?: () => void; // Trigger refresh ke halaman utama
+  onExpenseAdded?: () => void;
+  currentMonth?: string;
+  defaultMonth?: string;
+}
+
+export const OperatingExpenseManagerModal: React.FC<OperatingExpenseManagerModalProps> = (props) => {
+  return <OpexLoggingModal {...props} />;
+};
+
+export default OperatingExpenseManagerModal;

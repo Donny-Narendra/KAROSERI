@@ -1,25 +1,31 @@
 ## Current Position
-- **Sprint**: Sprint 96 — Enforce Live Database Aggregation for Pagu, Realisasi, and Variance (Zero Hardcoded Values)
+- **Sprint**: Sprint 97 — Fix Stale OPEX State and Ensure Immediate Chart Re-rendering on Expense Deletion
 - **Status**: Sprint completed ✓
 - **Milestone**: Core Business Recommendations Hardening — Enterprise Production Readiness
 
 ## Last Session Summary
-- Sprint 96 completed:
-  * Database Migration:
-    - Created and applied `supabase/migrations/20261025020000_enforce_live_db_aggregation_wbs_variance.sql`.
-    - Created `public.goods_issues` view over approved warehouse `inventory_transactions`.
-    - Synchronized `rab_items.wbs_stage` with `wbs_category_to_stage(wbs_category)`.
-    - Recreated `public.view_wbs_cost_variance` with pure transaction queries from `rab_items`, `change_order_items` (APPROVED), `goods_issues`, `spk_borongan`, and `spk_overhead_logs`.
-    - Columns: `total_material_budget`, `total_labor_budget`, `total_overhead_budget`, `total_wbs_budget`, `actual_material_spent`, `actual_labor_spent`, `actual_overhead_spent`, `total_actual_wbs_spent`, `material_variance`, `labor_variance`, `overhead_variance`, `total_wbs_variance`, and `wbs_budget_status`.
-  * Frontend Audit & Alignment:
-    - Audited `src/components/finance/tabs/WbsCostVarianceTab.tsx` and confirmed zero static mockup data (no `dummyWbs`, `MOCK_VARIANCE`, fallback constants).
-    - Rendered table cells directly using `formatRupiah` from Supabase row columns for all 3 pillars (Material, Labor, Overhead).
-    - Integrated live `wbs_budget_status` badge.
-    - Added compatibility export in `src/components/finance/WbsCostVarianceTab.tsx`.
-    - Updated `src/types/financialReports.ts` and `src/services/financialReportsService.ts`.
+- Sprint 97 completed:
+  * Modal Event Trigger (`OperatingExpenseManagerModal.tsx` & `OpexLoggingModal.tsx`):
+    - Added `onExpenseChanged?: () => void` and `currentMonth?: string` to props interface.
+    - Updated `handleDeleteExpense` to execute Supabase `DELETE`, immediately filter local state list (`setExpenses(prev => prev.filter(...))`), and trigger `onExpenseChanged?.()`.
+    - Updated `handleCreateSubmit` to invoke `onExpenseChanged?.()`.
+  * Centralized Refetch Pipeline (`FinancialReportsPage.tsx` & `CorporatePnlTab.tsx`):
+    - Implemented `handleRefreshAllFinancialData` combining `fetchExecutiveSummary()`, `fetchJobProfitability()`, `fetchCorporatePnL()`, and `fetchWbsVariance()`.
+    - Passed `onExpenseChanged={handleRefreshAllFinancialData}` to `OperatingExpenseManagerModal` and `CorporatePnlTab`.
+    - Wired `CorporatePnlTab`'s internal modal to trigger parent refetch, ensuring Executive KPI cards, Corporate P&L, CVP Solver, and charts update simultaneously without hard reload.
+    - Added header shortcut button for OPEX management.
+  * Chart Reactivity (`CorporatePnLCharts.tsx`):
+    - Recomputed `chartSeries`, `sortedData`, donut metrics, and SVG paths reactively via `useMemo`.
+    - Ensured bottom summary labels reactively display for active/hovered month:
+      * Omzet Penjualan: `formatRupiah(activeMonthData.total_revenue)`
+      * HPP + OPEX: `formatRupiah(activeMonthData.total_cogs + activeMonthData.total_opex)`
+      * Laba Bersih (EBIT): `formatRupiah(activeMonthData.net_operating_profit)`
   * Testing & Verification:
-    - Added unit test coverage in `src/components/finance/tabs/__tests__/WbsCostVarianceTab.test.tsx` and `src/services/__tests__/financialReportsService.test.ts`.
-    - Verified all 72 test suites (521 tests passed), 0 oxlint errors, and successful production build.
+    - Updated `OperatingExpenseManagerModal.test.tsx` (7 tests green) testing deletion callback, local state update, confirmation alert, and creation.
+    - Created `CorporatePnLCharts.test.tsx` (4 tests green) testing instant re-rendering without reload upon OPEX deletion.
+    - Ran full test suite: 73 test files passed (527 tests green).
+    - Ran oxlint: 0 errors.
+    - Production build: `tsc -b && vite build` succeeded in 500ms.
 
 ## Next Up
-- Sprint 96 ready to close or proceed with next request.
+- Sprint 97 ready to close or proceed with next request.

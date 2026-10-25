@@ -21,9 +21,10 @@ import { OperatingExpenseManagerModal } from '../OperatingExpenseManagerModal';
 
 interface CorporatePnlTabProps {
   refreshTrigger?: number;
+  onExpenseChanged?: () => void;
 }
 
-export const CorporatePnlTab: React.FC<CorporatePnlTabProps> = ({ refreshTrigger }) => {
+export const CorporatePnlTab: React.FC<CorporatePnlTabProps> = ({ refreshTrigger, onExpenseChanged }) => {
   const [data, setData] = useState<MonthlyCorporatePnL[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -562,7 +563,15 @@ export const CorporatePnlTab: React.FC<CorporatePnlTabProps> = ({ refreshTrigger
         isOpen={isOpexModalOpen}
         onClose={() => setIsOpexModalOpen(false)}
         defaultMonth={selectedOpexMonth}
-        onExpenseAdded={fetchData}
+        currentMonth={selectedOpexMonth}
+        onExpenseAdded={() => {
+          fetchData();
+          onExpenseChanged?.();
+        }}
+        onExpenseChanged={() => {
+          fetchData();
+          onExpenseChanged?.();
+        }}
       />
     </div>
   );

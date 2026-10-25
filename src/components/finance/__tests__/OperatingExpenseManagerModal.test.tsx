@@ -51,11 +51,13 @@ describe('Component: OperatingExpenseManagerModal & OpexLoggingModal', () => {
       profile: { role: 'kasir' },
     });
 
-    // Mock direct supabase query for expense_categories
+    // Mock direct supabase query for expense_categories and operating_expenses
     const orderMock = vi.fn().mockResolvedValue({ data: mockCategories, error: null });
     const eqMock = vi.fn().mockReturnValue({ order: orderMock });
     const selectMock = vi.fn().mockReturnValue({ eq: eqMock });
-    vi.mocked(supabase.from).mockReturnValue({ select: selectMock } as any);
+    const deleteEqMock = vi.fn().mockResolvedValue({ error: null });
+    const deleteMock = vi.fn().mockReturnValue({ eq: deleteEqMock });
+    vi.mocked(supabase.from).mockReturnValue({ select: selectMock, delete: deleteMock } as any);
 
     vi.mocked(operatingExpenseService.getCategories).mockResolvedValue(mockCategories);
     vi.mocked(operatingExpenseService.getExpensesByMonth).mockResolvedValue([]);
@@ -168,5 +170,106 @@ describe('Component: OperatingExpenseManagerModal & OpexLoggingModal', () => {
       );
       expect(onExpenseAdded).toHaveBeenCalled();
     });
+  });
+
+  it('triggers onExpenseChanged when a new expense item is successfully created', async () => {
+    const onExpenseChanged = vi.fn();
+    vi.mocked(operatingExpenseService.createExpense).mockResolvedValue({
+      id: 'exp-new',
+      expense_date: '2026-10-25',
+      effective_month: '2026-10-01',
+      category_id: 'cat-1',
+      category_name: 'Amortisasi Sewa Tempat & Gedung',
+      description: 'Sewa gedung workshop',
+      amount: 15_000_000,
+      payment_method: 'TRANSFER',
+    });
+
+    render(
+      <OperatingExpenseManagerModal 
+        isOpen={true} 
+        onClose={vi.fn()} 
+        currentMonth="2026-10" 
+        onExpenseChanged={onExpenseChanged} 
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Amortisasi Sewa Tempat & Gedung' })).toBeInTheDocument();
+    });
+
+    const descInput = screen.getByPlaceholderText(/Beli Token Listrik/i);
+    const amountInput = screen.getByPlaceholderText('0');
+
+    fireEvent.change(descInput, { target: { value: 'Sewa gedung workshop' } });
+    fireEvent.change(amountInput, { target: { value: '15000000' } });
+
+    const submitBtn = screen.getByText('Simpan Pengeluaran');
+    const form = submitBtn.closest('form');
+    fireEvent.submit(form!);
+
+    await waitFor(() => {
+      expect(onExpenseChanged).toHaveBeenCalled();
+    });
+  });
+
+  it('executes delete, updates local list state, and triggers onExpenseChanged callback', async () => {
+    const onExpenseChanged = vi.fn();
+    const mockExistingExpenses = [
+      {
+        id: 'exp-delete-1',
+        expense_date: '2026-10-15',
+        effective_month: '2026-10-01',
+        category_id: 'cat-2',
+        category_name: 'Gaji & Tunjangan Staf Tetap',
+        description: 'Gaji mekanik bulan Oktober',
+        amount: 8_500_000,
+        payment_method: 'TRANSFER' as const,
+        created_at: '2026-10-15T10:00:00Z',
+      },
+    ];
+
+    vi.mocked(operatingExpenseService.getExpensesByMonth).mockResolvedValue(mockExistingExpenses);
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    const deleteEqMock = vi.fn().mockResolvedValue({ error: null });
+    const deleteMock = vi.fn().mockReturnValue({ eq: deleteEqMock });
+    vi.mocked(supabase.from).mockReturnValue({
+      select: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnValue({ order: vi.fn().mockResolvedValue({ data: mockCategories, error: null }) }) }),
+      delete: deleteMock,
+    } as any);
+
+    render(
+      <OperatingExpenseManagerModal 
+        isOpen={true} 
+        onClose={vi.fn()} 
+        currentMonth="2026-10" 
+        onExpenseChanged={onExpenseChanged} 
+      />
+    );
+
+    // Switch to 'list' view tab
+    const viewListBtn = await screen.findByText(/Daftar Pengeluaran/i);
+    fireEvent.click(viewListBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Gaji mekanik bulan Oktober')).toBeInTheDocument();
+    });
+
+    // Click delete button
+    const deleteBtn = screen.getByTitle('Hapus Transaksi');
+    fireEvent.click(deleteBtn);
+
+    expect(confirmSpy).toHaveBeenCalledWith('Apakah Anda yakin ingin menghapus catatan pengeluaran ini?');
+
+    await waitFor(() => {
+      expect(deleteMock).toHaveBeenCalled();
+      expect(deleteEqMock).toHaveBeenCalledWith('id', 'exp-delete-1');
+      expect(onExpenseChanged).toHaveBeenCalled();
+      // Item should be removed from local state list
+      expect(screen.queryByText('Gaji mekanik bulan Oktober')).not.toBeInTheDocument();
+    });
+
+    confirmSpy.mockRestore();
   });
 });

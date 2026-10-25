@@ -1,64 +1,54 @@
-# Sprint 96 — Enforce Live Database Aggregation for Pagu, Realisasi, and Variance (Zero Hardcoded Values)
+# Sprint 97 — Fix Stale OPEX State and Ensure Immediate Chart Re-rendering on Expense Deletion
 
 > **Duration**: 2026-10-25 to 2026-10-25
 > **Status**: Completed ✓
 
 ## Goal
-Enforce live database PostgreSQL aggregation for Pagu, Realisasi fisik warehouse, and dynamic Variance across `/finance-reports` tab "2. Varian RAB vs Aktual (per WBS)" and `/dashboard` with zero hardcoded or mockup values.
+Fix stale OPEX state and ensure immediate chart and financial reports re-rendering when operating expense items are created or deleted in the OPEX manager modal.
 
 ## Scope
 
 ### Included
-- **Task 1: Database View `view_wbs_cost_variance` & `goods_issues`**
-  - Created migration `supabase/migrations/20261025020000_enforce_live_db_aggregation_wbs_variance.sql`.
-  - Created `public.goods_issues` view exposing warehouse approved transactions (`quantity`, `custom_unit_price`, `unit_price`, `status`, `wbs_stage`).
-  - Synchronized `rab_items.wbs_stage` with `wbs_category_to_stage(wbs_category)`.
-  - Implemented `public.view_wbs_cost_variance` with pure transaction joins:
-    * Pagu: `rab_items` + approved `change_order_items` (`quantity * cost_price`).
-    * Realisasi Material: `goods_issues` where status is not VOIDED/CANCELLED (`quantity * COALESCE(custom_unit_price, unit_price, 0)`).
-    * Realisasi Labor: `spk_borongan` where status is not CANCELLED (`contract_value`).
-    * Realisasi Overhead: `spk_overhead_logs` (`total_amount`).
-    * Dynamic Variance: `Pagu - Realisasi` for Material, Labor, Overhead, and Total WBS.
-    * Status: `OVERBUDGET` vs `HEMAT / DALAM BATAS`.
-    * Exclude draft & pending payment SPKs.
-  - Granted permissions on `view_wbs_cost_variance` and `goods_issues` to authenticated role.
-- **Task 2: Audit Frontend Component (`WbsCostVarianceTab.tsx`)**
-  - Verified zero hardcoded/mock arrays (`dummyWbs`, `MOCK_VARIANCE`, etc.).
-  - Directly render live Supabase columns for Pagu, Realisasi, and Varian across Material, Jasa, and Overhead:
-    * Material: `total_material_budget`, `actual_material_spent`, `material_variance` via `formatRupiah`
-    * Jasa: `total_labor_budget`, `actual_labor_spent`, `labor_variance` via `formatRupiah`
-    * Overhead: `total_overhead_budget`, `actual_overhead_spent`, `overhead_variance` via `formatRupiah`
-    * Status: `wbs_budget_status` badge directly from Supabase.
-  - Added compatibility export in `src/components/finance/WbsCostVarianceTab.tsx`.
-- **Task 3: Automated Testing & Verification**
-  - Updated `WbsCostVarianceTab.test.tsx` and `financialReportsService.test.ts` with tests verifying pure live database rendering.
-  - Verified all 72 test suites pass (521 tests green), 0 oxlint errors, and successful production build.
+- **Task 1: Event Callbacks in `OperatingExpenseManagerModal.tsx` & `OpexLoggingModal.tsx`**
+  - Added `onExpenseChanged?: () => void` and `currentMonth?: string` to `OperatingExpenseManagerModalProps` and `OpexLoggingModalProps`.
+  - In `handleDeleteExpense`: executed Supabase `DELETE` on `operating_expenses`, filtered out deleted item from local `expenses` list state immediately, and triggered `onExpenseChanged()` and `onExpenseAdded()`.
+  - In `handleCreateSubmit`: saved expense, reloaded expenses, and triggered `onExpenseChanged()` and `onExpenseAdded()`.
+  - Supported `currentMonth` and `defaultMonth` synchronizing active month state.
+- **Task 2: Centralized Refetch in `FinancialReportsPage.tsx` & `CorporatePnlTab.tsx`**
+  - Implemented `handleRefreshAllFinancialData` combining `fetchExecutiveSummary()`, `fetchJobProfitability()`, `fetchCorporatePnL()`, and `fetchWbsVariance()`.
+  - Connected `onExpenseChanged={handleRefreshAllFinancialData}` to `OperatingExpenseManagerModal` in `FinancialReportsPage.tsx`.
+  - Passed `onExpenseChanged` prop to `CorporatePnlTab.tsx` and wired its internal OPEX modal to invoke parent refetch, updating Executive KPI cards, Corporate P&L, CVP Solver, and charts simultaneously.
+  - Added "Kelola OPEX" shortcut button in header for rapid access.
+- **Task 3: Reactive Metrics and Bottom Labels in `CorporatePnLCharts.tsx`**
+  - Supported both `pnlData` and `data` props.
+  - Recomputed `chartSeries`, `sortedData`, `donutMetrics`, and SVG dimensions reactively via `useMemo`.
+  - Guaranteed bottom summary labels display reactive metrics for active / hovered month:
+    * Omzet Penjualan: `formatRupiah(activeMonthData.total_revenue)`
+    * HPP + OPEX: `formatRupiah(activeMonthData.total_cogs + activeMonthData.total_opex)`
+    * Laba Bersih (EBIT): `formatRupiah(activeMonthData.net_operating_profit)`
+- **Task 4: Automated Testing & Verification**
+  - Added unit tests in `src/components/finance/__tests__/OperatingExpenseManagerModal.test.tsx` verifying deletion callback, local state removal, confirmation modal, and create callback.
+  - Created `src/components/finance/__tests__/CorporatePnLCharts.test.tsx` testing empty state, `pnlData` prop, bottom summary labels, and instant re-rendering without reload upon expense deletion.
+  - Verified all 73 test suites passed (527 tests green), 0 oxlint errors, and successful production build.
 
 ### Explicitly Excluded
-- Modifying inventory deduction triggers or altering general ledger double-entry journal creation.
+- Altering database schema or double-entry journal ledger schema.
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| Task 1: Create SQL migration for goods_issues and view_wbs_cost_variance | Claude | ✅ Done | 0.5 |
-| Task 2: Audit and refine WbsCostVarianceTab and financial services | Claude | ✅ Done | 0.5 |
-| Task 3: Unit testing, empirical validation, and build verification | Claude | ✅ Done | 0.5 |
+| Task 1: Add onExpenseChanged and currentMonth in OperatingExpenseManagerModal & OpexLoggingModal | Claude | ✅ Done | 0.5 |
+| Task 2: Connect centralized handleRefreshAllFinancialData in FinancialReportsPage & CorporatePnlTab | Claude | ✅ Done | 0.5 |
+| Task 3: Reactive useMemo chart metrics & bottom labels in CorporatePnLCharts | Claude | ✅ Done | 0.5 |
+| Task 4: Unit tests & empirical verification | Claude | ✅ Done | 0.5 |
 
 ## Daily Log
 
 ### 2026-10-25
-- Sprint 96 started.
-- Baseline vitest verified (72 test files, 518 tests green).
-- Created migration `supabase/migrations/20261025020000_enforce_live_db_aggregation_wbs_variance.sql`:
-  * Created `public.goods_issues` view mapped to warehouse `inventory_transactions`.
-  * Backfilled `rab_items.wbs_stage` using `wbs_category_to_stage(wbs_category)`.
-  * Rebuilt `public.view_wbs_cost_variance` to strictly aggregate from transactional tables: `rab_items`, `change_order_items`, `goods_issues`, `spk_borongan`, and `spk_overhead_logs`.
-  * Applied migration to PostgreSQL live database and verified live rows.
-- Refactored `WbsCostVarianceTab.tsx`:
-  * Completely free of any static mockup objects (`dummyWbs`, `MOCK_VARIANCE`, fallback constants).
-  * Rendered cells directly using `formatRupiah` from Supabase row columns.
-  * Rendered `wbs_budget_status` directly from live view.
-  * Created clean re-export in `src/components/finance/WbsCostVarianceTab.tsx`.
-- Updated `src/types/financialReports.ts` and `src/services/financialReportsService.ts`.
-- Verified 72 test suites (521 tests passed), 0 oxlint errors, and successful production build.
+- Sprint 97 completed.
+- Solved stale OPEX state bug:
+  1. Updated `OperatingExpenseManagerModal` & `OpexLoggingModal` to trigger `onExpenseChanged` on deletion and creation.
+  2. Integrated `handleRefreshAllFinancialData` across `FinancialReportsPage.tsx` and `CorporatePnlTab.tsx`.
+  3. Recomputed `CorporatePnLCharts` series, donut basis, and bottom labels reactively via `useMemo`.
+  4. Verified all 73 test suites pass (527 tests green), zero lint errors, and production build succeeded.

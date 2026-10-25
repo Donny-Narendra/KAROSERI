@@ -25,6 +25,7 @@ import { WbsCostVarianceTab } from '../components/finance/tabs/WbsCostVarianceTa
 import { InventoryValuationTab } from '../components/finance/tabs/InventoryValuationTab';
 import { ReceivablesAgingTab } from '../components/finance/tabs/ReceivablesAgingTab';
 import { CorporatePnlTab } from '../components/finance/tabs/CorporatePnlTab';
+import { OperatingExpenseManagerModal } from '../components/finance/OperatingExpenseManagerModal';
 import { financialReportsService } from '../services/financialReportsService';
 import { exportToExcel, exportFullFinancialWorkbook, exportToCsv } from '../utils/exportFinancialReports';
 import type { 
@@ -58,6 +59,10 @@ export const FinancialReportsPage: React.FC = () => {
   // Refresh trigger counter to signal child tabs
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
 
+  // OPEX Modal State
+  const [isOpexModalOpen, setIsOpexModalOpen] = useState<boolean>(false);
+  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7));
+
   // Print & Export Engine States (Step 5)
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [printTab, setPrintTab] = useState<'all' | 'profitability' | 'variance' | 'inventory' | 'receivables' | 'corporate_pnl'>('all');
@@ -71,7 +76,7 @@ export const FinancialReportsPage: React.FC = () => {
   const [allReceivables, setAllReceivables] = useState<ProjectReceivable[]>([]);
   const [allCorporatePnl, setAllCorporatePnl] = useState<CorporateMonthlyPnl[]>([]);
 
-  const fetchSummary = useCallback(async () => {
+  const fetchExecutiveSummary = useCallback(async () => {
     setLoadingSummary(true);
     setSummaryError(null);
     try {
@@ -80,20 +85,49 @@ export const FinancialReportsPage: React.FC = () => {
         endDate: endDate || undefined,
       });
       setSummary(data);
+      return data;
     } catch (err: any) {
       console.error('Failed to fetch financial executive summary:', err);
       setSummaryError(err.message || 'Gagal memuat ringkasan KPI eksekutif.');
+      return null;
     } finally {
       setLoadingSummary(false);
     }
   }, [startDate, endDate]);
 
+  const fetchJobProfitability = useCallback(async () => {
+    return financialReportsService.getJobProfitability({
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
+      searchQuery: globalSearch || undefined,
+    });
+  }, [startDate, endDate, globalSearch]);
+
+  const fetchCorporatePnL = useCallback(async () => {
+    return financialReportsService.getCorporateMonthlyPnl();
+  }, []);
+
+  const fetchWbsVariance = useCallback(async () => {
+    return financialReportsService.getWbsCostVariance();
+  }, []);
+
+  // Centralized refetch to reload all corporate financial data simultaneously
+  const handleRefreshAllFinancialData = useCallback(async () => {
+    setRefreshTrigger(prev => prev + 1);
+    await Promise.all([
+      fetchExecutiveSummary(),
+      fetchJobProfitability(),
+      fetchCorporatePnL(),
+      fetchWbsVariance()
+    ]);
+  }, [fetchExecutiveSummary, fetchJobProfitability, fetchCorporatePnL, fetchWbsVariance]);
+
   useEffect(() => {
-    fetchSummary();
-  }, [fetchSummary, refreshTrigger]);
+    fetchExecutiveSummary();
+  }, [fetchExecutiveSummary, refreshTrigger]);
 
   const handleManualRefresh = () => {
-    setRefreshTrigger(prev => prev + 1);
+    handleRefreshAllFinancialData();
   };
 
   const handleSetQuickDate = (period: 'this_month' | 'this_year' | 'all') => {
@@ -265,6 +299,17 @@ export const FinancialReportsPage: React.FC = () => {
               <span className="text-text-muted">Akses Pengguna:</span>
               <span className="text-secondary font-semibold">{profile?.full_name} ({profile?.role})</span>
             </div>
+            <button
+              onClick={() => {
+                setSelectedMonth(startDate ? startDate.slice(0, 7) : new Date().toISOString().slice(0, 7));
+                setIsOpexModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 bg-purple-600/15 hover:bg-purple-600/25 text-purple-400 border border-purple-500/30 rounded-lg text-sm font-medium transition cursor-pointer"
+              title="Kelola Biaya Operasional (OPEX)"
+            >
+              <Building2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Kelola OPEX</span>
+            </button>
             <button
               onClick={handleManualRefresh}
               disabled={loadingSummary}
@@ -532,10 +577,19 @@ export const FinancialReportsPage: React.FC = () => {
           {activeTab === 'corporate_pnl' && (
             <CorporatePnlTab
               refreshTrigger={refreshTrigger}
+              onExpenseChanged={handleRefreshAllFinancialData}
             />
           )}
         </div>
       </main>
+
+      {/* Modal Pencatatan Biaya Operasional Berkala (OPEX) */}
+      <OperatingExpenseManagerModal
+        isOpen={isOpexModalOpen}
+        onClose={() => setIsOpexModalOpen(false)}
+        onExpenseChanged={handleRefreshAllFinancialData}
+        currentMonth={selectedMonth}
+      />
 
       {/* Modal Cetak Formal PDF (Step 5) */}
       <FinancialPrintReport

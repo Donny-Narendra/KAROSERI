@@ -22,6 +22,8 @@ export interface OpexLoggingModalProps {
   isOpen: boolean;
   onClose: () => void;
   onExpenseAdded?: () => void;
+  onExpenseChanged?: () => void; // Trigger refresh ke halaman utama
+  currentMonth?: string;
   defaultMonth?: string; // YYYY-MM
 }
 
@@ -29,9 +31,11 @@ export const OpexLoggingModal: React.FC<OpexLoggingModalProps> = ({
   isOpen,
   onClose,
   onExpenseAdded,
+  onExpenseChanged,
+  currentMonth,
   defaultMonth,
 }) => {
-  const currentMonthStr = defaultMonth || new Date().toISOString().slice(0, 7);
+  const currentMonthStr = currentMonth || defaultMonth || new Date().toISOString().slice(0, 7);
 
   // Modal Kelola Kategori State
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
@@ -58,7 +62,16 @@ export const OpexLoggingModal: React.FC<OpexLoggingModalProps> = ({
   const [receiptRef, setReceiptRef] = useState<string>('');
 
   // Delete handling
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Sync selectedMonth if currentMonth or defaultMonth changes
+  useEffect(() => {
+    const active = currentMonth || defaultMonth;
+    if (active) {
+      setSelectedMonth(active);
+    }
+  }, [currentMonth, defaultMonth]);
 
   // 1. Fetching Kategori Dinamis dari expense_categories
   const loadCategories = useCallback(async (preferredCatId?: string) => {
@@ -175,7 +188,12 @@ export const OpexLoggingModal: React.FC<OpexLoggingModalProps> = ({
       setAmountStr('');
       setReceiptRef('');
       await loadExpenses();
-      onExpenseAdded?.();
+      if (onExpenseChanged) {
+        onExpenseChanged();
+      }
+      if (onExpenseAdded) {
+        onExpenseAdded();
+      }
       setViewMode('list');
     } catch (err: any) {
       setError(err.message || 'Gagal menyimpan pengeluaran operasional.');
@@ -184,19 +202,34 @@ export const OpexLoggingModal: React.FC<OpexLoggingModalProps> = ({
     }
   };
 
-  const handleDeleteExpense = async (id: string) => {
-    if (!window.confirm('Apakah Anda yakin ingin menghapus catatan pengeluaran operasional ini?')) {
-      return;
-    }
+  const handleDeleteExpense = async (expenseId: string) => {
+    if (!window.confirm('Apakah Anda yakin ingin menghapus catatan pengeluaran ini?')) return;
 
-    setDeletingId(id);
+    setIsDeleting(true);
+    setDeletingId(expenseId);
     try {
-      await operatingExpenseService.deleteExpense(id);
-      await loadExpenses();
-      onExpenseAdded?.();
+      const { error } = await supabase
+        .from('operating_expenses')
+        .delete()
+        .eq('id', expenseId);
+
+      if (error) throw error;
+
+      // 1. Update state list lokal di dalam modal
+      setExpenses(prev => prev.filter(e => e.id !== expenseId));
+      setSuccessMsg('Catatan beban berhasil dihapus');
+
+      // 2. Trigger penyegaran data ke halaman induk (Laporan & Grafik)
+      if (onExpenseChanged) {
+        onExpenseChanged();
+      }
+      if (onExpenseAdded) {
+        onExpenseAdded();
+      }
     } catch (err: any) {
-      alert(`Gagal menghapus pengeluaran: ${err.message}`);
+      setError(`Gagal menghapus: ${err.message}`);
     } finally {
+      setIsDeleting(false);
       setDeletingId(null);
     }
   };
@@ -521,7 +554,7 @@ export const OpexLoggingModal: React.FC<OpexLoggingModalProps> = ({
                         <button
                           type="button"
                           onClick={() => handleDeleteExpense(item.id)}
-                          disabled={deletingId === item.id}
+                          disabled={isDeleting || deletingId === item.id}
                           className="p-1.5 rounded-lg text-text-muted hover:text-rose-400 hover:bg-rose-500/10 transition cursor-pointer"
                           title="Hapus Transaksi"
                         >
