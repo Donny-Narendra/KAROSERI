@@ -78,6 +78,8 @@ interface KasirSpkViewModel {
   releasedAt?: string | null;
 }
 
+const DRAFT_STATUSES = ['DRAFT', 'PENDING_PAYMENT'];
+
 export const KasirDashboard: React.FC = () => {
   const { profile, signOut } = useAuth();
   const [spks, setSpks] = useState<KasirSpkViewModel[]>([]);
@@ -336,17 +338,22 @@ export const KasirDashboard: React.FC = () => {
   };
 
   const selectedSpk = spks.find(s => s.id === selectedSpkId) || null;
-  const draftStatuses = ['DRAFT', 'PENDING_PAYMENT'];
 
   const dpPaidSpks = useMemo(() => {
     return spks.filter(s => Number(s.dpAmount || 0) > 0 && s.status !== 'CANCELLED');
   }, [spks]);
 
-  const displayedSpks = activeTab === 'DP' 
-    ? (dpSubTab === 'HISTORY'
-        ? dpPaidSpks
-        : spks.filter(s => draftStatuses.includes(s.status) && s.allocationStatus !== 'PARTIAL'))
-    : spks.filter(s => !draftStatuses.includes(s.status));
+  const displayedSpks = useMemo(() => {
+    if (activeTab === 'DP') {
+      if (dpSubTab === 'HISTORY') {
+        return dpPaidSpks;
+      }
+      return spks.filter(
+        s => (DRAFT_STATUSES as readonly string[]).includes(s.status) && Number(s.dpAmount || 0) === 0
+      );
+    }
+    return spks.filter(s => !(DRAFT_STATUSES as readonly string[]).includes(s.status));
+  }, [activeTab, dpSubTab, dpPaidSpks, spks]);
 
   const historyToDisplay = useMemo(() => {
     if (!selectedSpk) return dpHistory;
@@ -900,7 +907,7 @@ export const KasirDashboard: React.FC = () => {
                   Billing Calculator
                 </h2>
                 <div className="flex items-center gap-4">
-                  {!draftStatuses.includes(selectedSpk.status) && selectedSpk.dpAmount > 0 && (() => {
+                  {!(DRAFT_STATUSES as readonly string[]).includes(selectedSpk.status) && selectedSpk.dpAmount > 0 && (() => {
                     const trackingExp = checkTrackingExpiration(selectedSpk.releasedAt);
                     return (
                       <div className="flex items-center gap-2">
@@ -942,7 +949,7 @@ export const KasirDashboard: React.FC = () => {
               </div>
 
               {/* DP Recording Form - Only in DP Tab */}
-              {activeTab === 'DP' && draftStatuses.includes(selectedSpk.status.toUpperCase()) && (
+              {activeTab === 'DP' && (DRAFT_STATUSES as readonly string[]).includes(selectedSpk.status.toUpperCase()) && (
                 <div className="mb-6 p-5 rounded-lg border border-primary/30 bg-primary/5 flex items-center justify-between flex-wrap gap-4">
                   <div>
                     <h3 className="font-semibold text-text-primary flex items-center gap-2 mb-1">

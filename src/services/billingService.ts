@@ -218,6 +218,54 @@ export async function fetchDpHistory() {
   return [];
 }
 
+export interface PendingDpSpkRecord {
+  id: string;
+  spk_no: string;
+  customer_name: string;
+  customer_phone?: string | null;
+  vehicle_plate: string;
+  vehicle_model?: string | null;
+  vehicle_vin?: string | null;
+  status: string;
+  dp_amount?: number | null;
+  total_estimated_cost?: number | null;
+  target_date?: string | null;
+  created_at: string;
+}
+
+export async function fetchPendingDpSpk(): Promise<PendingDpSpkRecord[]> {
+  try {
+    const { data, error } = await supabase
+      .from('spk')
+      .select(`
+        id,
+        spk_no,
+        customer_name,
+        customer_phone,
+        vehicle_plate,
+        vehicle_model,
+        vehicle_vin,
+        status,
+        dp_amount,
+        total_estimated_cost,
+        target_date,
+        created_at
+      `)
+      .in('status', ['DRAFT', 'PENDING_PAYMENT'])
+      .or('dp_amount.is.null,dp_amount.eq.0')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching pending DP SPK:', error);
+      return [];
+    }
+    return (data as PendingDpSpkRecord[]) || [];
+  } catch (err) {
+    console.error('Exception fetching pending DP SPK:', err);
+    return [];
+  }
+}
+
 export const fetchDPHistory = async (): Promise<DPHistoryRecord[]> => {
   let rawData: RawSpkDpRow[] | null = null;
   let isJoinSuccessful = false;

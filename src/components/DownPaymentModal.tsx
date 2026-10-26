@@ -65,7 +65,7 @@ export const DownPaymentModal: React.FC<DownPaymentModalProps> = ({ isOpen, onCl
       return;
     }
 
-    const contractTotal = Number(suggestedAmount) || Number(spk.totalCost) || 0;
+    const contractTotal = Number(suggestedAmount) || Number(spk.totalCost) || Number(spk.totalEstimatedCost) || Number(spk.quotationAmount) || 0;
     if (contractTotal <= 0) {
       setModalConfig({
         isOpen: true,

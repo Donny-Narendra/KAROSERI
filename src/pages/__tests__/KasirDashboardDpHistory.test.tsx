@@ -303,4 +303,144 @@ describe('Component: KasirDashboard (DP History Sub-Tab & Printable Receipt)', (
       expect(screen.getByText('Tautan Pelacakan Kedaluwarsa (>7 Hari)')).toBeInTheDocument();
     });
   });
+
+  it('displays DRAFT SPK with PARTIAL allocation in Menunggu DP and isolates it from paid ACTIVE SPK on same vehicle plate', async () => {
+    const spk4417Draft = {
+      id: 'spk-uuid-4417',
+      spk_no: 'SPK-4417',
+      customer_name: 'CUPLIZ SQUAD',
+      vehicle_plate: 'DK 8021 XX',
+      vehicle_vin: 'MHFC4417',
+      vehicle_number: 'DK 8021 XX',
+      vehicle_engine: 'ENG-4417',
+      vehicle_model: 'Variasi Truk Canter',
+      status: 'DRAFT',
+      dp_amount: 0,
+      total_estimated_cost: 35000000,
+      qc_status: 'PENDING',
+      allocation_status: 'PARTIAL', // Crucial: was previously filtered out!
+      qc_inspections: [],
+      invoices: [],
+      inventory_transactions: [],
+      spk_amendments: [],
+    };
+
+    const spk9519Active = {
+      id: 'spk-uuid-9519',
+      spk_no: 'SPK-9519',
+      customer_name: 'CUPLIZ SQUAD',
+      vehicle_plate: 'DK 8021 XX',
+      vehicle_vin: 'MHFC9519',
+      vehicle_number: 'DK 8021 XX',
+      vehicle_engine: 'ENG-9519',
+      vehicle_model: 'Bak Truk Kayu',
+      status: 'ACTIVE',
+      dp_amount: 5000000,
+      total_estimated_cost: 50000000,
+      qc_status: 'PENDING',
+      allocation_status: 'COMPLETE',
+      qc_inspections: [],
+      invoices: [],
+      inventory_transactions: [],
+      spk_amendments: [],
+    };
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === 'spk') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnThis(),
+          order: vi.fn().mockResolvedValue({
+            data: [spk4417Draft, spk9519Active],
+            error: null,
+          }),
+        } as any;
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+      } as any;
+    });
+
+    render(<KasirDashboard />);
+
+    // In Menunggu DP tab: SPK-4417 MUST be visible
+    expect(await screen.findByText('SPK-4417')).toBeInTheDocument();
+    expect(screen.getByText('Variasi Truk Canter')).toBeInTheDocument();
+
+    // SPK-9519 is ACTIVE with DP paid, so it MUST NOT be in Menunggu DP
+    expect(screen.queryByText('SPK-9519')).not.toBeInTheDocument();
+
+    // Now switch to Riwayat DP sub-tab: SPK-9519 MUST be visible
+    const riwayatDpBtn = screen.getByRole('button', { name: /Riwayat DP/i });
+    fireEvent.click(riwayatDpBtn);
+
+    expect(await screen.findByText('SPK-9519')).toBeInTheDocument();
+    expect(screen.queryByText('SPK-4417')).not.toBeInTheDocument();
+  });
+
+  it('displays multiple unpaid DRAFT/PENDING_PAYMENT SPKs with the same vehicle plate independently in Menunggu DP', async () => {
+    const spk1 = {
+      id: 'spk-uuid-1',
+      spk_no: 'SPK-4417',
+      customer_name: 'CUPLIZ SQUAD',
+      vehicle_plate: 'DK 8021 XX',
+      vehicle_vin: 'MHFC4417',
+      vehicle_number: 'DK 8021 XX',
+      vehicle_model: 'Variasi Truk Canter',
+      status: 'DRAFT',
+      dp_amount: 0,
+      total_estimated_cost: 35000000,
+      qc_status: 'PENDING',
+      allocation_status: 'PARTIAL',
+      qc_inspections: [],
+      invoices: [],
+      inventory_transactions: [],
+      spk_amendments: [],
+    };
+
+    const spk2 = {
+      id: 'spk-uuid-2',
+      spk_no: 'SPK-9519',
+      customer_name: 'CUPLIZ SQUAD',
+      vehicle_plate: 'DK 8021 XX',
+      vehicle_vin: 'MHFC9519',
+      vehicle_number: 'DK 8021 XX',
+      vehicle_model: 'Bak Truk Kayu',
+      status: 'PENDING_PAYMENT',
+      dp_amount: null,
+      total_estimated_cost: 50000000,
+      qc_status: 'PENDING',
+      allocation_status: null,
+      qc_inspections: [],
+      invoices: [],
+      inventory_transactions: [],
+      spk_amendments: [],
+    };
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === 'spk') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnThis(),
+          order: vi.fn().mockResolvedValue({
+            data: [spk1, spk2],
+            error: null,
+          }),
+        } as any;
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+      } as any;
+    });
+
+    render(<KasirDashboard />);
+
+    // Both SPKs must appear independently in Menunggu DP without grouping or deduplication
+    expect(await screen.findByText('SPK-4417')).toBeInTheDocument();
+    expect(await screen.findByText('SPK-9519')).toBeInTheDocument();
+    expect(screen.getByText('Variasi Truk Canter')).toBeInTheDocument();
+    expect(screen.getByText('Bak Truk Kayu')).toBeInTheDocument();
+  });
 });

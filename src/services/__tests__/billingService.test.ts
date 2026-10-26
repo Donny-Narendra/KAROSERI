@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fetchApprovedChangeOrders, fetchDPHistory, fetchDpHistory, calculateChangeOrderHppBreakdown } from '../billingService';
+import { fetchApprovedChangeOrders, fetchDPHistory, fetchDpHistory, calculateChangeOrderHppBreakdown, fetchPendingDpSpk } from '../billingService';
 import { supabase } from '../../lib/supabaseClient';
 
 vi.mock('../../lib/supabaseClient', () => ({
@@ -454,3 +454,94 @@ describe('Sprint 89: calculateChangeOrderHppBreakdown Tests', () => {
     expect(totalModalHpp).toBe(3065264);
   });
 });
+
+describe('Sprint 99: billingService.fetchPendingDpSpk Tests', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('fetches pending DP SPKs matching DRAFT and PENDING_PAYMENT with zero/null DP', async () => {
+    const mockPendingSpks = [
+      {
+        id: 'spk-uuid-4417',
+        spk_no: 'SPK-4417',
+        customer_name: 'CUPLIZ SQUAD',
+        customer_phone: '08123456789',
+        vehicle_plate: 'DK 8021 XX',
+        vehicle_model: 'Variasi Truk Canter',
+        vehicle_vin: 'MHF4417',
+        status: 'DRAFT',
+        dp_amount: 0,
+        total_estimated_cost: 35000000,
+        target_date: '2026-11-15',
+        created_at: '2026-10-26T10:00:00Z',
+      },
+      {
+        id: 'spk-uuid-9519',
+        spk_no: 'SPK-9519',
+        customer_name: 'CUPLIZ SQUAD',
+        customer_phone: '08123456789',
+        vehicle_plate: 'DK 8021 XX',
+        vehicle_model: 'Bak Truk Kayu',
+        vehicle_vin: 'MHF9519',
+        status: 'PENDING_PAYMENT',
+        dp_amount: null,
+        total_estimated_cost: 50000000,
+        target_date: '2026-11-20',
+        created_at: '2026-10-25T14:00:00Z',
+      },
+    ];
+
+    const mockOrder = vi.fn().mockResolvedValue({
+      data: mockPendingSpks,
+      error: null,
+    });
+    const mockOr = vi.fn().mockReturnValue({ order: mockOrder });
+    const mockIn = vi.fn().mockReturnValue({ or: mockOr });
+    const mockSelect = vi.fn().mockReturnValue({ in: mockIn });
+
+    vi.mocked(supabase.from).mockReturnValue({
+      select: mockSelect,
+    } as any);
+
+    const result = await fetchPendingDpSpk();
+
+    expect(supabase.from).toHaveBeenCalledWith('spk');
+    expect(mockSelect).toHaveBeenCalled();
+    expect(mockIn).toHaveBeenCalledWith('status', ['DRAFT', 'PENDING_PAYMENT']);
+    expect(mockOr).toHaveBeenCalledWith('dp_amount.is.null,dp_amount.eq.0');
+    expect(mockOrder).toHaveBeenCalledWith('created_at', { ascending: false });
+    expect(result).toHaveLength(2);
+    expect(result[0].spk_no).toBe('SPK-4417');
+    expect(result[0].status).toBe('DRAFT');
+    expect(result[1].spk_no).toBe('SPK-9519');
+    expect(result[1].status).toBe('PENDING_PAYMENT');
+  });
+
+  it('handles query error gracefully and returns empty array', async () => {
+    const mockOrder = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'Database connection error' },
+    });
+    const mockOr = vi.fn().mockReturnValue({ order: mockOrder });
+    const mockIn = vi.fn().mockReturnValue({ or: mockOr });
+    const mockSelect = vi.fn().mockReturnValue({ in: mockIn });
+
+    vi.mocked(supabase.from).mockReturnValue({
+      select: mockSelect,
+    } as any);
+
+    const result = await fetchPendingDpSpk();
+    expect(result).toEqual([]);
+  });
+
+  it('handles thrown exceptions gracefully and returns empty array', async () => {
+    vi.mocked(supabase.from).mockImplementation(() => {
+      throw new Error('Network crash');
+    });
+
+    const result = await fetchPendingDpSpk();
+    expect(result).toEqual([]);
+  });
+});
+
