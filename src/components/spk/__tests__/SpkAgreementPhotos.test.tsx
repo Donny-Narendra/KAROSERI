@@ -36,7 +36,7 @@ describe('Component: SpkAgreementPhotos', () => {
     vi.clearAllMocks();
   });
 
-  it('renders title, counter, and thumbnail gallery using w_300 Cloudinary transform', () => {
+  it('renders title, counter, and thumbnail gallery using w_300 Cloudinary transform in vertical card stack', () => {
     render(<SpkAgreementPhotos spk={mockSpk} onUpdated={vi.fn()} />);
 
     expect(screen.getByText('Dokumentasi Surat Kesepakatan Kerja')).toBeInTheDocument();
@@ -46,6 +46,15 @@ describe('Component: SpkAgreementPhotos', () => {
     expect(img).toBeInTheDocument();
     expect(img.src).toContain('c_limit,w_300');
     expect(img.src).toContain('f_auto,q_auto');
+
+    // Dedicated delete button below the image
+    const deleteBtn = screen.getByTestId('delete-photo-0');
+    expect(deleteBtn).toBeInTheDocument();
+    expect(deleteBtn).toHaveTextContent('Hapus');
+
+    // Verify preview trigger does not contain the delete button
+    const previewTrigger = screen.getByTestId('preview-photo-trigger-0');
+    expect(previewTrigger).not.toContainElement(deleteBtn);
   });
 
   it('renders empty placeholder message when no photos exist', () => {
@@ -58,8 +67,8 @@ describe('Component: SpkAgreementPhotos', () => {
   it('opens Fullscreen Lightbox Modal (w_1600) when clicking a thumbnail', () => {
     render(<SpkAgreementPhotos spk={mockSpk} onUpdated={vi.fn()} />);
 
-    const img = screen.getByAltText('Surat Kesepakatan 1');
-    fireEvent.click(img);
+    const previewTrigger = screen.getByTestId('preview-photo-trigger-0');
+    fireEvent.click(previewTrigger);
 
     expect(screen.getByText(/Pratinjau Surat Kesepakatan Kerja: SPK-2026-0099/i)).toBeInTheDocument();
     const previewImg = screen.getByAltText('Pratinjau Penuh Surat Kesepakatan') as HTMLImageElement;
@@ -115,7 +124,7 @@ describe('Component: SpkAgreementPhotos', () => {
     expect(onUpdatedMock).toHaveBeenCalledTimes(1);
   });
 
-  it('confirms and deletes photo via ConfirmationModal', async () => {
+  it('confirms and deletes photo via ConfirmationModal, and supports cancellation', async () => {
     vi.mocked(spkService.updateAgreementPhotos).mockResolvedValue({} as any);
     const onUpdatedMock = vi.fn();
 
@@ -125,10 +134,21 @@ describe('Component: SpkAgreementPhotos', () => {
     fireEvent.click(deleteBtn);
 
     // Confirmation modal should be visible
-    expect(screen.getByText('Konfirmasi Hapus Foto Dokumen')).toBeInTheDocument();
+    expect(screen.getByText('Hapus Dokumen Kesepakatan?')).toBeInTheDocument();
     expect(screen.getByText(/Apakah Anda yakin ingin menghapus foto dokumen surat kesepakatan ini\?/i)).toBeInTheDocument();
 
-    const confirmBtn = screen.getByRole('button', { name: /Ya, Hapus Foto/i });
+    // Test Cancel first
+    const cancelBtn = screen.getByRole('button', { name: /Batal/i });
+    fireEvent.click(cancelBtn);
+
+    expect(screen.queryByText('Hapus Dokumen Kesepakatan?')).not.toBeInTheDocument();
+    expect(spkService.updateAgreementPhotos).not.toHaveBeenCalled();
+
+    // Reopen and Confirm
+    fireEvent.click(deleteBtn);
+    expect(screen.getByText('Hapus Dokumen Kesepakatan?')).toBeInTheDocument();
+
+    const confirmBtn = screen.getByRole('button', { name: /Ya, Hapus Dokumen/i });
     fireEvent.click(confirmBtn);
 
     await waitFor(() => {
@@ -137,11 +157,11 @@ describe('Component: SpkAgreementPhotos', () => {
     expect(onUpdatedMock).toHaveBeenCalledTimes(1);
   });
 
-  it('hides upload and delete buttons in readOnly mode', () => {
+  it('hides upload and delete buttons in readOnly mode, displaying read-only photo label', () => {
     render(<SpkAgreementPhotos spk={mockSpk} onUpdated={vi.fn()} readOnly={true} />);
 
     expect(screen.queryByText(/Unggah Dokumen/i)).not.toBeInTheDocument();
     expect(screen.queryByTestId('delete-photo-0')).not.toBeInTheDocument();
+    expect(screen.getByText('Foto #1')).toBeInTheDocument();
   });
 });
-

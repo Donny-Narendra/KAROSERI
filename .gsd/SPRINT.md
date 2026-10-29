@@ -1,57 +1,64 @@
-# Sprint 100 — Add Compact Down Payment Receipt Download Button in Cashier Modal
+# Sprint 101 — Reposition Agreement Document Delete Button Below Image Thumbnail with Confirmation Modal
 
 > **Duration**: 2026-10-29 to 2026-10-29
 > **Status**: Completed ✓
 
 ## Goal
-Tambahkan tombol aksi baru "Download Kuitansi Ringkas" pada header modal `DpReceiptPrintModal.tsx` di kasir, yang memungkinkan pengguna mengunduh kuitansi DP dalam format PDF versi ringkas murni sebagai bukti penerimaan setoran uang muka (menghilangkan baris "Total Estimasi Nilai Kontrak SPK" dan "Sisa Estimasi Tagihan Pelunasan"), sementara tombol "Download PDF" lengkap dan "Cetak Kuitansi" tetap berfungsi normal.
+Tingkatkan ergonomi UX pada galeri foto Surat Kesepakatan Kerja di Service Advisor (`SpkAgreementPhotos.tsx`) dengan memisahkan tombol aksi hapus dari thumbnail foto ke baris mandiri di bawah masing-masing gambar dalam susunan vertical card stack, membersihkan overlay mengambang (*floating overlay*) di atas gambar agar thumbnail murni berfungsi untuk pratinjau zoom/lightbox yang aman disentuh pada perangkat layar sentuh/mobile, serta memproteksi penghapusan berkas melalui `ConfirmationModal` internal.
 
 ## Scope
 
 ### Included
-- **Task 1: Perbarui Header & Tombol Aksi di `DpReceiptPrintModal.tsx`**
-  - Tambahkan tombol "Download Kuitansi Ringkas" (warna biru dengan icon `FileDown`) di sebelah kiri tombol "Download PDF" (warna hijau) dan "Cetak Kuitansi" (warna oranye).
-  - Berikan styling konsisten, responsif, dan feedback loading spinner saat proses download berlangsung.
-- **Task 2: Modifikasi Generator PDF & Logika Filter Baris Ringkas**
-  - Update `handleDownloadPdf` untuk menerima parameter `{ isCompact?: boolean }`.
-  - Berikan class identifier `.row-total-kontrak` dan `.row-sisa-tagihan` pada baris terkait di tabel rincian DP, serta dukung rendering kondisional `!isCompactMode` (melalui prop opsional `isCompact?: boolean`).
-  - Pada mode compact (`isCompact: true`), bersihkan elemen `.row-total-kontrak` dan `.row-sisa-tagihan` pada `clonedDoc` di hook `onclone` html2canvas sebelum dikonversi ke PDF.
-  - Berikan penamaan file yang jelas: `Kuitansi-DP-Ringkas-${spkNo}.pdf` untuk ringkas dan `Kuitansi-DP-${spkNo}.pdf` untuk lengkap.
-- **Task 3: Pengujian & Verifikasi Komponen**
-  - Perbarui unit test di `src/components/finance/__tests__/DpReceiptPrintModal.test.tsx` untuk memvalidasi:
-    1. Keberadaan 3 tombol aksi di header modal.
-    2. Aksi "Download Kuitansi Ringkas" memanggil `html2pdf` dengan filename ringkas dan memfilter baris total kontrak & sisa tagihan pada `onclone`.
-    3. Aksi "Download PDF" mempertahankan 6 baris lengkap.
-    4. Prop `isCompact={true}` menyembunyikan kedua baris secara kondisional dari DOM render.
-  - Jalankan `npm test`, `npx oxlint`, dan `npm run build`.
+- **Task 1: Pemisahan Tata Letak Kartu Vertikal (Card Stack) & Tombol Hapus Mandiri di `SpkAgreementPhotos.tsx`**
+  - Bersihkan tombol silang/sampah yang melayang (*floating overlay*) di atas gambar/thumbnail.
+  - Alokasikan seluruh area thumbnail murni sebagai safe touch target interaksi pratinjau zoom/lightbox (`onClick` lightbox, hover visual indicator `Eye`).
+  - Rancang susunan kartu vertikal (`w-24 sm:w-28 md:w-32 flex flex-col bg-slate-950 border border-slate-800 rounded-lg overflow-hidden shadow-xs hover:border-slate-700 transition`) dengan kontainer baris bawah terpisah (`border-t border-slate-800`).
+  - Di baris bawah, sediakan tombol "Hapus" mandiri dengan ikon `Trash2`, label teks `"Hapus"`, safe touch padding, dan status disable/loading.
+  - Untuk mode `readOnly`, tampilkan label nomor foto subtle tanpa tombol aksi interaktif.
+- **Task 2: Integrasi Dialog Modal Konfirmasi Pengaman & Mutasi Data**
+  - Pasang state `photoToDeleteIndex: number | null` dan `isDeleting: boolean`.
+  - Pasang `ConfirmationModal` dengan `title="Hapus Dokumen Kesepakatan?"`, `confirmText="Ya, Hapus Dokumen"`, `cancelText="Batal"`, `variant="danger"`.
+  - Pada saat konfirmasi, lakukan penghapusan item dari array `agreement_photos` berdasarkan index dan mutasikan pembaruan ke Supabase via `spkService.updateAgreementPhotos(spk.spk_no, updatedPhotos)`.
+  - Panggil callback `onUpdated()` dan tangani pembatalan secara bersih (`setPhotoToDeleteIndex(null)`).
+- **Task 3: Pengujian Komponen & Verifikasi Menyeluruh**
+  - Perbarui dan tambah pengujian di `src/components/spk/__tests__/SpkAgreementPhotos.test.tsx` untuk memvalidasi:
+    1. Area thumbnail murni untuk pratinjau lightbox tanpa floating delete overlay.
+    2. Tombol hapus terpisah di baris bawah kartu dengan label "Hapus" dan ikon trash.
+    3. Dialog konfirmasi modal terbuka saat tombol hapus diklik, dan tombol batal menutup modal tanpa menghapus.
+    4. Konfirmasi modal memicu pembaruan `spkService.updateAgreementPhotos` dengan array foto yang telah dihapus dan memanggil `onUpdated`.
+    5. Mode readOnly menyembunyikan tombol hapus dan tombol unggah.
+  - Jalankan test suite (76 test suites, 556 tests passed), linter (`npx oxlint`), dan type check/build (`npm run build`).
 
 ### Explicitly Excluded
-- Mengubah alur kerja pencatatan uang muka di kasir atau database schema.
-- Mengubah fungsi cetak browser bawaan `window.print()` untuk tombol "Cetak Kuitansi".
+- Mengubah skema database PostgreSQL `spk.agreement_photos`.
+- Mengubah alur otentikasi atau upload direct-to-Cloudinary yang telah berjalan optimal.
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| Task 1: Perbarui Header & Tombol Aksi di `DpReceiptPrintModal.tsx` | Claude | ✅ Done | 0.5 |
-| Task 2: Modifikasi Generator PDF & Logika Filter Baris Ringkas | Claude | ✅ Done | 0.5 |
-| Task 3: Pengujian & Verifikasi Komponen | Claude | ✅ Done | 0.5 |
+| Task 1: Pemisahan Tata Letak Kartu Vertikal & Tombol Hapus Mandiri di `SpkAgreementPhotos.tsx` | Antigravity | ✅ Done | 0.5 |
+| Task 2: Integrasi Dialog Modal Konfirmasi Pengaman & Mutasi Data | Antigravity | ✅ Done | 0.5 |
+| Task 3: Pengujian Komponen & Verifikasi Menyeluruh | Antigravity | ✅ Done | 0.5 |
 
 ## Daily Log
 
 ### 2026-10-29
-- Sprint 100 selesai:
-  1. `src/components/finance/DpReceiptPrintModal.tsx`:
-     - Menambahkan tombol aksi "Download Kuitansi Ringkas" (warna biru dengan icon `FileDown`) di header modal, berdampingan dengan tombol "Download PDF" (hijau) dan "Cetak Kuitansi" (oranye).
-     - Menambahkan status tracking `downloadingMode: 'full' | 'compact' | null` untuk indikator spinner animasi independen.
-     - Memperbarui `handleDownloadPdf` dengan opsi `{ isCompact?: boolean }`. Ketika mode ringkas aktif, nama berkas diekspor menjadi `Kuitansi-DP-Ringkas-${spkNo}.pdf`, dan hook `onclone` pada html2canvas menghapus baris `.row-total-kontrak` dan `.row-sisa-tagihan`.
-     - Menambahkan penanda kelas `.row-total-kontrak` dan `.row-sisa-tagihan` serta kondisi `!isCompactMode` dengan prop opsional `isCompact?: boolean`.
-  2. `src/components/finance/__tests__/DpReceiptPrintModal.test.tsx`:
-     - Menambahkan pengujian keberadaan 3 tombol di header modal.
-     - Menambahkan pengujian unduhan PDF kuitansi ringkas (filename + penghapusan row di `onclone`).
-     - Menambahkan pengujian unduhan PDF kuitansi lengkap (mempertahankan 6 baris lengkap).
-     - Menambahkan pengujian penyembunyian baris estimasi kontrak & sisa tagihan saat `isCompact={true}`.
+- Sprint 101 selesai:
+  1. `src/components/spk/SpkAgreementPhotos.tsx`:
+     - Menghapus floating gradient overlay yang sebelumnya menumpuk di atas thumbnail foto.
+     - Menyusun setiap item dokumen menjadi vertical card stack (`w-24 sm:w-28 md:w-32`) dengan 2 zona interaksi terpisah:
+       * **Zona Atas (Thumbnail)**: Murni klik untuk membuka pratinjau penuh/lightbox modal dengan visual indicator `Eye` pada hover.
+       * **Zona Bawah (Tombol Aksi Terpisah)**: Baris mandiri berlatar `bg-slate-900/90 border-t border-slate-800` berisi tombol "Hapus" yang jelas, terisolasi, dan aman untuk sentuhan jari (`text-rose-400 bg-rose-500/10 border border-rose-500/30 hover:bg-rose-600 hover:text-white`).
+     - Menambahkan proteksi `ConfirmationModal` dengan judul `"Hapus Dokumen Kesepakatan?"`, pesan peringatan permanen, tombol `"Ya, Hapus Dokumen"`, dan tombol `"Batal"`.
+     - Penghapusan foto diproteksi berdasarkan indeks kartu dan memutasi database via `spkService.updateAgreementPhotos(spk.spk_no, updatedPhotos)` hanya setelah pengguna menyetujui konfirmasi di modal.
+     - Mode `readOnly` mempertahankan proporsi kartu dengan menampilkan label nomor berkas subtle tanpa tombol hapus.
+  2. `src/components/spk/__tests__/SpkAgreementPhotos.test.tsx`:
+     - Memperbarui dan memverifikasi isolasi area preview gambar dari tombol hapus.
+     - Memverifikasi tombol hapus terpisah di baris bawah kartu.
+     - Menguji pembukaan modal konfirmasi, penolakan/pembatalan (`Batal`), dan persetujuan penghapusan (`Ya, Hapus Dokumen`).
+     - Menguji mode `readOnly` dan direct upload.
   3. Verifikasi:
-     - Seluruh 73 test suite Vitest (536 tests) lulus 100%.
+     - 76 berkas pengujian Vitest (556 tests) lulus 100%.
      - `npx oxlint` lulus dengan 0 errors.
      - `npm run build` sukses tanpa kendala.

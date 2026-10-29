@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Upload, Loader2, Trash2, FileText, AlertCircle, X, Maximize2 } from 'lucide-react';
+import { Upload, Loader2, Trash2, FileText, AlertCircle, X, Eye } from 'lucide-react';
 import { getOptimizedImageUrl, uploadToCloudinary } from '../../utils/cloudinary';
 import { spkService } from '../../services/spkService';
 import { ConfirmationModal } from '../ConfirmationModal';
@@ -21,7 +21,7 @@ export const SpkAgreementPhotos: React.FC<SpkAgreementPhotosProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   const [lightboxPhoto, setLightboxPhoto] = useState<AgreementPhoto | null>(null);
-  const [photoToDelete, setPhotoToDelete] = useState<AgreementPhoto | null>(null);
+  const [photoToDeleteIndex, setPhotoToDeleteIndex] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -75,14 +75,15 @@ export const SpkAgreementPhotos: React.FC<SpkAgreementPhotosProps> = ({
     }
   };
 
-  const handleConfirmDelete = async () => {
-    if (!photoToDelete) return;
+  const handleConfirmDeletePhoto = async () => {
+    if (photoToDeleteIndex === null) return;
 
     setIsDeleting(true);
     try {
-      const filtered = photos.filter((p) => p.public_id !== photoToDelete.public_id);
-      await spkService.updateAgreementPhotos(spk.spk_no, filtered);
-      setPhotoToDelete(null);
+      const updatedPhotos = [...photos];
+      updatedPhotos.splice(photoToDeleteIndex, 1);
+      await spkService.updateAgreementPhotos(spk.spk_no, updatedPhotos);
+      setPhotoToDeleteIndex(null);
       onUpdated();
     } catch (err: any) {
       console.error('Error deleting agreement photo:', err);
@@ -148,53 +149,52 @@ export const SpkAgreementPhotos: React.FC<SpkAgreementPhotosProps> = ({
         </div>
       )}
 
-      {/* Gallery Thumbnail Grid */}
+      {/* Grid Galeri Dokumen Surat Kesepakatan (Vertical Card Stack) */}
       {photos.length > 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        <div className="flex flex-wrap gap-3 mt-2">
           {photos.map((photo, index) => {
             const photoUrl = photo.url || photo.secure_url;
             return (
               <div
                 key={photo.public_id || index}
-                className="group relative bg-background border border-border hover:border-primary/50 rounded-lg overflow-hidden transition shadow-2xs aspect-square flex flex-col"
+                className="w-24 sm:w-28 md:w-32 flex flex-col bg-slate-950 border border-slate-800 rounded-lg overflow-hidden shadow-xs hover:border-slate-700 transition"
+                data-testid={`agreement-card-${index}`}
               >
-                {/* Thumbnail using w_300 Cloudinary transform for fast responsive delivery */}
+                {/* 1. Area Gambar (Klik untuk Preview / Lightbox) */}
                 <div
-                  className="relative w-full h-full cursor-pointer overflow-hidden bg-slate-900/50"
                   onClick={() => setLightboxPhoto(photo)}
-                  title="Klik untuk melihat pratinjau penuh"
+                  className="w-full h-24 sm:h-28 md:h-32 bg-slate-900 cursor-pointer overflow-hidden group relative"
+                  title="Klik untuk melihat dokumen ukuran penuh"
+                  data-testid={`preview-photo-trigger-${index}`}
                 >
                   <img
                     src={getOptimizedImageUrl(photoUrl, 300)}
                     alt={`Surat Kesepakatan ${index + 1}`}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                    className="w-full h-full object-cover transition duration-200 group-hover:scale-105"
                     loading="lazy"
                   />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    <span className="p-1.5 bg-black/60 text-white rounded-full hover:bg-primary transition">
-                      <Maximize2 className="w-4 h-4" />
-                    </span>
+                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                    <Eye className="w-4 h-4 text-white drop-shadow" />
                   </div>
                 </div>
 
-                {/* Footer badge with index & delete button */}
-                <div className="absolute bottom-0 inset-x-0 bg-linear-to-t from-black/80 via-black/40 to-transparent p-1.5 flex items-center justify-between text-[11px] text-white pointer-events-auto">
-                  <span className="font-mono text-[10px] truncate max-w-[80px]">
-                    Foto #{index + 1}
-                  </span>
-                  {!readOnly && (
+                {/* 2. Area Bawah: Tombol Hapus Terpisah & Mandiri */}
+                <div className="p-1.5 bg-slate-900/90 border-t border-slate-800 flex items-center justify-center">
+                  {!readOnly ? (
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setPhotoToDelete(photo);
-                      }}
-                      className="p-1 hover:text-rose-400 rounded transition cursor-pointer text-slate-300"
-                      title="Hapus foto ini"
+                      onClick={() => setPhotoToDeleteIndex(index)}
+                      className="w-full py-1 px-2 rounded text-[11px] font-medium text-rose-400 hover:text-white bg-rose-500/10 hover:bg-rose-600 border border-rose-500/30 hover:border-rose-600 transition flex items-center justify-center gap-1 active:scale-95 cursor-pointer disabled:opacity-50"
+                      title="Hapus foto dokumen ini"
                       data-testid={`delete-photo-${index}`}
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-3 h-3 shrink-0" />
+                      <span>Hapus</span>
                     </button>
+                  ) : (
+                    <span className="text-[10px] font-mono text-slate-400 py-0.5 truncate">
+                      Foto #{index + 1}
+                    </span>
                   )}
                 </div>
               </div>
@@ -256,15 +256,15 @@ export const SpkAgreementPhotos: React.FC<SpkAgreementPhotosProps> = ({
 
       {/* Confirmation Modal for Deletion */}
       <ConfirmationModal
-        isOpen={Boolean(photoToDelete)}
-        title="Konfirmasi Hapus Foto Dokumen"
-        message="Apakah Anda yakin ingin menghapus foto dokumen surat kesepakatan ini? Metadata foto akan dihapus dari data SPK."
-        confirmText="Ya, Hapus Foto"
+        isOpen={photoToDeleteIndex !== null}
+        title="Hapus Dokumen Kesepakatan?"
+        message="Apakah Anda yakin ingin menghapus foto dokumen surat kesepakatan ini? Dokumen yang dihapus tidak dapat dipulihkan kembali."
+        confirmText={isDeleting ? 'Menghapus...' : 'Ya, Hapus Dokumen'}
         cancelText="Batal"
         variant="danger"
         isLoading={isDeleting}
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setPhotoToDelete(null)}
+        onConfirm={handleConfirmDeletePhoto}
+        onCancel={() => setPhotoToDeleteIndex(null)}
       />
     </div>
   );
