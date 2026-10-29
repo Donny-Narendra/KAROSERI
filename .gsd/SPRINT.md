@@ -1,50 +1,45 @@
-# Sprint 99 — Fix Missing SPK in Cashier Pending DP Queue Due to Draft Status or Vehicle Grouping
+# Sprint 100 — Add Compact Down Payment Receipt Download Button in Cashier Modal
 
-> **Duration**: 2026-10-26 to 2026-10-26
-> **Status**: Completed ✓
+> **Duration**: 2026-10-29 to 2026-10-29
+> **Status**: In Progress
 
 ## Goal
-Ensure the Cashier "Menunggu DP" queue in `KasirDashboard.tsx` and `billingService.ts` displays ALL active/pending SPKs that have not paid DP (`status IN ('DRAFT', 'PENDING_PAYMENT')` with `dp_amount = 0`), identified purely by Primary Key `id` / `spk_no` without being filtered out by partial allocation status or vehicle grouping.
+Tambahkan tombol aksi baru "Download Kuitansi Ringkas" pada header modal `DpReceiptPrintModal.tsx` di kasir, yang memungkinkan pengguna mengunduh kuitansi DP dalam format PDF versi ringkas murni sebagai bukti penerimaan setoran uang muka (menghilangkan baris "Total Estimasi Nilai Kontrak SPK" dan "Sisa Estimasi Tagihan Pelunasan"), sementara tombol "Download PDF" lengkap dan "Cetak Kuitansi" tetap berfungsi normal.
 
 ## Scope
 
 ### Included
-- **Task 1: Perbaiki Kueri & Layanan Antrean Menunggu DP di `billingService.ts`**
-  - Implement `fetchPendingDpSpk` function querying `spk` table with `.in('status', ['DRAFT', 'PENDING_PAYMENT'])`, `.or('dp_amount.is.null,dp_amount.eq.0')`, and `.order('created_at', { ascending: false })`.
-  - Export typescript interfaces (`PendingDpSpkRecord`) and error resilient handling.
-- **Task 2: Perbaiki Tampilan Antrean Menunggu DP di `KasirDashboard.tsx`**
-  - Remove restrictive `s.allocationStatus !== 'PARTIAL'` filter from `displayedSpks` in "Menunggu DP".
-  - Filter "Menunggu DP" strictly by `DRAFT_STATUSES.includes(s.status) && Number(s.dpAmount || 0) === 0`.
-  - Ensure SPKs are rendered uniquely by primary key (`id` / `dbId` and `spk_no`), allowing multiple distinct SPKs for the same customer/vehicle plate (e.g. SPK-4417 and SPK-9519) to display independently.
-- **Task 3: Testing & Verification**
-  - Add comprehensive unit tests in `src/services/__tests__/billingService.test.ts` for `fetchPendingDpSpk`.
-  - Add regression tests in `src/pages/__tests__/KasirDashboardDpHistory.test.tsx` verifying:
-    * DRAFT SPK with partial allocation status appears in "Menunggu DP".
-    * Distinct SPKs sharing the same vehicle plate appear side-by-side without deduplication or grouping.
-  - Run full test suite (73 test files, 533 tests passing), linter (`npx oxlint`), and production build (`npm run build`).
+- **Task 1: Perbarui Header & Tombol Aksi di `DpReceiptPrintModal.tsx`**
+  - Tambahkan tombol "Download Kuitansi Ringkas" (warna biru dengan icon `FileDown`) di sebelah kiri tombol "Download PDF" (warna hijau) dan "Cetak Kuitansi" (warna oranye).
+  - Berikan styling konsisten, responsif, dan feedback loading spinner saat proses download berlangsung.
+- **Task 2: Modifikasi Generator PDF & Logika Filter Baris Ringkas**
+  - Update `handleDownloadPdf` untuk menerima parameter `{ isCompact?: boolean }`.
+  - Berikan class identifier `.row-total-kontrak` dan `.row-sisa-tagihan` pada baris terkait di tabel rincian DP, serta dukung rendering kondisional `!isCompactMode` (melalui prop opsional `isCompact?: boolean`).
+  - Pada mode compact (`isCompact: true`), bersihkan elemen `.row-total-kontrak` dan `.row-sisa-tagihan` pada `clonedDoc` di hook `onclone` html2canvas sebelum dikonversi ke PDF.
+  - Berikan penamaan file yang jelas: `Kuitansi-DP-Ringkas-${spkNo}.pdf` untuk ringkas dan `Kuitansi-DP-${spkNo}.pdf` untuk lengkap.
+- **Task 3: Pengujian & Verifikasi Komponen**
+  - Perbarui unit test di `src/components/finance/__tests__/DpReceiptPrintModal.test.tsx` untuk memvalidasi:
+    1. Keberadaan 3 tombol aksi di header modal.
+    2. Aksi "Download Kuitansi Ringkas" memanggil `html2pdf` dengan filename ringkas dan memfilter baris total kontrak & sisa tagihan pada `onclone`.
+    3. Aksi "Download PDF" mempertahankan 6 baris lengkap.
+    4. Prop `isCompact={true}` menyembunyikan kedua baris secara kondisional dari DOM render.
+  - Jalankan `npm test`, `npx oxlint`, dan `npm run build`.
 
 ### Explicitly Excluded
-- Modifying SPK creation logic in Service Advisor.
-- Changing final billing or invoice generation workflow.
+- Mengubah alur kerja pencatatan uang muka di kasir atau database schema.
+- Mengubah fungsi cetak browser bawaan `window.print()` untuk tombol "Cetak Kuitansi".
 
 ## Tasks
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| Task 1: Perbaiki Kueri & Layanan Antrean Menunggu DP di `billingService.ts` | Claude | ✅ Done | 0.5 |
-| Task 2: Perbaiki Tampilan Antrean Menunggu DP di `KasirDashboard.tsx` | Claude | ✅ Done | 0.5 |
-| Task 3: Testing & Verification | Claude | ✅ Done | 0.5 |
+| Task 1: Perbarui Header & Tombol Aksi di `DpReceiptPrintModal.tsx` | Claude | ⬜ Todo | 0.5 |
+| Task 2: Modifikasi Generator PDF & Logika Filter Baris Ringkas | Claude | ⬜ Todo | 0.5 |
+| Task 3: Pengujian & Verifikasi Komponen | Claude | ⬜ Todo | 0.5 |
 
 ## Daily Log
 
-### 2026-10-26
-- Sprint 99 completed.
-- Solved missing SPK in Cashier "Menunggu DP" queue:
-  1. `src/services/billingService.ts`: Added and exported `fetchPendingDpSpk()` with `PendingDpSpkRecord` interface, querying `spk` table with `.in('status', ['DRAFT', 'PENDING_PAYMENT'])` and `.or('dp_amount.is.null,dp_amount.eq.0')`.
-  2. `src/pages/KasirDashboard.tsx`:
-     - Removed restrictive `s.allocationStatus !== 'PARTIAL'` filter which previously masked DRAFT SPKs with partial WBS allocations (such as SPK-4417).
-     - Defined module-level constant `DRAFT_STATUSES = ['DRAFT', 'PENDING_PAYMENT']` and updated `displayedSpks` to filter `(DRAFT_STATUSES as readonly string[]).includes(s.status) && Number(s.dpAmount || 0) === 0`.
-     - Preserved unique identification via Primary Key `id` / `dbId` and `spk_no`, ensuring distinct SPKs sharing the same customer and plate (e.g. SPK-4417 and SPK-9519) render independently.
-  3. `src/components/DownPaymentModal.tsx`: Broadened `contractTotal` fallback to inspect `suggestedAmount`, `spk.totalCost`, `spk.totalEstimatedCost`, and `spk.quotationAmount`.
-  4. Added unit and regression tests in `src/services/__tests__/billingService.test.ts` and `src/pages/__tests__/KasirDashboardDpHistory.test.tsx`.
-  5. Verified all 73 test suites (533 tests) pass, oxlint reports 0 errors, and `npm run build` succeeds.
+### 2026-10-29
+- Sprint 100 dibuat.
+- Mengarsipkan Sprint 99 ke `.gsd/sprints/`.
+- Memulai implementasi Task 1 & Task 2 pada `DpReceiptPrintModal.tsx`.
