@@ -1,9 +1,20 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { PublicProgressTracking } from '../PublicProgressTracking';
 import { supabase } from '../../lib/supabaseClient';
 import { getOptimizedImageUrl } from '../../lib/cloudinary';
+
+const mockSave = vi.fn().mockResolvedValue(undefined);
+const mockFrom = vi.fn().mockReturnValue({ save: mockSave });
+const mockSet = vi.fn().mockReturnValue({ from: mockFrom });
+const mockHtml2PdfWorker = vi.fn().mockReturnValue({ set: mockSet });
+
+vi.mock('html2pdf.js', () => {
+  return {
+    default: () => mockHtml2PdfWorker(),
+  };
+});
 
 vi.mock('../../lib/supabaseClient', () => ({
   supabase: {
@@ -265,7 +276,7 @@ describe('Page: PublicProgressTracking (7-Day Post-BAST Expiration & Thank You S
       });
 
       // Verify all credentials
-      expect(screen.getByText('SPK-2026-088')).toBeInTheDocument();
+      expect(screen.getAllByText('SPK-2026-088')[0]).toBeInTheDocument();
       expect(screen.getByText('0812-3456-7890')).toBeInTheDocument();
       expect(screen.getByText('B 9988 XYZ')).toBeInTheDocument();
       expect(screen.getByText('Mitsubishi Canter FE 74 HD')).toBeInTheDocument();
@@ -278,7 +289,7 @@ describe('Page: PublicProgressTracking (7-Day Post-BAST Expiration & Thank You S
       expect(screen.getByText('Instalasi Lampu Rotary')).toBeInTheDocument();
     });
 
-    it('renders agreement document thumbnail (w_200) and opens Lightbox modal (w_1600) on click', async () => {
+    it('renders agreement document thumbnail (w_600 for high resolution PDF export) and opens Lightbox modal (w_1600) on click', async () => {
       setupSupabaseMock(detailedSpk);
 
       render(
@@ -293,12 +304,12 @@ describe('Page: PublicProgressTracking (7-Day Post-BAST Expiration & Thank You S
         expect(screen.getByText('Dokumentasi Surat Kesepakatan Kerja (1 Dokumen)')).toBeInTheDocument();
       });
 
-      // Verify thumbnail exists and uses w_200
+      // Verify thumbnail exists and uses w_600
       const thumbnailImg = screen.getByAltText('Surat Kesepakatan 1') as HTMLImageElement;
       expect(thumbnailImg).toBeInTheDocument();
       expect(getOptimizedImageUrl).toHaveBeenCalledWith(
         'https://res.cloudinary.com/demo/image/upload/v1/karoseriops/spk_agreements/SPK-2026-088_contract1.jpg',
-        200
+        600
       );
 
       // Click thumbnail to trigger Lightbox Modal
@@ -315,6 +326,167 @@ describe('Page: PublicProgressTracking (7-Day Post-BAST Expiration & Thank You S
       const closeBtn = screen.getByLabelText('Tutup Pratinjau');
       fireEvent.click(closeBtn);
       expect(screen.queryByTestId('agreement-lightbox-modal')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('PDF Generation & Multi-Page Export via html2pdf', () => {
+    beforeEach(() => {
+      vi.spyOn(window, 'print').mockImplementation(() => {});
+      mockHtml2PdfWorker.mockClear();
+      mockSet.mockClear();
+      mockFrom.mockClear();
+      mockSave.mockClear();
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    const activeSpkWithAssets = {
+      id: 'spk-pdf-1',
+      spk_no: 'SPK-2026-777',
+      customer_name: 'PT Wahana Logistik Perkasa',
+      customer_phone: '0811-2233-4455',
+      vehicle_plate: 'L 7777 WLP',
+      vehicle_model: 'Isuzu Giga FVM 240',
+      vehicle_vin: 'MHFFVM24000777',
+      vehicle_engine: '6HK1-778899',
+      status: 'ACTIVE',
+      dp_amount: 80000000,
+      released_at: null,
+      sub_tasks: ['Pemasangan Wingbox 9.5 Meter', 'Cat Full Oven Putih'],
+      agreement_photos: [
+        {
+          url: 'https://res.cloudinary.com/demo/image/upload/v1/agreements/contract-777.jpg',
+        },
+      ],
+    };
+
+    const mockChecklists = [
+      { wbs_category: 'Pembongkaran', progress_percentage: 100, mandor_notes: 'Pembongkaran bodi lama selesai.' },
+      { wbs_category: 'Sasis/Rangka', progress_percentage: 100, mandor_notes: 'Pengelasan sasis selesai uji beban.' },
+      { wbs_category: 'Dinding/Fabrikasi', progress_percentage: 60, mandor_notes: 'Pemasangan dinding samping.' },
+      { wbs_category: 'Cat/Finishing', progress_percentage: 0, mandor_notes: '' },
+      { wbs_category: 'Kelistrikan/Hidrolik', progress_percentage: 0, mandor_notes: '' },
+    ];
+
+    const mockAssets = [
+      { id: 'ast-1', wbs_category: 'Pembongkaran', file_url: 'https://res.cloudinary.com/demo/image/upload/v1/wbs1_photo1.jpg', caption: 'Sasis Bersih' },
+      { id: 'ast-2', wbs_category: 'Pembongkaran', file_url: 'https://res.cloudinary.com/demo/image/upload/v1/wbs1_photo2.jpg', caption: 'Crossmember Copot' },
+      { id: 'ast-3', wbs_category: 'Sasis/Rangka', file_url: 'https://res.cloudinary.com/demo/image/upload/v1/wbs2_photo1.jpg', caption: 'Sambungan Las' },
+    ];
+
+    it('triggers html2pdf download with proper A4 multi-page options when Unduh PDF is clicked', async () => {
+      setupSupabaseMock(activeSpkWithAssets, mockChecklists, mockAssets);
+
+      render(
+        <MemoryRouter initialEntries={['/tracking/SPK-2026-777']}>
+          <Routes>
+            <Route path="/tracking/:spk_no" element={<PublicProgressTracking />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('PT Wahana Logistik Perkasa')).toBeInTheDocument();
+      });
+
+      const downloadButton = screen.getByRole('button', { name: /Unduh PDF/i });
+      fireEvent.click(downloadButton);
+
+      await waitFor(() => {
+        expect(mockHtml2PdfWorker).toHaveBeenCalled();
+      });
+
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          margin: [10, 10, 10, 10],
+          filename: 'Laporan-Progres-SPK-2026-777.pdf',
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: expect.objectContaining({
+            scale: 2,
+            useCORS: true,
+            allowTaint: false,
+            logging: false,
+            letterRendering: true,
+            backgroundColor: '#ffffff',
+            onclone: expect.any(Function),
+          }),
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+          pagebreak: {
+            mode: ['avoid-all', 'css', 'legacy'],
+            avoid: ['.break-inside-avoid', 'tr', '.wbs-card'],
+          },
+        })
+      );
+
+      // Verify targeted element is #tracking-pdf-report
+      const targetElement = mockFrom.mock.calls[0][0];
+      expect(targetElement).toBeInstanceOf(HTMLElement);
+      expect(targetElement.id).toBe('tracking-pdf-report');
+
+      // Verify save was called
+      expect(mockSave).toHaveBeenCalledTimes(1);
+    });
+
+    it('renders all 5 WBS categories and applies crossOrigin="anonymous" on documentation photos', async () => {
+      setupSupabaseMock(activeSpkWithAssets, mockChecklists, mockAssets);
+
+      render(
+        <MemoryRouter initialEntries={['/tracking/SPK-2026-777']}>
+          <Routes>
+            <Route path="/tracking/:spk_no" element={<PublicProgressTracking />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('PT Wahana Logistik Perkasa')).toBeInTheDocument();
+      });
+
+      // Verify WBS categories rendered
+      expect(screen.getByText('WBS 1: Pembongkaran')).toBeInTheDocument();
+      expect(screen.getByText('WBS 2: Sasis/Rangka')).toBeInTheDocument();
+      expect(screen.getByText('WBS 3: Dinding/Fabrikasi')).toBeInTheDocument();
+      expect(screen.getByText('WBS 4: Cat/Finishing')).toBeInTheDocument();
+      expect(screen.getByText('WBS 5: Kelistrikan/Hidrolik')).toBeInTheDocument();
+
+      // Verify Mandor Notes Box
+      expect(screen.getByText('Pembongkaran bodi lama selesai.')).toBeInTheDocument();
+      expect(screen.getByText('Pengelasan sasis selesai uji beban.')).toBeInTheDocument();
+
+      // Verify photo caption and crossOrigin attribute
+      expect(screen.getByText('Sasis Bersih')).toBeInTheDocument();
+      const photo1 = screen.getByAltText('Sasis Bersih') as HTMLImageElement;
+      expect(photo1).toHaveAttribute('crossorigin', 'anonymous');
+    });
+
+    it('falls back gracefully to window.print when html2pdf throws an error', async () => {
+      mockSave.mockRejectedValueOnce(new Error('Canvas tainted or render failure'));
+
+      setupSupabaseMock(activeSpkWithAssets, mockChecklists, mockAssets);
+
+      render(
+        <MemoryRouter initialEntries={['/tracking/SPK-2026-777']}>
+          <Routes>
+            <Route path="/tracking/:spk_no" element={<PublicProgressTracking />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('PT Wahana Logistik Perkasa')).toBeInTheDocument();
+      });
+
+      const downloadButton = screen.getByRole('button', { name: /Unduh PDF/i });
+      fireEvent.click(downloadButton);
+
+      await waitFor(() => {
+        expect(window.print).toHaveBeenCalledTimes(1);
+      });
+
+      // Loading state must reset
+      expect(screen.getByRole('button', { name: /Unduh PDF/i })).not.toBeDisabled();
     });
   });
 });

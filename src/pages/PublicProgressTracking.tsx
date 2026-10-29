@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import html2pdf from 'html2pdf.js';
 import { supabase } from '../lib/supabaseClient';
 import { 
   Check, Loader2, Printer, AlertTriangle, AlertCircle, ClipboardList,
@@ -7,6 +8,7 @@ import {
 } from 'lucide-react';
 import { getOptimizedImageUrl } from '../lib/cloudinary';
 import { checkTrackingExpiration } from '../utils/trackingExpiration';
+import { createStyleProxy } from '../utils/pdfExportUtils';
 
 const WBS_CATEGORIES = [
   'Pembongkaran',
@@ -154,9 +156,123 @@ export const PublicProgressTracking: React.FC = () => {
     return Array.isArray(spk.agreement_photos) ? spk.agreement_photos : [];
   }, [spk]);
 
-  const handlePrint = () => {
-    if (isTrackingExpired) return;
-    window.print();
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  const wbsStages = useMemo(() => {
+    return WBS_CATEGORIES.map((cat, idx) => {
+      const data = checklists[cat];
+      const catAssets = assets[cat] || [];
+      return {
+        id: cat,
+        wbsNumber: idx + 1,
+        title: WBS_LABELS[cat] || cat,
+        progress: data?.progress_percentage || 0,
+        notes: (data?.mandor_notes || data?.notes || '').trim(),
+        photos: catAssets.map((asset: any, pIdx: number) => ({
+          id: asset.id || pIdx,
+          url: asset.file_url || asset.url || asset.secure_url || '',
+          caption: asset.caption || `Dokumentasi #${pIdx + 1}`,
+        })),
+      };
+    });
+  }, [checklists, assets]);
+
+  const waitForImages = async (container: HTMLElement) => {
+    const images = Array.from(container.querySelectorAll('img'));
+    await Promise.all(
+      images.map(
+        (img) =>
+          new Promise<void>((resolve) => {
+            if (
+              img.complete ||
+              (typeof navigator !== 'undefined' && navigator.userAgent?.includes('jsdom'))
+            ) {
+              resolve();
+              return;
+            }
+            const timer = setTimeout(() => resolve(), 2500);
+            img.onload = () => {
+              clearTimeout(timer);
+              resolve();
+            };
+            img.onerror = () => {
+              clearTimeout(timer);
+              resolve();
+            };
+          })
+      )
+    );
+  };
+
+  const handleDownloadPdf = async () => {
+    if (isTrackingExpired || isGeneratingPdf) return;
+    const element = document.getElementById('tracking-pdf-report');
+    if (!element) {
+      console.error('Target elemen laporan tracking tidak ditemukan di DOM (#tracking-pdf-report)');
+      window.print();
+      return;
+    }
+
+    setIsGeneratingPdf(true);
+    const origWindowGetComputedStyle = window.getComputedStyle;
+
+    try {
+      // 1. Tunggu seluruh tag img selesai dimuat browser
+      await waitForImages(element);
+
+      // 2. Intercept window.getComputedStyle untuk menangani warna modern Tailwind v4 (oklch, color-mix, lab)
+      if (origWindowGetComputedStyle && typeof window !== 'undefined') {
+        window.getComputedStyle = createStyleProxy(origWindowGetComputedStyle.bind(window));
+      }
+
+      const safeSpkNo = (spk?.spk_no || spk?.spk_number || 'SPK').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const filename = `Laporan-Progres-${safeSpkNo}.pdf`;
+
+      const opt = {
+        margin: [10, 10, 10, 10] as [number, number, number, number],
+        filename,
+        image: { type: 'jpeg' as const, quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          allowTaint: false,
+          logging: false,
+          letterRendering: true,
+          backgroundColor: '#ffffff',
+          onclone: (clonedDoc: Document) => {
+            const win = clonedDoc.defaultView;
+            if (win) {
+              win.getComputedStyle = createStyleProxy(win.getComputedStyle.bind(win));
+            }
+            const clonedEl = clonedDoc.getElementById('tracking-pdf-report');
+            if (clonedEl) {
+              clonedEl.style.boxShadow = 'none';
+              clonedEl.style.border = 'none';
+              clonedEl.style.borderRadius = '0';
+            }
+          },
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
+        pagebreak: {
+          mode: ['avoid-all', 'css', 'legacy'],
+          avoid: ['.break-inside-avoid', 'tr', '.wbs-card'],
+        },
+      };
+
+      const html2pdfWorker = ((html2pdf as any).default || html2pdf) as typeof html2pdf;
+      await html2pdfWorker().set(opt).from(element).save();
+    } catch (err) {
+      console.error('Gagal mengunduh PDF:', err);
+      window.print();
+    } finally {
+      if (origWindowGetComputedStyle && typeof window !== 'undefined') {
+        window.getComputedStyle = origWindowGetComputedStyle;
+      }
+      if (typeof document !== 'undefined') {
+        document.querySelectorAll('.html2pdf__overlay').forEach((el) => el.remove());
+      }
+      setIsGeneratingPdf(false);
+    }
   };
 
   if (rateLimitReached) {
@@ -227,11 +343,22 @@ export const PublicProgressTracking: React.FC = () => {
           </div>
           {!isTrackingExpired && (
             <button
-              onClick={handlePrint}
-              className="flex items-center gap-2 px-4 py-2 bg-primary text-white font-medium rounded hover:bg-primary-hover transition cursor-pointer"
+              type="button"
+              onClick={handleDownloadPdf}
+              disabled={isGeneratingPdf}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-white font-medium rounded hover:bg-primary-hover transition cursor-pointer disabled:opacity-75 disabled:cursor-wait shadow-sm"
             >
-              <Printer className="w-4 h-4" />
-              <span className="hidden sm:inline">Unduh PDF</span>
+              {isGeneratingPdf ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="hidden sm:inline">Menyiapkan PDF...</span>
+                </>
+              ) : (
+                <>
+                  <Printer className="w-4 h-4" />
+                  <span className="hidden sm:inline">Unduh PDF</span>
+                </>
+              )}
             </button>
           )}
         </div>
@@ -262,54 +389,76 @@ export const PublicProgressTracking: React.FC = () => {
           </div>
         ) : (
           <>
-            {/* Printable Header */}
-            <div className="mb-8 border-b-2 border-primary/20 pb-6 print:border-black/20">
-              <div className="flex justify-between items-end mb-6">
-                <div>
-                  <h2 className="text-3xl font-display font-bold text-primary print:text-black mb-1">
-                    Laporan Progres Kendaraan
-                  </h2>
-                  <p className="text-text-muted print:text-gray-600">Terakhir Diperbarui: {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            {/* Active Grace Period Banner (within 7 days of BAST) */}
+            {expiration.isReleased && (
+              <div className="mb-6 bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-emerald-300 shadow-sm print:hidden">
+                <div className="flex items-center gap-2.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>
+                    Unit resmi diserahterimakan pada <strong>{expiration.formattedReleasedDate}</strong>. Akses dokumentasi teknis WBS terbuka hingga <strong>{expiration.formattedExpiresDate}</strong>.
+                  </span>
                 </div>
-                <div className="text-right hidden print:block">
-                  <h3 className="font-bold text-xl">RobelKaroseri</h3>
-                  <p className="text-sm text-gray-600">Sistem Laporan Resmi</p>
+                <span className="px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[11px] font-bold shrink-0 self-start sm:self-auto border border-emerald-500/30">
+                  {expiration.daysRemaining} HARI TERSISA
+                </span>
+              </div>
+            )}
+
+            {/* Kontainer dokumen laporan yang akan di-capture ke PDF / dicetak */}
+            <div
+              id="tracking-pdf-report"
+              className="bg-white text-slate-900 p-6 sm:p-8 rounded-xl shadow-xl space-y-6 border border-slate-200 print:border-none print:shadow-none print:p-0 print:m-0 print:rounded-none"
+            >
+              {/* KOP LAPORAN ROBELKAROSERI */}
+              <div className="border-b-2 border-slate-900 pb-3 flex justify-between items-start">
+                <div>
+                  <h1 className="text-xl sm:text-2xl font-black tracking-wide text-slate-900">ROBELKAROSERI</h1>
+                  <p className="text-xs text-slate-600">Laporan Progres Pengerjaan Unit Modifikasi Komersial</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Terakhir Diperbarui: {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs font-mono font-bold text-slate-800">{spk?.spk_no || spk?.spk_number}</span>
+                  <p className="text-[10px] text-slate-500">Dicetak: {new Date().toLocaleDateString('id-ID')}</p>
+                  <p className="text-[10px] font-medium text-slate-600">Sistem Laporan Resmi</p>
                 </div>
               </div>
 
-              <div className="bg-surface print:bg-gray-50 p-6 rounded-lg border border-border print:border-gray-200 space-y-5">
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-sm">
+              {/* 1. DATA KENDARAAN & KONSUMEN */}
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-5 space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-xs">
                   <div>
-                    <p className="text-sm text-text-muted print:text-gray-500 mb-1">Nama Pelanggan</p>
-                    <p className="font-bold text-lg">{spk?.customer_name}</p>
+                    <p className="text-[11px] text-slate-500 mb-1">Nama Pelanggan</p>
+                    <p className="font-bold text-base text-slate-900">{spk?.customer_name}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-text-muted print:text-gray-500 mb-1">Nomor SPK</p>
-                    <p className="font-bold font-mono text-primary print:text-black">{spk?.spk_no}</p>
+                    <p className="text-[11px] text-slate-500 mb-1">Nomor SPK</p>
+                    <p className="font-bold font-mono text-slate-900">{spk?.spk_no || spk?.spk_number}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-text-muted print:text-gray-500 mb-1">No. HP / Kontak</p>
-                    <p className="font-bold font-mono text-sm">{spk?.customer_phone || '-'}</p>
+                    <p className="text-[11px] text-slate-500 mb-1">No. HP / Kontak</p>
+                    <p className="font-bold font-mono text-slate-800">{spk?.customer_phone || '-'}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-text-muted print:text-gray-500 mb-1">Nomor Polisi</p>
-                    <p className="font-bold font-mono">{spk?.vehicle_plate || '-'}</p>
+                    <p className="text-[11px] text-slate-500 mb-1">Nomor Polisi</p>
+                    <p className="font-bold font-mono text-slate-900">{spk?.vehicle_plate || '-'}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-text-muted print:text-gray-500 mb-1">Model Kendaraan</p>
-                    <p className="font-bold text-sm">{spk?.vehicle_model || spk?.vehicleModel || '-'}</p>
+                    <p className="text-[11px] text-slate-500 mb-1">Model Kendaraan</p>
+                    <p className="font-bold text-slate-800">{spk?.vehicle_model || spk?.vehicleModel || '-'}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-text-muted print:text-gray-500 mb-1">Nomor Rangka (VIN)</p>
-                    <p className="font-bold font-mono">{spk?.vehicle_vin || spk?.vin_chassis || spk?.vehicle_number || '-'}</p>
+                    <p className="text-[11px] text-slate-500 mb-1">Nomor Rangka (VIN)</p>
+                    <p className="font-bold font-mono text-slate-800">{spk?.vehicle_vin || spk?.vin_chassis || spk?.vehicle_number || '-'}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-text-muted print:text-gray-500 mb-1">Nomor Mesin</p>
-                    <p className="font-bold font-mono">{spk?.vehicle_engine || spk?.engine_number || '-'}</p>
+                    <p className="text-[11px] text-slate-500 mb-1">Nomor Mesin</p>
+                    <p className="font-bold font-mono text-slate-800">{spk?.vehicle_engine || spk?.engine_number || '-'}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-text-muted print:text-gray-500 mb-1">Tanggal Registrasi</p>
-                    <p className="font-bold text-sm">
+                    <p className="text-[11px] text-slate-500 mb-1">Tanggal Registrasi</p>
+                    <p className="font-bold text-slate-800">
                       {spk?.created_at
                         ? new Date(spk.created_at).toLocaleDateString('id-ID', {
                             day: 'numeric',
@@ -320,8 +469,8 @@ export const PublicProgressTracking: React.FC = () => {
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-text-muted print:text-gray-500 mb-1">Target Selesai</p>
-                    <p className="font-bold text-sm">
+                    <p className="text-[11px] text-slate-500 mb-1">Target Selesai</p>
+                    <p className="font-bold text-slate-800">
                       {spk?.target_date
                         ? new Date(spk.target_date).toLocaleDateString('id-ID', {
                             day: 'numeric',
@@ -335,15 +484,15 @@ export const PublicProgressTracking: React.FC = () => {
 
                 {/* Scope Modifikasi / Sub Tasks */}
                 {currentSubTasks.length > 0 && (
-                  <div className="pt-4 border-t border-border/70 print:border-gray-300">
-                    <p className="text-xs text-text-muted print:text-gray-500 uppercase tracking-wider font-semibold mb-2">
+                  <div className="pt-3 border-t border-slate-200">
+                    <p className="text-[11px] text-slate-600 uppercase tracking-wider font-semibold mb-2">
                       Scope Modifikasi / Sub Tasks
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {currentSubTasks.map((task: string, i: number) => (
                         <span
                           key={i}
-                          className="bg-background print:bg-gray-100 border border-border print:border-gray-300 text-text print:text-gray-900 px-2.5 py-1 rounded text-xs font-mono"
+                          className="bg-white border border-slate-300 text-slate-800 px-2.5 py-1 rounded text-xs font-mono"
                         >
                           {task}
                         </span>
@@ -351,152 +500,147 @@ export const PublicProgressTracking: React.FC = () => {
                     </div>
                   </div>
                 )}
+              </div>
 
-                {/* Surat Kesepakatan Gallery (w_200,c_limit,f_auto,q_auto) */}
-                {agreementPhotos.length > 0 && (
-                  <div className="pt-4 border-t border-border/70 print:border-gray-300">
-                    <div className="flex items-center gap-2 mb-2">
-                      <FileText className="w-4 h-4 text-primary print:text-black" />
-                      <p className="text-xs text-text-muted print:text-gray-500 uppercase tracking-wider font-semibold">
+              {/* 2. DOKUMEN SURAT KESEPAKATAN KERJA (Semua Foto) */}
+              {agreementPhotos.length > 0 && (
+                <div className="break-inside-avoid border border-slate-200 rounded-lg p-5 bg-slate-50/50">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-slate-700" />
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
                         Dokumentasi Surat Kesepakatan Kerja ({agreementPhotos.length} Dokumen)
-                      </p>
+                      </h3>
                     </div>
-                    <div className="flex flex-wrap gap-3">
-                      {agreementPhotos.map((photo: any, idx: number) => {
-                        const photoUrl = photo.url || photo.secure_url;
-                        return (
-                          <div
-                            key={photo.public_id || idx}
-                            onClick={() => setAgreementLightbox(photo)}
-                            className="group relative w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden border border-border hover:border-primary cursor-pointer transition shadow-2xs bg-background shrink-0"
-                            title="Klik untuk melihat dokumen surat kesepakatan resolusi penuh"
-                            data-testid={`agreement-thumbnail-${idx}`}
-                          >
-                            <img
-                              src={getOptimizedImageUrl(photoUrl, 200)}
-                              alt={`Surat Kesepakatan ${idx + 1}`}
-                              className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
-                              crossOrigin="anonymous"
-                            />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-[11px] font-medium print:hidden">
-                              Perbesar
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    <span className="text-[11px] text-slate-500 font-mono">Lampiran Surat Resmi</span>
                   </div>
-                )}
-              </div>
-            </div>
-
-            {/* Active Grace Period Banner (within 7 days of BAST) */}
-            {expiration.isReleased && (
-              <div className="mb-8 bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-emerald-300 shadow-sm print:hidden">
-                <div className="flex items-center gap-2.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>
-                    Unit resmi diserahterimakan pada <strong>{expiration.formattedReleasedDate}</strong>. Akses dokumentasi teknis WBS terbuka hingga <strong>{expiration.formattedExpiresDate}</strong>.
-                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {agreementPhotos.map((item: any, idx: number) => {
+                      const photoUrl = item.url || item.secure_url;
+                      return (
+                        <div
+                          key={item.public_id || idx}
+                          onClick={() => setAgreementLightbox(item)}
+                          className="group relative border border-slate-300 rounded-lg overflow-hidden bg-white shadow-2xs hover:border-slate-500 cursor-pointer transition"
+                          data-testid={`agreement-thumbnail-${idx}`}
+                          title="Klik untuk melihat dokumen surat kesepakatan resolusi penuh"
+                        >
+                          <img
+                            src={getOptimizedImageUrl(photoUrl, 600)}
+                            alt={`Surat Kesepakatan ${idx + 1}`}
+                            crossOrigin="anonymous"
+                            className="w-full h-36 object-cover group-hover:scale-105 transition duration-200"
+                          />
+                          <div className="p-1.5 text-[10px] text-slate-600 bg-slate-100 text-center font-mono border-t border-slate-200">
+                            Dokumen Kesepakatan #{idx + 1}
+                          </div>
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-[11px] font-medium print:hidden">
+                            Perbesar
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <span className="px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[11px] font-bold shrink-0 self-start sm:self-auto border border-emerald-500/30">
-                  {expiration.daysRemaining} HARI TERSISA
-                </span>
-              </div>
-            )}
+              )}
 
-            {/* Overall Progress */}
-            <div className="mb-10">
-              <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                Penyelesaian Keseluruhan
-              </h3>
-              <div className="bg-surface print:bg-white p-6 rounded-lg border border-border print:border-gray-200">
-                <div className="flex justify-between items-center mb-3">
-                  <span className="font-medium text-lg">Total Progres WBS</span>
-                  <span className="text-3xl font-display font-bold text-primary print:text-black">{totalProgress}%</span>
+              {/* 3. PROGRES KESELURUHAN */}
+              <div className="border border-slate-200 rounded-lg p-5 bg-white break-inside-avoid">
+                <h3 className="text-base font-bold text-slate-900 mb-3 flex items-center gap-2">
+                  Penyelesaian Keseluruhan
+                </h3>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-medium text-sm text-slate-700">Total Progres WBS</span>
+                  <span className="text-2xl font-bold font-mono text-slate-900">{totalProgress}%</span>
                 </div>
-                <div className="w-full h-4 bg-background print:bg-gray-200 rounded-full overflow-hidden border border-border print:border-gray-300">
-                  <div 
-                    className="h-full bg-primary print:bg-black transition-all duration-1000"
+                <div className="w-full h-3.5 bg-slate-200 rounded-full overflow-hidden border border-slate-300">
+                  <div
+                    className="h-full bg-slate-900 transition-all duration-1000"
                     style={{ width: `${totalProgress}%` }}
                   ></div>
                 </div>
               </div>
-            </div>
 
-            {/* WBS Details */}
-            <div className="space-y-8">
-              <h3 className="text-xl font-bold mb-4 border-b border-border print:border-gray-300 pb-2">Rincian Tahapan (WBS)</h3>
-              
-              {WBS_CATEGORIES.map((category) => {
-                const data = checklists[category];
-                const catAssets = assets[category] || [];
-                const prog = data?.progress_percentage || 0;
-                const mandorNote = (data?.mandor_notes || data?.notes || '').trim();
-                
-                return (
-                  <div key={category} className="bg-surface print:bg-white p-6 rounded-lg border border-border print:border-gray-300 break-inside-avoid">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
-                      <div>
-                        <h4 className="font-bold text-lg">{WBS_LABELS[category]}</h4>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="font-medium">Progres: {prog}%</span>
-                        {prog === 100 && <Check className="w-5 h-5 text-green-500 print:text-black" />}
+              {/* 4. TAHAPAN WBS & SEMUA FOTO DOKUMENTASI PEKERJAAN */}
+              <div className="space-y-4">
+                <h3 className="text-base font-bold text-slate-900 border-b border-slate-200 pb-2">
+                  Rincian Tahapan (WBS)
+                </h3>
+
+                {wbsStages.map((stage) => (
+                  <div
+                    key={stage.id}
+                    className="wbs-card border border-slate-300 rounded-lg p-5 break-inside-avoid bg-white space-y-3"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <h4 className="font-bold text-base text-slate-900">{stage.title}</h4>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs bg-slate-100 px-2.5 py-1 rounded border border-slate-300 text-slate-800">
+                          Progres: {stage.progress}%
+                        </span>
+                        {stage.progress === 100 && <Check className="w-4 h-4 text-emerald-600 print:text-black" />}
                       </div>
                     </div>
 
                     {/* Mandor Notes Box */}
-                    {mandorNote ? (
-                      <div className="mb-4 p-4 rounded-lg bg-slate-800/60 border border-orange-500/30 print:bg-amber-50/70 print:border-amber-300 shadow-sm">
-                        <div className="flex items-center gap-2 mb-1.5 text-orange-400 print:text-amber-800">
-                          <ClipboardList className="w-4 h-4 flex-shrink-0" />
-                          <span className="text-xs font-bold uppercase tracking-wider font-mono">
+                    {stage.notes ? (
+                      <div className="p-3.5 rounded-lg bg-amber-50/70 border border-amber-300 text-slate-900">
+                        <div className="flex items-center gap-1.5 mb-1 text-amber-800">
+                          <ClipboardList className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span className="text-[11px] font-bold uppercase tracking-wider font-mono">
                             Catatan Mandor / Progres Terkini:
                           </span>
                         </div>
-                        <p className="text-sm text-text print:text-gray-900 leading-relaxed pl-6 whitespace-pre-wrap font-sans">
-                          {mandorNote}
+                        <p className="text-xs leading-relaxed pl-5 whitespace-pre-wrap font-sans">
+                          {stage.notes}
                         </p>
                       </div>
                     ) : (
-                      <div className="mb-4 px-4 py-2.5 rounded-lg bg-background/50 border border-dashed border-border/70 print:bg-gray-50 print:border-gray-200 text-xs text-text-muted print:text-gray-500 flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-slate-500/50"></span>
+                      <div className="px-3 py-2 rounded-lg bg-slate-50 border border-dashed border-slate-300 text-[11px] text-slate-500 flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
                         <span>Pengerjaan berjalan sesuai standar, belum ada catatan khusus.</span>
                       </div>
                     )}
 
-                    {/* Gallery 3-column Grid */}
-                    {catAssets.length > 0 ? (
-                      <div className="mt-4 grid grid-cols-3 gap-4">
-                        {catAssets.map((asset, idx) => (
-                          <div key={asset.id || idx} className="border border-border print:border-gray-300 rounded overflow-hidden aspect-square bg-background print:bg-gray-100 flex items-center justify-center relative">
-                            <img 
-                              src={getOptimizedImageUrl(asset.file_url, 400)} 
-                              alt="WBS" 
-                              className="w-full h-full object-cover"
-                              crossOrigin="anonymous" // Helpful for printing if printing triggers CORS
-                            />
-                          </div>
-                        ))}
+                    {/* Grid Dokumentasi Foto Tiap WBS (3 Kolom per Baris) */}
+                    {stage.photos && stage.photos.length > 0 ? (
+                      <div>
+                        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                          Dokumentasi Lapangan ({stage.photos.length} Foto):
+                        </div>
+                        <div className="grid grid-cols-3 gap-2.5">
+                          {stage.photos.map((photo: any, pIdx: number) => (
+                            <div key={photo.id || pIdx} className="border border-slate-200 rounded overflow-hidden bg-slate-50">
+                              <img
+                                src={getOptimizedImageUrl(photo.url, 600)}
+                                alt={photo.caption || `Dokumentasi #${pIdx + 1}`}
+                                crossOrigin="anonymous"
+                                className="w-full h-28 object-cover"
+                              />
+                              <div className="p-1 text-[9px] text-slate-600 bg-slate-100 text-center truncate">
+                                {photo.caption || `Dokumentasi #${pIdx + 1}`}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     ) : (
-                      <div className="mt-4 p-4 text-center text-sm text-text-muted print:text-gray-500 border border-dashed border-border print:border-gray-300 rounded">
-                        Belum ada dokumentasi foto.
+                      <div className="p-3 text-center text-xs text-slate-400 italic border border-dashed border-slate-200 rounded">
+                        Belum ada dokumentasi foto pada tahap ini.
                       </div>
                     )}
                   </div>
-                );
-              })}
+                ))}
+              </div>
+
+              {/* 5. FOOTER LAPORAN */}
+              <div className="pt-6 border-t border-slate-200 text-center text-xs text-slate-500 break-inside-avoid">
+                <p>Laporan ini digenerate secara otomatis oleh sistem RobelKaroseri.</p>
+                <p>Untuk pertanyaan lebih lanjut, silakan hubungi Customer Service kami.</p>
+              </div>
             </div>
           </>
         )}
-
-        {/* Footer */}
-        <div className="mt-16 pt-8 border-t border-border print:border-gray-300 text-center text-sm text-text-muted print:text-gray-500">
-          <p>Laporan ini digenerate secara otomatis oleh sistem RobelKaroseri.</p>
-          <p>Untuk pertanyaan lebih lanjut, silakan hubungi Customer Service kami.</p>
-        </div>
 
       </div>
 
@@ -546,13 +690,37 @@ export const PublicProgressTracking: React.FC = () => {
             background-color: white !important;
             color: black !important;
           }
-          @page { margin: 20mm; }
-          /* Ensure images are printed */
+          body * {
+            visibility: hidden;
+          }
+          #tracking-pdf-report,
+          #tracking-pdf-report * {
+            visibility: visible;
+          }
+          #tracking-pdf-report {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            background: white !important;
+            color: #0f172a !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+          }
+          .break-inside-avoid {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
+          @page {
+            size: A4 portrait;
+            margin: 10mm;
+          }
           img {
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
-          /* Hide non-printable elements forcefully */
           .print\\:hidden {
             display: none !important;
           }
