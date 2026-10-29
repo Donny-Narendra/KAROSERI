@@ -1,7 +1,7 @@
 # Sprint 100 — Add Compact Down Payment Receipt Download Button in Cashier Modal
 
 > **Duration**: 2026-10-29 to 2026-10-29
-> **Status**: In Progress
+> **Status**: Completed ✓
 
 ## Goal
 Tambahkan tombol aksi baru "Download Kuitansi Ringkas" pada header modal `DpReceiptPrintModal.tsx` di kasir, yang memungkinkan pengguna mengunduh kuitansi DP dalam format PDF versi ringkas murni sebagai bukti penerimaan setoran uang muka (menghilangkan baris "Total Estimasi Nilai Kontrak SPK" dan "Sisa Estimasi Tagihan Pelunasan"), sementara tombol "Download PDF" lengkap dan "Cetak Kuitansi" tetap berfungsi normal.
@@ -33,13 +33,25 @@ Tambahkan tombol aksi baru "Download Kuitansi Ringkas" pada header modal `DpRece
 
 | Task | Assignee | Status | Est. Hours |
 |------|----------|--------|------------|
-| Task 1: Perbarui Header & Tombol Aksi di `DpReceiptPrintModal.tsx` | Claude | ⬜ Todo | 0.5 |
-| Task 2: Modifikasi Generator PDF & Logika Filter Baris Ringkas | Claude | ⬜ Todo | 0.5 |
-| Task 3: Pengujian & Verifikasi Komponen | Claude | ⬜ Todo | 0.5 |
+| Task 1: Perbarui Header & Tombol Aksi di `DpReceiptPrintModal.tsx` | Claude | ✅ Done | 0.5 |
+| Task 2: Modifikasi Generator PDF & Logika Filter Baris Ringkas | Claude | ✅ Done | 0.5 |
+| Task 3: Pengujian & Verifikasi Komponen | Claude | ✅ Done | 0.5 |
 
 ## Daily Log
 
 ### 2026-10-29
-- Sprint 100 dibuat.
-- Mengarsipkan Sprint 99 ke `.gsd/sprints/`.
-- Memulai implementasi Task 1 & Task 2 pada `DpReceiptPrintModal.tsx`.
+- Sprint 100 selesai:
+  1. `src/components/finance/DpReceiptPrintModal.tsx`:
+     - Menambahkan tombol aksi "Download Kuitansi Ringkas" (warna biru dengan icon `FileDown`) di header modal, berdampingan dengan tombol "Download PDF" (hijau) dan "Cetak Kuitansi" (oranye).
+     - Menambahkan status tracking `downloadingMode: 'full' | 'compact' | null` untuk indikator spinner animasi independen.
+     - Memperbarui `handleDownloadPdf` dengan opsi `{ isCompact?: boolean }`. Ketika mode ringkas aktif, nama berkas diekspor menjadi `Kuitansi-DP-Ringkas-${spkNo}.pdf`, dan hook `onclone` pada html2canvas menghapus baris `.row-total-kontrak` dan `.row-sisa-tagihan`.
+     - Menambahkan penanda kelas `.row-total-kontrak` dan `.row-sisa-tagihan` serta kondisi `!isCompactMode` dengan prop opsional `isCompact?: boolean`.
+  2. `src/components/finance/__tests__/DpReceiptPrintModal.test.tsx`:
+     - Menambahkan pengujian keberadaan 3 tombol di header modal.
+     - Menambahkan pengujian unduhan PDF kuitansi ringkas (filename + penghapusan row di `onclone`).
+     - Menambahkan pengujian unduhan PDF kuitansi lengkap (mempertahankan 6 baris lengkap).
+     - Menambahkan pengujian penyembunyian baris estimasi kontrak & sisa tagihan saat `isCompact={true}`.
+  3. Verifikasi:
+     - Seluruh 73 test suite Vitest (536 tests) lulus 100%.
+     - `npx oxlint` lulus dengan 0 errors.
+     - `npm run build` sukses tanpa kendala.

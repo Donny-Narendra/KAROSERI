@@ -235,8 +235,122 @@ describe('Component: DpReceiptPrintModal', () => {
     dummyClonedDoc.body.appendChild(dummyEl);
 
     // Call onclone to verify it safely strips box-shadow and attaches style proxy
+    const dummyContractRow = dummyClonedDoc.createElement('div');
+    dummyContractRow.className = 'row-total-kontrak';
+    dummyClonedDoc.body.appendChild(dummyContractRow);
+
+    const dummyRemainingRow = dummyClonedDoc.createElement('div');
+    dummyRemainingRow.className = 'row-sisa-tagihan';
+    dummyClonedDoc.body.appendChild(dummyRemainingRow);
+
     passedOpt.html2canvas.onclone(dummyClonedDoc);
     expect(dummyEl.style.boxShadow).toBe('none');
+    // For standard Download PDF, the rows should NOT be removed
+    expect(dummyClonedDoc.querySelector('.row-total-kontrak')).not.toBeNull();
+    expect(dummyClonedDoc.querySelector('.row-sisa-tagihan')).not.toBeNull();
+  });
+
+  it('renders all three action buttons in the header: Download Kuitansi Ringkas, Download PDF, and Cetak Kuitansi', () => {
+    render(
+      <DpReceiptPrintModal
+        isOpen={true}
+        onClose={vi.fn()}
+        data={mockData}
+      />
+    );
+
+    const compactBtn = screen.getByRole('button', { name: /Download Kuitansi Ringkas/i });
+    expect(compactBtn).toBeInTheDocument();
+    expect(compactBtn).toHaveClass('bg-blue-600');
+    expect(compactBtn).toHaveAttribute('title', 'Download kuitansi ringkas tanpa estimasi total kontrak & sisa tagihan');
+
+    const fullBtn = screen.getByRole('button', { name: /Download PDF/i });
+    expect(fullBtn).toBeInTheDocument();
+    expect(fullBtn).toHaveClass('bg-emerald-600');
+
+    const printBtn = screen.getByRole('button', { name: /Cetak Kuitansi/i });
+    expect(printBtn).toBeInTheDocument();
+    expect(printBtn).toHaveClass('bg-amber-600');
+  });
+
+  it('triggers html2pdf download with compact filename and removes contract & remaining rows onclone when Download Kuitansi Ringkas is clicked', async () => {
+    mockHtml2PdfWorker.mockClear();
+    mockSet.mockClear();
+    mockFrom.mockClear();
+    mockSave.mockClear();
+
+    render(
+      <DpReceiptPrintModal
+        isOpen={true}
+        onClose={vi.fn()}
+        data={mockData}
+      />
+    );
+
+    const compactDownloadBtn = screen.getByRole('button', { name: /Download Kuitansi Ringkas/i });
+    fireEvent.click(compactDownloadBtn);
+
+    await waitFor(() => {
+      expect(mockHtml2PdfWorker).toHaveBeenCalled();
+    });
+
+    expect(mockSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filename: 'Kuitansi-DP-Ringkas-SPK-8698.pdf',
+        margin: [8, 8, 8, 8],
+        html2canvas: expect.objectContaining({
+          scale: 2,
+          useCORS: true,
+          letterRendering: true,
+          backgroundColor: '#ffffff',
+          onclone: expect.any(Function),
+        }),
+      })
+    );
+
+    const passedOpt = mockSet.mock.calls[0][0];
+    const dummyClonedDoc = document.implementation.createHTMLDocument();
+    const dummyEl = dummyClonedDoc.createElement('div');
+    dummyEl.id = 'printable-dp-receipt';
+    dummyClonedDoc.body.appendChild(dummyEl);
+
+    const dummyContractRow = dummyClonedDoc.createElement('div');
+    dummyContractRow.className = 'row-total-kontrak';
+    dummyClonedDoc.body.appendChild(dummyContractRow);
+
+    const dummyRemainingRow = dummyClonedDoc.createElement('div');
+    dummyRemainingRow.className = 'row-sisa-tagihan';
+    dummyClonedDoc.body.appendChild(dummyRemainingRow);
+
+    // Call onclone to verify it safely strips box-shadow and removes compact rows
+    passedOpt.html2canvas.onclone(dummyClonedDoc);
+    expect(dummyEl.style.boxShadow).toBe('none');
+    expect(dummyClonedDoc.querySelector('.row-total-kontrak')).toBeNull();
+    expect(dummyClonedDoc.querySelector('.row-sisa-tagihan')).toBeNull();
+  });
+
+  it('hides total contract and remaining balance rows when isCompact prop is true', () => {
+    render(
+      <DpReceiptPrintModal
+        isOpen={true}
+        onClose={vi.fn()}
+        data={mockData}
+        isCompact={true}
+      />
+    );
+
+    // Total contract & Remaining bill must NOT be in the document
+    expect(screen.queryByText(/Total Estimasi Nilai Kontrak SPK/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Sisa Estimasi Tagihan Pelunasan/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Rp 120.000.000')).not.toBeInTheDocument();
+    expect(screen.queryByText('Rp 70.000.000')).not.toBeInTheDocument();
+
+    // DP Dibayarkan, Terbilang, Metode Bayar, Catatan must remain present
+    expect(screen.getByText(/Nominal Uang Muka \(DP\) Dibayarkan/i)).toBeInTheDocument();
+    expect(screen.getByText('Rp 50.000.000')).toBeInTheDocument();
+    expect(screen.getByText(/Lima Puluh Juta Rupiah/i)).toBeInTheDocument();
+    expect(screen.getByText('Transfer Bank')).toBeInTheDocument();
+    expect(screen.getByText('Transfer BCA an Donny, Ref: TRF-889911')).toBeInTheDocument();
   });
 
   it('falls back gracefully to window.print when html2pdf throws an error', async () => {

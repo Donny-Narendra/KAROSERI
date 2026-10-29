@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Printer, X, Receipt, CheckCircle, Download, Loader2 } from 'lucide-react';
+import { Printer, X, Receipt, CheckCircle, Download, Loader2, FileDown } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import { terbilang } from '../../utils/terbilang';
 import { formatCurrency } from '../../utils/invoiceExport';
@@ -26,6 +26,7 @@ interface DpReceiptPrintModalProps {
   onClose: () => void;
   data: DpReceiptData | null;
   autoPrint?: boolean;
+  isCompact?: boolean;
 }
 
 const formatDateId = (dateInput?: string | Date) => {
@@ -61,8 +62,11 @@ export const DpReceiptPrintModal: React.FC<DpReceiptPrintModalProps> = ({
   onClose,
   data,
   autoPrint = false,
+  isCompact = false,
 }) => {
-  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [downloadingMode, setDownloadingMode] = useState<'full' | 'compact' | null>(null);
+  const isDownloadingPdf = Boolean(downloadingMode);
+  const isCompactMode = isCompact;
 
   useEffect(() => {
     if (isOpen && autoPrint) {
@@ -86,7 +90,7 @@ export const DpReceiptPrintModal: React.FC<DpReceiptPrintModalProps> = ({
     window.print();
   };
 
-  const handleDownloadPdf = async () => {
+  const handleDownloadPdf = async ({ isCompact: isCompactDownload = false }: { isCompact?: boolean } = {}) => {
     const element = document.getElementById('printable-dp-receipt') || document.getElementById('dp-receipt-print-area');
     if (!element) {
       console.error('Target elemen kuitansi DP tidak ditemukan di DOM');
@@ -96,9 +100,11 @@ export const DpReceiptPrintModal: React.FC<DpReceiptPrintModalProps> = ({
     const origWindowGetComputedStyle = typeof window !== 'undefined' ? window.getComputedStyle : null;
 
     try {
-      setIsDownloadingPdf(true);
+      setDownloadingMode(isCompactDownload ? 'compact' : 'full');
       const safeSpk = (data.spkNo || 'SPK').replace(/[^a-zA-Z0-9_-]/g, '_');
-      const filename = `Kuitansi-DP-${safeSpk}.pdf`;
+      const filename = isCompactDownload
+        ? `Kuitansi-DP-Ringkas-${safeSpk}.pdf`
+        : `Kuitansi-DP-${safeSpk}.pdf`;
 
       // Intercept window.getComputedStyle in the main window during html2pdf run
       if (origWindowGetComputedStyle && typeof window !== 'undefined') {
@@ -124,6 +130,11 @@ export const DpReceiptPrintModal: React.FC<DpReceiptPrintModalProps> = ({
             if (clonedEl) {
               clonedEl.style.boxShadow = 'none';
             }
+            if (isCompactDownload) {
+              clonedDoc.querySelectorAll('.row-total-kontrak, .row-sisa-tagihan').forEach(row => {
+                row.remove();
+              });
+            }
           },
         },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
@@ -142,7 +153,7 @@ export const DpReceiptPrintModal: React.FC<DpReceiptPrintModalProps> = ({
       if (typeof document !== 'undefined') {
         document.querySelectorAll('.html2pdf__overlay').forEach(el => el.remove());
       }
-      setIsDownloadingPdf(false);
+      setDownloadingMode(null);
     }
   };
 
@@ -175,20 +186,36 @@ export const DpReceiptPrintModal: React.FC<DpReceiptPrintModalProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {/* Tombol Unduh Kuitansi Ringkas */}
+            <button
+              type="button"
+              onClick={() => handleDownloadPdf({ isCompact: true })}
+              disabled={isDownloadingPdf}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+              title="Download kuitansi ringkas tanpa estimasi total kontrak & sisa tagihan"
+            >
+              {downloadingMode === 'compact' ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <FileDown className="w-3.5 h-3.5" />
+              )}
+              <span>{downloadingMode === 'compact' ? 'Mengunduh...' : 'Download Kuitansi Ringkas'}</span>
+            </button>
+
             {/* Tombol Unduh PDF */}
             <button
               type="button"
-              onClick={handleDownloadPdf}
+              onClick={() => handleDownloadPdf({ isCompact: false })}
               disabled={isDownloadingPdf}
               className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               title="Unduh langsung kuitansi DP dalam format PDF"
             >
-              {isDownloadingPdf ? (
+              {downloadingMode === 'full' ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
                 <Download className="w-3.5 h-3.5" />
               )}
-              <span>{isDownloadingPdf ? 'Mengunduh...' : 'Download PDF'}</span>
+              <span>{downloadingMode === 'full' ? 'Mengunduh...' : 'Download PDF'}</span>
             </button>
 
             {/* Tombol Cetak Kuitansi */}
@@ -332,14 +359,17 @@ export const DpReceiptPrintModal: React.FC<DpReceiptPrintModalProps> = ({
                 
                 <table className="w-full border-collapse border border-slate-300 text-[11px]">
                   <tbody>
-                    <tr className="border-b border-slate-300">
-                      <td className="w-56 bg-slate-100 font-semibold py-1.5 px-3 border-r border-slate-300 text-slate-800">
-                        Total Estimasi Nilai Kontrak SPK
-                      </td>
-                      <td className="py-1.5 px-3 font-bold text-right text-slate-900">
-                        {formatCurrency(totalContract)}
-                      </td>
-                    </tr>
+                    {/* Baris Total Estimasi Kontrak (Disembunyikan pada mode compact) */}
+                    {!isCompactMode && (
+                      <tr className="row-total-kontrak border-b border-slate-300">
+                        <td className="w-56 bg-slate-100 font-semibold py-1.5 px-3 border-r border-slate-300 text-slate-800">
+                          Total Estimasi Nilai Kontrak SPK
+                        </td>
+                        <td className="py-1.5 px-3 font-bold text-right text-slate-900">
+                          {formatCurrency(totalContract)}
+                        </td>
+                      </tr>
+                    )}
                     <tr className="border-b border-slate-300 bg-emerald-50">
                       <td className="bg-emerald-100 font-bold py-1.5 px-3 border-r border-slate-300 text-emerald-950">
                         Nominal Uang Muka (DP) Dibayarkan
@@ -372,14 +402,17 @@ export const DpReceiptPrintModal: React.FC<DpReceiptPrintModalProps> = ({
                         {data.notes && data.notes.trim() !== '' ? data.notes : '-'}
                       </td>
                     </tr>
-                    <tr className="bg-slate-50">
-                      <td className="bg-slate-100 font-semibold py-1.5 px-3 border-r border-slate-300 text-slate-800">
-                        Sisa Estimasi Tagihan Pelunasan
-                      </td>
-                      <td className="py-1.5 px-3 font-bold text-right text-rose-700">
-                        {formatCurrency(remainingBill)}
-                      </td>
-                    </tr>
+                    {/* Baris Sisa Estimasi Tagihan (Disembunyikan pada mode compact) */}
+                    {!isCompactMode && (
+                      <tr className="row-sisa-tagihan bg-slate-50">
+                        <td className="bg-slate-100 font-semibold py-1.5 px-3 border-r border-slate-300 text-slate-800">
+                          Sisa Estimasi Tagihan Pelunasan
+                        </td>
+                        <td className="py-1.5 px-3 font-bold text-right text-rose-700">
+                          {formatCurrency(remainingBill)}
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
