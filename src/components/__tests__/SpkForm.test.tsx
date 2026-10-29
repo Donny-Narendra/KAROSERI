@@ -274,4 +274,77 @@ describe('Component: SpkCredentialSection (Vehicle Model Display & Edit)', () =>
     expect(screen.getByText('Dokumentasi Surat Kesepakatan Kerja')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Unggah Dokumen/i })).toBeInTheDocument();
   });
+
+  describe('Scope Modifikasi / Sub Tasks Box', () => {
+    it('renders sub tasks badges when sub_tasks is string array', () => {
+      const spkWithArray = {
+        ...mockSpk,
+        sub_tasks: ['Potong Sasis 50cm', 'Box Aluminium', 'Tes'],
+      };
+      render(<SpkCredentialSection spk={spkWithArray} onUpdated={vi.fn()} />);
+
+      expect(screen.getByText('SCOPE MODIFIKASI / SUB TASKS:')).toBeInTheDocument();
+      expect(screen.getByText('Potong Sasis 50cm')).toBeInTheDocument();
+      expect(screen.getByText('Box Aluminium')).toBeInTheDocument();
+      expect(screen.getByText('Tes')).toBeInTheDocument();
+    });
+
+    it('parses and renders sub tasks when sub_tasks is JSON string', () => {
+      const spkWithJson = {
+        ...mockSpk,
+        sub_tasks: '["Dump Truck Kit", "Hidrolik PTO"]' as any,
+      };
+      render(<SpkCredentialSection spk={spkWithJson} onUpdated={vi.fn()} />);
+
+      expect(screen.getByText('SCOPE MODIFIKASI / SUB TASKS:')).toBeInTheDocument();
+      expect(screen.getByText('Dump Truck Kit')).toBeInTheDocument();
+      expect(screen.getByText('Hidrolik PTO')).toBeInTheDocument();
+    });
+
+    it('parses comma and newline separated string sub_tasks', () => {
+      const spkWithString = {
+        ...mockSpk,
+        sub_tasks: 'Instalasi Tangki, Pengecatan Full Oven\nKelistrikan' as any,
+      };
+      render(<SpkCredentialSection spk={spkWithString} onUpdated={vi.fn()} />);
+
+      expect(screen.getByText('SCOPE MODIFIKASI / SUB TASKS:')).toBeInTheDocument();
+      expect(screen.getByText('Instalasi Tangki')).toBeInTheDocument();
+      expect(screen.getByText('Pengecatan Full Oven')).toBeInTheDocument();
+      expect(screen.getByText('Kelistrikan')).toBeInTheDocument();
+    });
+
+    it('renders informative fallback when sub_tasks is empty or null without hiding the container', () => {
+      const spkEmpty = {
+        ...mockSpk,
+        sub_tasks: [],
+      };
+      render(<SpkCredentialSection spk={spkEmpty} onUpdated={vi.fn()} />);
+
+      expect(screen.getByText('SCOPE MODIFIKASI / SUB TASKS:')).toBeInTheDocument();
+      expect(
+        screen.getByText(/Belum ada rincian scope modifikasi. Klik "Edit Credential" untuk menambahkan sub task./i)
+      ).toBeInTheDocument();
+    });
+
+    it('maintains correct DOM order: 6-column grid -> Scope Modifikasi -> Dokumentasi Surat Kesepakatan Kerja', () => {
+      const spkWithSubTasks = {
+        ...mockSpk,
+        sub_tasks: ['Pemasangan Karoseri Box'],
+      };
+      render(<SpkCredentialSection spk={spkWithSubTasks} onUpdated={vi.fn()} />);
+
+      const gridCol = screen.getByText('Pelanggan');
+      const scopeModif = screen.getByText('SCOPE MODIFIKASI / SUB TASKS:');
+      const docHeader = screen.getByText('Dokumentasi Surat Kesepakatan Kerja');
+
+      expect(gridCol).toBeInTheDocument();
+      expect(scopeModif).toBeInTheDocument();
+      expect(docHeader).toBeInTheDocument();
+
+      // Check document position hierarchy
+      expect(gridCol.compareDocumentPosition(scopeModif) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(scopeModif.compareDocumentPosition(docHeader) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+  });
 });

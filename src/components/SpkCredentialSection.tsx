@@ -132,11 +132,21 @@ export const SpkCredentialSection: React.FC<SpkCredentialSectionProps> = ({
     setIsEditMode(false);
   };
 
-  const currentSubTasks = Array.isArray(spk.sub_tasks)
-    ? spk.sub_tasks
-    : spk.sub_tasks
-    ? [spk.sub_tasks as unknown as string]
-    : [];
+  const rawSubTasks: unknown = spk?.sub_tasks;
+  let parsedSubTasks: string[] = [];
+
+  if (Array.isArray(rawSubTasks)) {
+    parsedSubTasks = (rawSubTasks as string[]).filter(Boolean);
+  } else if (typeof rawSubTasks === 'string') {
+    try {
+      const parsed = JSON.parse(rawSubTasks);
+      parsedSubTasks = Array.isArray(parsed)
+        ? parsed.filter(Boolean)
+        : [rawSubTasks.trim()].filter(Boolean);
+    } catch {
+      parsedSubTasks = rawSubTasks.split(/[\n,]+/).map((s: string) => s.trim()).filter(Boolean);
+    }
+  }
 
   return (
     <div className="bg-surface border border-border rounded-lg overflow-hidden p-6 mb-6">
@@ -270,25 +280,33 @@ export const SpkCredentialSection: React.FC<SpkCredentialSectionProps> = ({
             </div>
           </div>
 
-          {currentSubTasks.length > 0 && (
-            <div className="bg-background/40 border border-amber-500/20 rounded-lg p-3 text-xs">
-              <span className="text-slate-400 font-semibold uppercase tracking-wider text-[11px] block mb-1.5">
-                Scope Modifikasi / Sub Tasks:
+          {/* --- KOTAK SCOPE MODIFIKASI / SUB TASKS --- */}
+          <div className="mt-4 pt-3 border-t border-slate-800/80">
+            <div className="bg-slate-950/60 border border-slate-800/90 rounded-lg p-3">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
+                SCOPE MODIFIKASI / SUB TASKS:
               </span>
-              <div className="flex flex-wrap gap-1.5">
-                {currentSubTasks.map((task: string, i: number) => (
-                  <span
-                    key={i}
-                    className="bg-slate-900 border border-slate-700 text-slate-200 px-2.5 py-1 rounded font-mono shadow-2xs"
-                  >
-                    {task}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
 
-          {/* Dokumentasi Surat Kesepakatan Kerja */}
+              {parsedSubTasks.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {parsedSubTasks.map((task: string, idx: number) => (
+                    <span
+                      key={idx}
+                      className="px-2.5 py-1 text-xs font-semibold bg-slate-800/90 text-slate-200 border border-slate-700/80 rounded-md shadow-sm"
+                    >
+                      {task}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-500 italic">
+                  Belum ada rincian scope modifikasi. Klik &quot;Edit Credential&quot; untuk menambahkan sub task.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* --- KOTAK DOKUMENTASI SURAT KESEPAKATAN KERJA (Tetap Berada di Bawahnya) --- */}
           <SpkAgreementPhotos spk={spk} onUpdated={onUpdated} />
         </div>
       ) : (
