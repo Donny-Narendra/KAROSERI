@@ -130,13 +130,13 @@ describe('Component: RabCalculator (Decimal Precision and Auto-Select on Focus)'
     expect(qtyInput).toHaveAttribute('step', 'any');
     expect(qtyInput).toHaveAttribute('min', '0');
 
-    const wbs1Input = screen.getByLabelText(/Alokasi Bahan WBS 1: Pembongkaran/i) as HTMLInputElement;
+    const wbs1Input = screen.getByLabelText(/Alokasi Bahan (?:WBS|Tahapan) 1: Pembongkaran/i) as HTMLInputElement;
     expect(wbs1Input).toHaveAttribute('step', 'any');
     expect(wbs1Input).toHaveAttribute('min', '0');
 
     // Switch to Labor mode and verify Labor inputs have step="any" and min="0"
     fireEvent.click(screen.getByText('Jasa / Tukang (Labor)'));
-    const laborWbs1 = screen.getByLabelText(/Alokasi WBS 1: Pembongkaran/i) as HTMLInputElement;
+    const laborWbs1 = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 1: Pembongkaran/i) as HTMLInputElement;
     expect(laborWbs1).toHaveAttribute('step', 'any');
     expect(laborWbs1).toHaveAttribute('min', '0');
   });
@@ -153,7 +153,7 @@ describe('Component: RabCalculator (Decimal Precision and Auto-Select on Focus)'
     fireEvent.focus(qtyInput);
     expect(selectSpy).toHaveBeenCalled();
 
-    const wbs1Input = screen.getByLabelText(/Alokasi Bahan WBS 1: Pembongkaran/i) as HTMLInputElement;
+    const wbs1Input = screen.getByLabelText(/Alokasi Bahan (?:WBS|Tahapan) 1: Pembongkaran/i) as HTMLInputElement;
     const wbsSelectSpy = vi.spyOn(wbs1Input, 'select');
     fireEvent.focus(wbs1Input);
     expect(wbsSelectSpy).toHaveBeenCalled();
@@ -168,7 +168,7 @@ describe('Component: RabCalculator (Decimal Precision and Auto-Select on Focus)'
 
     fireEvent.click(screen.getByText('Jasa / Tukang (Labor)'));
 
-    const laborWbs1 = screen.getByLabelText(/Alokasi WBS 1: Pembongkaran/i) as HTMLInputElement;
+    const laborWbs1 = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 1: Pembongkaran/i) as HTMLInputElement;
     const wbsSelectSpy = vi.spyOn(laborWbs1, 'select');
     fireEvent.focus(laborWbs1);
     expect(wbsSelectSpy).toHaveBeenCalled();
@@ -206,8 +206,8 @@ describe('Component: RabCalculator (Decimal Precision and Auto-Select on Focus)'
     expect(submitBtn).toBeDisabled();
 
     // Allocate WBS 2 = 1 and WBS 3 = 0.5
-    const wbs2Input = screen.getByLabelText(/Alokasi Bahan WBS 2: Sasis\/Rangka/i);
-    const wbs3Input = screen.getByLabelText(/Alokasi Bahan WBS 3: Dinding\/Fabrikasi/i);
+    const wbs2Input = screen.getByLabelText(/Alokasi Bahan (?:WBS|Tahapan) 2: Sasis\/Rangka/i);
+    const wbs3Input = screen.getByLabelText(/Alokasi Bahan (?:WBS|Tahapan) 3: Dinding\/Fabrikasi/i);
     fireEvent.change(wbs2Input, { target: { value: '1' } });
     expect(screen.getByText('Sisa: 0.50')).toBeInTheDocument();
     expect(submitBtn).toBeDisabled();
@@ -259,8 +259,8 @@ describe('Component: RabCalculator (Decimal Precision and Auto-Select on Focus)'
     fireEvent.change(qtyInput, { target: { value: '1,5' } });
 
     // Allocate WBS 1 = 1, WBS 2 = 0,5
-    const wbs1Input = screen.getByLabelText(/Alokasi Bahan WBS 1: Pembongkaran/i);
-    const wbs2Input = screen.getByLabelText(/Alokasi Bahan WBS 2: Sasis\/Rangka/i);
+    const wbs1Input = screen.getByLabelText(/Alokasi Bahan (?:WBS|Tahapan) 1: Pembongkaran/i);
+    const wbs2Input = screen.getByLabelText(/Alokasi Bahan (?:WBS|Tahapan) 2: Sasis\/Rangka/i);
     Object.defineProperty(wbs1Input, 'value', { value: '1', writable: true, configurable: true });
     fireEvent.change(wbs1Input, { target: { value: '1' } });
     Object.defineProperty(wbs2Input, 'value', { value: '0,5', writable: true, configurable: true });
@@ -299,9 +299,9 @@ describe('Component: RabCalculator (Decimal Precision and Auto-Select on Focus)'
     fireEvent.change(targetQtyInput, { target: { value: '2' } });
 
     // Set WBS 1 = 0, WBS 2 = 1.5, WBS 3 = 0.5 (or 0,5)
-    const wbs1Input = screen.getByLabelText(/Alokasi WBS 1: Pembongkaran/i);
-    const wbs2Input = screen.getByLabelText(/Alokasi WBS 2: Sasis\/Rangka/i);
-    const wbs3Input = screen.getByLabelText(/Alokasi WBS 3: Dinding\/Fabrikasi/i);
+    const wbs1Input = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 1: Pembongkaran/i);
+    const wbs2Input = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 2: Sasis\/Rangka/i);
+    const wbs3Input = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 3: Dinding\/Fabrikasi/i);
 
     fireEvent.change(wbs1Input, { target: { value: '0' } });
     fireEvent.change(wbs2Input, { target: { value: '1.5' } });

@@ -9,6 +9,7 @@ import type {
   CorporateMonthlyPnl,
 } from '../../types/financialReports';
 import { exportFullFinancialWorkbook, exportToExcel } from '../../utils/exportFinancialReports';
+import { formatTahapanBadge } from '../../utils/wbsSort';
 
 interface FinancialPrintReportProps {
   isOpen: boolean;
@@ -122,7 +123,7 @@ export const FinancialPrintReport: React.FC<FinancialPrintReportProps> = ({
               >
                 <option value="all">Dokumen Komprehensif (Semua Laporan)</option>
                 <option value="profitability">1. Laba Rugi SPK</option>
-                <option value="variance">2. Varian Anggaran WBS</option>
+                <option value="variance">2. Varian Anggaran Tahapan</option>
                 <option value="inventory">3. Valuasi Persediaan Gudang</option>
                 <option value="receivables">4. Piutang & Kontrol Serah Terima</option>
                 <option value="corporate_pnl">5. Laba Rugi Perusahaan (Corporate P&L)</option>
@@ -303,12 +304,12 @@ export const FinancialPrintReport: React.FC<FinancialPrintReportProps> = ({
               </div>
             )}
 
-            {/* Table 2: Varian Anggaran WBS */}
+            {/* Table 2: Varian Anggaran Tahapan */}
             {(activeTab === 'all' || activeTab === 'variance') && (
               <div className="space-y-2 break-inside-avoid">
                 <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
                   <FileText className="w-3.5 h-3.5 text-slate-700" />
-                  {activeTab === 'all' ? 'III. Rincian Analisis Varian Anggaran WBS (Pagu vs Realisasi)' : 'I. Rincian Varian Anggaran WBS'}
+                  {activeTab === 'all' ? 'III. Rincian Analisis Varian Anggaran Tahapan (Pagu vs Realisasi)' : 'I. Rincian Varian Anggaran Tahapan'}
                 </h2>
                 <div className="overflow-x-auto">
                   <table className="w-full text-[10px] border border-black border-collapse">
@@ -317,7 +318,7 @@ export const FinancialPrintReport: React.FC<FinancialPrintReportProps> = ({
                         <th rowSpan={2} className="border border-black p-1 text-center w-8 align-middle">No</th>
                         <th rowSpan={2} className="border border-black p-1 align-middle">No. SPK</th>
                         <th rowSpan={2} className="border border-black p-1 align-middle">Pelanggan</th>
-                        <th rowSpan={2} className="border border-black p-1 align-middle">Tahapan WBS</th>
+                        <th rowSpan={2} className="border border-black p-1 align-middle">Tahapan Pekerjaan</th>
                         <th colSpan={3} className="border border-black p-1 text-center bg-slate-200">Pilar Material</th>
                         <th colSpan={3} className="border border-black p-1 text-center bg-slate-200">Pilar Jasa</th>
                         <th colSpan={3} className="border border-black p-1 text-center bg-slate-200">Pilar Overhead</th>
@@ -339,7 +340,7 @@ export const FinancialPrintReport: React.FC<FinancialPrintReportProps> = ({
                       {varianceData.length === 0 ? (
                         <tr>
                           <td colSpan={14} className="border border-black p-3 text-center text-slate-500 italic">
-                            Tidak ada data varian anggaran WBS yang sesuai.
+                            Tidak ada data varian anggaran tahapan yang sesuai.
                           </td>
                         </tr>
                       ) : (
@@ -350,7 +351,7 @@ export const FinancialPrintReport: React.FC<FinancialPrintReportProps> = ({
                               <td className="border border-black p-1 text-center font-sans">{idx + 1}</td>
                               <td className="border border-black p-1 font-bold">{row.spk_number}</td>
                               <td className="border border-black p-1 font-sans">{row.customer_name}</td>
-                              <td className="border border-black p-1 font-sans">{row.wbs_stage}</td>
+                              <td className="border border-black p-1 font-sans">{formatTahapanBadge(row.wbs_stage)}</td>
                               <td className="border border-black p-1 text-right">{formatCurrency(row.total_material_budget)}</td>
                               <td className="border border-black p-1 text-right">{formatCurrency(row.actual_material_spent)}</td>
                               <td className={`border border-black p-1 text-right font-bold ${row.material_variance < 0 ? 'text-rose-700' : 'text-slate-900'}`}>
@@ -628,7 +629,7 @@ function getDocSuffix(tab: string): string {
 function getDocumentTitle(tab: string): string {
   switch (tab) {
     case 'profitability': return 'LAPORAN LABA RUGI PROYEK SPK (JOB PROFITABILITY)';
-    case 'variance': return 'LAPORAN ANALISIS VARIAN ANGGARAN WBS (PAGU VS REALISASI)';
+    case 'variance': return 'LAPORAN ANALISIS VARIAN ANGGARAN TAHAPAN (PAGU VS REALISASI)';
     case 'inventory': return 'LAPORAN VALUASI PERSEDIAAN & MUTASI GUDANG';
     case 'receivables': return 'LAPORAN PIUTANG PROYEK & KONTROL SERAH TERIMA';
     case 'corporate_pnl': return 'LAPORAN LABA RUGI KOMPREHENSIF PERUSAHAAN (CORPORATE P&L)';

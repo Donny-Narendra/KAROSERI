@@ -1128,7 +1128,7 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                       <table className="w-full text-left text-xs sm:text-sm text-text">
                         <thead className="bg-surface-hover text-text-muted font-mono text-xs uppercase border-b border-border">
                           <tr>
-                            <th className="py-2 px-3 font-semibold text-left">WBS</th>
+                            <th className="py-2 px-3 font-semibold text-left">Tahapan</th>
                             <th className="py-2 px-3 font-semibold text-left">SUMBER / PAKET</th>
                             <th className="py-2 px-3 font-semibold text-left">MATERIAL</th>
                             <th className="py-2 px-3 font-semibold text-center">JUMLAH DIMINTA</th>

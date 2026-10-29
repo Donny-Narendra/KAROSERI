@@ -136,7 +136,7 @@ describe('Component: SpkOverheadModal (Mandor Floor Terminal Overhead Logging)',
     expect(screen.getByText('PT. CARAKANUSA TRANSPORTAMA')).toBeInTheDocument();
 
     // Section header
-    expect(screen.getByText(/Alokasi Overhead dari RAB & Change Orders \(Pembongkaran\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Alokasi Overhead dari RAB & Change Orders \((?:Pembongkaran|Tahapan 1: Pembongkaran)\)/i)).toBeInTheDocument();
 
     // Dynamic RAB presets for Pembongkaran
     expect(screen.getByText('LISTRIK')).toBeInTheDocument();

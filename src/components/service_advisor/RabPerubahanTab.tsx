@@ -597,9 +597,13 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
       if (filterStatus !== 'ALL' && item.fulfillment_status !== filterStatus) {
         return false;
       }
-      // WBS filter
-      if (filterWbs !== 'ALL' && !item.wbs_stage.toLowerCase().includes(filterWbs.toLowerCase())) {
-        return false;
+      // Tahapan filter
+      if (filterWbs !== 'ALL') {
+        const itemWeight = getWbsWeight(item.wbs_stage);
+        const filterWeight = getWbsWeight(filterWbs);
+        if (itemWeight !== filterWeight && !item.wbs_stage.toLowerCase().includes(filterWbs.toLowerCase())) {
+          return false;
+        }
       }
       // Search term
       if (searchTerm.trim()) {
@@ -1102,7 +1106,7 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Cari deskripsi item, nama paket, WBS, atau no amandemen..."
+              placeholder="Cari deskripsi item, nama paket, tahapan, atau no amandemen..."
               className="w-full pl-9 pr-3 py-1.5 bg-background border border-border rounded-lg text-xs text-text placeholder-text-muted focus:outline-none focus:border-primary transition"
             />
           </div>
@@ -1152,20 +1156,20 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
               <option value="PENDING">⏳ Belum Diambil / Terbit</option>
             </select>
 
-            {/* Filter WBS */}
+            {/* Filter Tahapan */}
             <select
               id="filter-wbs-rab-perubahan"
-              aria-label="Filter Tahapan WBS"
+              aria-label="Filter Tahapan"
               value={filterWbs}
               onChange={(e) => setFilterWbs(e.target.value)}
               className="bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-text focus:outline-none focus:border-primary cursor-pointer transition"
             >
-              <option value="ALL">Semua WBS</option>
-              <option value="WBS 1">WBS 1: Pembongkaran</option>
-              <option value="WBS 2">WBS 2: Sasis/Rangka</option>
-              <option value="WBS 3">WBS 3: Dinding/Fabrikasi</option>
-              <option value="WBS 4">WBS 4: Pengecatan</option>
-              <option value="WBS 5">WBS 5: Kelistrikan/Hidrolik</option>
+              <option value="ALL">Semua Tahapan</option>
+              <option value="Tahapan 1">Tahapan 1: Pembongkaran</option>
+              <option value="Tahapan 2">Tahapan 2: Sasis/Rangka</option>
+              <option value="Tahapan 3">Tahapan 3: Dinding/Fabrikasi</option>
+              <option value="Tahapan 4">Tahapan 4: Pengecatan</option>
+              <option value="Tahapan 5">Tahapan 5: Kelistrikan/Hidrolik</option>
             </select>
 
             {(searchTerm || filterType !== 'ALL' || filterOrigin !== 'ALL' || filterStatus !== 'ALL' || filterWbs !== 'ALL') && (
@@ -1205,7 +1209,7 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
                 <th className="px-4 py-3">Sumber Asal</th>
                 <th className="px-4 py-3">Metode Entry</th>
                 <th className="px-4 py-3">Tipe</th>
-                <th className="px-4 py-3">Tahapan WBS</th>
+                <th className="px-4 py-3">Tahapan</th>
                 <th className="px-4 py-3 min-w-[200px]">Deskripsi Pekerjaan / Barang</th>
                 <th className="px-4 py-3 text-right">Qty</th>
                 <th className="px-4 py-3 text-right">HPP Modal</th>

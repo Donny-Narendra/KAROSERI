@@ -270,7 +270,7 @@ describe('Component: SpkBoronganPanel (Strict LABOR Filter)', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Tidak ada pagu pekerjaan/jasa tersisa untuk WBS ini.')).toBeInTheDocument();
+      expect(screen.getByText(/Tidak ada pagu pekerjaan\/jasa tersisa untuk (?:WBS|tahapan) ini\./i)).toBeInTheDocument();
     });
 
     expect(screen.getByText('0 Tersedia')).toBeInTheDocument();
@@ -577,7 +577,7 @@ describe('Component: SpkBoronganPanel (Strict LABOR Filter)', () => {
     await waitFor(() => {
       expect(screen.getByText('0 Tersedia')).toBeInTheDocument();
       expect(screen.queryByRole('table')).not.toBeInTheDocument();
-      expect(screen.getByText('Tidak ada pagu pekerjaan/jasa tersisa untuk WBS ini.')).toBeInTheDocument();
+      expect(screen.getByText(/Tidak ada pagu pekerjaan\/jasa tersisa untuk (?:WBS|tahapan) ini\./i)).toBeInTheDocument();
     });
   });
 
@@ -1198,7 +1198,7 @@ describe('Component: SpkBoronganPanel (Strict LABOR Filter)', () => {
       // Both items are assigned, now guide panel shows "0 Tersedia"
       await waitFor(() => {
         expect(screen.getByText('0 Tersedia')).toBeInTheDocument();
-        expect(screen.getByText('Tidak ada pagu pekerjaan/jasa tersisa untuk WBS ini.')).toBeInTheDocument();
+        expect(screen.getByText(/Tidak ada pagu pekerjaan\/jasa tersisa untuk (?:WBS|tahapan) ini\./i)).toBeInTheDocument();
       });
     });
 

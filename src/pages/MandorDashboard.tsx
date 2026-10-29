@@ -123,7 +123,7 @@ export const MandorDashboard: React.FC = () => {
                   Belum Ada SPK Dipilih
                 </h3>
                 <p className="text-xs sm:text-sm text-text-muted max-w-md leading-relaxed">
-                  Pilih salah satu SPK aktif dari daftar di sebelah kiri untuk membuka lembar kerja progres WBS, permintaan material gudang, borongan teknisi, dan form checklist QC.
+                  Pilih salah satu SPK aktif dari daftar di sebelah kiri untuk membuka lembar kerja progres tahapan pekerjaan, permintaan material gudang, borongan teknisi, dan form checklist QC.
                 </p>
               </div>
             )}

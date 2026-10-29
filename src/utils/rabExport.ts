@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { sortRabItems } from './rabSort';
+import { formatTahapanBadge } from './wbsSort';
 
 export interface RabExportSpkDetails {
   spk_no?: string | null;
@@ -90,7 +91,7 @@ export const exportRabToExcel = (
       'DESCRIPTION',
       'SUMBER / PAKET',
       'TYPE',
-      'WBS',
+      'TAHAPAN',
       'QTY',
       'HARGA SATUAN',
       'HARGA MODAL (HPP)',
@@ -121,7 +122,7 @@ export const exportRabToExcel = (
       description,
       sourceOrigin.label,
       itemType,
-      wbs,
+      formatTahapanBadge(wbs),
       `${qty} ${unit}`,
       unitPrice,
       costPrice,
@@ -175,7 +176,7 @@ export const printRabQuotation = (
     if (itemsInCat.length > 0) {
       tableHtml += `
         <tr class="wbs-header">
-          <td colspan="5"><strong>${cat}</strong></td>
+          <td colspan="5"><strong>${formatTahapanBadge(cat)}</strong></td>
         </tr>
       `;
       itemsInCat.forEach(item => {

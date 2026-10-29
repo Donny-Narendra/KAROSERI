@@ -262,8 +262,8 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
     expect(screen.getByRole('button', { name: /\+ Item Jasa \/ Mandor/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /\+ Item Overhead \(FOH\)/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /\+ Paket Barang Jadi/i })).toBeInTheDocument();
-    expect(screen.getByText('Alokasi WBS')).toBeInTheDocument();
-    expect(screen.getByText('Ringkasan Pagu Biaya per Tahapan WBS:')).toBeInTheDocument();
+    expect(screen.getByText('Alokasi Tahapan')).toBeInTheDocument();
+    expect(screen.getByText('Ringkasan Pagu Biaya Per Tahapan:')).toBeInTheDocument();
   });
 
   it('creates an Overhead change order item, computes live margins, and submits payload', async () => {
@@ -299,7 +299,7 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
     fireEvent.change(qtyInput, { target: { value: '2' } });
 
     // Match WBS allocation to 2 (e.g. WBS 2 = 2)
-    const wbs2Input = screen.getByLabelText(/Alokasi WBS 2: Sasis\/Rangka/i);
+    const wbs2Input = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 2: Sasis\/Rangka/i);
     fireEvent.change(wbs2Input, { target: { value: '2' } });
 
     const spinbuttons = screen.getAllByRole('spinbutton');
@@ -405,7 +405,7 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
     expect(spinbuttons[1]).toHaveValue(150000);
 
     // Allocate WBS stage (WBS 2: Sasis/Rangka = 1)
-    const wbs2Input = screen.getByLabelText(/Alokasi WBS 2: Sasis\/Rangka/i);
+    const wbs2Input = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 2: Sasis\/Rangka/i);
     fireEvent.change(wbs2Input, { target: { value: '1' } });
 
     // Add to Change Order
@@ -471,7 +471,7 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
     fireEvent.change(spinbuttons[1], { target: { value: '250000' } });
 
     // Allocate WBS stage (WBS 2: Sasis/Rangka = 1)
-    const wbs2Input = screen.getByLabelText(/Alokasi WBS 2: Sasis\/Rangka/i);
+    const wbs2Input = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 2: Sasis\/Rangka/i);
     fireEvent.change(wbs2Input, { target: { value: '1' } });
 
     // Add to Change Order
@@ -539,8 +539,8 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
     expect(screen.getByText(/Sisa: 2.00/i)).toBeInTheDocument();
 
     // Allocate 1 to WBS 2 and 1 to WBS 3
-    const wbs2Input = screen.getByLabelText(/Alokasi WBS 2: Sasis\/Rangka/i);
-    const wbs3Input = screen.getByLabelText(/Alokasi WBS 3: Dinding\/Fabrikasi/i);
+    const wbs2Input = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 2: Sasis\/Rangka/i);
+    const wbs3Input = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 3: Dinding\/Fabrikasi/i);
     fireEvent.change(wbs2Input, { target: { value: '1' } });
     fireEvent.change(wbs3Input, { target: { value: '1' } });
 
@@ -554,8 +554,8 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
 
     // Verify right table now has 2 split rows: one for WBS 2 and one for WBS 3
     await waitFor(() => {
-      expect(screen.getAllByText('WBS 2: Sasis/Rangka').length).toBeGreaterThanOrEqual(1);
-      expect(screen.getAllByText('WBS 3: Dinding/Fabrikasi').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText(/(?:WBS|Tahapan) 2: Sasis\/Rangka/).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText(/(?:WBS|Tahapan) 3: Dinding\/Fabrikasi/).length).toBeGreaterThanOrEqual(1);
     });
 
     // Check Pagu Material updated to 2 * 250,000 = 500,000
@@ -675,8 +675,8 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
     expect(screen.getByText('material tes 2')).toBeInTheDocument();
 
     // Allocate 2 to WBS 2 and 3 to WBS 3
-    const wbs2Input = screen.getByLabelText('material tes 2 WBS 2');
-    const wbs3Input = screen.getByLabelText('material tes 2 WBS 3');
+    const wbs2Input = screen.getByLabelText('material tes 2 Tahap 2');
+    const wbs3Input = screen.getByLabelText('material tes 2 Tahap 3');
 
     fireEvent.change(wbs2Input, { target: { value: '2' } });
     fireEvent.change(wbs3Input, { target: { value: '3' } });
@@ -694,8 +694,8 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
     const reviewItems = screen.getAllByText('material tes 2');
     expect(reviewItems).toHaveLength(2);
 
-    expect(screen.getAllByText('WBS 2: Sasis/Rangka').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('WBS 3: Dinding/Fabrikasi').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/(?:WBS|Tahapan) 2: Sasis\/Rangka/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/(?:WBS|Tahapan) 3: Dinding\/Fabrikasi/).length).toBeGreaterThanOrEqual(1);
   });
 
   describe('Sprint 79: Decouple Granular Input Validation from Final Change Order Submission', () => {
@@ -797,7 +797,7 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
       fireEvent.click(option);
 
       // Allocate WBS stage so validation moves to unit price check
-      const wbs2Input = screen.getByLabelText(/Alokasi WBS 2: Sasis\/Rangka/i);
+      const wbs2Input = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 2: Sasis\/Rangka/i);
       fireEvent.change(wbs2Input, { target: { value: '1' } });
 
       // Set unit price to 0
@@ -1164,7 +1164,7 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
         expect(headerTexts).toContain('Sumber / Paket');
         const itemTypeIdx = headerTexts.findIndex(h => /item type/i.test(h || ''));
         const sourcePkgIdx = headerTexts.findIndex(h => /sumber \/ paket/i.test(h || ''));
-        const wbsIdx = headerTexts.findIndex(h => /alokasi wbs/i.test(h || ''));
+        const wbsIdx = headerTexts.findIndex(h => /alokasi (?:wbs|tahapan)/i.test(h || ''));
 
         expect(itemTypeIdx).toBeGreaterThanOrEqual(0);
         expect(sourcePkgIdx).toBe(itemTypeIdx + 1);
@@ -1492,11 +1492,11 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
       fireEvent.click(screen.getByText('Buat Change Order Baru'));
 
       // Check all 5 WBS allocation inputs are '0'
-      const wbs1Input = screen.getByLabelText(/Alokasi WBS 1: Pembongkaran/i) as HTMLInputElement;
-      const wbs2Input = screen.getByLabelText(/Alokasi WBS 2: Sasis\/Rangka/i) as HTMLInputElement;
-      const wbs3Input = screen.getByLabelText(/Alokasi WBS 3: Dinding\/Fabrikasi/i) as HTMLInputElement;
-      const wbs4Input = screen.getByLabelText(/Alokasi WBS 4: Cat\/Finishing/i) as HTMLInputElement;
-      const wbs5Input = screen.getByLabelText(/Alokasi WBS 5: Kelistrikan\/Hidrolik/i) as HTMLInputElement;
+      const wbs1Input = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 1: Pembongkaran/i) as HTMLInputElement;
+      const wbs2Input = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 2: Sasis\/Rangka/i) as HTMLInputElement;
+      const wbs3Input = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 3: Dinding\/Fabrikasi/i) as HTMLInputElement;
+      const wbs4Input = screen.getByLabelText(/Alokasi (?:WBS 4: Cat\/Finishing|Tahapan 4: Pengecatan)/i) as HTMLInputElement;
+      const wbs5Input = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 5: Kelistrikan\/Hidrolik/i) as HTMLInputElement;
 
       expect(wbs1Input.value).toBe('0');
       expect(wbs2Input.value).toBe('0');
@@ -1506,7 +1506,7 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
 
       // Status badge shows Sisa: 1.00
       expect(screen.getByText('Sisa: 1.00')).toBeInTheDocument();
-      expect(screen.getByText(/Harap tentukan alokasi tahapan WBS \(sisa 1\.00 dari target 1\)\./i)).toBeInTheDocument();
+      expect(screen.getByText(/Harap tentukan alokasi tahapan \(sisa 1\.00 dari target 1\)\./i)).toBeInTheDocument();
     });
 
     it('Verifikasi 2: allocating WBS 2 = 1 updates status to Sesuai / Pas (0.00), and adding item resets WBS back to 0', async () => {
@@ -1528,7 +1528,7 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
       fireEvent.mouseDown(option);
       fireEvent.click(option);
 
-      const wbs2Input = screen.getByLabelText(/Alokasi WBS 2: Sasis\/Rangka/i) as HTMLInputElement;
+      const wbs2Input = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 2: Sasis\/Rangka/i) as HTMLInputElement;
       expect(wbs2Input.value).toBe('0');
 
       // Enter WBS 2 = 1
@@ -1565,7 +1565,7 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
       const addLaborBtn = screen.getByRole('button', { name: /\+ Item Jasa \/ Mandor/i });
       fireEvent.click(addLaborBtn);
 
-      const wbs2Labor = screen.getByLabelText(/Alokasi WBS 2: Sasis\/Rangka/i) as HTMLInputElement;
+      const wbs2Labor = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 2: Sasis\/Rangka/i) as HTMLInputElement;
       expect(wbs2Labor.value).toBe('0');
       expect(screen.getByText('Sisa: 1.00')).toBeInTheDocument();
 
@@ -1573,7 +1573,7 @@ describe('Component: AmendmentManager (Split-Panel 2-Column Change Order UI)', (
       const addOverheadBtn = screen.getByRole('button', { name: /\+ Item Overhead \(FOH\)/i });
       fireEvent.click(addOverheadBtn);
 
-      const wbs2Overhead = screen.getByLabelText(/Alokasi WBS 2: Sasis\/Rangka/i) as HTMLInputElement;
+      const wbs2Overhead = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 2: Sasis\/Rangka/i) as HTMLInputElement;
       expect(wbs2Overhead.value).toBe('0');
       expect(screen.getByText('Sisa: 1.00')).toBeInTheDocument();
     });

@@ -933,7 +933,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
               </div>
               <p className="text-xs sm:text-sm text-text-muted mt-0.5 flex items-center gap-1.5">
                 <span className="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
-                Tahapan WBS: <strong className="text-text font-semibold">{cleanWbsCategory}</strong>
+                Tahapan: <strong className="text-text font-semibold">{cleanWbsCategory}</strong>
               </p>
             </div>
           </div>
@@ -1169,7 +1169,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></div>
                       <h3 className="text-sm font-bold text-rose-400 truncate">
-                        Alokasi RAB (WBS Terkait)
+                        Alokasi RAB (Tahapan Terkait)
                       </h3>
                       <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-mono font-semibold">
                         {availableItems.length}
@@ -1189,7 +1189,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                           Semua material telah dipindahkan
                         </p>
                         <p className="text-[11px] text-text-muted mt-1 max-w-xs">
-                          Seluruh item RAB untuk tahapan WBS ini sudah berada di daftar permintaan atau sedang ditugaskan di SPK Borongan.
+                          Seluruh item RAB untuk tahapan ini sudah berada di daftar permintaan atau sedang ditugaskan di SPK Borongan.
                         </p>
                       </div>
                     ) : (

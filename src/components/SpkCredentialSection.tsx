@@ -169,7 +169,7 @@ export const SpkCredentialSection: React.FC<SpkCredentialSectionProps> = ({
           <p className="text-xs text-text-muted mt-1">
             {isEditMode
               ? 'Ubah informasi kredensial SPK, data kendaraan, dan scope pekerjaan.'
-              : 'Kelola estimasi RAB, change order, serta progress WBS untuk SPK ini.'}
+              : 'Kelola estimasi RAB, change order, serta progress tahapan untuk SPK ini.'}
           </p>
         </div>
 

@@ -109,9 +109,9 @@ describe('Page: PublicProgressTracking (7-Day Post-BAST Expiration & Thank You S
 
     // Check progress section and WBS list
     expect(screen.getByText('Penyelesaian Keseluruhan')).toBeInTheDocument();
-    expect(screen.getByText('Rincian Tahapan (WBS)')).toBeInTheDocument();
-    expect(screen.getByText('WBS 1: Pembongkaran')).toBeInTheDocument();
-    expect(screen.getByText('WBS 2: Sasis/Rangka')).toBeInTheDocument();
+    expect(screen.getByText('Rincian Tahapan Pekerjaan')).toBeInTheDocument();
+    expect(screen.getByText('Tahapan 1: Pembongkaran')).toBeInTheDocument();
+    expect(screen.getByText('Tahapan 2: Sasis/Rangka')).toBeInTheDocument();
 
     // Thank You state should not be rendered
     expect(screen.queryByText('Unit Telah Resmi Diserahterimakan')).not.toBeInTheDocument();
@@ -147,7 +147,7 @@ describe('Page: PublicProgressTracking (7-Day Post-BAST Expiration & Thank You S
 
     // Verify grace period notice is rendered
     expect(screen.getByText(/5 HARI TERSISA/i)).toBeInTheDocument();
-    expect(screen.getByText(/Akses dokumentasi teknis WBS terbuka hingga/i)).toBeInTheDocument();
+    expect(screen.getByText(/Akses dokumentasi teknis (?:WBS|tahapan) terbuka hingga/i)).toBeInTheDocument();
 
     // Progress details and Unduh PDF should still be available
     expect(screen.getByRole('button', { name: /Unduh PDF/i })).toBeInTheDocument();
@@ -191,7 +191,7 @@ describe('Page: PublicProgressTracking (7-Day Post-BAST Expiration & Thank You S
 
     // Technical WBS details and overall progress must be hidden
     expect(screen.queryByText('Penyelesaian Keseluruhan')).not.toBeInTheDocument();
-    expect(screen.queryByText('Rincian Tahapan (WBS)')).not.toBeInTheDocument();
+    expect(screen.queryByText('Rincian Tahapan Pekerjaan')).not.toBeInTheDocument();
 
     // Thank You Card details must be present
     expect(screen.getByText('✓')).toBeInTheDocument();
@@ -444,12 +444,12 @@ describe('Page: PublicProgressTracking (7-Day Post-BAST Expiration & Thank You S
         expect(screen.getByText('PT Wahana Logistik Perkasa')).toBeInTheDocument();
       });
 
-      // Verify WBS categories rendered
-      expect(screen.getByText('WBS 1: Pembongkaran')).toBeInTheDocument();
-      expect(screen.getByText('WBS 2: Sasis/Rangka')).toBeInTheDocument();
-      expect(screen.getByText('WBS 3: Dinding/Fabrikasi')).toBeInTheDocument();
-      expect(screen.getByText('WBS 4: Cat/Finishing')).toBeInTheDocument();
-      expect(screen.getByText('WBS 5: Kelistrikan/Hidrolik')).toBeInTheDocument();
+      // Verify Tahapan categories rendered
+      expect(screen.getByText('Tahapan 1: Pembongkaran')).toBeInTheDocument();
+      expect(screen.getByText('Tahapan 2: Sasis/Rangka')).toBeInTheDocument();
+      expect(screen.getByText('Tahapan 3: Dinding/Fabrikasi')).toBeInTheDocument();
+      expect(screen.getByText('Tahapan 4: Pengecatan')).toBeInTheDocument();
+      expect(screen.getByText('Tahapan 5: Kelistrikan/Hidrolik')).toBeInTheDocument();
 
       // Verify Mandor Notes Box
       expect(screen.getByText('Pembongkaran bodi lama selesai.')).toBeInTheDocument();

@@ -185,7 +185,7 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
       <div className="bg-surface border border-border rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col">
         <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-background shrink-0">
-          <h3 className="font-bold text-lg text-text">Alokasi Material Paket ke Tahap WBS</h3>
+          <h3 className="font-bold text-lg text-text">Alokasi Material Paket ke Tahapan</h3>
           <button onClick={onClose} className="text-text-muted hover:text-text">
             <X className="w-5 h-5" />
           </button>
@@ -194,7 +194,7 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
         <div className="p-6 overflow-y-auto flex-1 bg-background">
           <div className="mb-4">
             <h4 className="font-bold text-primary">{packageData.name}</h4>
-            <p className="text-sm text-text-muted">Bagi kuota masing-masing komponen (Bahan/Jasa) ke dalam 5 tahapan WBS.</p>
+            <p className="text-sm text-text-muted">Bagi kuota masing-masing komponen (Bahan/Jasa) ke dalam 5 tahapan.</p>
           </div>
 
           <div className="overflow-x-auto border border-border rounded">
@@ -204,7 +204,7 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
                   <th className="px-4 py-3 sticky left-0 bg-surface z-10">Komponen</th>
                   <th className="px-4 py-3 text-center">Total Kuota</th>
                   {WBS_CATEGORIES.map((cat, i) => (
-                    <th key={cat} className="px-2 py-3 text-center w-24">WBS {i + 1}</th>
+                    <th key={cat} className="px-2 py-3 text-center w-24">Tahap {i + 1}</th>
                   ))}
                   <th className="px-4 py-3 text-center">Sisa</th>
                 </tr>
@@ -279,7 +279,7 @@ export const PackageAllocationModal: React.FC<PackageAllocationModalProps> = ({
                   onChange={(e) => setSaveAsTemplate(e.target.checked)}
                   className="rounded border-border accent-primary w-4 h-4 cursor-pointer"
                 />
-                Simpan alokasi WBS ini sebagai template bawaan paket
+                Simpan alokasi tahapan ini sebagai template bawaan paket
              </label>
           )}
           <button 

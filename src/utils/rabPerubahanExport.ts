@@ -141,7 +141,7 @@ export function exportRabPerubahanToExcel(
       "Asal Input",
       "Metode Entry",
       "Kategori Tipe",
-      "Alokasi WBS",
+      "Alokasi Tahapan",
       "Deskripsi Pekerjaan / Barang",
       "Qty",
       "Satuan",

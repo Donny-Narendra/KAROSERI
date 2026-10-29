@@ -306,11 +306,11 @@ export const ChangeOrderPackageModal: React.FC<ChangeOrderPackageModalProps> = (
               <h3 id="package-modal-title" className="font-bold text-base text-text font-display flex items-center gap-2">
                 Tambah Paket Barang Jadi (Assembly List)
                 <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                  Matriks Alokasi WBS
+                  Matriks Alokasi Tahapan
                 </span>
               </h3>
               <p className="text-xs text-text-muted">
-                Bagi kuota masing-masing komponen (Bahan/Jasa) ke dalam 5 tahapan WBS untuk diterapkan ke Change Order.
+                Bagi kuota masing-masing komponen (Bahan/Jasa) ke dalam 5 tahapan untuk diterapkan ke Change Order.
               </p>
             </div>
           </div>
@@ -401,7 +401,7 @@ export const ChangeOrderPackageModal: React.FC<ChangeOrderPackageModalProps> = (
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-semibold uppercase tracking-wider text-text-muted flex items-center gap-1.5">
                       <Package className="w-3.5 h-3.5 text-primary" />
-                      Matriks Alokasi Komponen Paket ke Tahapan WBS ({rawItems.length} Komponen)
+                      Matriks Alokasi Komponen Paket ke Tahapan Pekerjaan ({rawItems.length} Komponen)
                     </span>
                     <span className="text-text-muted font-mono text-[11px]">
                       Paket Terpilih: <strong className="text-text">{selectedPackage.name}</strong>
@@ -565,7 +565,7 @@ export const ChangeOrderPackageModal: React.FC<ChangeOrderPackageModalProps> = (
             ) : !isComplete ? (
               <span className="text-status-warning font-medium flex items-center gap-1.5">
                 <AlertTriangle className="w-4 h-4 shrink-0" />
-                Perhatian: Sebagian kuota komponen belum tuntas dialokasikan ke WBS.
+                Perhatian: Sebagian kuota komponen belum tuntas dialokasikan ke Tahapan.
               </span>
             ) : (
               <label className="flex items-center gap-2 text-text text-xs cursor-pointer select-none">
@@ -575,7 +575,7 @@ export const ChangeOrderPackageModal: React.FC<ChangeOrderPackageModalProps> = (
                   onChange={(e) => setSaveAsTemplate(e.target.checked)}
                   className="rounded border-border accent-primary w-4 h-4 cursor-pointer"
                 />
-                <span>Simpan alokasi WBS ini sebagai resep bawaan paket</span>
+                <span>Simpan alokasi tahapan ini sebagai resep bawaan paket</span>
               </label>
             )}
           </div>

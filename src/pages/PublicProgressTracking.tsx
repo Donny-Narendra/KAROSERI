@@ -19,11 +19,11 @@ const WBS_CATEGORIES = [
 ];
 
 const WBS_LABELS: Record<string, string> = {
-  'Pembongkaran': 'WBS 1: Pembongkaran',
-  'Sasis/Rangka': 'WBS 2: Sasis/Rangka',
-  'Dinding/Fabrikasi': 'WBS 3: Dinding/Fabrikasi',
-  'Cat/Finishing': 'WBS 4: Cat/Finishing',
-  'Kelistrikan/Hidrolik': 'WBS 5: Kelistrikan/Hidrolik',
+  'Pembongkaran': 'Tahapan 1: Pembongkaran',
+  'Sasis/Rangka': 'Tahapan 2: Sasis/Rangka',
+  'Dinding/Fabrikasi': 'Tahapan 3: Dinding/Fabrikasi',
+  'Cat/Finishing': 'Tahapan 4: Pengecatan',
+  'Kelistrikan/Hidrolik': 'Tahapan 5: Kelistrikan/Hidrolik',
 };
 
 export const PublicProgressTracking: React.FC = () => {
@@ -395,7 +395,7 @@ export const PublicProgressTracking: React.FC = () => {
                 <div className="flex items-center gap-2.5">
                   <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                   <span>
-                    Unit resmi diserahterimakan pada <strong>{expiration.formattedReleasedDate}</strong>. Akses dokumentasi teknis WBS terbuka hingga <strong>{expiration.formattedExpiresDate}</strong>.
+                    Unit resmi diserahterimakan pada <strong>{expiration.formattedReleasedDate}</strong>. Akses dokumentasi teknis tahapan terbuka hingga <strong>{expiration.formattedExpiresDate}</strong>.
                   </span>
                 </div>
                 <span className="px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 font-mono text-[11px] font-bold shrink-0 self-start sm:self-auto border border-emerald-500/30">
@@ -550,7 +550,7 @@ export const PublicProgressTracking: React.FC = () => {
                   Penyelesaian Keseluruhan
                 </h3>
                 <div className="flex justify-between items-center mb-2">
-                  <span className="font-medium text-sm text-slate-700">Total Progres WBS</span>
+                  <span className="font-medium text-sm text-slate-700">Total Progres Tahapan</span>
                   <span className="text-2xl font-bold font-mono text-slate-900">{totalProgress}%</span>
                 </div>
                 <div className="w-full h-3.5 bg-slate-200 rounded-full overflow-hidden border border-slate-300">
@@ -564,7 +564,7 @@ export const PublicProgressTracking: React.FC = () => {
               {/* 4. TAHAPAN WBS & SEMUA FOTO DOKUMENTASI PEKERJAAN */}
               <div className="space-y-4">
                 <h3 className="text-base font-bold text-slate-900 border-b border-slate-200 pb-2">
-                  Rincian Tahapan (WBS)
+                  Rincian Tahapan Pekerjaan
                 </h3>
 
                 {wbsStages.map((stage) => (

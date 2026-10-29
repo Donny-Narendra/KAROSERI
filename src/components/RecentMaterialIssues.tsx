@@ -769,7 +769,7 @@ export const RecentMaterialIssues: React.FC<RecentMaterialIssuesProps> = ({
                   className="rounded border-border text-primary focus:ring-primary disabled:opacity-40"
                 />
               </th>
-              <th className="py-1 px-3">WBS</th>
+              <th className="py-1 px-3">Tahapan</th>
               <th className="py-1 px-3">SUMBER / PAKET</th>
               <th className="py-1 px-3">TIME</th>
               <th className="py-1 px-3">SPK NO.</th>

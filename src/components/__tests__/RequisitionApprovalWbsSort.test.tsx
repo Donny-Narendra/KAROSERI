@@ -93,7 +93,7 @@ describe('Component: RequisitionApproval (WBS Column & Ascending Sorting)', () =
       const headers = screen.getAllByRole('columnheader');
       const headerTexts = headers.map(h => h.textContent?.trim());
       expect(headerTexts).toEqual([
-        'WBS',
+        'Tahapan',
         'SUMBER / PAKET',
         'MATERIAL',
         'JUMLAH DIMINTA',
@@ -102,8 +102,8 @@ describe('Component: RequisitionApproval (WBS Column & Ascending Sorting)', () =
         'AKSI / STATUS'
       ]);
 
-      // 2. Check item row displays formatted WBS badge
-      expect(screen.getByText('WBS 1: Pembongkaran')).toBeInTheDocument();
+      // 2. Check item row displays formatted WBS/Tahapan badge
+      expect(screen.getByText(/(?:WBS|Tahapan) 1: Pembongkaran/)).toBeInTheDocument();
       expect(screen.getByText('Plat Besi')).toBeInTheDocument();
       expect(screen.getByText('5 Lembar')).toBeInTheDocument();
     });
@@ -203,16 +203,16 @@ describe('Component: RequisitionApproval (WBS Column & Ascending Sorting)', () =
 
     const rows = screen.getAllByRole('row');
     // Row 0 is the table header
-    // Row 1 should be WBS 1: Pembongkaran (Mata Gerinda Potong)
-    expect(rows[1]).toHaveTextContent('WBS 1: Pembongkaran');
+    // Row 1 should be Tahapan 1: Pembongkaran (Mata Gerinda Potong)
+    expect(rows[1]).toHaveTextContent(/(?:WBS|Tahapan) 1: Pembongkaran/);
     expect(rows[1]).toHaveTextContent('Mata Gerinda Potong');
 
-    // Row 2 should be WBS 2: Sasis/Rangka (Besi UNP Sasis)
-    expect(rows[2]).toHaveTextContent('WBS 2: Sasis/Rangka');
+    // Row 2 should be Tahapan 2: Sasis/Rangka (Besi UNP Sasis)
+    expect(rows[2]).toHaveTextContent(/(?:WBS|Tahapan) 2: Sasis\/Rangka/);
     expect(rows[2]).toHaveTextContent('Besi UNP Sasis');
 
-    // Row 3 should be WBS 3: Dinding/Fabrikasi (Plat Galvanil Dinding)
-    expect(rows[3]).toHaveTextContent('WBS 3: Dinding/Fabrikasi');
+    // Row 3 should be Tahapan 3: Dinding/Fabrikasi (Plat Galvanil Dinding)
+    expect(rows[3]).toHaveTextContent(/(?:WBS|Tahapan) 3: Dinding\/Fabrikasi/);
     expect(rows[3]).toHaveTextContent('Plat Galvanil Dinding');
   });
 

@@ -52,7 +52,7 @@ export const SpkSelector: React.FC<SpkSelectorProps> = ({
               Select Active SPK
             </h2>
             <p className="text-xs text-text-muted">
-              Pilih SPK untuk membuka lembar kerja WBS dan form QC
+              Pilih SPK untuk membuka lembar kerja tahapan pekerjaan dan form QC
             </p>
           </div>
         </div>

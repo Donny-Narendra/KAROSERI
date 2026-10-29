@@ -53,11 +53,11 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   const [itemMode, setItemMode] = useState<'material' | 'labor' | 'overhead'>('material');
 
   const wbsCategories = [
-    { id: 'Pembongkaran', label: 'WBS 1: Pembongkaran' },
-    { id: 'Sasis/Rangka', label: 'WBS 2: Sasis/Rangka' },
-    { id: 'Dinding/Fabrikasi', label: 'WBS 3: Dinding/Fabrikasi' },
-    { id: 'Cat/Finishing', label: 'WBS 4: Pengecatan' },
-    { id: 'Kelistrikan/Hidrolik', label: 'WBS 5: Kelistrikan/Hidrolik' },
+    { id: 'Pembongkaran', label: 'Tahapan 1: Pembongkaran' },
+    { id: 'Sasis/Rangka', label: 'Tahapan 2: Sasis/Rangka' },
+    { id: 'Dinding/Fabrikasi', label: 'Tahapan 3: Dinding/Fabrikasi' },
+    { id: 'Cat/Finishing', label: 'Tahapan 4: Pengecatan' },
+    { id: 'Kelistrikan/Hidrolik', label: 'Tahapan 5: Kelistrikan/Hidrolik' },
   ];
 
   // Dedicated state for Labor / Tukang item entry
@@ -267,10 +267,10 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
     if (!isLaborAllocationMatch) {
       setModalFeedback({
         isOpen: true,
-        title: 'Alokasi WBS Belum Sesuai',
+        title: 'Alokasi Tahapan Belum Sesuai',
         message: laborRemaining > 0
-          ? `Alokasi WBS masih memiliki sisa ${laborRemaining.toFixed(2)}. Harap sesuaikan total alokasi dengan Total Qty (${laborTarget}).`
-          : `Alokasi WBS melebihi Total Qty sebesar ${Math.abs(laborRemaining).toFixed(2)}. Harap sesuaikan total alokasi.`,
+          ? `Alokasi tahapan masih memiliki sisa ${laborRemaining.toFixed(2)}. Harap sesuaikan total alokasi dengan Total Qty (${laborTarget}).`
+          : `Alokasi tahapan melebihi Total Qty sebesar ${Math.abs(laborRemaining).toFixed(2)}. Harap sesuaikan total alokasi.`,
         variant: 'danger',
       });
       return;
@@ -1210,16 +1210,16 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
               {/* Multi-stage Labor WBS Allocation Grid */}
               <div className="space-y-1.5 mt-3">
                 <label className="block text-xs font-semibold text-text-muted uppercase font-mono tracking-wider">
-                  ALOKASI WBS <span className="text-status-danger">*</span>
+                  ALOKASI TAHAPAN <span className="text-status-danger">*</span>
                 </label>
                 <div className="border border-border rounded-md overflow-hidden bg-surface">
                   <div className="grid grid-cols-7 text-center text-xs font-semibold border-b border-border bg-surface-hover/90 py-1.5 text-text-muted font-mono">
                     <div className="border-r border-border">TOTAL QTY</div>
-                    <div title="WBS 1: Pembongkaran">WBS 1</div>
-                    <div title="WBS 2: Sasis/Rangka">WBS 2</div>
-                    <div title="WBS 3: Dinding/Fabrikasi">WBS 3</div>
-                    <div title="WBS 4: Pengecatan">WBS 4</div>
-                    <div title="WBS 5: Kelistrikan/Hidrolik">WBS 5</div>
+                    <div title="Tahapan 1: Pembongkaran">Tahap 1</div>
+                    <div title="Tahapan 2: Sasis/Rangka">Tahap 2</div>
+                    <div title="Tahapan 3: Dinding/Fabrikasi">Tahap 3</div>
+                    <div title="Tahapan 4: Pengecatan">Tahap 4</div>
+                    <div title="Tahapan 5: Kelistrikan/Hidrolik">Tahap 5</div>
                     <div className="border-l border-border">STATUS</div>
                   </div>
                   <div className="grid grid-cols-7 text-center items-center py-2 px-1 gap-1">
@@ -1272,8 +1272,8 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                 {!isLaborAllocationMatch && (
                   <p className="text-[11px] font-mono text-status-danger">
                     {laborRemaining > 0 
-                      ? `Harap tentukan alokasi tahapan WBS (sisa ${laborRemaining.toFixed(2)} dari target ${laborTargetQty}).`
-                      : `Alokasi tahapan WBS melebihi target ${laborTargetQty} (lebih ${Math.abs(laborRemaining).toFixed(2)}).`}
+                      ? `Harap tentukan alokasi tahapan (sisa ${laborRemaining.toFixed(2)} dari target ${laborTargetQty}).`
+                      : `Alokasi tahapan melebihi target ${laborTargetQty} (lebih ${Math.abs(laborRemaining).toFixed(2)}).`}
                   </p>
                 )}
               </div>
@@ -1486,7 +1486,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
               {/* Multi-WBS Allocation Matrix */}
               <div className="border border-border rounded-lg overflow-hidden mt-2">
                 <div className="bg-surface px-3 py-2 border-b border-border">
-                  <span className="text-xs font-bold text-text uppercase font-mono">Alokasi WBS</span>
+                  <span className="text-xs font-bold text-text uppercase font-mono">Alokasi Tahapan</span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm whitespace-nowrap">
@@ -1494,7 +1494,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                       <tr>
                         <th className="px-2 py-2 text-center border-r border-border bg-surface-hover/50">Total Qty</th>
                         {wbsCategories.map((cat, i) => (
-                          <th key={cat.id} className="px-1 py-2 text-center" title={cat.label}>WBS {i+1}</th>
+                          <th key={cat.id} className="px-1 py-2 text-center" title={cat.label}>Tahap {i+1}</th>
                         ))}
                         <th className="px-2 py-2 text-center border-l border-border bg-surface-hover/50">Status</th>
                       </tr>
@@ -1577,7 +1577,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
             <div className="flex-1 overflow-auto">
               {items.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-text-muted text-sm p-8 text-center">
-                  No items added yet.<br/>Select a WBS category and add items to estimate cost.
+                  Belum ada item ditambahkan.<br/>Pilih tahapan dan tambahkan item untuk mengestimasi biaya.
                 </div>
               ) : (
                 <table className="w-full text-left text-sm text-text">
@@ -1587,7 +1587,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                       <th className="px-3 py-3">Description</th>
                       <th className="px-3 py-3 text-left">Sumber / Paket</th>
                       <th className="px-3 py-3">Type</th>
-                      <th className="px-3 py-3">WBS</th>
+                      <th className="px-3 py-3">Tahapan</th>
                       <th className="px-3 py-3 text-right">Qty</th>
                       <th className="px-3 py-3 text-right">Harga Satuan</th>
                       <th className="px-3 py-3 text-right">Harga Modal (HPP)</th>
@@ -1730,7 +1730,7 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                {/* Ringkasan per WBS */}
                <div className="pt-2 border-b border-border pb-3">
                  <span className="text-[11px] font-mono font-bold text-text-muted uppercase tracking-wider block mb-2">
-                   Ringkasan Pagu Biaya per Tahapan WBS:
+                   Ringkasan Pagu Biaya Per Tahapan:
                  </span>
                  <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs">
                    {wbsCategories.map(cat => {

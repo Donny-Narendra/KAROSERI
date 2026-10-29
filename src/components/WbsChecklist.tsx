@@ -25,11 +25,11 @@ const WBS_CATEGORIES = [
 ];
 
 const WBS_LABELS: Record<string, string> = {
-  'Pembongkaran': 'WBS 1: Pembongkaran',
-  'Sasis/Rangka': 'WBS 2: Sasis/Rangka',
-  'Dinding/Fabrikasi': 'WBS 3: Dinding/Fabrikasi',
-  'Cat/Finishing': 'WBS 4: Cat/Finishing',
-  'Kelistrikan/Hidrolik': 'WBS 5: Kelistrikan/Hidrolik',
+  'Pembongkaran': 'Tahapan 1: Pembongkaran',
+  'Sasis/Rangka': 'Tahapan 2: Sasis/Rangka',
+  'Dinding/Fabrikasi': 'Tahapan 3: Dinding/Fabrikasi',
+  'Cat/Finishing': 'Tahapan 4: Pengecatan',
+  'Kelistrikan/Hidrolik': 'Tahapan 5: Kelistrikan/Hidrolik',
 };
 
 const PROGRESS_STEPS = [0, 25, 50, 75, 100];
@@ -375,7 +375,7 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
     } catch (error: any) {
       console.error('Error saving WBS data', error);
       setNotification({
-        title: 'Gagal Menyimpan Data WBS',
+        title: 'Gagal Menyimpan Data Tahapan',
         message: 'Gagal menyimpan perubahan: ' + (error.message || 'Terjadi kesalahan.'),
         variant: 'danger'
       });
@@ -397,7 +397,7 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
     if (newProgress === 100 && categoryAssets.length === 0) {
       setNotification({
         title: 'Foto Bukti Wajib Diunggah',
-        message: 'Tidak dapat mengatur progres ke 100% sebelum mengunggah minimal 1 foto bukti pekerjaan di kategori WBS ini.',
+        message: 'Tidak dapat mengatur progres ke 100% sebelum mengunggah minimal 1 foto bukti pekerjaan di tahapan ini.',
         variant: 'warning'
       });
       return;
@@ -472,7 +472,7 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
   if (initialFetchLoading) {
     return (
       <div className="bg-surface p-6 rounded-lg shadow-sm border border-border flex justify-center items-center h-48">
-        <p className="text-text-muted">Loading WBS Checklist...</p>
+        <p className="text-text-muted">Loading Checklist Tahapan...</p>
       </div>
     );
   }
@@ -489,7 +489,7 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
           <div className="ml-3">
             <h3 className="text-sm font-medium text-status-warning">Akses Ditolak</h3>
             <div className="mt-2 text-sm text-status-warning/80">
-              <p>SPK ini masih berstatus DRAFT. Pengerjaan WBS baru dapat diakses setelah SPK disetujui / DP diterima.</p>
+              <p>SPK ini masih berstatus DRAFT. Pengerjaan tahapan baru dapat diakses setelah SPK disetujui / DP diterima.</p>
             </div>
           </div>
         </div>
@@ -501,8 +501,8 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
     <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
         <div>
-          <h3 className="text-xl font-display font-semibold text-text">WBS Progress & QC</h3>
-          <p className="text-text-muted text-sm mt-1">Catat progres fisik dan unggah bukti per kategori WBS</p>
+          <h3 className="text-xl font-display font-semibold text-text">Progres Tahapan & QC</h3>
+          <p className="text-text-muted text-sm mt-1">Catat progres fisik dan unggah bukti per tahapan pekerjaan</p>
         </div>
         
         <div className="flex flex-wrap items-center gap-3">

@@ -206,7 +206,7 @@ describe('Component: RabCalculator (Overhead Label Terminology & Decimal Allocat
     expect(submitBtn).toBeDisabled();
 
     // Input "0,5" into WBS 1 (Pembongkaran)
-    const wbs1Input = screen.getByLabelText(/Alokasi Bahan WBS 1: Pembongkaran/i);
+    const wbs1Input = screen.getByLabelText(/Alokasi Bahan (?:WBS|Tahapan) 1: Pembongkaran/i);
     fireEvent.change(wbs1Input, { target: { value: '0,5' } });
 
     // STATUS must reactively update to "Sisa: 0.50" (proves it is not stuck at "Sisa: 1.00")
@@ -215,7 +215,7 @@ describe('Component: RabCalculator (Overhead Label Terminology & Decimal Allocat
     expect(submitBtn).toBeDisabled();
 
     // Input "0,5" into WBS 2 (Sasis/Rangka)
-    const wbs2Input = screen.getByLabelText(/Alokasi Bahan WBS 2: Sasis\/Rangka/i);
+    const wbs2Input = screen.getByLabelText(/Alokasi Bahan (?:WBS|Tahapan) 2: Sasis\/Rangka/i);
     fireEvent.change(wbs2Input, { target: { value: '0,5' } });
 
     // STATUS must update to "Sesuai / Pas (0.00)" and enable submit button
@@ -233,7 +233,7 @@ describe('Component: RabCalculator (Overhead Label Terminology & Decimal Allocat
     fireEvent.click(screen.getByRole('button', { name: /Overhead/i }));
 
     // Target frequency defaults to 1
-    const wbs1Input = screen.getByLabelText(/Alokasi Bahan WBS 1: Pembongkaran/i);
+    const wbs1Input = screen.getByLabelText(/Alokasi Bahan (?:WBS|Tahapan) 1: Pembongkaran/i);
     fireEvent.change(wbs1Input, { target: { value: '1,25' } });
 
     // STATUS must show "Lebih: 0.25" and submit button must remain disabled
@@ -264,7 +264,7 @@ describe('Component: RabCalculator (Overhead Label Terminology & Decimal Allocat
     fireEvent.change(rateInput, { target: { value: '1600000' } });
 
     // Allocate 0.5 to WBS 1: Pembongkaran
-    const wbs1Input = screen.getByLabelText(/Alokasi Bahan WBS 1: Pembongkaran/i);
+    const wbs1Input = screen.getByLabelText(/Alokasi Bahan (?:WBS|Tahapan) 1: Pembongkaran/i);
     fireEvent.change(wbs1Input, { target: { value: '0.5' } });
 
     // Submit overhead item
@@ -303,9 +303,9 @@ describe('Component: RabCalculator (Overhead Label Terminology & Decimal Allocat
     fireEvent.change(rateInput, { target: { value: '1600000' } });
 
     // Allocate 1 to WBS 1 and 1 to WBS 2
-    const wbs1Input = screen.getByLabelText(/Alokasi Bahan WBS 1: Pembongkaran/i);
+    const wbs1Input = screen.getByLabelText(/Alokasi Bahan (?:WBS|Tahapan) 1: Pembongkaran/i);
     fireEvent.change(wbs1Input, { target: { value: '1' } });
-    const wbs2Input = screen.getByLabelText(/Alokasi Bahan WBS 2: Sasis\/Rangka/i);
+    const wbs2Input = screen.getByLabelText(/Alokasi Bahan (?:WBS|Tahapan) 2: Sasis\/Rangka/i);
     fireEvent.change(wbs2Input, { target: { value: '1' } });
 
     // Submit overhead item
@@ -341,7 +341,7 @@ describe('Component: RabCalculator (Overhead Label Terminology & Decimal Allocat
     const rateInput = screen.getByLabelText(/BAY RATE \/ FREKWENSI/i);
     fireEvent.change(rateInput, { target: { value: '1600000' } });
 
-    const wbs1Input = screen.getByLabelText(/Alokasi Bahan WBS 1: Pembongkaran/i);
+    const wbs1Input = screen.getByLabelText(/Alokasi Bahan (?:WBS|Tahapan) 1: Pembongkaran/i);
     fireEvent.change(wbs1Input, { target: { value: '0.5' } });
 
     const submitBtn = screen.getByRole('button', { name: /Tambah Overhead ke RAB/i });

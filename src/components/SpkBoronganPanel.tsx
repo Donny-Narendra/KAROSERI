@@ -14,6 +14,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { normalizeText } from '../utils/rabItemAllocation';
+import { formatTahapanBadge } from '../utils/wbsSort';
 import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
 
 interface SpkBoronganPanelProps {
@@ -597,7 +598,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
 
           <div class="section">
             <div class="section-title">B. DETAIL PENUGASAN BORONGAN</div>
-            <div class="row"><div class="label">Tahapan WBS</div><div class="value">: ${wbsCategory}</div></div>
+            <div class="row"><div class="label">Tahapan</div><div class="value">: ${formatTahapanBadge(wbsCategory)}</div></div>
             <div class="row"><div class="label">Nama Pekerja/Mandor</div><div class="value">: <strong>${record.worker_name}</strong></div></div>
             <div class="row"><div class="label">Tugas/Uraian Kerja</div><div class="value">: ${record.task_description || '-'}</div></div>
             <div class="row"><div class="label">Nilai Kontrak</div><div class="value">: <strong>Rp ${record.contract_value.toLocaleString('id-ID')}</strong></div></div>
@@ -732,7 +733,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
                 )}
               </div>
               <p className="text-xs sm:text-sm text-text-muted mt-0.5">
-                Tahapan WBS: <strong className="text-text font-semibold">{wbsCategory}</strong>
+                Tahapan: <strong className="text-text font-semibold">{formatTahapanBadge(wbsCategory)}</strong>
               </p>
             </div>
           </div>
@@ -767,7 +768,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
 
                 {records.length === 0 ? (
                   <div className="p-4 text-center text-xs sm:text-sm text-text-muted border border-dashed border-emerald-500/20 rounded-lg">
-                    Belum ada penugasan borongan untuk tahapan WBS ini.
+                    Belum ada penugasan borongan untuk tahapan ini.
                   </div>
                 ) : (
                   <div className="space-y-3 max-h-[30vh] overflow-y-auto pr-1">
@@ -1020,7 +1021,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
                   </span>
                 </div>
                 <p className="text-xs text-text-muted mb-2">
-                  Daftar pagu pekerjaan/jasa borongan yang dialokasikan untuk {wbsCategory}. Item yang sudah ditugaskan di SPK Borongan otomatis dikecualikan.
+                  Daftar pagu pekerjaan/jasa borongan yang dialokasikan untuk {formatTahapanBadge(wbsCategory)}. Item yang sudah ditugaskan di SPK Borongan otomatis dikecualikan.
                 </p>
                 <div className="flex items-center gap-2">
                   <input
@@ -1041,7 +1042,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
                 {allLaborSources.length === 0 || availableLaborItems.length === 0 ? (
                   <div className="p-8 text-center text-xs sm:text-sm text-text-muted flex flex-col items-center justify-center h-full">
                     <CheckCircle2 className="w-8 h-8 text-blue-500/30 mb-2" />
-                    <p className="font-semibold text-text">Tidak ada pagu pekerjaan/jasa tersisa untuk WBS ini.</p>
+                    <p className="font-semibold text-text">Tidak ada pagu pekerjaan/jasa tersisa untuk tahapan ini.</p>
                     <p className="text-xs text-text-muted mt-1 max-w-xs">
                       Seluruh alokasi jasa borongan mungkin telah ditugaskan di SPK Borongan atau belum dialokasikan di estimasi RAB.
                     </p>

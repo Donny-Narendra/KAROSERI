@@ -402,7 +402,7 @@ export const ServiceAdvisorDashboard: React.FC = () => {
                    onClick={() => setActiveTab('wbs')}
                    className={`px-4 py-2 text-sm font-medium border-b-2 transition cursor-pointer ${activeTab === 'wbs' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-text'}`}
                  >
-                   WBS & QC
+                   Tahapan & QC
                  </button>
                </div>
             </div>

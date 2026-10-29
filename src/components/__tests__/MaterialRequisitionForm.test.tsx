@@ -223,7 +223,7 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
 
     // Wait for the modal content to finish loading
     await waitFor(() => {
-      expect(screen.getByText('Alokasi RAB (WBS Terkait)')).toBeInTheDocument();
+      expect(screen.getByText(/Alokasi RAB \((?:WBS|Tahapan) Terkait\)/i)).toBeInTheDocument();
     });
 
     // Check that pure MATERIAL items appear
@@ -239,8 +239,8 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
     // Check that OVERHEAD item (Listrik) DOES NOT appear
     expect(screen.queryByText('Listrik')).not.toBeInTheDocument();
 
-    // The counter badge beside "Alokasi RAB (WBS Terkait)" should be 2 (only the 2 valid materials)
-    const headerElement = screen.getByText('Alokasi RAB (WBS Terkait)').closest('div');
+    // The counter badge beside "Alokasi RAB (Tahapan Terkait)" should be 2 (only the 2 valid materials)
+    const headerElement = screen.getByText(/Alokasi RAB \((?:WBS|Tahapan) Terkait\)/i).closest('div');
     expect(headerElement).toBeInTheDocument();
     const badge = within(headerElement!).getByText('2');
     expect(badge).toBeInTheDocument();
@@ -271,7 +271,7 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
 
     // Now on the right panel, only "material tes 2" remains, badge should be 1
     await waitFor(() => {
-      const headerElement = screen.getByText('Alokasi RAB (WBS Terkait)').closest('div');
+      const headerElement = screen.getByText(/Alokasi RAB \((?:WBS|Tahapan) Terkait\)/i).closest('div');
       expect(within(headerElement!).getByText('1')).toBeInTheDocument();
     });
 
@@ -313,7 +313,7 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
     });
 
     // Counter badge on right decreases to 1
-    const headerElement = screen.getByText('Alokasi RAB (WBS Terkait)').closest('div');
+    const headerElement = screen.getByText(/Alokasi RAB \((?:WBS|Tahapan) Terkait\)/i).closest('div');
     expect(within(headerElement!).getByText('1')).toBeInTheDocument();
 
     // Now click the returned button >>
@@ -455,7 +455,7 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
     expect(screen.queryByText('Tukang Borongan Tanpa Tipe')).not.toBeInTheDocument();
     expect(screen.queryByText('Listrik')).not.toBeInTheDocument();
 
-    const headerElement = screen.getByText('Alokasi RAB (WBS Terkait)').closest('div');
+    const headerElement = screen.getByText(/Alokasi RAB \((?:WBS|Tahapan) Terkait\)/i).closest('div');
     expect(within(headerElement!).getByText('2')).toBeInTheDocument();
   });
 
@@ -670,7 +670,7 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
     });
 
     // Right panel: The item is excluded from initialAvailable and does not appear on right side
-    const rightPanelHeader = screen.getByText('Alokasi RAB (WBS Terkait)').closest('div');
+    const rightPanelHeader = screen.getByText(/Alokasi RAB \((?:WBS|Tahapan) Terkait\)/i).closest('div');
     expect(within(rightPanelHeader!).getByText('0')).toBeInTheDocument();
     expect(screen.getByText('Semua material telah dipindahkan')).toBeInTheDocument();
   });

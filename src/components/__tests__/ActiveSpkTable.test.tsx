@@ -187,8 +187,8 @@ describe('Component: ActiveSpkTable (Financial Metrics Replacement)', () => {
       />
     );
 
-    // Click WBS & QC button on first row
-    const wbsButtons = screen.getAllByRole('button', { name: /WBS & QC/i });
+    // Click Tahapan & QC button on first row
+    const wbsButtons = screen.getAllByRole('button', { name: /(?:WBS|Tahapan) & QC/i });
     fireEvent.click(wbsButtons[0]);
     expect(handleSelectWbs).toHaveBeenCalledWith('spk-001');
 

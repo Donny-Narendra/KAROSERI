@@ -13,6 +13,7 @@ import { supabase } from '../../../lib/supabaseClient';
 import type { WbsCostVariance } from '../../../types/financialReports';
 
 import { formatRupiah } from '../../../utils/formatters';
+import { formatTahapanBadge } from '../../../utils/wbsSort';
 
 interface WbsCostVarianceTabProps {
   globalSearch?: string;
@@ -129,12 +130,12 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
             onChange={(e) => setSelectedStage(e.target.value)}
             className="bg-background/80 border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
           >
-            <option value="ALL">Semua Tahapan WBS</option>
-            <option value="WBS 1">WBS 1 (Chassis / Rangka Bawah)</option>
-            <option value="WBS 2">WBS 2 (Lantai, Dinding, Rangka Bodi)</option>
-            <option value="WBS 3">WBS 3 (Atap & Eksterior)</option>
-            <option value="WBS 4">WBS 4 (Pengecatan & Finishing)</option>
-            <option value="WBS 5">WBS 5 (Instalasi Kelistrikan & Aksesoris)</option>
+            <option value="ALL">Semua Tahapan Pekerjaan</option>
+            <option value="WBS 1">Tahapan 1 (Chassis / Rangka Bawah)</option>
+            <option value="WBS 2">Tahapan 2 (Lantai, Dinding, Rangka Bodi)</option>
+            <option value="WBS 3">Tahapan 3 (Atap & Eksterior)</option>
+            <option value="WBS 4">Tahapan 4 (Pengecatan & Finishing)</option>
+            <option value="WBS 5">Tahapan 5 (Instalasi Kelistrikan & Aksesoris)</option>
           </select>
 
           {/* Local Search Box */}
@@ -209,7 +210,7 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
                   SPK & Pelanggan
                 </th>
                 <th rowSpan={2} className="py-3 px-4 text-left border-r border-border/50 align-middle whitespace-nowrap">
-                  Tahapan WBS
+                  Tahapan Pekerjaan
                 </th>
                 <th colSpan={3} className="py-2.5 px-3 text-center border-r border-border/50 bg-amber-500/10 text-amber-400 font-bold tracking-wider">
                   Pilar Material
@@ -245,14 +246,14 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
                   <td colSpan={12} className="py-12 text-center text-text-muted">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <RefreshCw className="w-6 h-6 animate-spin text-primary" />
-                      <span>Memuat analisis varian anggaran WBS...</span>
+                      <span>Memuat analisis varian anggaran tahapan...</span>
                     </div>
                   </td>
                 </tr>
               ) : data.length === 0 ? (
                 <tr>
                   <td colSpan={12} className="py-12 text-center text-text-muted">
-                    Tidak ada data varian WBS yang sesuai filter.
+                    Tidak ada data varian tahapan yang sesuai filter.
                   </td>
                 </tr>
               ) : (
@@ -280,7 +281,7 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
                       </td>
                       <td className="py-3 px-4 border-r border-border/30">
                         <span className="font-mono text-xs px-2 py-0.5 rounded bg-surface-hover border border-border text-primary font-medium">
-                          {row.wbs_stage}
+                          {formatTahapanBadge(row.wbs_stage)}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right font-mono text-text">

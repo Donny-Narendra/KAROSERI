@@ -151,7 +151,7 @@ export const ActiveSpkTable: React.FC<ActiveSpkTableProps> = ({
                         onClick={() => onSelectWbsSpkId(spk.id)}
                         className="text-primary hover:text-primary-hover text-xs font-semibold px-2.5 py-1 rounded hover:bg-primary/10 transition"
                       >
-                        WBS & QC
+                        Tahapan & QC
                       </button>
                       {spk.status !== 'CANCELLED' && spk.status !== 'COMPLETED' && (
                         <button

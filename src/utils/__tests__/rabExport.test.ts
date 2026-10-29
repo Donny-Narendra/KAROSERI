@@ -132,7 +132,7 @@ describe('rabExport: Source Origin & Package Column Synchronization', () => {
       expect(XLSX.utils.aoa_to_sheet).toHaveBeenCalledTimes(1);
       const generatedData = vi.mocked(XLSX.utils.aoa_to_sheet).mock.calls[0][0] as (string | number)[][];
 
-      // Check header row: ['NO', 'DESCRIPTION', 'SUMBER / PAKET', 'TYPE', 'WBS', 'QTY', 'HARGA SATUAN', 'HARGA MODAL (HPP)', 'SUBTOTAL']
+      // Check header row: ['NO', 'DESCRIPTION', 'SUMBER / PAKET', 'TYPE', 'TAHAPAN', 'QTY', 'HARGA SATUAN', 'HARGA MODAL (HPP)', 'SUBTOTAL']
       const headerRow = generatedData.find(row => row && row[0] === 'NO');
       expect(headerRow).toBeDefined();
       expect(headerRow).toEqual([
@@ -140,7 +140,7 @@ describe('rabExport: Source Origin & Package Column Synchronization', () => {
         'DESCRIPTION',
         'SUMBER / PAKET',
         'TYPE',
-        'WBS',
+        'TAHAPAN',
         'QTY',
         'HARGA SATUAN',
         'HARGA MODAL (HPP)',
@@ -153,7 +153,7 @@ describe('rabExport: Source Origin & Package Column Synchronization', () => {
       expect(packageRow?.[0]).toBe(1);
       expect(packageRow?.[2]).toBe('Paket: PAKET PEROBAKAN');
       expect(packageRow?.[3]).toBe('LABOR');
-      expect(packageRow?.[4]).toBe('Pembongkaran');
+      expect(packageRow?.[4]).toBe('Tahapan 1: Pembongkaran');
 
       // Row 2: Granular item
       const granularRow = generatedData.find(row => row && row[1] === 'Baut Lepas 10mm');
@@ -161,7 +161,7 @@ describe('rabExport: Source Origin & Package Column Synchronization', () => {
       expect(granularRow?.[0]).toBe(2);
       expect(granularRow?.[2]).toBe('Granular');
       expect(granularRow?.[3]).toBe('MATERIAL');
-      expect(granularRow?.[4]).toBe('Pembongkaran');
+      expect(granularRow?.[4]).toBe('Tahapan 1: Pembongkaran');
 
       // Check summary totals row offset (7 empty string cells before label)
       const subtotalMaterialRow = generatedData.find(row => row && row.includes('Subtotal Material'));

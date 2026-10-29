@@ -279,7 +279,7 @@ describe('rabPerubahanExport: Consolidated Calculations & Export Engines', () =>
       expect(headerRow).toContain('Asal Input');
       expect(headerRow).toContain('Metode Entry');
       expect(headerRow).toContain('Kategori Tipe');
-      expect(headerRow).toContain('Alokasi WBS');
+      expect(headerRow).toContain('Alokasi Tahapan');
       expect(headerRow).toContain('Status Realisasi / Gudang');
     });
   });

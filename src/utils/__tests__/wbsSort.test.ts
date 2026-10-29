@@ -3,6 +3,7 @@ import {
   getWbsWeight,
   getWbsOrderWeight,
   formatWbsBadge,
+  formatTahapanBadge,
   getWbsBadgeClass,
   compareWbsAsc
 } from '../wbsSort';
@@ -12,24 +13,28 @@ describe('wbsSort Utilities', () => {
     it('correctly maps WBS stages 1 through 5 by number or keyword', () => {
       // Stage 1
       expect(getWbsWeight('WBS 1: Pembongkaran')).toBe(1);
+      expect(getWbsWeight('Tahapan 1: Pembongkaran')).toBe(1);
       expect(getWbsWeight('Pembongkaran')).toBe(1);
       expect(getWbsWeight('wbs 1')).toBe(1);
       expect(getWbsOrderWeight('WBS 1: Pembongkaran')).toBe(1);
 
       // Stage 2
       expect(getWbsOrderWeight('WBS 2: Sasis/Rangka')).toBe(2);
+      expect(getWbsOrderWeight('Tahapan 2: Sasis/Rangka')).toBe(2);
       expect(getWbsOrderWeight('Sasis/Rangka')).toBe(2);
       expect(getWbsOrderWeight('Rangka')).toBe(2);
       expect(getWbsOrderWeight('wbs 2')).toBe(2);
 
       // Stage 3
       expect(getWbsOrderWeight('WBS 3: Dinding/Fabrikasi')).toBe(3);
+      expect(getWbsOrderWeight('Tahapan 3: Dinding/Fabrikasi')).toBe(3);
       expect(getWbsOrderWeight('Dinding/Fabrikasi')).toBe(3);
       expect(getWbsOrderWeight('Fabrikasi Plat')).toBe(3);
       expect(getWbsOrderWeight('wbs 3')).toBe(3);
 
       // Stage 4
       expect(getWbsOrderWeight('WBS 4: Pengecatan')).toBe(4);
+      expect(getWbsOrderWeight('Tahapan 4: Pengecatan')).toBe(4);
       expect(getWbsOrderWeight('Cat/Finishing')).toBe(4);
       expect(getWbsOrderWeight('Pengecatan')).toBe(4);
       expect(getWbsOrderWeight('Cat Epoxy')).toBe(4);
@@ -37,6 +42,7 @@ describe('wbsSort Utilities', () => {
 
       // Stage 5
       expect(getWbsOrderWeight('WBS 5: Kelistrikan/Hidrolik')).toBe(5);
+      expect(getWbsOrderWeight('Tahapan 5: Kelistrikan/Hidrolik')).toBe(5);
       expect(getWbsOrderWeight('Kelistrikan')).toBe(5);
       expect(getWbsOrderWeight('Hidrolik Dump')).toBe(5);
       expect(getWbsOrderWeight('wbs 5')).toBe(5);
@@ -50,20 +56,32 @@ describe('wbsSort Utilities', () => {
     });
   });
 
-  describe('formatWbsBadge', () => {
-    it('formats recognized WBS strings into canonical titles', () => {
-      expect(formatWbsBadge('Pembongkaran')).toBe('WBS 1: Pembongkaran');
-      expect(formatWbsBadge('sasis')).toBe('WBS 2: Sasis/Rangka');
-      expect(formatWbsBadge('dinding')).toBe('WBS 3: Dinding/Fabrikasi');
-      expect(formatWbsBadge('cat')).toBe('WBS 4: Pengecatan');
-      expect(formatWbsBadge('kelistrikan')).toBe('WBS 5: Kelistrikan/Hidrolik');
+  describe('formatTahapanBadge and formatWbsBadge', () => {
+    it('formats recognized WBS strings into canonical Tahapan titles', () => {
+      expect(formatTahapanBadge('Pembongkaran')).toBe('Tahapan 1: Pembongkaran');
+      expect(formatTahapanBadge('WBS 1: Pembongkaran')).toBe('Tahapan 1: Pembongkaran');
+      expect(formatTahapanBadge('sasis')).toBe('Tahapan 2: Sasis/Rangka');
+      expect(formatTahapanBadge('WBS 2: Sasis/Rangka')).toBe('Tahapan 2: Sasis/Rangka');
+      expect(formatTahapanBadge('dinding')).toBe('Tahapan 3: Dinding/Fabrikasi');
+      expect(formatTahapanBadge('cat')).toBe('Tahapan 4: Pengecatan');
+      expect(formatTahapanBadge('Cat/Finishing')).toBe('Tahapan 4: Pengecatan');
+      expect(formatTahapanBadge('WBS 4: Cat/Finishing')).toBe('Tahapan 4: Pengecatan');
+      expect(formatTahapanBadge('kelistrikan')).toBe('Tahapan 5: Kelistrikan/Hidrolik');
+    });
+
+    it('formats via formatWbsBadge with same canonical Tahapan output', () => {
+      expect(formatWbsBadge('Pembongkaran')).toBe('Tahapan 1: Pembongkaran');
+      expect(formatWbsBadge('sasis')).toBe('Tahapan 2: Sasis/Rangka');
+      expect(formatWbsBadge('dinding')).toBe('Tahapan 3: Dinding/Fabrikasi');
+      expect(formatWbsBadge('cat')).toBe('Tahapan 4: Pengecatan');
+      expect(formatWbsBadge('kelistrikan')).toBe('Tahapan 5: Kelistrikan/Hidrolik');
     });
 
     it('handles fallback cases for unmapped or falsy values', () => {
-      expect(formatWbsBadge(null)).toBe('-');
-      expect(formatWbsBadge(undefined)).toBe('-');
-      expect(formatWbsBadge('')).toBe('-');
-      expect(formatWbsBadge('Custom Stage')).toBe('Custom Stage');
+      expect(formatTahapanBadge(null)).toBe('-');
+      expect(formatTahapanBadge(undefined)).toBe('-');
+      expect(formatTahapanBadge('')).toBe('-');
+      expect(formatTahapanBadge('Custom Stage')).toBe('Custom Stage');
     });
   });
 

@@ -125,17 +125,17 @@ describe('Component: ChangeOrderPackageModal (Per-Component WBS Allocation Matri
     );
 
     expect(screen.getByText('Tambah Paket Barang Jadi (Assembly List)')).toBeInTheDocument();
-    expect(screen.getByText('Matriks Alokasi WBS')).toBeInTheDocument();
+    expect(screen.getByText('Matriks Alokasi Tahapan')).toBeInTheDocument();
     expect(screen.getAllByText(/Paket Variasi Slebor Komplit/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Plat Besi Slebor 2.5mm')).toBeInTheDocument();
     expect(screen.getByText('Tukang Las Slebor')).toBeInTheDocument();
 
-    // Verify WBS headers 1 through 5
-    expect(screen.getByText('WBS 1')).toBeInTheDocument();
-    expect(screen.getByText('WBS 2')).toBeInTheDocument();
-    expect(screen.getByText('WBS 3')).toBeInTheDocument();
-    expect(screen.getByText('WBS 4')).toBeInTheDocument();
-    expect(screen.getByText('WBS 5')).toBeInTheDocument();
+    // Verify Tahapan headers 1 through 5
+    expect(screen.getByText('Tahap 1')).toBeInTheDocument();
+    expect(screen.getByText('Tahap 2')).toBeInTheDocument();
+    expect(screen.getByText('Tahap 3')).toBeInTheDocument();
+    expect(screen.getByText('Tahap 4')).toBeInTheDocument();
+    expect(screen.getByText('Tahap 5')).toBeInTheDocument();
     expect(screen.getByText('Sisa')).toBeInTheDocument();
   });
 
@@ -188,11 +188,11 @@ describe('Component: ChangeOrderPackageModal (Per-Component WBS Allocation Matri
     );
 
     // Plat has default_wbs_allocation of 2 in Sasis/Rangka (WBS 2)
-    const platWbs2Input = screen.getByLabelText('Plat Besi Slebor 2.5mm WBS 2') as HTMLInputElement;
+    const platWbs2Input = screen.getByLabelText('Plat Besi Slebor 2.5mm Tahap 2') as HTMLInputElement;
     expect(platWbs2Input.value).toBe('2');
 
     // Tukang Las has default_wbs_allocation of 3 in Dinding/Fabrikasi (WBS 3)
-    const laborWbs3Input = screen.getByLabelText('Tukang Las Slebor WBS 3') as HTMLInputElement;
+    const laborWbs3Input = screen.getByLabelText('Tukang Las Slebor Tahap 3') as HTMLInputElement;
     expect(laborWbs3Input.value).toBe('3');
 
     // Both are fully allocated so status badges show PASSED
@@ -218,10 +218,10 @@ describe('Component: ChangeOrderPackageModal (Per-Component WBS Allocation Matri
     expect(screen.getByText('4')).toBeInTheDocument();
     expect(screen.getByText('6')).toBeInTheDocument();
 
-    const platWbs2Input = screen.getByLabelText('Plat Besi Slebor 2.5mm WBS 2') as HTMLInputElement;
+    const platWbs2Input = screen.getByLabelText('Plat Besi Slebor 2.5mm Tahap 2') as HTMLInputElement;
     expect(platWbs2Input.value).toBe('4');
 
-    const laborWbs3Input = screen.getByLabelText('Tukang Las Slebor WBS 3') as HTMLInputElement;
+    const laborWbs3Input = screen.getByLabelText('Tukang Las Slebor Tahap 3') as HTMLInputElement;
     expect(laborWbs3Input.value).toBe('6');
   });
 
@@ -244,8 +244,8 @@ describe('Component: ChangeOrderPackageModal (Per-Component WBS Allocation Matri
     expect(screen.getByText('Sisa: 5.00')).toBeInTheDocument();
 
     // Allocate 2 to WBS 2 and 3 to WBS 3
-    const wbs2Input = screen.getByLabelText('material tes 2 WBS 2');
-    const wbs3Input = screen.getByLabelText('material tes 2 WBS 3');
+    const wbs2Input = screen.getByLabelText('material tes 2 Tahap 2');
+    const wbs3Input = screen.getByLabelText('material tes 2 Tahap 3');
 
     fireEvent.change(wbs2Input, { target: { value: '2' } });
     fireEvent.change(wbs3Input, { target: { value: '3' } });
@@ -292,7 +292,7 @@ describe('Component: ChangeOrderPackageModal (Per-Component WBS Allocation Matri
     );
 
     // Over-allocate: quota is 5, but enter 6
-    const wbs1Input = screen.getByLabelText('material tes 2 WBS 1');
+    const wbs1Input = screen.getByLabelText('material tes 2 Tahap 1');
     fireEvent.change(wbs1Input, { target: { value: '6' } });
 
     expect(screen.getByText('Over: 1.00')).toBeInTheDocument();

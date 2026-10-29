@@ -174,13 +174,13 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
     // Verify old dropdown is removed
     expect(screen.queryByLabelText(/Tahapan WBS \*/i)).not.toBeInTheDocument();
     // Verify ALOKASI WBS grid is present
-    expect(screen.getByText('ALOKASI WBS')).toBeInTheDocument();
+    expect(screen.getByText(/ALOKASI (?:WBS|TAHAPAN)/i)).toBeInTheDocument();
     expect(screen.getByText('TOTAL QTY')).toBeInTheDocument();
-    expect(screen.getByText('WBS 1')).toBeInTheDocument();
-    expect(screen.getByText('WBS 2')).toBeInTheDocument();
-    expect(screen.getByText('WBS 3')).toBeInTheDocument();
-    expect(screen.getByText('WBS 4')).toBeInTheDocument();
-    expect(screen.getByText('WBS 5')).toBeInTheDocument();
+    expect(screen.getByText(/(?:WBS|Tahap) 1/i)).toBeInTheDocument();
+    expect(screen.getByText(/(?:WBS|Tahap) 2/i)).toBeInTheDocument();
+    expect(screen.getByText(/(?:WBS|Tahap) 3/i)).toBeInTheDocument();
+    expect(screen.getByText(/(?:WBS|Tahap) 4/i)).toBeInTheDocument();
+    expect(screen.getByText(/(?:WBS|Tahap) 5/i)).toBeInTheDocument();
     expect(screen.getByText('STATUS')).toBeInTheDocument();
 
     expect(screen.getByText(/Target Qty/i)).toBeInTheDocument();
@@ -211,8 +211,8 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
     fireEvent.change(nameInput, { target: { value: 'Jasa Borongan Las Sasis' } });
 
     // Set WBS 1 = 0, WBS 2 = 1 via allocation grid
-    const wbs1Input = screen.getByLabelText('Alokasi WBS 1: Pembongkaran');
-    const wbs2Input = screen.getByLabelText('Alokasi WBS 2: Sasis/Rangka');
+    const wbs1Input = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 1: Pembongkaran/i);
+    const wbs2Input = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 2: Sasis\/Rangka/i);
     fireEvent.change(wbs1Input, { target: { value: '0' } });
     fireEvent.change(wbs2Input, { target: { value: '1' } });
 
@@ -251,9 +251,9 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
     const targetQtyInput = screen.getByLabelText(/Target Qty/i);
     fireEvent.change(targetQtyInput, { target: { value: '2' } });
 
-    const wbs1Input = screen.getByLabelText('Alokasi WBS 1: Pembongkaran');
-    const wbs2Input = screen.getByLabelText('Alokasi WBS 2: Sasis/Rangka');
-    const wbs3Input = screen.getByLabelText('Alokasi WBS 3: Dinding/Fabrikasi');
+    const wbs1Input = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 1: Pembongkaran/i);
+    const wbs2Input = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 2: Sasis\/Rangka/i);
+    const wbs3Input = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 3: Dinding\/Fabrikasi/i);
     fireEvent.change(wbs1Input, { target: { value: '0' } });
     fireEvent.change(wbs2Input, { target: { value: '1' } });
     fireEvent.change(wbs3Input, { target: { value: '1' } });
@@ -282,7 +282,7 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
     expect(screen.getAllByText('Overhead').length).toBeGreaterThanOrEqual(1);
 
     // Verify WBS breakdown header
-    expect(screen.getByText('Ringkasan Pagu Biaya per Tahapan WBS:')).toBeInTheDocument();
+    expect(screen.getByText(/Ringkasan Pagu Biaya [Pp]er Tahapan:?/i)).toBeInTheDocument();
 
     // Verify formatted amounts
     expect(screen.getAllByText('Rp 300.000').length).toBeGreaterThanOrEqual(1); // Labor total
@@ -425,8 +425,8 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
     // By default, Target Qty is 1 and WBS 1 is 1 -> balanced (0.00)
     expect(screen.getByText('Sesuai / Pas (0.00)')).toBeInTheDocument();
 
-    const wbs1Input = screen.getByLabelText('Alokasi WBS 1: Pembongkaran');
-    const wbs2Input = screen.getByLabelText('Alokasi WBS 2: Sasis/Rangka');
+    const wbs1Input = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 1: Pembongkaran/i);
+    const wbs2Input = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 2: Sasis\/Rangka/i);
 
     // Case 1: Target Qty = 1, WBS 1 = 0, all others = 0 -> Sisa: 1.00 (under-allocated)
     fireEvent.change(wbs1Input, { target: { value: '0' } });
@@ -470,12 +470,12 @@ describe('Component: RabCalculator (Labor Entry & Pagu Jasa)', () => {
     expect(submitBtn).toBeEnabled();
 
     // Set WBS 1 = 0 -> remaining = 1.00 -> button disabled
-    const wbs1Input = screen.getByLabelText('Alokasi WBS 1: Pembongkaran');
+    const wbs1Input = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 1: Pembongkaran/i);
     fireEvent.change(wbs1Input, { target: { value: '0' } });
     expect(submitBtn).toBeDisabled();
 
     // Set WBS 1 = 0.75, WBS 2 = 0.25 -> sum = 1.00 -> button re-enabled
-    const wbs2Input = screen.getByLabelText('Alokasi WBS 2: Sasis/Rangka');
+    const wbs2Input = screen.getByLabelText(/Alokasi (?:WBS|Tahapan) 2: Sasis\/Rangka/i);
     fireEvent.change(wbs1Input, { target: { value: '0.75' } });
     fireEvent.change(wbs2Input, { target: { value: '0.25' } });
     expect(submitBtn).toBeEnabled();

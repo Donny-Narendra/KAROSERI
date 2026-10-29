@@ -11,11 +11,11 @@ export const WBS_STAGES = [
 ];
 
 export const WBS_COLUMNS = [
-  { key: 'wbs1' as const, label: 'WBS 1', fullName: WBS_STAGES[0], category: 'Pembongkaran' },
-  { key: 'wbs2' as const, label: 'WBS 2', fullName: WBS_STAGES[1], category: 'Sasis/Rangka' },
-  { key: 'wbs3' as const, label: 'WBS 3', fullName: WBS_STAGES[2], category: 'Dinding/Fabrikasi' },
-  { key: 'wbs4' as const, label: 'WBS 4', fullName: WBS_STAGES[3], category: 'Cat/Finishing' },
-  { key: 'wbs5' as const, label: 'WBS 5', fullName: WBS_STAGES[4], category: 'Kelistrikan/Hidrolik' },
+  { key: 'wbs1' as const, label: 'Tahap 1', fullName: WBS_STAGES[0], category: 'Pembongkaran' },
+  { key: 'wbs2' as const, label: 'Tahap 2', fullName: WBS_STAGES[1], category: 'Sasis/Rangka' },
+  { key: 'wbs3' as const, label: 'Tahap 3', fullName: WBS_STAGES[2], category: 'Dinding/Fabrikasi' },
+  { key: 'wbs4' as const, label: 'Tahap 4', fullName: WBS_STAGES[3], category: 'Cat/Finishing' },
+  { key: 'wbs5' as const, label: 'Tahap 5', fullName: WBS_STAGES[4], category: 'Kelistrikan/Hidrolik' },
 ] as const;
 
 export type WbsKey = typeof WBS_COLUMNS[number]['key'];

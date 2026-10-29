@@ -19,6 +19,7 @@ import { ChangeOrderPackageModal } from './ChangeOrderPackageModal';
 import type { ExplodedChangeOrderItem } from '../utils/packageExplosion';
 import { parseDecimalValue } from '../utils/numberUtils';
 import { formatRupiah } from '../utils/formatters';
+import { formatTahapanBadge } from '../utils/wbsSort';
 import { calculateSegregatedProfit, computeChangeOrderMargins, type ChangeOrderMarginBreakdown } from '../utils/financialCalculations';
 
 export { calculateSegregatedProfit, computeChangeOrderMargins, type ChangeOrderMarginBreakdown };
@@ -76,11 +77,11 @@ interface DraftItem {
 }
 
 const WBS_CATEGORIES = [
-  { id: 'WBS 1: Pembongkaran', stageKey: 'Pembongkaran', shortLabel: 'WBS 1', label: 'WBS 1: Pembongkaran' },
-  { id: 'WBS 2: Sasis/Rangka', stageKey: 'Sasis/Rangka', shortLabel: 'WBS 2', label: 'WBS 2: Sasis/Rangka' },
-  { id: 'WBS 3: Dinding/Fabrikasi', stageKey: 'Dinding/Fabrikasi', shortLabel: 'WBS 3', label: 'WBS 3: Dinding/Fabrikasi' },
-  { id: 'WBS 4: Cat/Finishing', stageKey: 'Cat/Finishing', shortLabel: 'WBS 4', label: 'WBS 4: Cat/Finishing' },
-  { id: 'WBS 5: Kelistrikan/Hidrolik', stageKey: 'Kelistrikan/Hidrolik', shortLabel: 'WBS 5', label: 'WBS 5: Kelistrikan/Hidrolik' },
+  { id: 'WBS 1: Pembongkaran', stageKey: 'Pembongkaran', shortLabel: 'Tahap 1', label: 'Tahapan 1: Pembongkaran' },
+  { id: 'WBS 2: Sasis/Rangka', stageKey: 'Sasis/Rangka', shortLabel: 'Tahap 2', label: 'Tahapan 2: Sasis/Rangka' },
+  { id: 'WBS 3: Dinding/Fabrikasi', stageKey: 'Dinding/Fabrikasi', shortLabel: 'Tahap 3', label: 'Tahapan 3: Dinding/Fabrikasi' },
+  { id: 'WBS 4: Cat/Finishing', stageKey: 'Cat/Finishing', shortLabel: 'Tahap 4', label: 'Tahapan 4: Pengecatan' },
+  { id: 'WBS 5: Kelistrikan/Hidrolik', stageKey: 'Kelistrikan/Hidrolik', shortLabel: 'Tahap 5', label: 'Tahapan 5: Kelistrikan/Hidrolik' },
 ];
 
 export const DEFAULT_WBS_ALLOCATIONS: Record<string, string> = {
@@ -380,8 +381,8 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
     if (!isAllocationMatch) {
       setError(
         allocationRemaining > 0
-          ? `Harap tentukan alokasi tahapan WBS (sisa ${allocationRemaining.toFixed(2)} dari target ${targetQty}).`
-          : `Alokasi tahapan WBS melebihi target ${targetQty} (lebih ${Math.abs(allocationRemaining).toFixed(2)}).`
+          ? `Harap tentukan alokasi tahapan (sisa ${allocationRemaining.toFixed(2)} dari target ${targetQty}).`
+          : `Alokasi tahapan melebihi target ${targetQty} (lebih ${Math.abs(allocationRemaining).toFixed(2)}).`
       );
       return;
     }
@@ -1199,8 +1200,8 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                 {/* Multi-WBS Interactive Allocation Matrix (WBS 1 to 5) */}
                 <div className="border border-border rounded-lg overflow-hidden mt-3">
                   <div className="bg-surface px-3 py-2 border-b border-border flex items-center justify-between">
-                    <span className="text-xs font-bold text-text uppercase font-mono">Alokasi WBS</span>
-                    <span className="text-[10px] text-text-muted font-mono">Distribusikan Qty ke WBS 1 - 5</span>
+                    <span className="text-xs font-bold text-text uppercase font-mono">Alokasi Tahapan</span>
+                    <span className="text-[10px] text-text-muted font-mono">Distribusikan Qty ke Tahap 1 - 5</span>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm whitespace-nowrap">
@@ -1263,8 +1264,8 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                 {!isAllocationMatch && (
                   <p className="text-[11px] font-mono text-status-danger">
                     {allocationRemaining > 0 
-                      ? `Harap tentukan alokasi tahapan WBS (sisa ${allocationRemaining.toFixed(2)} dari target ${targetQty}).`
-                      : `Alokasi tahapan WBS melebihi target ${targetQty} (lebih ${Math.abs(allocationRemaining).toFixed(2)}).`}
+                      ? `Harap tentukan alokasi tahapan (sisa ${allocationRemaining.toFixed(2)} dari target ${targetQty}).`
+                      : `Alokasi tahapan melebihi target ${targetQty} (lebih ${Math.abs(allocationRemaining).toFixed(2)}).`}
                   </p>
                 )}
 
@@ -1299,7 +1300,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                   {draftItems.length === 0 ? (
                     <div className="h-full flex items-center justify-center text-text-muted text-sm p-12 text-center">
                       Belum ada item ditambahkan ke Change Order.<br/>
-                      Pilih jenis item di panel kiri dan tentukan alokasi WBS untuk menyusun Change Order.
+                      Pilih jenis item di panel kiri dan tentukan alokasi tahapan untuk menyusun Change Order.
                     </div>
                   ) : (
                     <table className="w-full text-left text-sm text-text">
@@ -1307,7 +1308,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                         <tr>
                           <th className="px-3 py-3">Description</th>
                           <th className="px-3 py-3">Type</th>
-                          <th className="px-3 py-3">WBS</th>
+                          <th className="px-3 py-3">Tahapan</th>
                           <th className="px-3 py-3 text-right">Qty</th>
                           <th className="px-3 py-3 text-right">Harga Satuan</th>
                           <th className="px-3 py-3 text-right">Harga Modal (HPP)</th>
@@ -1363,7 +1364,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                                 )}
                               </td>
                               <td className="px-3 py-3 text-xs text-text-muted truncate max-w-[140px]" title={item.wbs_stage}>
-                                {item.wbs_stage}
+                                {formatTahapanBadge(item.wbs_stage)}
                               </td>
                               <td className="px-3 py-3 text-right font-mono">
                                 {item.quantity} {item.unit || ''}
@@ -1432,7 +1433,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                   {/* Summary per WBS Stage Matrix */}
                   <div className="pt-1 border-b border-border pb-3">
                     <span className="text-[11px] font-mono font-bold text-text-muted uppercase tracking-wider block mb-2">
-                      Ringkasan Pagu Biaya per Tahapan WBS:
+                      Ringkasan Pagu Biaya Per Tahapan:
                     </span>
                     <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs">
                       {WBS_CATEGORIES.map(cat => {
@@ -1864,7 +1865,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                             <tr>
                               <th className="px-3 py-2">Item Type</th>
                               <th className="px-3 py-2">Sumber / Paket</th>
-                              <th className="px-3 py-2">Alokasi WBS</th>
+                              <th className="px-3 py-2">Alokasi Tahapan</th>
                               <th className="px-3 py-2">Deskripsi Item</th>
                               <th className="px-3 py-2 text-right">Qty</th>
                               <th className="px-3 py-2 text-right">Tarif Jual</th>
@@ -1909,7 +1910,7 @@ export const AmendmentManager: React.FC<AmendmentManagerProps> = ({ spkId, spkNo
                                       )}
                                     </td>
                                     <td className="px-3 py-2 font-mono text-text-muted">
-                                      {it.wbs_stage}
+                                      {formatTahapanBadge(it.wbs_stage)}
                                     </td>
                                     <td className="px-3 py-2 font-medium text-text">
                                       {it.item_name}

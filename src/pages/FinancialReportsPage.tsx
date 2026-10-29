@@ -289,7 +289,7 @@ export const FinancialReportsPage: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs text-text-muted">
-                Analitik Laba Rugi Proyek, Varian Anggaran WBS, Valuasi Gudang, dan Kontrol Piutang Serah Terima
+                Analitik Laba Rugi Proyek, Varian Anggaran Tahapan, Valuasi Gudang, dan Kontrol Piutang Serah Terima
               </p>
             </div>
           </div>
@@ -498,7 +498,7 @@ export const FinancialReportsPage: React.FC = () => {
               }`}
             >
               <Layers className="w-4 h-4" />
-              <span>2. Varian RAB vs Aktual (per WBS)</span>
+              <span>2. Varian RAB vs Aktual (per Tahapan)</span>
             </button>
 
             <button

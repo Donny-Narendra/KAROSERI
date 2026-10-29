@@ -14,6 +14,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { financialReportsService } from '../../services/financialReportsService';
+import { formatTahapanBadge } from '../../utils/wbsSort';
 import type { 
   FinancialSanityAuditResult, 
   OverBudgetAnomaly, 
@@ -325,7 +326,7 @@ export const FinancialAuditPanel: React.FC<FinancialAuditPanelProps> = ({
                         onClick={() => onSelectTab('variance')}
                         className="text-xs text-primary hover:underline flex items-center gap-1"
                       >
-                        Buka Tab Varian WBS <ExternalLink className="w-3 h-3" />
+                        Buka Tab Varian Tahapan <ExternalLink className="w-3 h-3" />
                       </button>
                     )}
                   </div>
@@ -341,7 +342,7 @@ export const FinancialAuditPanel: React.FC<FinancialAuditPanelProps> = ({
                           <tr>
                             <th className="px-3 py-2">No. SPK</th>
                             <th className="px-3 py-2">Pelanggan</th>
-                            <th className="px-3 py-2">Tahap WBS</th>
+                            <th className="px-3 py-2">Tahapan</th>
                             <th className="px-3 py-2 text-right">Pagu Material</th>
                             <th className="px-3 py-2 text-right">Aktual Belanja</th>
                             <th className="px-3 py-2 text-right text-rose-400">Pembengkakan</th>
@@ -352,7 +353,7 @@ export const FinancialAuditPanel: React.FC<FinancialAuditPanelProps> = ({
                             <tr key={idx} className="hover:bg-surface/50 font-mono">
                               <td className="px-3 py-2 font-bold text-text">{item.spk_number}</td>
                               <td className="px-3 py-2 font-sans text-text">{item.customer_name}</td>
-                              <td className="px-3 py-2 text-text-muted">{item.wbs_stage}</td>
+                              <td className="px-3 py-2 text-text-muted">{formatTahapanBadge(item.wbs_stage)}</td>
                               <td className="px-3 py-2 text-right">{formatCurrency(item.total_material_budget)}</td>
                               <td className="px-3 py-2 text-right">{formatCurrency(item.actual_material_spent)}</td>
                               <td className="px-3 py-2 text-right font-bold text-rose-400">

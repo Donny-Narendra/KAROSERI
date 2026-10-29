@@ -178,7 +178,7 @@ describe('Component: RabCalculator (Source Package / Granular Origin Column)', (
     expect(headerTexts[1]).toMatch(/Description/i);
     expect(headerTexts[2]).toMatch(/Sumber \/ Paket/i);
     expect(headerTexts[3]).toMatch(/Type/i);
-    expect(headerTexts[4]).toMatch(/WBS/i);
+    expect(headerTexts[4]).toMatch(/(?:WBS|Tahapan)/i);
     expect(headerTexts[5]).toMatch(/Qty/i);
     expect(headerTexts[6]).toMatch(/Harga Satuan/i);
     expect(headerTexts[7]).toMatch(/Harga Modal \(HPP\)/i);

@@ -443,10 +443,10 @@ describe('Component: RecentMaterialIssues', () => {
     render(<RecentMaterialIssues selectedSpk="SPK-7080" refreshKey={0} />);
 
     await waitFor(() => {
-      // 1. Table Header contains WBS column
-      expect(screen.getByRole('columnheader', { name: 'WBS' })).toBeInTheDocument();
-      // 2. Row displays formatted WBS badge
-      expect(screen.getByText('WBS 1: Pembongkaran')).toBeInTheDocument();
+      // 1. Table Header contains WBS/Tahapan column
+      expect(screen.getByRole('columnheader', { name: /(?:WBS|Tahapan)/i })).toBeInTheDocument();
+      // 2. Row displays formatted WBS/Tahapan badge
+      expect(screen.getByText(/(?:WBS|Tahapan) 1: Pembongkaran/)).toBeInTheDocument();
       expect(screen.getByText('Mata Gerinda')).toBeInTheDocument();
     });
   });
@@ -536,16 +536,16 @@ describe('Component: RecentMaterialIssues', () => {
     // Verify rows are strictly rendered in ascending WBS sequence (WBS 1 -> WBS 2 -> WBS 3 -> WBS 4)
     const rows = screen.getAllByRole('row');
     // Index 0 is the table header row
-    expect(rows[1]).toHaveTextContent('WBS 1: Pembongkaran');
+    expect(rows[1]).toHaveTextContent(/(?:WBS|Tahapan) 1: Pembongkaran/);
     expect(rows[1]).toHaveTextContent('Mata Potong Besi');
 
-    expect(rows[2]).toHaveTextContent('WBS 2: Sasis/Rangka');
+    expect(rows[2]).toHaveTextContent(/(?:WBS|Tahapan) 2: Sasis\/Rangka/);
     expect(rows[2]).toHaveTextContent('Besi UNP 100');
 
-    expect(rows[3]).toHaveTextContent('WBS 3: Dinding/Fabrikasi');
+    expect(rows[3]).toHaveTextContent(/(?:WBS|Tahapan) 3: Dinding\/Fabrikasi/);
     expect(rows[3]).toHaveTextContent('Plat Galvanil 2mm');
 
-    expect(rows[4]).toHaveTextContent('WBS 4: Pengecatan');
+    expect(rows[4]).toHaveTextContent(/(?:WBS|Tahapan) 4: Pengecatan/);
     expect(rows[4]).toHaveTextContent('Cat Finishing Gloss');
   });
 
@@ -621,7 +621,7 @@ describe('Component: RecentMaterialIssues', () => {
     const headerCells = tableHeader.querySelectorAll('th');
     expect(headerCells).toHaveLength(10);
     expect(headerCells[0]).toHaveTextContent(''); // Checkbox
-    expect(headerCells[1]).toHaveTextContent('WBS');
+    expect(headerCells[1]).toHaveTextContent(/(?:WBS|Tahapan)/);
     expect(headerCells[2]).toHaveTextContent('SUMBER / PAKET');
     expect(headerCells[3]).toHaveTextContent('TIME');
     expect(headerCells[4]).toHaveTextContent('SPK NO.');
@@ -641,7 +641,7 @@ describe('Component: RecentMaterialIssues', () => {
     const wbsBadge = rows[1].querySelector('span.bg-slate-800');
     expect(wbsBadge).toBeInTheDocument();
     expect(wbsBadge?.className).toContain('text-amber-300');
-    expect(wbsBadge).toHaveTextContent('WBS 1: Pembongkaran');
+    expect(wbsBadge).toHaveTextContent(/(?:WBS|Tahapan) 1: Pembongkaran/);
   });
 
   it('renders correct source origin badges for Package, Change Order, and RAB items in Recent Material Issues', async () => {
@@ -810,8 +810,8 @@ describe('Component: RecentMaterialIssues', () => {
     const cells = dataRow.querySelectorAll('td');
 
     // Index 0: Checkbox
-    // Index 1: WBS badge
-    expect(cells[1]).toHaveTextContent('WBS 3: Dinding/Fabrikasi');
+    // Index 1: WBS/Tahapan badge
+    expect(cells[1]).toHaveTextContent(/(?:WBS|Tahapan) 3: Dinding\/Fabrikasi/);
     // Index 2: SUMBER / PAKET badge
     expect(cells[2]).toHaveTextContent('RAB • Paket: BAK DUMP TRUCK');
     // Index 3: TIME
