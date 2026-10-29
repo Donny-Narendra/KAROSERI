@@ -50,6 +50,15 @@ export interface SpkRecord {
   qc_status?: string;
   customer_phone?: string | null;
   released_at?: string | null;
+  agreement_photos?: Array<{
+    url?: string;
+    secure_url: string;
+    public_id: string;
+    format?: string;
+    bytes?: number;
+    uploaded_at?: string;
+    [key: string]: any;
+  }> | null;
 }
 
 export interface RabItemRecord {

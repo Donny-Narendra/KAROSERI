@@ -267,4 +267,11 @@ describe('Component: SpkCredentialSection (Vehicle Model Display & Edit)', () =>
       })
     );
   });
+
+  it('renders Dokumentasi Surat Kesepakatan Kerja section in view mode', () => {
+    render(<SpkCredentialSection spk={mockSpk} onUpdated={vi.fn()} />);
+
+    expect(screen.getByText('Dokumentasi Surat Kesepakatan Kerja')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Unggah Dokumen/i })).toBeInTheDocument();
+  });
 });

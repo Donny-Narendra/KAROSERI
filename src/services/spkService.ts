@@ -468,7 +468,37 @@ export const spkService = {
     }
 
     return data;
-  }
+  },
+
+  async updateAgreementPhotos(
+    spkNo: string,
+    agreementPhotos: Array<{
+      url?: string;
+      secure_url: string;
+      public_id: string;
+      uploaded_at?: string;
+      format?: string;
+      bytes?: number;
+      [key: string]: any;
+    }>
+  ) {
+    if (!spkNo || spkNo.trim() === '') {
+      throw new Error('SPK Number is required');
+    }
+
+    const { data, error } = await supabase
+      .from('spk')
+      .update({ agreement_photos: agreementPhotos })
+      .eq('spk_no', spkNo.trim())
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to update agreement photos: ${error.message}`);
+    }
+
+    return data;
+  },
 };
 
 export interface UpdateSpkCredentialsParams {

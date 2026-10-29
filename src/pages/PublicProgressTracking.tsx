@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { 
   Check, Loader2, Printer, AlertTriangle, AlertCircle, ClipboardList,
-  CheckCircle2
+  CheckCircle2, FileText, X
 } from 'lucide-react';
 import { getOptimizedImageUrl } from '../lib/cloudinary';
 import { checkTrackingExpiration } from '../utils/trackingExpiration';
@@ -34,6 +34,7 @@ export const PublicProgressTracking: React.FC = () => {
   const [spk, setSpk] = useState<any>(null);
   const [checklists, setChecklists] = useState<Record<string, any>>({});
   const [assets, setAssets] = useState<Record<string, any[]>>({});
+  const [agreementLightbox, setAgreementLightbox] = useState<any | null>(null);
   
   const [rateLimitReached, setRateLimitReached] = useState(false);
 
@@ -137,6 +138,20 @@ export const PublicProgressTracking: React.FC = () => {
     const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000;
 
     return (currentTime - releaseTime) > sevenDaysInMs;
+  }, [spk]);
+
+  const currentSubTasks = useMemo(() => {
+    if (!spk?.sub_tasks) return [];
+    if (Array.isArray(spk.sub_tasks)) return spk.sub_tasks;
+    if (typeof spk.sub_tasks === 'string') {
+      return spk.sub_tasks.split(/\r?\n|,/).map((s: string) => s.trim()).filter(Boolean);
+    }
+    return [];
+  }, [spk]);
+
+  const agreementPhotos = useMemo(() => {
+    if (!spk?.agreement_photos) return [];
+    return Array.isArray(spk.agreement_photos) ? spk.agreement_photos : [];
   }, [spk]);
 
   const handlePrint = () => {
@@ -262,23 +277,116 @@ export const PublicProgressTracking: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 bg-surface print:bg-gray-50 p-6 rounded-lg border border-border print:border-gray-200">
-                <div>
-                  <p className="text-sm text-text-muted print:text-gray-500 mb-1">Nama Pelanggan</p>
-                  <p className="font-bold text-lg">{spk?.customer_name}</p>
+              <div className="bg-surface print:bg-gray-50 p-6 rounded-lg border border-border print:border-gray-200 space-y-5">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <p className="text-sm text-text-muted print:text-gray-500 mb-1">Nama Pelanggan</p>
+                    <p className="font-bold text-lg">{spk?.customer_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-text-muted print:text-gray-500 mb-1">Nomor SPK</p>
+                    <p className="font-bold font-mono text-primary print:text-black">{spk?.spk_no}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-text-muted print:text-gray-500 mb-1">No. HP / Kontak</p>
+                    <p className="font-bold font-mono text-sm">{spk?.customer_phone || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-text-muted print:text-gray-500 mb-1">Nomor Polisi</p>
+                    <p className="font-bold font-mono">{spk?.vehicle_plate || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-text-muted print:text-gray-500 mb-1">Model Kendaraan</p>
+                    <p className="font-bold text-sm">{spk?.vehicle_model || spk?.vehicleModel || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-text-muted print:text-gray-500 mb-1">Nomor Rangka (VIN)</p>
+                    <p className="font-bold font-mono">{spk?.vehicle_vin || spk?.vin_chassis || spk?.vehicle_number || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-text-muted print:text-gray-500 mb-1">Nomor Mesin</p>
+                    <p className="font-bold font-mono">{spk?.vehicle_engine || spk?.engine_number || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-text-muted print:text-gray-500 mb-1">Tanggal Registrasi</p>
+                    <p className="font-bold text-sm">
+                      {spk?.created_at
+                        ? new Date(spk.created_at).toLocaleDateString('id-ID', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          })
+                        : '-'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-text-muted print:text-gray-500 mb-1">Target Selesai</p>
+                    <p className="font-bold text-sm">
+                      {spk?.target_date
+                        ? new Date(spk.target_date).toLocaleDateString('id-ID', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          })
+                        : '-'}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-text-muted print:text-gray-500 mb-1">Nomor SPK</p>
-                  <p className="font-bold font-mono">{spk?.spk_no}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-text-muted print:text-gray-500 mb-1">Nomor Rangka (VIN)</p>
-                  <p className="font-bold font-mono">{spk?.vehicle_vin || spk?.vehicle_number || '-'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-text-muted print:text-gray-500 mb-1">Nomor Polisi</p>
-                  <p className="font-bold font-mono">{spk?.vehicle_plate || '-'}</p>
-                </div>
+
+                {/* Scope Modifikasi / Sub Tasks */}
+                {currentSubTasks.length > 0 && (
+                  <div className="pt-4 border-t border-border/70 print:border-gray-300">
+                    <p className="text-xs text-text-muted print:text-gray-500 uppercase tracking-wider font-semibold mb-2">
+                      Scope Modifikasi / Sub Tasks
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {currentSubTasks.map((task: string, i: number) => (
+                        <span
+                          key={i}
+                          className="bg-background print:bg-gray-100 border border-border print:border-gray-300 text-text print:text-gray-900 px-2.5 py-1 rounded text-xs font-mono"
+                        >
+                          {task}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Surat Kesepakatan Gallery (w_200,c_limit,f_auto,q_auto) */}
+                {agreementPhotos.length > 0 && (
+                  <div className="pt-4 border-t border-border/70 print:border-gray-300">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FileText className="w-4 h-4 text-primary print:text-black" />
+                      <p className="text-xs text-text-muted print:text-gray-500 uppercase tracking-wider font-semibold">
+                        Dokumentasi Surat Kesepakatan Kerja ({agreementPhotos.length} Dokumen)
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      {agreementPhotos.map((photo: any, idx: number) => {
+                        const photoUrl = photo.url || photo.secure_url;
+                        return (
+                          <div
+                            key={photo.public_id || idx}
+                            onClick={() => setAgreementLightbox(photo)}
+                            className="group relative w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden border border-border hover:border-primary cursor-pointer transition shadow-2xs bg-background shrink-0"
+                            title="Klik untuk melihat dokumen surat kesepakatan resolusi penuh"
+                            data-testid={`agreement-thumbnail-${idx}`}
+                          >
+                            <img
+                              src={getOptimizedImageUrl(photoUrl, 200)}
+                              alt={`Surat Kesepakatan ${idx + 1}`}
+                              className="w-full h-full object-cover group-hover:scale-105 transition duration-200"
+                              crossOrigin="anonymous"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-[11px] font-medium print:hidden">
+                              Perbesar
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -391,6 +499,45 @@ export const PublicProgressTracking: React.FC = () => {
         </div>
 
       </div>
+
+      {/* Lightbox Modal Surat Kesepakatan (w_1600,c_limit,f_auto,q_auto) */}
+      {agreementLightbox && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 print:hidden"
+          onClick={() => setAgreementLightbox(null)}
+          data-testid="agreement-lightbox-modal"
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] bg-surface rounded-xl overflow-hidden border border-border shadow-2xl flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface-hover">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-primary" />
+                <span className="font-semibold text-sm text-text">
+                  Dokumen Surat Kesepakatan Kerja
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAgreementLightbox(null)}
+                className="text-text-muted hover:text-text p-1 rounded-lg hover:bg-surface-active transition cursor-pointer"
+                title="Tutup"
+                aria-label="Tutup Pratinjau"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-3 overflow-auto flex items-center justify-center bg-black/40">
+              <img
+                src={getOptimizedImageUrl(agreementLightbox.url || agreementLightbox.secure_url, 1600)}
+                alt="Dokumen Surat Kesepakatan Penuh"
+                className="max-h-[80vh] w-auto object-contain rounded"
+              />
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Print Styles */}
       <style dangerouslySetInnerHTML={{ __html: `

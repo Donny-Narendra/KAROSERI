@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Pencil, Check, X, Lock, Loader2, AlertCircle } from 'lucide-react';
 import { spkService } from '../services/spkService';
 import { ConfirmationModal } from './ConfirmationModal';
+import { SpkAgreementPhotos } from './spk/SpkAgreementPhotos';
 import type { Spk } from '../types/spk';
 
 interface SpkCredentialSectionProps {
@@ -286,6 +287,9 @@ export const SpkCredentialSection: React.FC<SpkCredentialSectionProps> = ({
               </div>
             </div>
           )}
+
+          {/* Dokumentasi Surat Kesepakatan Kerja */}
+          <SpkAgreementPhotos spk={spk} onUpdated={onUpdated} />
         </div>
       ) : (
         /* Mode Edit: Form 5-Baris Sesuai Spesifikasi */

@@ -1,5 +1,15 @@
 import type { SpkStatus } from './database';
 
+export interface AgreementPhoto {
+  url?: string;
+  secure_url: string;
+  public_id: string;
+  format?: string;
+  bytes?: number;
+  uploaded_at?: string;
+  [key: string]: any;
+}
+
 export interface Spk {
   id: string;
   spk_no: string;
@@ -23,6 +33,7 @@ export interface Spk {
   vehicle_brand?: string;
   target_date?: string;
   sub_tasks?: string[];
+  agreement_photos?: AgreementPhoto[];
   pending_requisitions_count?: number;
   [key: string]: any;
 }

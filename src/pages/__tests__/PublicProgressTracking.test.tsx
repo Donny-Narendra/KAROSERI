@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { PublicProgressTracking } from '../PublicProgressTracking';
 import { supabase } from '../../lib/supabaseClient';
+import { getOptimizedImageUrl } from '../../lib/cloudinary';
 
 vi.mock('../../lib/supabaseClient', () => ({
   supabase: {
@@ -11,7 +12,9 @@ vi.mock('../../lib/supabaseClient', () => ({
 }));
 
 vi.mock('../../lib/cloudinary', () => ({
-  getOptimizedImageUrl: vi.fn((url: string) => url),
+  getOptimizedImageUrl: vi.fn((url: string, width?: number) => {
+    return `${url}?transform=w_${width || 800}`;
+  }),
 }));
 
 describe('Page: PublicProgressTracking (7-Day Post-BAST Expiration & Thank You State)', () => {
@@ -219,5 +222,99 @@ describe('Page: PublicProgressTracking (7-Day Post-BAST Expiration & Thank You S
     expect(screen.getByText('SPK-2668')).toBeInTheDocument();
     expect(screen.getByText('W 1234 CD')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Unduh PDF/i })).not.toBeInTheDocument();
+  });
+
+  describe('SPK Credentials Header & Agreement Document Lightbox', () => {
+    const detailedSpk = {
+      id: 'spk-detailed-1',
+      spk_no: 'SPK-2026-088',
+      customer_name: 'PT Karoseri Cepat Jaya',
+      customer_phone: '0812-3456-7890',
+      vehicle_plate: 'B 9988 XYZ',
+      vehicle_model: 'Mitsubishi Canter FE 74 HD',
+      vehicle_vin: 'MHMFE74HD123456',
+      vehicle_engine: '4D34-T98765',
+      created_at: '2026-10-15T08:30:00Z',
+      target_date: '2026-11-25T00:00:00Z',
+      sub_tasks: ['Perpanjangan Sasis 40cm', 'Pemasangan Box Alumunium', 'Instalasi Lampu Rotary'],
+      status: 'ACTIVE',
+      dp_amount: 50000000,
+      released_at: null,
+      agreement_photos: [
+        {
+          url: 'https://res.cloudinary.com/demo/image/upload/v1/karoseriops/spk_agreements/SPK-2026-088_contract1.jpg',
+          secure_url: 'https://res.cloudinary.com/demo/image/upload/v1/karoseriops/spk_agreements/SPK-2026-088_contract1.jpg',
+          public_id: 'karoseriops/spk_agreements/SPK-2026-088_contract1',
+        },
+      ],
+    };
+
+    it('renders all credentials comprehensively in the tracking header', async () => {
+      setupSupabaseMock(detailedSpk);
+
+      render(
+        <MemoryRouter initialEntries={['/tracking/SPK-2026-088']}>
+          <Routes>
+            <Route path="/tracking/:spk_no" element={<PublicProgressTracking />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('PT Karoseri Cepat Jaya')).toBeInTheDocument();
+      });
+
+      // Verify all credentials
+      expect(screen.getByText('SPK-2026-088')).toBeInTheDocument();
+      expect(screen.getByText('0812-3456-7890')).toBeInTheDocument();
+      expect(screen.getByText('B 9988 XYZ')).toBeInTheDocument();
+      expect(screen.getByText('Mitsubishi Canter FE 74 HD')).toBeInTheDocument();
+      expect(screen.getByText('MHMFE74HD123456')).toBeInTheDocument();
+      expect(screen.getByText('4D34-T98765')).toBeInTheDocument();
+
+      // Verify sub tasks
+      expect(screen.getByText('Perpanjangan Sasis 40cm')).toBeInTheDocument();
+      expect(screen.getByText('Pemasangan Box Alumunium')).toBeInTheDocument();
+      expect(screen.getByText('Instalasi Lampu Rotary')).toBeInTheDocument();
+    });
+
+    it('renders agreement document thumbnail (w_200) and opens Lightbox modal (w_1600) on click', async () => {
+      setupSupabaseMock(detailedSpk);
+
+      render(
+        <MemoryRouter initialEntries={['/tracking/SPK-2026-088']}>
+          <Routes>
+            <Route path="/tracking/:spk_no" element={<PublicProgressTracking />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('Dokumentasi Surat Kesepakatan Kerja (1 Dokumen)')).toBeInTheDocument();
+      });
+
+      // Verify thumbnail exists and uses w_200
+      const thumbnailImg = screen.getByAltText('Surat Kesepakatan 1') as HTMLImageElement;
+      expect(thumbnailImg).toBeInTheDocument();
+      expect(getOptimizedImageUrl).toHaveBeenCalledWith(
+        'https://res.cloudinary.com/demo/image/upload/v1/karoseriops/spk_agreements/SPK-2026-088_contract1.jpg',
+        200
+      );
+
+      // Click thumbnail to trigger Lightbox Modal
+      const thumbnailCard = screen.getByTestId('agreement-thumbnail-0');
+      fireEvent.click(thumbnailCard);
+
+      expect(screen.getByTestId('agreement-lightbox-modal')).toBeInTheDocument();
+      expect(getOptimizedImageUrl).toHaveBeenCalledWith(
+        'https://res.cloudinary.com/demo/image/upload/v1/karoseriops/spk_agreements/SPK-2026-088_contract1.jpg',
+        1600
+      );
+
+      // Close modal
+      const closeBtn = screen.getByLabelText('Tutup Pratinjau');
+      fireEvent.click(closeBtn);
+      expect(screen.queryByTestId('agreement-lightbox-modal')).not.toBeInTheDocument();
+    });
   });
 });
