@@ -54,3 +54,4 @@ DO $$ BEGIN
   TO authenticated, anon 
   WITH CHECK (true);
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+

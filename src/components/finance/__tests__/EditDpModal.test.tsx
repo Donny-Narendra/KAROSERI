@@ -193,3 +193,4 @@ describe('Component: EditDpModal (Audit Trail & Down Payment Adjustment)', () =>
     expect(defaultProps.onClose).toHaveBeenCalledTimes(2);
   });
 });
+
