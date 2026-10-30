@@ -15,6 +15,20 @@ export interface DPHistoryRecord {
   released_at?: string | null;
 }
 
+export interface DpAdjustment {
+  id: string;
+  spk_id: string;
+  spk_no: string;
+  old_amount: number;
+  new_amount: number;
+  difference: number;
+  reason: string;
+  adjusted_by_user_id?: string | null;
+  adjusted_by_name: string;
+  adjusted_by_role: string;
+  created_at: string;
+}
+
 export interface ApprovedChangeOrderItem {
   id?: string;
   item_name: string;
@@ -474,3 +488,43 @@ export const fetchApprovedChangeOrders = async (spkId: string): Promise<Approved
     return [];
   }
 };
+
+/**
+ * Fetch immutable audit trail log of down payment adjustments
+ * optionally filtered by SPK ID (UUID) or SPK Number (e.g. SPK-8209).
+ */
+export const fetchDpAdjustments = async (spkIdentifier?: string): Promise<DpAdjustment[]> => {
+  try {
+    let query: any = supabase
+      .from('dp_adjustments')
+      .select('*');
+
+    if (spkIdentifier) {
+      if (typeof query.or === 'function') {
+        query = query.or(`spk_id.eq.${spkIdentifier},spk_no.eq.${spkIdentifier}`);
+      } else if (typeof query.eq === 'function') {
+        query = query.eq('spk_id', spkIdentifier);
+      }
+    }
+
+    if (typeof query.order === 'function') {
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (error) {
+        console.warn('fetchDpAdjustments returned error:', error.message);
+        return [];
+      }
+      return (data as DpAdjustment[]) || [];
+    } else {
+      const { data, error } = await query;
+      if (error) {
+        console.warn('fetchDpAdjustments returned error:', error.message);
+        return [];
+      }
+      return (data as DpAdjustment[]) || [];
+    }
+  } catch (err) {
+    console.warn('Exception in fetchDpAdjustments:', err);
+    return [];
+  }
+};
+

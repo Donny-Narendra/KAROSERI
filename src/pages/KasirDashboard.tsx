@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { AlertCircle, FileText, CheckCircle, Calculator, Lock, Receipt, TrendingUp, ChevronDown, ChevronUp, Printer, BookOpen } from 'lucide-react';
+import { AlertCircle, FileText, CheckCircle, Calculator, Lock, Receipt, TrendingUp, ChevronDown, ChevronUp, Printer, BookOpen, AlertTriangle } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { DownPaymentModal } from '../components/DownPaymentModal';
 import { DpHistoryList } from '../components/DpHistoryList';
 import { BastModal } from '../components/BastModal';
 import { ConfirmationModal, type ConfirmationModalVariant } from '../components/ConfirmationModal';
-import { fetchDPHistory, fetchDpHistory, fetchApprovedChangeOrders, calculateChangeOrderHppBreakdown } from '../services/billingService';
-import type { DPHistoryRecord, ApprovedChangeOrder, ChangeOrderHppBreakdown } from '../services/billingService';
+import { EditDpModal } from '../components/finance/EditDpModal';
+import { fetchDPHistory, fetchDpHistory, fetchApprovedChangeOrders, calculateChangeOrderHppBreakdown, fetchDpAdjustments } from '../services/billingService';
+import type { DPHistoryRecord, ApprovedChangeOrder, ChangeOrderHppBreakdown, DpAdjustment } from '../services/billingService';
 import { packageService } from '../services/packageService';
 import type { ProductPackage } from '../types/package';
 import { buildInvoicePrintPayload, printFinalInvoice } from '../utils/invoiceExport';
@@ -95,6 +96,14 @@ export const KasirDashboard: React.FC = () => {
   const [approvedChangeOrders, setApprovedChangeOrders] = useState<ApprovedChangeOrder[]>([]);
   const [loadingChangeOrders, setLoadingChangeOrders] = useState(false);
   const [isCoAccordionOpen, setIsCoAccordionOpen] = useState(false);
+  const [dpAdjustments, setDpAdjustments] = useState<DpAdjustment[]>([]);
+  const [isEditDpOpen, setIsEditDpOpen] = useState(false);
+  const [targetEditDp, setTargetEditDp] = useState<{
+    spkId: string;
+    spkNo: string;
+    customerName: string;
+    currentDp: number;
+  } | null>(null);
   const [modalConfig, setModalConfig] = useState<{
     isOpen: boolean;
     title: string;
@@ -115,9 +124,19 @@ export const KasirDashboard: React.FC = () => {
     setModalConfig(prev => ({ ...prev, isOpen: false, isLoading: false }));
   };
 
+  const loadAdjustments = useCallback(async () => {
+    try {
+      const data = await fetchDpAdjustments();
+      setDpAdjustments(data);
+    } catch (err) {
+      console.error('Error loading DP adjustments in KasirDashboard:', err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchSpks();
-  }, []);
+    void loadAdjustments();
+  }, [loadAdjustments]);
 
   const loadHistory = useCallback(async () => {
     setLoadingHistory(true);
@@ -198,8 +217,9 @@ export const KasirDashboard: React.FC = () => {
   useEffect(() => {
     if (activeTab === 'DP' && dpSubTab === 'HISTORY') {
       loadHistory();
+      void loadAdjustments();
     }
-  }, [activeTab, dpSubTab, loadHistory]);
+  }, [activeTab, dpSubTab, loadHistory, loadAdjustments]);
 
   const fetchSpks = async () => {
     let fetchedPackages: ProductPackage[] = [];
@@ -417,6 +437,57 @@ export const KasirDashboard: React.FC = () => {
     } finally {
       setLoadingChangeOrders(false);
     }
+  };
+
+  const handleOpenEditDpModal = (record?: DPHistoryRecord) => {
+    if (record) {
+      setTargetEditDp({
+        spkId: record.spk_id,
+        spkNo: record.spk_no,
+        customerName: record.customer_name,
+        currentDp: record.dp_amount,
+      });
+    } else if (selectedSpk) {
+      setTargetEditDp({
+        spkId: selectedSpk.dbId,
+        spkNo: selectedSpk.id,
+        customerName: selectedSpk.customerName,
+        currentDp: selectedSpk.dpAmount,
+      });
+    }
+    setIsEditDpOpen(true);
+  };
+
+  const handleDpCorrectionSuccess = (newAmount: number, adjustment: DpAdjustment) => {
+    // 1. Perbarui spks secara langsung
+    setSpks(prev => prev.map(s => {
+      if (s.id === adjustment.spk_no || s.dbId === adjustment.spk_id) {
+        return {
+          ...s,
+          dpAmount: newAmount,
+        };
+      }
+      return s;
+    }));
+
+    // 2. Perbarui dpHistory secara langsung
+    setDpHistory(prev => prev.map(h => {
+      if (h.spk_no === adjustment.spk_no || h.spk_id === adjustment.spk_id) {
+        return {
+          ...h,
+          dp_amount: newAmount,
+        };
+      }
+      return h;
+    }));
+
+    // 3. Tambahkan ke dpAdjustments
+    setDpAdjustments(prev => [adjustment, ...prev]);
+
+    // 4. Sinkronisasi latar belakang
+    void fetchSpks();
+    void loadHistory();
+    void loadAdjustments();
   };
 
   const requestGenerateInvoice = () => {
@@ -838,10 +909,24 @@ export const KasirDashboard: React.FC = () => {
                       </span>
                     )}
                     {activeTab === 'DP' && dpSubTab === 'HISTORY' ? (
-                      <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-status-success/20 text-status-success flex items-center gap-1">
-                        <CheckCircle className="w-3 h-3 text-status-success" />
-                        DP LUNAS
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-status-success/20 text-status-success flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3 text-status-success" />
+                          DP LUNAS
+                        </span>
+                        {(() => {
+                          const count = dpAdjustments.filter(a => a.spk_id === spk.dbId || a.spk_no === spk.id).length;
+                          return count > 0 ? (
+                            <span 
+                              className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1 shadow-sm"
+                              title={`Telah dikoreksi ${count}x`}
+                            >
+                              <AlertTriangle className="w-2.5 h-2.5" />
+                              Terkoreksi ({count}x)
+                            </span>
+                          ) : null;
+                        })()}
+                      </div>
                     ) : (
                       <span className={`text-xs px-2 py-1 rounded-full font-medium ${
                         spk.paymentStatus === 'LUNAS' ? 'bg-status-success/20 text-status-success' : 'bg-status-warning/20 text-status-warning'
@@ -898,7 +983,16 @@ export const KasirDashboard: React.FC = () => {
                   </button>
                 )}
               </div>
-              <DpHistoryList history={historyToDisplay} loading={loadingHistory} />
+              <DpHistoryList 
+                history={historyToDisplay} 
+                loading={loadingHistory}
+                adjustments={dpAdjustments}
+                onEditDp={handleOpenEditDpModal}
+                onRefresh={() => {
+                  void loadHistory();
+                  void loadAdjustments();
+                }}
+              />
             </div>
           ) : selectedSpk ? (
             <div className="bg-surface rounded-xl border border-surface-border p-6 shadow-xl">
@@ -1258,6 +1352,32 @@ export const KasirDashboard: React.FC = () => {
           loadHistory();
         }}
       />
+      {/* Edit DP Modal */}
+      {(() => {
+        const effectiveTarget = targetEditDp || (selectedSpk ? {
+          spkId: selectedSpk.dbId,
+          spkNo: selectedSpk.id,
+          customerName: selectedSpk.customerName,
+          currentDp: selectedSpk.dpAmount,
+        } : null);
+
+        if (!effectiveTarget) return null;
+
+        return (
+          <EditDpModal
+            isOpen={isEditDpOpen}
+            onClose={() => {
+              setIsEditDpOpen(false);
+              setTargetEditDp(null);
+            }}
+            spkId={effectiveTarget.spkId}
+            spkNo={effectiveTarget.spkNo}
+            customerName={effectiveTarget.customerName}
+            currentDp={effectiveTarget.currentDp}
+            onSuccess={handleDpCorrectionSuccess}
+          />
+        );
+      })()}
       {/* BAST Handover Modal */}
       <BastModal
         isOpen={isBastModalOpen}

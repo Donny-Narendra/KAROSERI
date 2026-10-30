@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fetchApprovedChangeOrders, fetchDPHistory, fetchDpHistory, calculateChangeOrderHppBreakdown, fetchPendingDpSpk } from '../billingService';
+import { fetchApprovedChangeOrders, fetchDPHistory, fetchDpHistory, calculateChangeOrderHppBreakdown, fetchPendingDpSpk, fetchDpAdjustments } from '../billingService';
 import { supabase } from '../../lib/supabaseClient';
 
 vi.mock('../../lib/supabaseClient', () => ({
@@ -544,4 +544,55 @@ describe('Sprint 99: billingService.fetchPendingDpSpk Tests', () => {
     expect(result).toEqual([]);
   });
 });
+
+describe('billingService.fetchDpAdjustments Tests', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('fetches all dp adjustments sorted by created_at descending', async () => {
+    const mockAdjustments = [
+      {
+        id: 'adj-1',
+        spk_id: 'spk-1',
+        spk_no: 'SPK-8209',
+        old_amount: 500000,
+        new_amount: 1500000,
+        difference: 1000000,
+        reason: 'Koreksi salah ketik kasir',
+        adjusted_by_name: 'Dewi Kasir',
+        adjusted_by_role: 'kasir',
+        created_at: '2026-10-30T09:00:00Z',
+      },
+    ];
+
+    const mockOrder = vi.fn().mockResolvedValue({ data: mockAdjustments, error: null });
+    const mockSelect = vi.fn().mockReturnValue({ order: mockOrder });
+    vi.mocked(supabase.from).mockReturnValue({ select: mockSelect } as any);
+
+    const result = await fetchDpAdjustments();
+    expect(result).toEqual(mockAdjustments);
+    expect(supabase.from).toHaveBeenCalledWith('dp_adjustments');
+  });
+
+  it('filters dp adjustments by spk_id or spk_no when identifier provided', async () => {
+    const mockOrder = vi.fn().mockResolvedValue({ data: [], error: null });
+    const mockOr = vi.fn().mockReturnValue({ order: mockOrder });
+    const mockSelect = vi.fn().mockReturnValue({ or: mockOr });
+    vi.mocked(supabase.from).mockReturnValue({ select: mockSelect } as any);
+
+    await fetchDpAdjustments('SPK-8209');
+    expect(mockOr).toHaveBeenCalledWith('spk_id.eq.SPK-8209,spk_no.eq.SPK-8209');
+  });
+
+  it('handles database error gracefully and returns empty array', async () => {
+    const mockOrder = vi.fn().mockResolvedValue({ data: null, error: { message: 'relation does not exist' } });
+    const mockSelect = vi.fn().mockReturnValue({ order: mockOrder });
+    vi.mocked(supabase.from).mockReturnValue({ select: mockSelect } as any);
+
+    const result = await fetchDpAdjustments();
+    expect(result).toEqual([]);
+  });
+});
+
 
