@@ -95,3 +95,4 @@ SET calculated_cogs = COALESCE((
   FROM public.package_items pi
   WHERE pi.package_id = p.id
 ), 0);
+

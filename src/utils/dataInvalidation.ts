@@ -26,3 +26,4 @@ export const onDataInvalidated = (
   window.addEventListener(EVENT_NAME, handler);
   return () => window.removeEventListener(EVENT_NAME, handler);
 };
+
