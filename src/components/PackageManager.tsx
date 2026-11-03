@@ -112,6 +112,9 @@ export const PackageManager: React.FC = () => {
         return updatedItems;
       }
 
+      // Pastikan mengambil cost_price (HPP modal gudang), bukan selling_price atau unit_price
+      const rawHpp = material.cost_price ?? 0;
+
       return [
         ...prevItems,
         {
@@ -119,7 +122,7 @@ export const PackageManager: React.FC = () => {
           material_id: material.id,
           labor_name: itemType === 'LABOR' ? material.name : null,
           quantity: 1,
-          cost_per_unit: material.cost_price || material.unit_price || 0,
+          cost_per_unit: Number(rawHpp), // Mengunci nilai HPP modal gudang
         }
       ];
     });
@@ -141,7 +144,8 @@ export const PackageManager: React.FC = () => {
     if (field === 'material_id') {
       const selectedMaterial = materials.find(m => m.id === value);
       if (selectedMaterial) {
-        item.cost_per_unit = selectedMaterial.cost_price || selectedMaterial.unit_price;
+        // Pastikan mengambil cost_price (HPP modal gudang), bukan selling_price atau unit_price
+        item.cost_per_unit = Number(selectedMaterial.cost_price ?? 0);
       }
     }
 
@@ -396,7 +400,7 @@ export const PackageManager: React.FC = () => {
                       <th className="px-3 py-2 w-24">Tipe</th>
                       <th className="px-3 py-2">Nama Komponen</th>
                       <th className="px-3 py-2 w-24 text-right">Qty</th>
-                      <th className="px-3 py-2 w-32 text-right">Biaya Satuan</th>
+                      <th className="px-3 py-2 w-32 text-right">Biaya Satuan (HPP Modal)</th>
                       <th className="px-3 py-2 w-32 text-right">Total Biaya</th>
                       <th className="px-3 py-2 w-10 text-center"></th>
                     </tr>
