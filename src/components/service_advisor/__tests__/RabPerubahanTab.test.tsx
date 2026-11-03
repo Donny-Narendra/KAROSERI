@@ -706,4 +706,117 @@ describe('RabPerubahanTab Component', () => {
       (supabaseMock.supabase.from as any) = originalFrom;
     }
   });
+
+  it('tracks workshop-absorbed HPP variance, displays red indicator badge, absorbs margin, and flags new stock', async () => {
+    const supabaseMock = await import('../../../lib/supabaseClient');
+    const originalFrom = supabaseMock.supabase.from;
+
+    const inflatedSpk = {
+      id: 'spk-inflated-1',
+      spk_no: 'SPK-INFLATED',
+      customer_name: 'PT Maju Terus',
+      vehicle_plate: 'B 1234 ABC',
+    };
+
+    const inflatedRabItems = [
+      {
+        id: 'rab-item-inflated',
+        rab_estimation_id: 'est-inflated',
+        spk_id: 'spk-inflated-1',
+        wbs_category: 'Pembongkaran',
+        wbs_stage: 'WBS 1: Pembongkaran',
+        item_type: 'MATERIAL',
+        material_name: 'Material Tes 2',
+        description: 'Material Tes 2',
+        quantity: 1,
+        unit: 'pcs',
+        cost_price: 55000,
+        unit_price: 76212,
+        subtotal: 76212,
+        material_id: 'mat-inflated-99',
+      },
+    ];
+
+    const storeMaterials = [
+      {
+        id: 'mat-inflated-99',
+        name: 'Material Tes 2',
+        cost_price: 75000, // Restocked at 75.000 (was 55.000 in initial contract)
+        unit_price: 90000,
+        current_stock: 15, // Stock has arrived
+      },
+    ];
+
+    (supabaseMock.supabase.from as any) = vi.fn((table: string) => {
+      if (table === 'rab_estimations') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: { id: 'est-inflated', spk_id: 'spk-inflated-1' },
+            error: null,
+          }),
+        };
+      }
+      if (table === 'rab_items') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockResolvedValue({
+            data: inflatedRabItems,
+            error: null,
+          }),
+        };
+      }
+      if (table === 'materials') {
+        return {
+          select: vi.fn().mockResolvedValue({
+            data: storeMaterials,
+            error: null,
+          }),
+        };
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockResolvedValue({ data: [], error: null }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      };
+    });
+
+    const spkServiceMock = await import('../../../services/spkService');
+    vi.spyOn(spkServiceMock.spkService, 'getChangeOrders').mockResolvedValueOnce([]);
+
+    try {
+      render(<RabPerubahanTab spkId="spk-inflated-1" spk={inflatedSpk} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Material Tes 2')).toBeInTheDocument();
+      });
+
+      // 1. Initial snapshot HPP is displayed
+      expect(screen.getByText('Rp 55.000')).toBeInTheDocument();
+
+      // 2. Red indicator badge shows inflation to Rp 75.000 (+Rp 20.000)
+      expect(screen.getByText(/▲ Naik ke: Rp 75\.000/)).toBeInTheDocument();
+      expect(screen.getAllByText(/\(\+Rp 20\.000\)/).length).toBeGreaterThanOrEqual(1);
+
+      // 3. Selling price to consumer stays locked at Rp 76.212
+      const sellingCells = screen.getAllByText('Rp 76.212');
+      expect(sellingCells.length).toBeGreaterThanOrEqual(1);
+
+      // 4. Status realisasi shows pending with new stock available
+      expect(screen.getByText('Belum Diambil (Stok Baru Tersedia)')).toBeInTheDocument();
+
+      // 5. Total Modal HPP absorbs the higher shop price (Rp 75.000)
+      expect(screen.getAllByText('Rp 75.000').length).toBeGreaterThanOrEqual(1);
+
+      // 6. Total Profit SPK automatically deducts the Rp 20.000 margin erosion (76.212 - 75.000 = 1.212)
+      expect(screen.getAllByText('Rp 1.212').length).toBeGreaterThanOrEqual(1);
+
+      // 7. Margin correction notice is displayed transparently
+      expect(screen.getAllByText(/Margin terkoreksi -Rp 20\.000 akibat kenaikan harga belanja material\./).length).toBeGreaterThanOrEqual(1);
+    } finally {
+      (supabaseMock.supabase.from as any) = originalFrom;
+    }
+  });
 });

@@ -36,6 +36,17 @@ export interface ConsolidatedRabItem {
   material_id?: string | null;
   change_order_id?: string | null;
   notes?: string | null;
+
+  // Workshop-Absorbed Cost Variance Tracking (Fixed-Price Contract)
+  estimated_cost_price?: number;
+  actual_store_cost_price?: number;
+  realized_issue_cost_price?: number;
+  effective_cost_price?: number;
+  cost_variance_per_unit?: number;
+  total_cost_variance?: number;
+  is_cost_inflated?: boolean;
+  isCostInflated?: boolean;
+  has_new_stock?: boolean;
 }
 
 export interface RabPerubahanTotals {
@@ -59,6 +70,10 @@ export interface RabPerubahanTotals {
   materialTotalCount: number;
   materialFulfilledPercentage: number;
   itemizedPackages?: PackageProfitDetail[];
+
+  // Workshop-Absorbed Cost Variance Metrics
+  totalEstimatedCogs?: number;
+  totalMarginErosion?: number;
 }
 
 /**
@@ -73,9 +88,18 @@ export function computeRabPerubahanTotals(
 
   let materialFulfilledCount = 0;
   let materialTotalCount = 0;
+  let totalEstimatedCogs = 0;
 
   if (Array.isArray(items)) {
     items.forEach(item => {
+      const q = Number(item.quantity !== undefined && item.quantity !== null ? item.quantity : 1);
+      const estPrice = Number(
+        item.estimated_cost_price !== undefined && item.estimated_cost_price !== null
+          ? item.estimated_cost_price
+          : (item.cost_price ?? 0)
+      );
+      totalEstimatedCogs += q * estPrice;
+
       if (item.item_type === 'MATERIAL') {
         materialTotalCount += 1;
         if (item.fulfillment_status === 'FULFILLED') {
@@ -88,6 +112,8 @@ export function computeRabPerubahanTotals(
   const materialFulfilledPercentage = materialTotalCount > 0
     ? Math.round((materialFulfilledCount / materialTotalCount) * 100)
     : 100;
+
+  const totalMarginErosion = Math.max(0, profitResult.grandTotalCost - totalEstimatedCogs);
 
   return {
     packageRevenue: profitResult.totalPackageRevenue,
@@ -110,6 +136,8 @@ export function computeRabPerubahanTotals(
     materialTotalCount,
     materialFulfilledPercentage,
     itemizedPackages: profitResult.packages,
+    totalEstimatedCogs,
+    totalMarginErosion,
   };
 }
 
@@ -145,7 +173,10 @@ export function exportRabPerubahanToExcel(
       "Deskripsi Pekerjaan / Barang",
       "Qty",
       "Satuan",
-      "HPP Satuan (Rp)",
+      "HPP Estimasi Awal (Rp)",
+      "HPP Realisasi / Aktual (Rp)",
+      "Selisih HPP (Rp)",
+      "Beban Selisih HPP",
       "Harga Satuan Jual (Rp)",
       "Subtotal Jual (Rp)",
       "Status Realisasi / Gudang"
@@ -157,9 +188,19 @@ export function exportRabPerubahanToExcel(
     const entryLabel = item.is_package
       ? `Paket: ${item.package_name || 'Paket'}`
       : 'Granular';
+    const hasNewStock = item.has_new_stock;
     const fulfillmentLabel = item.fulfillment_status === 'FULFILLED'
       ? (item.item_type === 'MATERIAL' ? 'Sudah Diambil (Approved)' : item.item_type === 'LABOR' ? 'Terbit SPK-B' : 'Dicatat FOH')
-      : (item.item_type === 'MATERIAL' ? 'Belum Diambil' : item.item_type === 'LABOR' ? 'Belum Terbit' : 'Belum Dicatat');
+      : (item.item_type === 'MATERIAL'
+          ? (hasNewStock ? 'Belum Diambil (Stok Baru Tersedia)' : 'Belum Diambil')
+          : item.item_type === 'LABOR' ? 'Belum Terbit' : 'Belum Dicatat');
+
+    const estCost = Number(item.estimated_cost_price ?? item.cost_price ?? 0);
+    const effCost = Number(item.effective_cost_price ?? item.cost_price ?? 0);
+    const variance = Number(item.cost_variance_per_unit ?? (effCost - estCost));
+    const bebanLabel = (item.is_cost_inflated || item.isCostInflated || variance > 0)
+      ? 'Ditanggung Bengkel (Internal Absorption)'
+      : 'Sesuai Estimasi';
 
     wsData.push([
       idx + 1,
@@ -170,7 +211,10 @@ export function exportRabPerubahanToExcel(
       item.description,
       item.quantity,
       item.unit,
-      item.cost_price,
+      estCost,
+      effCost,
+      variance,
+      bebanLabel,
       item.unit_price,
       item.subtotal,
       fulfillmentLabel
@@ -178,25 +222,29 @@ export function exportRabPerubahanToExcel(
   });
 
   wsData.push([""]);
-  wsData.push(["", "", "", "", "", "", "", "", "", "Total Penjualan Quotation", calcTotals.totalRevenue]);
-  wsData.push(["", "", "", "", "", "", "", "", "", "Total Modal HPP", calcTotals.totalCogs]);
-  wsData.push(["", "", "", "", "", "", "", "", "", "Total Profit SPK Revisi", calcTotals.totalProfit]);
-  wsData.push(["", "", "", "", "", "", "", "", "", "Margin Laba Bersih (%)", `${calcTotals.marginPercentage}%`]);
+  wsData.push(["", "", "", "", "", "", "", "", "", "", "", "", "Total Penjualan Quotation (Terkunci)", calcTotals.totalRevenue]);
+  wsData.push(["", "", "", "", "", "", "", "", "", "", "", "", "Total Modal HPP Estimasi Awal", calcTotals.totalEstimatedCogs ?? calcTotals.totalCogs]);
+  wsData.push(["", "", "", "", "", "", "", "", "", "", "", "", "Total Modal HPP Aktual", calcTotals.totalCogs]);
+  if ((calcTotals.totalMarginErosion ?? 0) > 0) {
+    wsData.push(["", "", "", "", "", "", "", "", "", "", "", "", "Total Pembengkakan HPP (Beban Bengkel)", -1 * (calcTotals.totalMarginErosion ?? 0)]);
+  }
+  wsData.push(["", "", "", "", "", "", "", "", "", "", "", "", "Total Profit SPK Revisi", calcTotals.totalProfit]);
+  wsData.push(["", "", "", "", "", "", "", "", "", "", "", "", "Margin Laba Bersih (%)", `${calcTotals.marginPercentage}%`]);
   wsData.push([""]);
-  wsData.push(["", "", "", "", "", "", "", "", "", "PILAR 1: KEUNTUNGAN KARYA PAKET BARANG JADI (ITEMIZED ASSEMBLY MARGIN)", ""]);
+  wsData.push(["", "", "", "", "", "", "", "", "", "", "", "", "PILAR 1: KEUNTUNGAN KARYA PAKET BARANG JADI (ITEMIZED ASSEMBLY MARGIN)", ""]);
   if (calcTotals.itemizedPackages && calcTotals.itemizedPackages.length > 0) {
     calcTotals.itemizedPackages.forEach(p => {
-      wsData.push(["", "", "", "", "", "", "", "", "", `• ${p.packageName}`, `Jual: Rp ${p.sellingPrice.toLocaleString('id-ID')} | HPP: Rp ${p.totalCost.toLocaleString('id-ID')} (Mat: ${p.materialCost.toLocaleString('id-ID')}, Lab: ${p.laborCost.toLocaleString('id-ID')}, FOH: ${p.overheadCost.toLocaleString('id-ID')}) | Laba: Rp ${p.netProfit.toLocaleString('id-ID')} (${p.marginPercentage}%)`]);
+      wsData.push(["", "", "", "", "", "", "", "", "", "", "", "", `• ${p.packageName}`, `Jual: Rp ${p.sellingPrice.toLocaleString('id-ID')} | HPP: Rp ${p.totalCost.toLocaleString('id-ID')} (Mat: ${p.materialCost.toLocaleString('id-ID')}, Lab: ${p.laborCost.toLocaleString('id-ID')}, FOH: ${p.overheadCost.toLocaleString('id-ID')}) | Laba: Rp ${p.netProfit.toLocaleString('id-ID')} (${p.marginPercentage}%)`]);
     });
-    wsData.push(["", "", "", "", "", "", "", "", "", "Total Laba Paket Barang Jadi", calcTotals.packageProfit]);
+    wsData.push(["", "", "", "", "", "", "", "", "", "", "", "", "Total Laba Paket Barang Jadi", calcTotals.packageProfit]);
   } else {
-    wsData.push(["", "", "", "", "", "", "", "", "", "• (Tidak ada paket assembly pada SPK ini)", "-"]);
+    wsData.push(["", "", "", "", "", "", "", "", "", "", "", "", "• (Tidak ada paket assembly pada SPK ini)", "-"]);
   }
   wsData.push([""]);
-  wsData.push(["", "", "", "", "", "", "", "", "", "PILAR 2: KEUNTUNGAN PENJUALAN LEPAS / GRANULAR (NON-PAKET)", ""]);
-  wsData.push(["", "", "", "", "", "", "", "", "", "• Laba Material Granular (Bahan Lepas)", calcTotals.granularMaterialProfit]);
-  wsData.push(["", "", "", "", "", "", "", "", "", "• Margin Labor Granular (Upah Borongan Mandor Lepas)", calcTotals.laborProfit]);
-  wsData.push(["", "", "", "", "", "", "", "", "", "• Margin Overhead Granular (Sewa Alat / FOH Lepas)", calcTotals.overheadProfit]);
+  wsData.push(["", "", "", "", "", "", "", "", "", "", "", "", "PILAR 2: KEUNTUNGAN PENJUALAN LEPAS / GRANULAR (NON-PAKET)", ""]);
+  wsData.push(["", "", "", "", "", "", "", "", "", "", "", "", "• Laba Material Granular (Bahan Lepas)", calcTotals.granularMaterialProfit]);
+  wsData.push(["", "", "", "", "", "", "", "", "", "", "", "", "• Margin Labor Granular (Upah Borongan Mandor Lepas)", calcTotals.laborProfit]);
+  wsData.push(["", "", "", "", "", "", "", "", "", "", "", "", "• Margin Overhead Granular (Sewa Alat / FOH Lepas)", calcTotals.overheadProfit]);
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
 
@@ -209,10 +257,13 @@ export function exportRabPerubahanToExcel(
     { wch: 38 }, // Deskripsi
     { wch: 8 },  // Qty
     { wch: 8 },  // Satuan
-    { wch: 16 }, // HPP Satuan
-    { wch: 22 }, // Harga Jual Satuan
-    { wch: 20 }, // Subtotal
-    { wch: 24 }, // Status Realisasi
+    { wch: 18 }, // HPP Estimasi Awal
+    { wch: 20 }, // HPP Realisasi / Aktual
+    { wch: 15 }, // Selisih HPP
+    { wch: 30 }, // Beban Selisih HPP
+    { wch: 20 }, // Harga Jual Satuan
+    { wch: 20 }, // Subtotal Jual
+    { wch: 28 }, // Status Realisasi
   ];
 
   const wb = XLSX.utils.book_new();
@@ -278,14 +329,30 @@ export function printRabPerubahanReport(
 
       const typeBadge = `<span class="badge badge-${item.item_type.toLowerCase()}">${item.item_type}</span>`;
 
+      const hasNewStock = item.has_new_stock;
       let statusBadge = '';
       if (item.fulfillment_status === 'FULFILLED') {
         const text = item.item_type === 'MATERIAL' ? 'Sudah Diambil' : item.item_type === 'LABOR' ? 'Terbit SPK-B' : 'Dicatat FOH';
         statusBadge = `<span class="badge badge-fulfilled">✅ ${text}</span>`;
       } else {
-        const text = item.item_type === 'MATERIAL' ? 'Belum Diambil' : item.item_type === 'LABOR' ? 'Belum Terbit' : 'Belum Dicatat';
+        const text = item.item_type === 'MATERIAL'
+          ? (hasNewStock ? 'Belum Diambil (Stok Baru Tersedia)' : 'Belum Diambil')
+          : item.item_type === 'LABOR' ? 'Belum Terbit' : 'Belum Dicatat';
         statusBadge = `<span class="badge badge-pending">⏳ ${text}</span>`;
       }
+
+      const estCost = Number(item.estimated_cost_price ?? item.cost_price ?? 0);
+      const effCost = Number(item.effective_cost_price ?? item.cost_price ?? 0);
+      const variance = Number(item.cost_variance_per_unit ?? (effCost - estCost));
+      const isInflated = Boolean(item.is_cost_inflated || item.isCostInflated || variance > 0);
+
+      const hppActualHtml = isInflated
+        ? `Rp ${effCost.toLocaleString('id-ID')} <span style="color: #e11d48; font-size: 9px; display: block; font-weight: 600;">(+Rp ${variance.toLocaleString('id-ID')})</span>`
+        : `Rp ${effCost.toLocaleString('id-ID')}`;
+
+      const bebanBadge = isInflated
+        ? `<span class="badge" style="background: #ffe4e6; color: #be123c;">Beban Bengkel</span>`
+        : `<span class="badge" style="background: #f1f5f9; color: #475569;">Normal</span>`;
 
       tableRowsHtml += `
         <tr>
@@ -297,12 +364,14 @@ export function printRabPerubahanReport(
             </div>
           </td>
           <td style="text-align: right; font-weight: 500;">${item.quantity} ${item.unit}</td>
-          <td style="text-align: right;">Rp ${item.cost_price.toLocaleString('id-ID')}</td>
+          <td style="text-align: right;">Rp ${estCost.toLocaleString('id-ID')}</td>
+          <td style="text-align: right;">${hppActualHtml}</td>
           <td style="text-align: right;">Rp ${item.unit_price.toLocaleString('id-ID')}</td>
           <td style="text-align: right; font-weight: 600;">Rp ${item.subtotal.toLocaleString('id-ID')}</td>
-          <td style="text-align: right; color: ${item.subtotal - (item.cost_price * item.quantity) >= 0 ? '#059669' : '#dc2626'}; font-weight: 600;">
-            Rp ${(item.subtotal - (item.cost_price * item.quantity)).toLocaleString('id-ID')}
+          <td style="text-align: right; color: ${item.subtotal - (effCost * item.quantity) >= 0 ? '#059669' : '#dc2626'}; font-weight: 600;">
+            Rp ${(item.subtotal - (effCost * item.quantity)).toLocaleString('id-ID')}
           </td>
+          <td style="text-align: center;">${bebanBadge}</td>
           <td style="text-align: center;">${statusBadge}</td>
         </tr>
       `;
@@ -634,14 +703,16 @@ export function printRabPerubahanReport(
       <table>
         <thead>
           <tr>
-            <th style="width: 30px; text-align: center;">No</th>
+            <th style="width: 25px; text-align: center;">No</th>
             <th>Deskripsi Pekerjaan & Item</th>
-            <th style="width: 70px; text-align: right;">Qty</th>
-            <th style="width: 100px; text-align: right;">HPP Modal</th>
-            <th style="width: 100px; text-align: right;">Harga Jual</th>
-            <th style="width: 110px; text-align: right;">Subtotal Jual</th>
-            <th style="width: 100px; text-align: right;">Estimasi Laba</th>
-            <th style="width: 110px; text-align: center;">Realisasi / Gudang</th>
+            <th style="width: 60px; text-align: right;">Qty</th>
+            <th style="width: 85px; text-align: right;">HPP Estimasi</th>
+            <th style="width: 95px; text-align: right;">HPP Realisasi</th>
+            <th style="width: 90px; text-align: right;">Harga Jual</th>
+            <th style="width: 100px; text-align: right;">Subtotal Jual</th>
+            <th style="width: 90px; text-align: right;">Estimasi Laba</th>
+            <th style="width: 95px; text-align: center;">Beban Selisih</th>
+            <th style="width: 105px; text-align: center;">Realisasi / Gudang</th>
           </tr>
         </thead>
         <tbody>
@@ -670,17 +741,32 @@ export function printRabPerubahanReport(
             <strong>Rp ${calcTotals.totalRevenue.toLocaleString('id-ID')}</strong>
           </div>
           <div class="tot-row">
-            <span>Total Modal HPP</span>
+            <span>Total Modal HPP Estimasi</span>
+            <span>Rp ${(calcTotals.totalEstimatedCogs ?? calcTotals.totalCogs).toLocaleString('id-ID')}</span>
+          </div>
+          <div class="tot-row">
+            <span>Total Modal HPP Aktual</span>
             <span>Rp ${calcTotals.totalCogs.toLocaleString('id-ID')}</span>
           </div>
+          ${(calcTotals.totalMarginErosion ?? 0) > 0 ? `
+            <div class="tot-row" style="color: #dc2626; font-weight: 600;">
+              <span>Pembengkakan HPP (Beban Bengkel)</span>
+              <span>-Rp ${(calcTotals.totalMarginErosion ?? 0).toLocaleString('id-ID')}</span>
+            </div>
+          ` : ''}
           <div class="tot-row grand">
             <span>Grand Total Profit SPK</span>
-            <span style="color: #059669;">Rp ${calcTotals.totalProfit.toLocaleString('id-ID')}</span>
+            <span style="color: ${calcTotals.totalProfit >= 0 ? '#059669' : '#dc2626'};">Rp ${calcTotals.totalProfit.toLocaleString('id-ID')}</span>
           </div>
           <div class="tot-row" style="font-size: 10px; color: #64748b; margin-top: 4px;">
             <span>Margin Laba Bersih</span>
             <span><strong>${calcTotals.marginPercentage}%</strong></span>
           </div>
+          ${(calcTotals.totalMarginErosion ?? 0) > 0 ? `
+            <div style="font-size: 9px; color: #dc2626; margin-top: 4px; font-style: italic;">
+              * Margin terkoreksi -Rp ${(calcTotals.totalMarginErosion ?? 0).toLocaleString('id-ID')} akibat kenaikan harga belanja material gudang (Fixed-Price Contract).
+            </div>
+          ` : ''}
         </div>
       </div>
 

@@ -264,4 +264,73 @@ describe('profitCalculator: computeSegregatedProjectProfit', () => {
     expect(res.grandTotalProfit).toBe(3900000);
     expect(res.grandTotalMarginPercentage).toBe(41.05);
   });
+
+  it('accurately tracks workshop-absorbed cost variance and margin erosion when effective_cost_price is inflated', () => {
+    // Skenario A: Fixed-Price Lump-Sum
+    // Material tes 2: Initial estimate cost 55.000, Jual 76.212. Warehouse restocked at 75.000.
+    const items = [
+      {
+        id: 'item-1',
+        item_type: 'MATERIAL',
+        quantity: 1,
+        unit_price: 76212,
+        cost_price: 55000,
+        estimated_cost_price: 55000,
+        effective_cost_price: 75000, // inflated by 20.000
+        cost_variance_per_unit: 20000,
+        is_cost_inflated: true,
+      },
+    ];
+
+    const res = computeSegregatedProjectProfit(items);
+
+    // Revenue stays locked to consumer quotation
+    expect(res.grandTotalRevenue).toBe(76212);
+    // Modal HPP absorbs the real shop cost (75.000)
+    expect(res.grandTotalCost).toBe(75000);
+    // Estimated initial cost was 55.000
+    expect(res.grandTotalEstimatedCost).toBe(55000);
+    // Margin erosion is exactly 20.000
+    expect(res.grandTotalMarginErosion).toBe(20000);
+    // Profit is reduced by 20.000 (from 21.212 down to 1.212)
+    expect(res.grandTotalProfit).toBe(1212);
+    expect(res.grandTotalMarginPercentage).toBe(1.59);
+  });
+
+  it('absorbs cost variance inside package component while keeping package selling price locked', () => {
+    const items = [
+      {
+        package_id: 'pkg-1',
+        package_name: 'Paket Box Besi',
+        item_type: 'MATERIAL',
+        quantity: 2,
+        unit_price: 500000,
+        cost_price: 300000,
+        estimated_cost_price: 300000,
+        effective_cost_price: 400000, // +100.000 per unit -> +200.000 total variance
+      },
+      {
+        package_id: 'pkg-1',
+        package_name: 'Paket Box Besi',
+        item_type: 'LABOR',
+        quantity: 1,
+        unit_price: 1000000,
+        cost_price: 600000,
+      },
+    ];
+
+    const packageRecord = {
+      'pkg-1': { selling_price: 2000000, name: 'Paket Box Besi' },
+    };
+
+    const res = computeSegregatedProjectProfit(items, packageRecord);
+
+    expect(res.totalPackageRevenue).toBe(2000000); // locked
+    // Initial cost would be (2 * 300k) + 600k = 1.200.000.
+    // Absorbed actual cost is (2 * 400k) + 600k = 1.400.000.
+    expect(res.totalPackageCost).toBe(1400000);
+    expect(res.grandTotalEstimatedCost).toBe(1200000);
+    expect(res.grandTotalMarginErosion).toBe(200000);
+    expect(res.totalPackageProfit).toBe(600000); // 2.000.000 - 1.400.000
+  });
 });

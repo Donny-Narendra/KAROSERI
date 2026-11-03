@@ -293,6 +293,37 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
         // handle overhead error
       }
 
+      // e. Materials master catalog (for live store cost comparison & audit)
+      let materialsCatalog: any[] = [];
+      try {
+        const { data: matsData } = await supabase
+          .from('materials')
+          .select('id, name, cost_price, unit_price, current_stock');
+        if (matsData) materialsCatalog = matsData;
+      } catch (matsErr) {
+        console.warn('Could not fetch materials catalog in RabPerubahanTab:', matsErr);
+      }
+
+      const materialsById = new Map<string, any>();
+      const materialsByName = new Map<string, any>();
+      materialsCatalog.forEach(m => {
+        if (m.id) materialsById.set(m.id, m);
+        if (m.name) materialsByName.set(normalizeText(m.name), m);
+      });
+
+      const findStoreMaterial = (materialId?: string | null, name?: string | null) => {
+        if (materialId && materialsById.has(materialId)) {
+          return materialsById.get(materialId);
+        }
+        if (name) {
+          const norm = normalizeText(name);
+          if (materialsByName.has(norm)) {
+            return materialsByName.get(norm);
+          }
+        }
+        return null;
+      };
+
       // 4. Transform RAB Items into Consolidated Format
       const mappedRabItems: ConsolidatedRabItem[] = [];
 
@@ -409,6 +440,50 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
           }
         }
 
+        const estimatedCostPrice = costPrice;
+        let actualStoreCostPrice = estimatedCostPrice;
+        let realizedIssueCostPrice = 0;
+        let hasNewStock = false;
+
+        if (itemType === 'MATERIAL') {
+          const storeMat = findStoreMaterial(dbItem.material_id, description);
+          if (storeMat) {
+            actualStoreCostPrice = Number(storeMat.cost_price || storeMat.unit_price || estimatedCostPrice);
+            if (Number(storeMat.current_stock || 0) > 0) {
+              hasNewStock = true;
+            }
+          }
+
+          // Check if realized issue price is recorded in materialIssues
+          const matchedIssue = materialIssues.find((mi: any) => {
+            const matchesMat = dbItem.material_id && mi.material_id === dbItem.material_id;
+            const matchesRab = mi.rab_item_id && mi.rab_item_id === dbItem.id;
+            const matchesName = mi.material_name && normalizeText(mi.material_name) === normalizeText(description);
+            return Boolean(matchesMat || matchesRab || matchesName);
+          });
+
+          if (matchedIssue) {
+            realizedIssueCostPrice = Number(matchedIssue.custom_unit_price || matchedIssue.unit_price || matchedIssue.cost_price || 0);
+          }
+        }
+
+        // Active comparison HPP (effective_cost_price)
+        let effectiveCostPrice = estimatedCostPrice;
+        if (itemType === 'MATERIAL') {
+          if (fulfillmentStatus === 'FULFILLED') {
+            effectiveCostPrice = realizedIssueCostPrice > 0
+              ? realizedIssueCostPrice
+              : (actualStoreCostPrice > 0 ? actualStoreCostPrice : estimatedCostPrice);
+          } else {
+            // PENDING (Belum Diambil / Belanja Baru)
+            effectiveCostPrice = actualStoreCostPrice > 0 ? actualStoreCostPrice : estimatedCostPrice;
+          }
+        }
+
+        const costVariancePerUnit = effectiveCostPrice - estimatedCostPrice;
+        const totalCostVariance = qty * costVariancePerUnit;
+        const isCostInflated = costVariancePerUnit > 0;
+
         mappedRabItems.push({
           id: dbItem.id,
           source_origin: 'RAB',
@@ -420,7 +495,16 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
           description,
           quantity: qty,
           unit,
-          cost_price: costPrice,
+          cost_price: estimatedCostPrice,
+          estimated_cost_price: estimatedCostPrice,
+          actual_store_cost_price: actualStoreCostPrice,
+          realized_issue_cost_price: realizedIssueCostPrice,
+          effective_cost_price: effectiveCostPrice,
+          cost_variance_per_unit: costVariancePerUnit,
+          total_cost_variance: totalCostVariance,
+          is_cost_inflated: isCostInflated,
+          isCostInflated: isCostInflated,
+          has_new_stock: hasNewStock,
           unit_price: unitPrice,
           subtotal,
           fulfillment_status: fulfillmentStatus,
@@ -531,6 +615,48 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
             }
           }
 
+          const estimatedCostPrice = costPrice;
+          let actualStoreCostPrice = estimatedCostPrice;
+          let realizedIssueCostPrice = 0;
+          let hasNewStock = false;
+
+          if (itemType === 'MATERIAL') {
+            const storeMat = findStoreMaterial(item.material_id, description);
+            if (storeMat) {
+              actualStoreCostPrice = Number(storeMat.cost_price || storeMat.unit_price || estimatedCostPrice);
+              if (Number(storeMat.current_stock || 0) > 0) {
+                hasNewStock = true;
+              }
+            }
+
+            const matchedIssue = materialIssues.find((mi: any) => {
+              const matchesMat = item.material_id && mi.material_id === item.material_id;
+              const matchesCoItem = mi.change_order_item_id && mi.change_order_item_id === item.id;
+              const matchesCo = mi.change_order_id && mi.change_order_id === co.id && matchesMat;
+              const matchesName = mi.material_name && normalizeText(mi.material_name) === normalizeText(description);
+              return Boolean(matchesMat || matchesCoItem || matchesCo || matchesName);
+            });
+
+            if (matchedIssue) {
+              realizedIssueCostPrice = Number(matchedIssue.custom_unit_price || matchedIssue.unit_price || matchedIssue.cost_price || 0);
+            }
+          }
+
+          let effectiveCostPrice = estimatedCostPrice;
+          if (itemType === 'MATERIAL') {
+            if (fulfillmentStatus === 'FULFILLED') {
+              effectiveCostPrice = realizedIssueCostPrice > 0
+                ? realizedIssueCostPrice
+                : (actualStoreCostPrice > 0 ? actualStoreCostPrice : estimatedCostPrice);
+            } else {
+              effectiveCostPrice = actualStoreCostPrice > 0 ? actualStoreCostPrice : estimatedCostPrice;
+            }
+          }
+
+          const costVariancePerUnit = effectiveCostPrice - estimatedCostPrice;
+          const totalCostVariance = qty * costVariancePerUnit;
+          const isCostInflated = costVariancePerUnit > 0;
+
           mappedCoItems.push({
             id: item.id,
             source_origin: 'CHANGE_ORDER',
@@ -542,7 +668,16 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
             description,
             quantity: qty,
             unit,
-            cost_price: costPrice,
+            cost_price: estimatedCostPrice,
+            estimated_cost_price: estimatedCostPrice,
+            actual_store_cost_price: actualStoreCostPrice,
+            realized_issue_cost_price: realizedIssueCostPrice,
+            effective_cost_price: effectiveCostPrice,
+            cost_variance_per_unit: costVariancePerUnit,
+            total_cost_variance: totalCostVariance,
+            is_cost_inflated: isCostInflated,
+            isCostInflated: isCostInflated,
+            has_new_stock: hasNewStock,
             unit_price: unitPrice,
             subtotal,
             fulfillment_status: fulfillmentStatus,
@@ -660,7 +795,7 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
     [filteredItems]
   );
   const filteredTotalCogs = useMemo(() => 
-    filteredItems.reduce((acc, item) => acc + (Number(item.quantity || 1) * Number(item.cost_price || 0)), 0),
+    filteredItems.reduce((acc, item) => acc + (Number(item.quantity || 1) * Number(item.effective_cost_price ?? item.cost_price ?? 0)), 0),
     [filteredItems]
   );
   const filteredTotalMargin = filteredTotalRevenue - filteredTotalCogs;
@@ -781,7 +916,7 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
             Rp {totals.totalRevenue.toLocaleString('id-ID')}
           </div>
           <div className="text-xs text-text-muted mt-1">
-            {items.length} total item pekerjaan
+            {items.length} total item • Nilai Kontrak Tetap Terkunci
           </div>
         </div>
 
@@ -795,7 +930,13 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
             Rp {totals.totalCogs.toLocaleString('id-ID')}
           </div>
           <div className="text-xs text-text-muted mt-1">
-            Akumulasi modal riil 3 unsur (M + L + O)
+            {(totals.totalMarginErosion ?? 0) > 0 ? (
+              <span className="text-amber-400 font-medium">
+                Menyerap pembengkakan HPP (+Rp {Number(totals.totalMarginErosion).toLocaleString('id-ID')})
+              </span>
+            ) : (
+              'Akumulasi modal riil 3 unsur (M + L + O)'
+            )}
           </div>
         </div>
 
@@ -808,8 +949,15 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
           <div className={`text-xl font-bold font-mono ${totals.totalProfit >= 0 ? 'text-emerald-400' : 'text-status-danger'}`}>
             Rp {totals.totalProfit.toLocaleString('id-ID')}
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-emerald-400/90 mt-1 font-semibold">
-            <span>Margin Bersih: {totals.marginPercentage}%</span>
+          <div className="flex flex-col gap-0.5 mt-1">
+            <div className="flex items-center gap-1.5 text-xs text-emerald-400/90 font-semibold">
+              <span>Margin Bersih: {totals.marginPercentage}%</span>
+            </div>
+            {(totals.totalMarginErosion ?? 0) > 0 && (
+              <div className="text-[10px] text-rose-400 font-semibold leading-tight">
+                Margin terkoreksi -Rp {Number(totals.totalMarginErosion).toLocaleString('id-ID')} akibat kenaikan harga belanja material.
+              </div>
+            )}
           </div>
         </div>
 
@@ -1071,7 +1219,9 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
                 {formatRupiah(segregatedProfit.grandTotalCost)}
               </span>
               <span className="text-[10px] text-text-muted font-mono mt-0.5">
-                = grandTotalCost (Bahan + Upah + FOH)
+                {(totals.totalMarginErosion ?? 0) > 0
+                  ? `Menyerap kenaikan belanja (+Rp ${Number(totals.totalMarginErosion).toLocaleString('id-ID')})`
+                  : '= grandTotalCost (Bahan + Upah + FOH)'}
               </span>
             </div>
 
@@ -1090,6 +1240,11 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
               <span className="text-[10px] text-text-muted font-mono mt-0.5">
                 = grandTotalProfit (Laba Bersih SPK)
               </span>
+              {(totals.totalMarginErosion ?? 0) > 0 && (
+                <span className="text-[10px] text-rose-400 font-semibold mt-1">
+                  Margin terkoreksi -Rp {Number(totals.totalMarginErosion).toLocaleString('id-ID')} akibat kenaikan harga belanja material.
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -1264,12 +1419,24 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
                     }
                   } else {
                     if (item.item_type === 'MATERIAL') {
-                      realizationBadge = (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30">
-                          <Clock className="w-3 h-3 text-amber-400" />
-                          <span>Belum Diambil</span>
-                        </span>
-                      );
+                      if (item.has_new_stock) {
+                        realizationBadge = (
+                          <span
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30"
+                            title="Material baru dibelanjakan dan stok tersedia di gudang"
+                          >
+                            <Clock className="w-3 h-3 text-amber-400" />
+                            <span>Belum Diambil (Stok Baru Tersedia)</span>
+                          </span>
+                        );
+                      } else {
+                        realizationBadge = (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                            <Clock className="w-3 h-3 text-amber-400" />
+                            <span>Belum Diambil</span>
+                          </span>
+                        );
+                      }
                     } else if (item.item_type === 'LABOR') {
                       realizationBadge = (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-500/10 text-slate-400 border border-slate-500/30">
@@ -1367,17 +1534,38 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
                       </td>
 
                       {/* HPP Modal */}
-                      <td className="px-4 py-3 text-right font-mono text-text-muted whitespace-nowrap">
-                        Rp {item.cost_price.toLocaleString('id-ID')}
+                      <td className="px-4 py-3 text-right font-mono whitespace-nowrap">
+                        <div className="flex flex-col items-end">
+                          <span className="font-mono text-slate-200">
+                            Rp {Number(item.estimated_cost_price ?? item.cost_price).toLocaleString('id-ID')}
+                          </span>
+                          {(item.is_cost_inflated || item.isCostInflated) && (
+                            <span
+                              className="text-[10px] text-rose-400 font-semibold flex items-center gap-1 mt-0.5"
+                              title="Harga modal belanja aktual lebih tinggi dari estimasi awal"
+                            >
+                              <span>▲ Naik ke: Rp {Number(item.effective_cost_price).toLocaleString('id-ID')}</span>
+                              <span className="bg-rose-500/20 text-rose-300 border border-rose-500/30 px-1 py-0.2 rounded text-[9px]">
+                                (+Rp {Number(item.cost_variance_per_unit).toLocaleString('id-ID')})
+                              </span>
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Harga Jual */}
-                      <td className="px-4 py-3 text-right font-mono font-medium whitespace-nowrap">
+                      <td
+                        className="px-4 py-3 text-right font-mono font-medium whitespace-nowrap cursor-help"
+                        title="Skenario Fixed-Price: Selisih kenaikan modal HPP ditanggung bengkel dan tidak dibebankan ke penagihan konsumen."
+                      >
                         Rp {item.unit_price.toLocaleString('id-ID')}
                       </td>
 
                       {/* Subtotal Jual */}
-                      <td className="px-4 py-3 text-right font-mono font-bold text-primary whitespace-nowrap">
+                      <td
+                        className="px-4 py-3 text-right font-mono font-bold text-primary whitespace-nowrap cursor-help"
+                        title="Skenario Fixed-Price: Selisih kenaikan modal HPP ditanggung bengkel dan tidak dibebankan ke penagihan konsumen."
+                      >
                         Rp {item.subtotal.toLocaleString('id-ID')}
                       </td>
 

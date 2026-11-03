@@ -40,6 +40,10 @@ export interface ProfitBreakdownResult {
   grandTotalCost: number;
   grandTotalProfit: number;
   grandTotalMarginPercentage: number;
+
+  // Workshop-Absorbed Cost Variance Tracking (Fixed-Price Contract)
+  grandTotalEstimatedCost?: number;
+  grandTotalMarginErosion?: number;
 }
 
 export type PackageMasterLookup = 
@@ -122,13 +126,26 @@ export function computeSegregatedProjectProfit(
   let granMatRev = 0, granMatCost = 0;
   let granLabRev = 0, granLabCost = 0;
   let granOvhRev = 0, granOvhCost = 0;
+  let totalEstimatedCostAccum = 0;
 
   items.forEach(item => {
     const qty = Number(item.quantity !== undefined && item.quantity !== null ? item.quantity : (item.qty ?? 1));
     const unitPrice = Number(item.unit_price !== undefined && item.unit_price !== null ? item.unit_price : (item.unitPrice ?? 0));
-    const costPrice = Number(item.cost_price !== undefined && item.cost_price !== null ? item.cost_price : (item.costPrice ?? 0));
+    const estimatedCost = Number(
+      item.estimated_cost_price !== undefined && item.estimated_cost_price !== null
+        ? item.estimated_cost_price
+        : item.cost_price !== undefined && item.cost_price !== null
+        ? item.cost_price
+        : (item.costPrice ?? 0)
+    );
+    const costPrice = Number(
+      item.effective_cost_price !== undefined && item.effective_cost_price !== null
+        ? item.effective_cost_price
+        : estimatedCost
+    );
     const selling = item.subtotal !== undefined && item.subtotal !== null ? Number(item.subtotal) : qty * unitPrice;
     const cost = qty * costPrice;
+    totalEstimatedCostAccum += qty * estimatedCost;
 
     // Detect Package Key & Name
     let rawPkgName = item.package_name || item.packageName || item.product_packages?.name || null;
@@ -238,6 +255,9 @@ export function computeSegregatedProjectProfit(
     ? Math.round(((grandTotalProfit / grandTotalRevenue) * 100) * 100) / 100 
     : 0;
 
+  const grandTotalEstimatedCost = totalEstimatedCostAccum;
+  const grandTotalMarginErosion = Math.max(0, grandTotalCost - grandTotalEstimatedCost);
+
   return {
     packages: packageList,
     totalPackageRevenue,
@@ -268,5 +288,7 @@ export function computeSegregatedProjectProfit(
     grandTotalCost,
     grandTotalProfit,
     grandTotalMarginPercentage,
+    grandTotalEstimatedCost,
+    grandTotalMarginErosion,
   };
 }
