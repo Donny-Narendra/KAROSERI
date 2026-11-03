@@ -7,6 +7,7 @@ import { RestockModal } from './RestockModal';
 import { MaterialAuditModal } from './MaterialAuditModal';
 import { Upload, PackagePlus, History } from 'lucide-react';
 import { ConfirmationModal } from './ConfirmationModal';
+import { invalidateData } from '../utils/dataInvalidation';
 
 export const InventoryManager: React.FC = () => {
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -145,6 +146,9 @@ export const InventoryManager: React.FC = () => {
       }
       setIsModalOpen(false);
       loadMaterials();
+      // Harga material ter-cascade ke BOM paket oleh trigger DB → refresh master gudang & paket.
+      // SPK / RAB / Change Order sengaja TIDAK di-refresh: nilainya snapshot historis.
+      invalidateData(['materials', 'product_packages']);
     } catch (err: any) {
       setError(err.message || 'Gagal menyimpan material');
     } finally {
@@ -542,6 +546,11 @@ export const InventoryManager: React.FC = () => {
                     className="w-full bg-background border border-border rounded px-3 py-2 text-text focus:outline-none focus:border-primary font-mono"
                   />
                   <p className="text-[11px] text-text-muted mt-0.5">Harga jual patokan untuk RAB / Penawaran konsumen</p>
+                  {editingMaterial && (
+                    <p className="text-[11px] text-slate-400 mt-1 italic">
+                      * Perubahan harga akan otomatis memperbarui kalkulasi resep Paket Barang Jadi (BOM) untuk transaksi baru, namun tidak akan merubah SPK dan RAB yang sudah dikunci.
+                    </p>
+                  )}
                 </div>
                 
                 <div>

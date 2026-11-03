@@ -4,6 +4,8 @@ export interface ProductPackage {
   id: string;
   name: string;
   selling_price: number;
+  /** Estimasi HPP paket, dipelihara otomatis oleh trigger DB (SUM quantity * cost_per_unit) */
+  calculated_cogs?: number;
   created_at?: string;
   items?: PackageItem[];
 }

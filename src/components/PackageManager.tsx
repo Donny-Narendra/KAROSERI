@@ -5,6 +5,7 @@ import { inventoryService, type Material } from '../services/inventoryService';
 import type { ProductPackage, PackageItem } from '../types/package';
 import { MaterialAutocomplete } from './MaterialAutocomplete';
 import { ConfirmationModal } from './ConfirmationModal';
+import { onDataInvalidated } from '../utils/dataInvalidation';
 
 export const PackageManager: React.FC = () => {
   const [packages, setPackages] = useState<ProductPackage[]>([]);
@@ -30,6 +31,10 @@ export const PackageManager: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    // Refresh saat harga material diubah (BOM ter-cascade oleh trigger DB)
+    return onDataInvalidated(['materials', 'product_packages'], () => {
+      loadData();
+    });
   }, []);
 
   const loadData = async () => {
@@ -114,7 +119,7 @@ export const PackageManager: React.FC = () => {
           material_id: material.id,
           labor_name: itemType === 'LABOR' ? material.name : null,
           quantity: 1,
-          cost_per_unit: material.unit_price || 0,
+          cost_per_unit: material.cost_price || material.unit_price || 0,
         }
       ];
     });
@@ -136,7 +141,7 @@ export const PackageManager: React.FC = () => {
     if (field === 'material_id') {
       const selectedMaterial = materials.find(m => m.id === value);
       if (selectedMaterial) {
-        item.cost_per_unit = selectedMaterial.unit_price;
+        item.cost_per_unit = selectedMaterial.cost_price || selectedMaterial.unit_price;
       }
     }
 
