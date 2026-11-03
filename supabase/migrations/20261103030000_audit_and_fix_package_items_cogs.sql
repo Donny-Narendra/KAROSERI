@@ -46,3 +46,4 @@ FROM (
   GROUP BY package_id
 ) sub
 WHERE p.id = sub.package_id;
+
