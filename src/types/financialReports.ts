@@ -48,6 +48,15 @@ export interface SpkJobProfitabilityItem {
   gross_profit: number;
   gross_margin_percentage: number;
   payment_status: 'UNBILLED' | 'DRAFT' | 'PARTIAL' | 'PAID' | string;
+  is_profit_locked?: boolean;
+  bast_date?: string | null;
+  locked_revenue?: number | null;
+  locked_cogs?: number | null;
+  locked_profit?: number | null;
+  locked_margin_pct?: number | null;
+  final_revenue?: number | null;
+  final_cogs?: number | null;
+  final_profit?: number | null;
 
   // 4-Pillar Segregated Profit Columns (Sprint 90)
   package_revenue: number;

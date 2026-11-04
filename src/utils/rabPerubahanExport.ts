@@ -15,6 +15,8 @@ export interface RabPerubahanSpkDetails {
   vehicle_model?: string | null;
   status?: string | null;
   created_at?: string | null;
+  is_profit_locked?: boolean | null;
+  bast_date?: string | null;
 }
 
 export interface ConsolidatedRabItem {

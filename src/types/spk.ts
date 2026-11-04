@@ -35,5 +35,14 @@ export interface Spk {
   sub_tasks?: string[];
   agreement_photos?: AgreementPhoto[];
   pending_requisitions_count?: number;
+  is_profit_locked?: boolean;
+  bast_date?: string | null;
+  locked_revenue?: number | null;
+  locked_cogs?: number | null;
+  locked_profit?: number | null;
+  locked_margin_pct?: number | null;
+  final_revenue?: number | null;
+  final_cogs?: number | null;
+  final_profit?: number | null;
   [key: string]: any;
 }

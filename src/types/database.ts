@@ -39,6 +39,15 @@ export interface SpkRecord {
   is_pricing_locked?: boolean;
   locked_at?: string | null;
   locked_by?: string | null;
+  is_profit_locked?: boolean;
+  bast_date?: string | null;
+  locked_revenue?: number | null;
+  locked_cogs?: number | null;
+  locked_profit?: number | null;
+  locked_margin_pct?: number | null;
+  final_revenue?: number | null;
+  final_cogs?: number | null;
+  final_profit?: number | null;
   cancellation_reason?: string | null;
   cancelled_at?: string | null;
   cancelled_by?: string | null;

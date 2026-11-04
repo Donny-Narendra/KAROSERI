@@ -10,11 +10,9 @@ import {
   Filter,
   CheckCircle2,
   Clock,
-  Layers,
-  TrendingUp,
-  PackageCheck,
   DollarSign,
-  AlertCircle
+  AlertCircle,
+  Lock
 } from 'lucide-react';
 import {
   exportRabPerubahanToExcel,
@@ -101,11 +99,20 @@ function computeProportionalPackageBreakdown(
 }
 
 export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) => {
+  const [currentSpk, setCurrentSpk] = useState<any>(spk);
   const [items, setConsolidatedItems] = useState<ConsolidatedRabItem[]>([]);
   const [packagesCatalog, setPackagesCatalog] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (spk) {
+      setCurrentSpk(spk);
+    }
+  }, [spk]);
+
+  const activeSpk = currentSpk || spk;
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -115,15 +122,17 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
   const [filterWbs, setFilterWbs] = useState<string>('ALL');
 
   const spkDetails: RabPerubahanSpkDetails = useMemo(() => ({
-    id: spk?.id || spkId,
-    spk_no: spk?.spk_no || 'SPK',
-    customer_name: spk?.customer_name || 'Pelanggan Umum',
-    vehicle_plate: spk?.vehicle_plate || spk?.vehicle_number || '-',
-    vehicle_number: spk?.vehicle_number || spk?.vehicle_plate || '-',
-    vehicle_model: spk?.vehicle_model || '-',
-    status: spk?.status || 'ACTIVE',
-    created_at: spk?.created_at
-  }), [spk, spkId]);
+    id: activeSpk?.id || spkId,
+    spk_no: activeSpk?.spk_no || 'SPK',
+    customer_name: activeSpk?.customer_name || 'Pelanggan Umum',
+    vehicle_plate: activeSpk?.vehicle_plate || activeSpk?.vehicle_number || '-',
+    vehicle_number: activeSpk?.vehicle_number || activeSpk?.vehicle_plate || '-',
+    vehicle_model: activeSpk?.vehicle_model || '-',
+    status: activeSpk?.status || 'ACTIVE',
+    created_at: activeSpk?.created_at,
+    is_profit_locked: activeSpk?.is_profit_locked,
+    bast_date: activeSpk?.bast_date
+  }), [activeSpk, spkId]);
 
   const loadConsolidatedData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -131,6 +140,29 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
     setError(null);
 
     try {
+      // 0. Fetch latest SPK details to ensure snapshot locked values are fresh
+      try {
+        const query = supabase
+          .from('spk')
+          .select('*')
+          .eq('id', spkId);
+
+        const res = typeof (query as any)?.maybeSingle === 'function'
+          ? await (query as any).maybeSingle()
+          : typeof (query as any)?.then === 'function'
+            ? await query
+            : null;
+
+        if (res?.data) {
+          const spkData = Array.isArray(res.data) ? res.data[0] : res.data;
+          if (spkData) {
+            setCurrentSpk(spkData);
+          }
+        }
+      } catch (spkFetchErr) {
+        console.warn('Could not fetch spk data in RabPerubahanTab:', spkFetchErr);
+      }
+
       // 1. Fetch RAB Items & Packages
       let rabItemsRaw: any[] = [];
       let rabEstId: string | null = null;
@@ -789,6 +821,54 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
   const totalLaborCogs = segregatedProfit.granularLabor.cost;
   const totalLaborMargin = segregatedProfit.granularLabor.profit;
 
+  // 3. Handover Profit Locking & Cost Variance Calculations
+  const isLockedBast = Boolean(
+    activeSpk?.is_profit_locked || 
+    ['COMPLETED', 'HANDED_OVER', 'BAST'].includes(String(activeSpk?.status || '').toUpperCase())
+  );
+
+  const grandTotalRevenue = segregatedProfit.grandTotalRevenue;
+  const grandTotalCost = segregatedProfit.grandTotalCost;
+  const grandTotalProfit = segregatedProfit.grandTotalProfit;
+
+  // Nilai Sebelum Kenaikan (Estimasi RAB Awal)
+  const initialCost = useMemo(() => {
+    return items.reduce((acc, item) => {
+      return acc + (Number(item.quantity || 1) * Number(item.estimated_cost_price ?? item.cost_price ?? 0));
+    }, 0);
+  }, [items]);
+
+  const totalQuotation = useMemo(() => {
+    return isLockedBast && activeSpk?.locked_revenue !== undefined && activeSpk?.locked_revenue !== null
+      ? Number(activeSpk.locked_revenue)
+      : grandTotalRevenue;
+  }, [isLockedBast, activeSpk, grandTotalRevenue]);
+
+  const initialProfit = totalQuotation - initialCost;
+  const initialMarginPercent = totalQuotation > 0 ? (initialProfit / totalQuotation) * 100 : 0;
+
+  // Nilai Sesudah Kenaikan (Revisi / Final Terkunci)
+  const revisedCost = useMemo(() => {
+    return isLockedBast && activeSpk?.locked_cogs !== undefined && activeSpk?.locked_cogs !== null
+      ? Number(activeSpk.locked_cogs)
+      : grandTotalCost;
+  }, [isLockedBast, activeSpk, grandTotalCost]);
+
+  const revisedProfit = useMemo(() => {
+    return isLockedBast && activeSpk?.locked_profit !== undefined && activeSpk?.locked_profit !== null
+      ? Number(activeSpk.locked_profit)
+      : grandTotalProfit;
+  }, [isLockedBast, activeSpk, grandTotalProfit]);
+
+  const revisedMarginPercent = useMemo(() => {
+    if (isLockedBast && activeSpk?.locked_margin_pct !== undefined && activeSpk?.locked_margin_pct !== null) {
+      return Number(activeSpk.locked_margin_pct);
+    }
+    return totalQuotation > 0 ? (revisedProfit / totalQuotation) * 100 : 0;
+  }, [isLockedBast, activeSpk, totalQuotation, revisedProfit]);
+
+  const costInflation = Math.max(0, revisedCost - initialCost);
+
   // Subtotal filter untuk item yang sedang tampil di tabel
   const filteredTotalRevenue = useMemo(() => 
     filteredItems.reduce((acc, item) => acc + (item.subtotal !== undefined && item.subtotal !== null ? Number(item.subtotal) : (Number(item.quantity || 1) * Number(item.unit_price || 0))), 0),
@@ -801,11 +881,25 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
   const filteredTotalMargin = filteredTotalRevenue - filteredTotalCogs;
 
   const handleExportExcel = () => {
-    exportRabPerubahanToExcel(spkDetails, items, totals);
+    exportRabPerubahanToExcel(spkDetails, items, {
+      ...totals,
+      totalRevenue: totalQuotation,
+      totalCogs: revisedCost,
+      totalProfit: revisedProfit,
+      marginPercentage: Number(revisedMarginPercent.toFixed(1)),
+      totalMarginErosion: costInflation
+    });
   };
 
   const handlePrintPdf = () => {
-    printRabPerubahanReport(spkDetails, items, totals);
+    printRabPerubahanReport(spkDetails, items, {
+      ...totals,
+      totalRevenue: totalQuotation,
+      totalCogs: revisedCost,
+      totalProfit: revisedProfit,
+      marginPercentage: Number(revisedMarginPercent.toFixed(1)),
+      totalMarginErosion: costInflation
+    });
   };
 
   const resetFilters = () => {
@@ -904,71 +998,120 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
         </div>
       </div>
 
-      {/* KPI Financial & Absorption Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Total Revenue */}
-        <div className="bg-surface border border-border rounded-xl p-4">
-          <div className="flex items-center justify-between text-text-muted mb-1">
-            <span className="text-xs font-medium">Total Quotation Jual (Revisi)</span>
-            <DollarSign className="w-4 h-4 text-primary" />
+      {/* Banner Indikator Jika Laba Rugi Telah Dikunci (BAST) */}
+      {isLockedBast && (
+        <div className="p-3 bg-emerald-950/40 border border-emerald-500/40 rounded-xl flex items-center justify-between text-xs text-emerald-300 shadow-sm">
+          <span className="flex items-center gap-2 font-semibold">
+            <Lock className="w-4 h-4 text-emerald-400"/>
+            <span>🔒 Laba-Rugi SPK Dikunci Permanen (BAST / Unit Telah Diserahkan)</span>
+          </span>
+          <span className="text-[11px] font-mono text-emerald-400/90 font-medium">
+            Disahkan: {activeSpk?.bast_date ? new Date(activeSpk.bast_date).toLocaleDateString('id-ID') : 'BAST'}
+          </span>
+        </div>
+      )}
+
+      {/* Grid 4 Kartu Komparasi Finansial */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 my-4">
+        {/* KARTU 1: HPP SEBELUM KENAIKAN */}
+        <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-400 text-xs">
+            <span className="font-semibold uppercase tracking-wider text-[10px]">HPP Awal (Estimasi RAB)</span>
+            <span className="px-1.5 py-0.5 rounded text-[9px] bg-slate-800 text-slate-300 font-mono">Dasar</span>
           </div>
-          <div className="text-xl font-bold text-text font-mono">
-            Rp {totals.totalRevenue.toLocaleString('id-ID')}
+          <div className="my-1.5">
+            <span className="text-xl font-bold font-mono text-slate-200">
+              Rp {Number(initialCost).toLocaleString('id-ID')}
+            </span>
           </div>
-          <div className="text-xs text-text-muted mt-1">
-            {items.length} total item • Nilai Kontrak Tetap Terkunci
-          </div>
+          <p className="text-[11px] text-slate-500">Anggaran modal kontrak awal</p>
         </div>
 
-        {/* Card 2: Total Cost */}
-        <div className="bg-surface border border-border rounded-xl p-4">
-          <div className="flex items-center justify-between text-text-muted mb-1">
-            <span className="text-xs font-medium">Total Modal HPP</span>
-            <Layers className="w-4 h-4 text-cyan-400" />
+        {/* KARTU 2: HPP SESUDAH KENAIKAN */}
+        <div className="bg-slate-900/90 border border-amber-500/30 rounded-xl p-3.5 flex flex-col justify-between bg-amber-950/10">
+          <div className="flex items-center justify-between text-amber-400 text-xs">
+            <span className="font-semibold uppercase tracking-wider text-[10px]">HPP Aktual (Sesudah Kenaikan)</span>
+            <span className="px-1.5 py-0.5 rounded text-[9px] bg-amber-500/20 text-amber-300 font-mono font-bold">
+              {costInflation > 0 ? `▲ +Rp ${Number(costInflation).toLocaleString('id-ID')}` : 'Stabil'}
+            </span>
           </div>
-          <div className="text-xl font-bold text-text font-mono">
-            Rp {totals.totalCogs.toLocaleString('id-ID')}
+          <div className="my-1.5">
+            <span className="text-xl font-bold font-mono text-amber-400">
+              Rp {Number(revisedCost).toLocaleString('id-ID')}
+            </span>
           </div>
-          <div className="text-xs text-text-muted mt-1">
-            {(totals.totalMarginErosion ?? 0) > 0 ? (
-              <span className="text-amber-400 font-medium">
-                Menyerap pembengkakan HPP (+Rp {Number(totals.totalMarginErosion).toLocaleString('id-ID')})
-              </span>
-            ) : (
-              'Akumulasi modal riil 3 unsur (M + L + O)'
-            )}
-          </div>
+          <p className="text-[11px] text-amber-400/80">
+            {isLockedBast ? 'HPP final saat serah terima (Terkunci)' : 'Menyerap kenaikan belanja gudang'}
+          </p>
         </div>
 
-        {/* Card 3: Total Profit & Margin */}
-        <div className="bg-surface border border-border rounded-xl p-4">
-          <div className="flex items-center justify-between text-text-muted mb-1">
-            <span className="text-xs font-medium">Total Estimasi Profit</span>
-            <TrendingUp className={`w-4 h-4 ${totals.totalProfit >= 0 ? 'text-emerald-400' : 'text-status-danger'}`} />
+        {/* KARTU 3: PROFIT SEBELUM KENAIKAN */}
+        <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-slate-400 text-xs">
+            <span className="font-semibold uppercase tracking-wider text-[10px]">Profit Awal (Estimasi)</span>
+            <span className="px-1.5 py-0.5 rounded text-[9px] bg-slate-800 text-slate-300 font-mono font-semibold">
+              {initialMarginPercent.toFixed(1)}%
+            </span>
           </div>
-          <div className={`text-xl font-bold font-mono ${totals.totalProfit >= 0 ? 'text-emerald-400' : 'text-status-danger'}`}>
-            Rp {totals.totalProfit.toLocaleString('id-ID')}
+          <div className="my-1.5">
+            <span className="text-xl font-bold font-mono text-slate-200">
+              Rp {Number(initialProfit).toLocaleString('id-ID')}
+            </span>
           </div>
-          <div className="flex flex-col gap-0.5 mt-1">
-            <div className="flex items-center gap-1.5 text-xs text-emerald-400/90 font-semibold">
-              <span>Margin Bersih: {totals.marginPercentage}%</span>
+          <p className="text-[11px] text-slate-500">Proyeksi laba kontrak awal</p>
+        </div>
+
+        {/* KARTU 4: PROFIT SESUDAH KENAIKAN */}
+        <div className="bg-slate-900/90 border border-emerald-500/30 rounded-xl p-3.5 flex flex-col justify-between bg-emerald-950/10">
+          <div className="flex items-center justify-between text-emerald-400 text-xs">
+            <span className="font-semibold uppercase tracking-wider text-[10px]">Profit Revisi (Laba Bersih)</span>
+            <span className="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-300 font-mono font-bold">
+              {revisedMarginPercent.toFixed(1)}% Margin
+            </span>
+          </div>
+          <div className="my-1.5 flex items-baseline justify-between gap-1">
+            <span className="text-xl font-bold font-mono text-emerald-400">
+              Rp {Number(revisedProfit).toLocaleString('id-ID')}
+            </span>
+            <span className="text-[10px] text-emerald-400/90 font-mono font-semibold">
+              Margin Bersih: {revisedMarginPercent.toFixed(1)}%
+            </span>
+          </div>
+          <p className="text-[11px] text-emerald-400/80">
+            {isLockedBast 
+              ? 'Laba bersih final resmi unit diserahkan' 
+              : costInflation > 0 
+                ? `Terkoreksi -Rp ${Number(costInflation).toLocaleString('id-ID')} (beban bengkel)` 
+                : 'Margin terjaga optimal'}
+          </p>
+        </div>
+      </div>
+
+      {/* Baris Informasi Tambahan: Nilai Quotation & Serapan Material Gudang */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="bg-surface border border-border rounded-xl p-3.5 flex items-center justify-between">
+          <div>
+            <span className="text-[10px] uppercase tracking-wider text-text-muted font-semibold">
+              Total Quotation Jual (Revisi)
+            </span>
+            <div className="text-lg font-bold text-text font-mono mt-0.5">
+              Rp {Number(totalQuotation).toLocaleString('id-ID')}
             </div>
-            {(totals.totalMarginErosion ?? 0) > 0 && (
-              <div className="text-[10px] text-rose-400 font-semibold leading-tight">
-                Margin terkoreksi -Rp {Number(totals.totalMarginErosion).toLocaleString('id-ID')} akibat kenaikan harga belanja material.
-              </div>
-            )}
+            <p className="text-[11px] text-text-muted">
+              {isLockedBast ? 'Nilai omzet disahkan saat serah terima (Terkunci BAST)' : `${items.length} total item • Nilai Kontrak Tetap Terkunci`}
+            </p>
+          </div>
+          <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/20 text-primary">
+            <DollarSign className="w-5 h-5" />
           </div>
         </div>
 
-        {/* Card 4: Warehouse Material Fulfillment Progress */}
-        <div className="bg-surface border border-border rounded-xl p-4">
-          <div className="flex items-center justify-between text-text-muted mb-1">
-            <span className="text-xs font-medium">Serapan Material Gudang</span>
-            <PackageCheck className="w-4 h-4 text-amber-400" />
-          </div>
-          <div className="text-xl font-bold text-text font-mono">
-            {totals.materialFulfilledCount} <span className="text-xs font-normal text-text-muted">/ {totals.materialTotalCount} Item</span>
+        <div className="bg-surface border border-border rounded-xl p-3.5 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-text-muted">
+            <span className="text-[10px] uppercase tracking-wider font-semibold">Serapan Material Gudang</span>
+            <span className="text-xs font-mono font-bold text-amber-400">
+              {totals.materialFulfilledCount} / {totals.materialTotalCount} Item ({totals.materialFulfilledPercentage}%)
+            </span>
           </div>
           <div className="mt-2">
             <div className="w-full h-1.5 bg-surface-hover rounded-full overflow-hidden">
@@ -1194,7 +1337,7 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
               </h5>
             </div>
             <span className="text-xs font-mono text-emerald-400 font-bold">
-              Margin Total: {segregatedProfit.grandTotalMarginPercentage.toFixed(1)}%
+              Margin Total: {revisedMarginPercent.toFixed(1)}%
             </span>
           </div>
 
@@ -1204,10 +1347,10 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
                 Total Quotation Jual (Revisi)
               </span>
               <span className="text-lg font-bold font-mono text-text mt-1">
-                {formatRupiah(segregatedProfit.grandTotalRevenue)}
+                {formatRupiah(totalQuotation)}
               </span>
               <span className="text-[10px] text-text-muted font-mono mt-0.5">
-                = grandTotalRevenue
+                {isLockedBast ? 'Nilai omzet disahkan (Terkunci BAST)' : '= grandTotalRevenue'}
               </span>
             </div>
 
@@ -1216,33 +1359,35 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
                 Total Modal HPP
               </span>
               <span className="text-lg font-bold font-mono text-text mt-1">
-                {formatRupiah(segregatedProfit.grandTotalCost)}
+                {formatRupiah(revisedCost)}
               </span>
               <span className="text-[10px] text-text-muted font-mono mt-0.5">
-                {(totals.totalMarginErosion ?? 0) > 0
-                  ? `Menyerap kenaikan belanja (+Rp ${Number(totals.totalMarginErosion).toLocaleString('id-ID')})`
-                  : '= grandTotalCost (Bahan + Upah + FOH)'}
+                {isLockedBast 
+                  ? 'HPP final disahkan serah terima (Terkunci BAST)'
+                  : (costInflation > 0
+                      ? `Menyerap kenaikan belanja (+Rp ${Number(costInflation).toLocaleString('id-ID')})`
+                      : '= grandTotalCost (Bahan + Upah + FOH)')}
               </span>
             </div>
 
             <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-emerald-300 font-medium">
-                  Total Profit SPK Revisi
+                  {isLockedBast ? 'Total Profit SPK Final (Terkunci)' : 'Total Profit SPK Revisi'}
                 </span>
                 <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/20 px-1.5 py-0.5 rounded">
-                  {segregatedProfit.grandTotalMarginPercentage.toFixed(1)}% Margin
+                  {revisedMarginPercent.toFixed(1)}% Margin
                 </span>
               </div>
-              <span className={`text-lg font-bold font-mono mt-1 ${segregatedProfit.grandTotalProfit >= 0 ? 'text-emerald-400' : 'text-status-danger'}`}>
-                {formatRupiah(segregatedProfit.grandTotalProfit)}
+              <span className={`text-lg font-bold font-mono mt-1 ${revisedProfit >= 0 ? 'text-emerald-400' : 'text-status-danger'}`}>
+                {formatRupiah(revisedProfit)}
               </span>
               <span className="text-[10px] text-text-muted font-mono mt-0.5">
-                = grandTotalProfit (Laba Bersih SPK)
+                {isLockedBast ? 'Laba bersih disahkan (BAST)' : '= grandTotalProfit (Laba Bersih SPK)'}
               </span>
-              {(totals.totalMarginErosion ?? 0) > 0 && (
+              {costInflation > 0 && !isLockedBast && (
                 <span className="text-[10px] text-rose-400 font-semibold mt-1">
-                  Margin terkoreksi -Rp {Number(totals.totalMarginErosion).toLocaleString('id-ID')} akibat kenaikan harga belanja material.
+                  Margin terkoreksi -Rp {Number(costInflation).toLocaleString('id-ID')} akibat kenaikan harga belanja material.
                 </span>
               )}
             </div>
@@ -1588,17 +1733,17 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
                   {totals.materialTotalCount + (items.filter(i => i.item_type !== 'MATERIAL').length)} Items
                 </td>
                 <td className="px-4 py-3 text-right font-mono font-bold text-text-muted">
-                  Rp {totals.totalCogs.toLocaleString('id-ID')}
+                  Rp {Number(revisedCost).toLocaleString('id-ID')}
                 </td>
                 <td className="px-4 py-3 text-right font-mono text-xs text-text-muted">
                   -
                 </td>
                 <td className="px-4 py-3 text-right font-mono font-bold text-primary text-sm">
-                  Rp {totals.totalRevenue.toLocaleString('id-ID')}
+                  Rp {Number(totalQuotation).toLocaleString('id-ID')}
                 </td>
                 <td className="px-4 py-3 text-center">
                   <span className="text-xs font-bold text-emerald-400 font-mono">
-                    Laba: Rp {totals.totalProfit.toLocaleString('id-ID')}
+                    Laba: Rp {Number(revisedProfit).toLocaleString('id-ID')}
                   </span>
                 </td>
               </tr>

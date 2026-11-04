@@ -7,7 +7,8 @@ import {
   CheckCircle2,
   Clock,
   ArrowUpDown,
-  ChevronDown
+  ChevronDown,
+  Lock
 } from 'lucide-react';
 import { financialReportsService } from '../../../services/financialReportsService';
 import { exportToExcel, exportToCsv } from '../../../utils/exportFinancialReports';
@@ -397,6 +398,15 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
                             <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-surface-hover border border-border text-text-muted">
                               {row.spk_status}
                             </span>
+                            {(row.is_profit_locked || ['COMPLETED', 'HANDED_OVER', 'BAST'].includes(String(row.spk_status || '').toUpperCase())) && (
+                              <span 
+                                className="inline-flex items-center gap-1 text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-400" 
+                                title="🔒 Laba-Rugi SPK Dikunci Permanen (BAST / Unit Selesai)"
+                              >
+                                <Lock className="w-3 h-3 text-emerald-400" />
+                                <span>BAST LOCKED</span>
+                              </span>
+                            )}
                             <button
                               type="button"
                               onClick={() => toggleExpandRow(row.spk_id)}

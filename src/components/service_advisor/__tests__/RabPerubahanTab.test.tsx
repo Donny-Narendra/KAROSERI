@@ -794,7 +794,7 @@ describe('RabPerubahanTab Component', () => {
       });
 
       // 1. Initial snapshot HPP is displayed
-      expect(screen.getByText('Rp 55.000')).toBeInTheDocument();
+      expect(screen.getAllByText('Rp 55.000').length).toBeGreaterThanOrEqual(1);
 
       // 2. Red indicator badge shows inflation to Rp 75.000 (+Rp 20.000)
       expect(screen.getByText(/▲ Naik ke: Rp 75\.000/)).toBeInTheDocument();
@@ -818,5 +818,58 @@ describe('RabPerubahanTab Component', () => {
     } finally {
       (supabaseMock.supabase.from as any) = originalFrom;
     }
+  });
+
+  it('renders 4 side-by-side comparison cards (HPP Awal, HPP Aktual, Profit Awal, Profit Revisi)', async () => {
+    const spk = {
+      id: 'spk-999',
+      spk_no: 'SPK-999',
+      customer_name: 'PT Karoseri Mitra Mandiri',
+      vehicle_plate: 'B 3093 TXX',
+      status: 'IN_PROGRESS',
+    };
+
+    render(<RabPerubahanTab spkId="spk-999" spk={spk} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Besi Plat Siku 50x50')).toBeInTheDocument();
+    });
+
+    // Check all 4 comparison card headers exist
+    expect(screen.getByText('HPP Awal (Estimasi RAB)')).toBeInTheDocument();
+    expect(screen.getByText('HPP Aktual (Sesudah Kenaikan)')).toBeInTheDocument();
+    expect(screen.getByText('Profit Awal (Estimasi)')).toBeInTheDocument();
+    expect(screen.getByText('Profit Revisi (Laba Bersih)')).toBeInTheDocument();
+  });
+
+  it('enforces permanent financial locking and renders BAST locked banner for completed SPK', async () => {
+    const completedBastSpk = {
+      id: 'spk-bast-101',
+      spk_no: 'SPK-BAST-101',
+      customer_name: 'Pelanggan Setia BAST',
+      vehicle_plate: 'L 8888 XX',
+      status: 'COMPLETED',
+      is_profit_locked: true,
+      bast_date: '2026-11-04T10:00:00Z',
+      locked_revenue: 15000000,
+      locked_cogs: 10000000,
+      locked_profit: 5000000,
+      locked_margin_pct: 33.33,
+    };
+
+    render(<RabPerubahanTab spkId="spk-bast-101" spk={completedBastSpk} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Laba-Rugi SPK Dikunci Permanen/)).toBeInTheDocument();
+    });
+
+    // Verify banner text
+    expect(screen.getByText(/🔒 Laba-Rugi SPK Dikunci Permanen \(BAST \/ Unit Telah Diserahkan\)/)).toBeInTheDocument();
+
+    // Verify frozen snapshot figures are rendered
+    expect(screen.getAllByText('Rp 15.000.000').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Rp 10.000.000').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Rp 5.000.000').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/33\.3% Margin/).length).toBeGreaterThanOrEqual(1);
   });
 });
