@@ -49,20 +49,76 @@ const mockRabItems = [
   },
 ];
 
+const mockSpk8209RabItems = [
+  // Package component: Material with warehouse procurement increase (+65.000)
+  {
+    id: 'it-8209-1',
+    item_type: 'MATERIAL',
+    package_id: 'pkg-test-1',
+    package_name: 'paket test 1',
+    material_id: 'mat-test-1',
+    quantity: 1,
+    unit_price: 1000000,
+    cost_price: 265000,
+    materials: { id: 'mat-test-1', cost_price: 330000 },
+    subtotal: 1000000,
+  },
+  // Package component: Labor
+  {
+    id: 'it-8209-2',
+    item_type: 'LABOR',
+    package_id: 'pkg-test-1',
+    package_name: 'paket test 1',
+    quantity: 1,
+    unit_price: 1999998,
+    cost_price: 1900000,
+    subtotal: 1999998,
+  },
+  // Granular item: Material
+  {
+    id: 'it-8209-3',
+    item_type: 'MATERIAL',
+    package_id: null,
+    package_name: null,
+    quantity: 1,
+    unit_price: 100000,
+    cost_price: 100000,
+    subtotal: 100000,
+  },
+];
+
 vi.mock('../../../lib/supabaseClient', () => ({
   supabase: {
     from: vi.fn((table: string) => {
       if (table === 'rab_estimations') {
         return {
           select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'est-101' }, error: null }),
+          eq: vi.fn((_col: string, val: string) => ({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { id: val === 'spk-8209' ? 'est-8209' : 'est-101' },
+              error: null,
+            }),
+          })),
         };
       }
       if (table === 'rab_items') {
         return {
           select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockResolvedValue({ data: mockRabItems, error: null }),
+          eq: vi.fn((_col: string, val: string) => {
+            const is8209 = val === 'spk-8209' || val === 'est-8209';
+            return Promise.resolve({
+              data: is8209 ? mockSpk8209RabItems : mockRabItems,
+              error: null,
+            });
+          }),
+        };
+      }
+      if (table === 'materials') {
+        return {
+          select: vi.fn().mockResolvedValue({
+            data: [{ id: 'mat-test-1', cost_price: 330000 }],
+            error: null,
+          }),
         };
       }
       return {
@@ -87,6 +143,11 @@ vi.mock('../../../services/packageService', () => ({
         id: 'pkg-dump',
         name: 'Paket Dump Truck 6 Roda',
         selling_price: 20000000,
+      },
+      {
+        id: 'pkg-test-1',
+        name: 'paket test 1',
+        selling_price: 2999998,
       },
     ]),
   },
@@ -158,5 +219,50 @@ describe('ItemizedProfitModal Component', () => {
     const closeBtn = screen.getByText('Tutup');
     fireEvent.click(closeBtn);
     expect(onCloseMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('correctly synchronizes live actual COGS, inflation badge, and Pilar 1 package metrics for SPK-8209', async () => {
+    render(
+      <ItemizedProfitModal
+        isOpen={true}
+        onClose={vi.fn()}
+        spkId="spk-8209"
+        spkNumber="SPK-8209"
+        customerName="Bpk. Hendra"
+        vehiclePlate="B 8209 ZZ"
+        rowRevenue={3099998}
+        rowTotalCogs={2330000}
+        rowInitialCogs={2265000}
+      />
+    );
+
+    // Wait for data load
+    await waitFor(() => {
+      expect(screen.getByText('paket test 1')).toBeInTheDocument();
+    });
+
+    // Verification Header Cards:
+    // Total Pendapatan (Jual): Rp 3.099.998
+    expect(screen.getByText('Rp 3.099.998')).toBeInTheDocument();
+    // Total Modal HPP: Rp 2.330.000 (not Rp 2.265.000)
+    expect(screen.getByText('Rp 2.330.000')).toBeInTheDocument();
+    // Info badge: (Menyerap kenaikan belanja +Rp 65.000)
+    expect(screen.getByText(/Menyerap kenaikan belanja \+Rp 65\.000/)).toBeInTheDocument();
+    // Grand Total Laba Kotor: Rp 769.998 (not Rp 834.998)
+    expect(screen.getAllByText('Rp 769.998').length).toBeGreaterThanOrEqual(2);
+    // Margin Laba Bersih: 24.8% (not 26.9%)
+    expect(screen.getByText('24.8%')).toBeInTheDocument();
+
+    // Verification Pilar 1 (Paket Assembly: paket test 1):
+    // Material Cost terupdate: Rp 330.000 (265.000+65.000)
+    expect(screen.getByText('Rp 330.000')).toBeInTheDocument();
+    // Labor Cost: Rp 1.900.000
+    expect(screen.getByText('Rp 1.900.000')).toBeInTheDocument();
+    // Total Modal (HPP): Rp 2.230.000 (absorbs +Rp 65.000)
+    expect(screen.getAllByText('Rp 2.230.000').length).toBeGreaterThanOrEqual(1);
+    // Laba Bersih Paket: Rp 769.998
+    expect(screen.getAllByText('Rp 769.998').length).toBeGreaterThanOrEqual(2);
+    // Package Margin: 25.7%
+    expect(screen.getByText('25.7%')).toBeInTheDocument();
   });
 });

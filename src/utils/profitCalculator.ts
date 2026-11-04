@@ -11,6 +11,8 @@ export interface PackageProfitDetail {
   totalCost: number;
   netProfit: number;
   marginPercentage: number;
+  estimatedCost?: number;
+  costVariance?: number;
 }
 
 export interface GranularProfitPillar {
@@ -121,6 +123,7 @@ export function computeSegregatedProjectProfit(
     laborCost: number;
     overheadCost: number;
     totalRevenueAccum: number;
+    estimatedCostAccum: number;
   }>();
 
   let granMatRev = 0, granMatCost = 0;
@@ -131,6 +134,8 @@ export function computeSegregatedProjectProfit(
   items.forEach(item => {
     const qty = Number(item.quantity !== undefined && item.quantity !== null ? item.quantity : (item.qty ?? 1));
     const unitPrice = Number(item.unit_price !== undefined && item.unit_price !== null ? item.unit_price : (item.unitPrice ?? 0));
+    
+    // Tentukan HPP estimasi awal
     const estimatedCost = Number(
       item.estimated_cost_price !== undefined && item.estimated_cost_price !== null
         ? item.estimated_cost_price
@@ -138,13 +143,30 @@ export function computeSegregatedProjectProfit(
         ? item.cost_price
         : (item.costPrice ?? 0)
     );
-    const costPrice = Number(
-      item.effective_cost_price !== undefined && item.effective_cost_price !== null
-        ? item.effective_cost_price
-        : estimatedCost
+
+    // Tentukan HPP efektif yang menyerap kenaikan belanja gudang (Dynamic Effective Cost)
+    const rawMatCost = item.materials
+      ? (Array.isArray(item.materials) ? item.materials[0]?.cost_price : item.materials.cost_price)
+      : undefined;
+    const matCostPrice = rawMatCost !== undefined && rawMatCost !== null ? Number(rawMatCost) : null;
+    const baseCostPrice = item.cost_price !== undefined && item.cost_price !== null
+      ? Number(item.cost_price)
+      : (item.costPrice !== undefined && item.costPrice !== null ? Number(item.costPrice) : 0);
+
+    const effectiveUnitCost = Number(
+      item.effective_cost_price ?? 
+      item.effectiveCostPrice ?? 
+      item.actual_cost_price ?? 
+      item.actualCostPrice ?? 
+      (matCostPrice !== null && matCostPrice > baseCostPrice ? matCostPrice : null) ?? 
+      (item.materials?.cost_price && item.materials.cost_price > item.cost_price ? item.materials.cost_price : null) ?? 
+      item.cost_price ?? 
+      item.costPrice ?? 
+      0
     );
+
     const selling = item.subtotal !== undefined && item.subtotal !== null ? Number(item.subtotal) : qty * unitPrice;
-    const cost = qty * costPrice;
+    const cost = effectiveUnitCost * qty;
     totalEstimatedCostAccum += qty * estimatedCost;
 
     // Detect Package Key & Name
@@ -186,11 +208,13 @@ export function computeSegregatedProjectProfit(
           laborCost: 0,
           overheadCost: 0,
           totalRevenueAccum: 0,
+          estimatedCostAccum: 0,
         });
       }
 
       const pEntry = packageMap.get(packageKey)!;
       pEntry.totalRevenueAccum += selling;
+      pEntry.estimatedCostAccum += qty * estimatedCost;
 
       if (itemType === 'MATERIAL') {
         pEntry.materialCost += cost;
@@ -233,6 +257,8 @@ export function computeSegregatedProjectProfit(
       totalCost,
       netProfit,
       marginPercentage,
+      estimatedCost: p.estimatedCostAccum,
+      costVariance: Math.max(0, totalCost - p.estimatedCostAccum),
     };
   });
 

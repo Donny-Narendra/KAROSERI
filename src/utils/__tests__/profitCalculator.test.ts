@@ -333,4 +333,61 @@ describe('profitCalculator: computeSegregatedProjectProfit', () => {
     expect(res.grandTotalMarginErosion).toBe(200000);
     expect(res.totalPackageProfit).toBe(600000); // 2.000.000 - 1.400.000
   });
+
+  it('synchronizes SPK-8209 metrics with live materials master cost price increase', () => {
+    // Exact scenario from SPK-8209:
+    // Package 'paket test 1' with initial material cost 265.000 and live materials.cost_price 330.000 (+65.000)
+    // Labor: 1.900.000
+    // Package selling price: 2.999.998
+    // Granular item: revenue 100.000, cost 100.000
+    const items = [
+      {
+        package_id: 'pkg-test-1',
+        package_name: 'paket test 1',
+        item_type: 'MATERIAL',
+        quantity: 1,
+        cost_price: 265000,
+        materials: { cost_price: 330000 }, // Live warehouse cost price increase +65.000
+      },
+      {
+        package_id: 'pkg-test-1',
+        package_name: 'paket test 1',
+        item_type: 'LABOR',
+        quantity: 1,
+        cost_price: 1900000,
+      },
+      // Granular item to reach total revenue 3.099.998 and total cogs 2.330.000
+      {
+        package_id: null,
+        item_type: 'MATERIAL',
+        quantity: 1,
+        unit_price: 100000,
+        cost_price: 100000,
+      },
+    ];
+
+    const packageRecord = {
+      'pkg-test-1': { selling_price: 2999998, name: 'paket test 1' },
+    };
+
+    const res = computeSegregatedProjectProfit(items, packageRecord);
+
+    // Pilar 1: paket test 1
+    expect(res.packages).toHaveLength(1);
+    const pkg = res.packages[0];
+    expect(pkg.packageName).toBe('paket test 1');
+    expect(pkg.materialCost).toBe(330000); // 265.000 + 65.000
+    expect(pkg.laborCost).toBe(1900000);
+    expect(pkg.totalCost).toBe(2230000);
+    expect(pkg.netProfit).toBe(769998); // 2.999.998 - 2.230.000
+    expect(Number(pkg.marginPercentage.toFixed(1))).toBe(25.7);
+
+    // Grand Totals
+    expect(res.grandTotalRevenue).toBe(3099998);
+    expect(res.grandTotalCost).toBe(2330000); // Absorbs +65.000 -> 2.330.000
+    expect(res.grandTotalProfit).toBe(769998);
+    expect(Number(res.grandTotalMarginPercentage.toFixed(1))).toBe(24.8);
+    expect(res.grandTotalEstimatedCost).toBe(2265000);
+    expect(res.grandTotalMarginErosion).toBe(65000);
+  });
 });

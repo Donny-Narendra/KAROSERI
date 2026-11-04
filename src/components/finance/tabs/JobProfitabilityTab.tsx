@@ -422,7 +422,7 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
                             <button
                               type="button"
                               onClick={() => setSelectedSpkForBreakdown(row)}
-                              className="text-[10px] font-mono font-semibold text-text-muted hover:text-text hover:underline flex items-center gap-1 cursor-pointer"
+                              className="text-[10px] font-mono font-semibold text-emerald-400 hover:text-emerald-300 hover:underline flex items-center gap-1 cursor-pointer"
                               title="Lihat Pemisahan Laba Paket Assembly & Granular"
                               data-testid={`btn-breakdown-${row.spk_id}`}
                             >
@@ -574,6 +574,8 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
           rowRevenue={selectedSpkForBreakdown.total_revenue}
           rowGrossProfit={selectedSpkForBreakdown.gross_profit}
           rowMarginPercentage={selectedSpkForBreakdown.gross_margin_percentage}
+          rowTotalCogs={selectedSpkForBreakdown.total_cogs}
+          rowInitialCogs={selectedSpkForBreakdown.initial_cogs}
         />
       )}
     </div>

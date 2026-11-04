@@ -47,7 +47,44 @@ export const SpkPackageDetailAccordion: React.FC<SpkPackageDetailAccordionProps>
           console.warn('Could not fetch packages catalog in SpkPackageDetailAccordion:', pkgErr);
         }
 
-        // 2. Fetch rab_items
+        // 2. Fetch live materials master catalog for store cost comparison
+        const materialsMap = new Map<string, number>();
+        try {
+          const { data: matsData } = await supabase
+            .from('materials')
+            .select('id, cost_price');
+          if (matsData) {
+            matsData.forEach((m: any) => {
+              if (m.id && m.cost_price !== undefined && m.cost_price !== null) {
+                materialsMap.set(m.id, Number(m.cost_price));
+              }
+            });
+          }
+        } catch (matsErr) {
+          console.warn('Could not fetch materials catalog in SpkPackageDetailAccordion:', matsErr);
+        }
+
+        // 3. Fetch material_issues for realized actual issues pricing
+        const materialIssuesMap = new Map<string, number>();
+        try {
+          const { data: issuesData } = await supabase
+            .from('material_issues')
+            .select('material_id, rab_item_id, unit_price, cost_price, custom_unit_price')
+            .eq('spk_id', spkId);
+          if (issuesData) {
+            issuesData.forEach((iss: any) => {
+              const issueCost = Number(iss.custom_unit_price ?? iss.unit_price ?? iss.cost_price ?? 0);
+              if (issueCost > 0) {
+                if (iss.rab_item_id) materialIssuesMap.set(`rab_${iss.rab_item_id}`, issueCost);
+                if (iss.material_id) materialIssuesMap.set(`mat_${iss.material_id}`, issueCost);
+              }
+            });
+          }
+        } catch (issuesErr) {
+          console.warn('Could not fetch material issues in SpkPackageDetailAccordion:', issuesErr);
+        }
+
+        // 4. Fetch rab_items with joined materials
         let rabItems: any[] = [];
         const { data: estData } = await supabase
           .from('rab_estimations')
@@ -56,16 +93,41 @@ export const SpkPackageDetailAccordion: React.FC<SpkPackageDetailAccordionProps>
           .maybeSingle();
 
         const estId = estData?.id;
-        const { data: rawRabItems, error: rabErr } = await supabase
+        let rawRabItems: any[] | null = null;
+        let rabErr: any = null;
+
+        const primaryRes = await supabase
           .from('rab_items')
-          .select('*, product_packages:package_id (id, name, selling_price)')
+          .select('*, product_packages:package_id (id, name, selling_price), materials:material_id (id, cost_price)')
           .eq(estId ? 'rab_estimation_id' : 'spk_id', estId || spkId);
+
+        if (!primaryRes.error && primaryRes.data) {
+          rawRabItems = primaryRes.data;
+        } else {
+          const fallbackRes = await supabase
+            .from('rab_items')
+            .select('*, product_packages:package_id (id, name, selling_price), materials(id, cost_price)')
+            .eq(estId ? 'rab_estimation_id' : 'spk_id', estId || spkId);
+          if (!fallbackRes.error && fallbackRes.data) {
+            rawRabItems = fallbackRes.data;
+          } else {
+            const basicRes = await supabase
+              .from('rab_items')
+              .select('*, product_packages:package_id (id, name, selling_price)')
+              .eq(estId ? 'rab_estimation_id' : 'spk_id', estId || spkId);
+            if (!basicRes.error && basicRes.data) {
+              rawRabItems = basicRes.data;
+            } else {
+              rabErr = basicRes.error || fallbackRes.error || primaryRes.error;
+            }
+          }
+        }
 
         if (!rabErr && rawRabItems) {
           rabItems = rawRabItems;
         }
 
-        // 3. Fetch approved change orders
+        // 5. Fetch approved change orders
         let coItems: any[] = [];
         try {
           const cos = await spkService.getChangeOrders(spkId);
@@ -79,9 +141,41 @@ export const SpkPackageDetailAccordion: React.FC<SpkPackageDetailAccordionProps>
           console.warn('Could not fetch change orders in SpkPackageDetailAccordion:', coErr);
         }
 
+        // 6. Consolidate items with live effective cost and joined materials
+        const consolidatedItems = [...rabItems, ...coItems].map((item: any) => {
+          let joinedMatCost: number | undefined = undefined;
+          if (item.materials) {
+            joinedMatCost = Array.isArray(item.materials) ? item.materials[0]?.cost_price : item.materials.cost_price;
+          }
+          if ((joinedMatCost === undefined || joinedMatCost === null) && item.material_id && materialsMap.has(item.material_id)) {
+            joinedMatCost = materialsMap.get(item.material_id);
+          }
+
+          const issueCost = (item.id && materialIssuesMap.get(`rab_${item.id}`)) ||
+                            (item.material_id && materialIssuesMap.get(`mat_${item.material_id}`));
+
+          const baseCost = Number(item.cost_price ?? item.costPrice ?? 0);
+          
+          let effectiveCost = baseCost;
+          if (String(item.item_type || item.type || 'MATERIAL').toUpperCase() === 'MATERIAL') {
+            if (issueCost && issueCost > 0) {
+              effectiveCost = issueCost;
+            } else if (joinedMatCost !== undefined && joinedMatCost !== null && joinedMatCost > 0) {
+              effectiveCost = joinedMatCost;
+            }
+          }
+
+          return {
+            ...item,
+            materials: joinedMatCost !== undefined ? { id: item.material_id, cost_price: joinedMatCost } : item.materials,
+            effective_cost_price: item.effective_cost_price ?? effectiveCost,
+            actual_cost_price: item.actual_cost_price ?? effectiveCost,
+          };
+        });
+
         if (isMounted) {
           setPackagesCatalog(fetchedPackages);
-          setItems([...rabItems, ...coItems]);
+          setItems(consolidatedItems);
         }
       } catch (err: any) {
         console.error('Error fetching package breakdown items:', err);
