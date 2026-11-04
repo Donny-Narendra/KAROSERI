@@ -153,6 +153,13 @@ export function calculateSpkFinancialMetrics(spk: any, packagesCatalog?: any[]):
         }
         if (pkgSellingPrice > 0) {
           uniquePackages.set(pkgKey, pkgSellingPrice);
+        } else {
+          // Fallback: If package has no bundle-level selling price (or package not cataloged),
+          // preserve granular item pricing instead of dropping the item
+          const q = Number(item.quantity ?? item.labor_hours ?? (item.overhead_hours ? Number(item.overhead_hours) / 8 : 1)) || 1;
+          const u = Number(item.unit_price || 0);
+          const sub = Number(item.subtotal ?? item.item_total ?? (q * u));
+          nonPackageAmount += isNaN(sub) ? 0 : sub;
         }
       } else {
         const q = Number(item.quantity ?? item.labor_hours ?? (item.overhead_hours ? Number(item.overhead_hours) / 8 : 1)) || 1;
@@ -189,6 +196,11 @@ export function calculateSpkFinancialMetrics(spk: any, packagesCatalog?: any[]):
   // If close to nearest thousand (within 10 rupiah due to integer division rounding in component exploded prices)
   if (totalTagihan > 0 && Math.abs(totalTagihan - Math.round(totalTagihan / 1000) * 1000) <= 10) {
     totalTagihan = Math.round(totalTagihan / 1000) * 1000;
+  }
+
+  const explicitRevenue = Number(spk?.total_revenue ?? spk?.total_tagihan ?? 0);
+  if (explicitRevenue > 0) {
+    totalTagihan = explicitRevenue;
   }
 
   // 3. Realisasi Biaya Aktual (Material Approved + Borongan Labor + Overhead FOH)
@@ -285,6 +297,7 @@ export const dashboardService = {
       rab_items (
         id,
         spk_id,
+        material_id,
         package_id,
         package_name,
         item_type,
@@ -293,6 +306,7 @@ export const dashboardService = {
         unit_price,
         subtotal,
         item_total,
+        materials:material_id ( id, name, cost_price, unit_price ),
         product_packages:package_id ( id, name, selling_price )
       ),
       inventory_transactions ( quantity_issued, custom_unit_price, materials ( unit_price, is_customer_supplied ) ),
@@ -429,10 +443,14 @@ export const dashboardService = {
       const initialCogs = prof?.initial_cogs !== undefined && prof?.initial_cogs !== null
         ? Number(prof.initial_cogs)
         : (spk.initial_cogs !== undefined && spk.initial_cogs !== null ? Number(spk.initial_cogs) : Number(spk.total_estimated_cost || 0));
+      const totalRevenue = prof?.total_revenue !== undefined && prof?.total_revenue !== null
+        ? Number(prof.total_revenue)
+        : (spk.total_tagihan !== undefined && spk.total_tagihan !== null ? Number(spk.total_tagihan) : undefined);
 
       const enrichedSpk = {
         ...spk,
         ...(totalCogs !== undefined ? { total_cogs: totalCogs } : {}),
+        ...(totalRevenue !== undefined ? { total_revenue: totalRevenue, total_tagihan: totalRevenue } : {}),
         initial_cogs: initialCogs,
       };
 
@@ -442,6 +460,7 @@ export const dashboardService = {
       const dpAmount = Number(spk.dp_amount !== undefined && spk.dp_amount !== null ? spk.dp_amount : (invoice?.dp_amount || 0));
 
       const finalTotalHpp = totalCogs ?? financials.totalHpp;
+      const finalTotalTagihan = totalRevenue ?? financials.totalTagihan;
 
       return {
         ...spk,
@@ -450,11 +469,12 @@ export const dashboardService = {
         financials: {
           ...financials,
           totalHpp: finalTotalHpp,
+          totalTagihan: finalTotalTagihan,
         },
         total_cogs: finalTotalHpp,
         initial_cogs: initialCogs || financials.rabHpp,
         total_hpp: finalTotalHpp,
-        total_tagihan: prof?.total_revenue ? Number(prof.total_revenue) : financials.totalTagihan,
+        total_tagihan: finalTotalTagihan,
         total_realisasi_aktual: financials.totalRealisasiAktual,
         is_overbudget: financials.isOverbudget || spk.is_overbudget === true,
       };

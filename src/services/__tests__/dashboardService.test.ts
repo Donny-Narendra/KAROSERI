@@ -217,6 +217,31 @@ describe('Service: dashboardService (Owner SPK Financial Metrics)', () => {
       const marginPct = (profit / metrics.totalTagihan) * 100;
       expect(marginPct).toBeCloseTo(42.4, 1);
     });
+
+    it('falls back to item subtotals for items with package_name when package is not cataloged (SPK-8209 case)', () => {
+      const spk8209 = {
+        total_estimated_cost: 2265000,
+        total_cogs: 2330000,
+        total_tagihan: 3099998,
+        rab_items: [
+          // Non-package item
+          { package_id: null, package_name: null, item_type: 'MATERIAL', quantity: 1, cost_price: 20000, unit_price: 100000, subtotal: 100000 },
+          // Items belonging to ad-hoc package name not in product_packages catalog
+          { package_id: null, package_name: 'paket test 1', item_type: 'SERVICE', quantity: 1, cost_price: 900000, unit_price: 900000, subtotal: 900000 },
+          { package_id: null, package_name: 'paket test 1', item_type: 'SERVICE', quantity: 1, cost_price: 1000000, unit_price: 1000000, subtotal: 1000000 },
+          { package_id: null, package_name: 'paket test 1', item_type: 'MATERIAL', quantity: 1, cost_price: 200000, unit_price: 200000, subtotal: 200000 },
+          { package_id: null, package_name: 'paket test 1', item_type: 'MATERIAL', quantity: 3, cost_price: 70000, unit_price: 70000, subtotal: 210000 },
+          { package_id: null, package_name: 'paket test 1', item_type: 'MATERIAL', quantity: 1, cost_price: 0, unit_price: 689998, subtotal: 689998 },
+        ],
+      };
+
+      const metrics = calculateSpkFinancialMetrics(spk8209, []);
+
+      // Total Tagihan: 100.000 + 900.000 + 1.000.000 + 200.000 + 210.000 + 689.998 = 3.099.998
+      expect(metrics.totalTagihan).toBe(3099998);
+      // Total HPP absorbed from total_cogs
+      expect(metrics.totalHpp).toBe(2330000);
+    });
   });
 
   describe('fetchOwnerDashboardSpks & fetchActiveSpkMonitoring', () => {
@@ -282,6 +307,61 @@ describe('Service: dashboardService (Owner SPK Financial Metrics)', () => {
       expect(row.total_realisasi_aktual).toBe(32000000); // 20m + 10m + 2m
       expect(row.financials.varianceAmount).toBe(23065000);
       expect(row.is_overbudget).toBe(false);
+    });
+
+    it('correctly maps SPK-8209 with revised actual COGS (Rp 2.330.000) and full quotation revenue (Rp 3.099.998)', async () => {
+      const mockSpk8209 = {
+        id: 'f6e060d4-653c-4e0b-80a5-fc1c9afcec69',
+        spk_no: 'SPK-8209',
+        customer_name: 'TES 1',
+        total_estimated_cost: 2265000,
+        status: 'ACTIVE',
+        rab_items: [
+          { package_id: null, package_name: null, item_type: 'MATERIAL', quantity: 1, cost_price: 20000, unit_price: 100000 },
+          { package_id: null, package_name: 'paket test 1', item_type: 'SERVICE', quantity: 1, cost_price: 900000, unit_price: 900000 },
+          { package_id: null, package_name: 'paket test 1', item_type: 'SERVICE', quantity: 1, cost_price: 1000000, unit_price: 1000000 },
+          { package_id: null, package_name: 'paket test 1', item_type: 'MATERIAL', quantity: 1, cost_price: 200000, unit_price: 200000 },
+          { package_id: null, package_name: 'paket test 1', item_type: 'MATERIAL', quantity: 3, cost_price: 70000, unit_price: 70000 },
+          { package_id: null, package_name: 'paket test 1', item_type: 'MATERIAL', quantity: 1, cost_price: 0, unit_price: 689998 },
+        ],
+      };
+
+      const mockQueryBuilder: any = {
+        order: vi.fn().mockResolvedValue({ data: [mockSpk8209], error: null }),
+      };
+
+      vi.mocked(supabase.from).mockImplementation((table: string) => {
+        if (table === 'view_spk_job_profitability') {
+          return {
+            select: vi.fn().mockResolvedValue({
+              data: [
+                {
+                  spk_id: 'f6e060d4-653c-4e0b-80a5-fc1c9afcec69',
+                  spk_number: 'SPK-8209',
+                  initial_cogs: 2265000,
+                  total_cogs: 2330000,
+                  total_revenue: 3099998,
+                },
+              ],
+              error: null,
+            }),
+          } as any;
+        }
+        return {
+          select: vi.fn().mockReturnValue(mockQueryBuilder),
+        } as any;
+      });
+
+      const result = await dashboardService.fetchOwnerDashboardSpks();
+      expect(result).toHaveLength(1);
+      const row = result[0];
+      expect(row.spk_no).toBe('SPK-8209');
+      expect(row.total_hpp).toBe(2330000);
+      expect(row.total_cogs).toBe(2330000);
+      expect(row.initial_cogs).toBe(2265000);
+      expect(row.total_tagihan).toBe(3099998);
+      expect(row.financials.totalHpp).toBe(2330000);
+      expect(row.financials.totalTagihan).toBe(3099998);
     });
 
     it('aliases fetchActiveSpkMonitoring to fetchOwnerDashboardSpks', async () => {

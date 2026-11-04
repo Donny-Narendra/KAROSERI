@@ -4,33 +4,17 @@
 --              Dynamically incorporates store cost price updates and warehouse material issues into actual COGS.
 -- ==============================================================================
 
--- 1. Ensure material_issues view exposes unit_cost alongside unit_price
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.views WHERE table_schema = 'public' AND table_name = 'material_issues') THEN
-    CREATE OR REPLACE VIEW public.material_issues AS
-    SELECT 
-      it.id,
-      it.spk_id,
-      it.material_id,
-      it.quantity_issued AS quantity,
-      COALESCE(it.custom_unit_price, m.cost_price, m.unit_price, 0) AS unit_price,
-      COALESCE(it.custom_unit_price, m.cost_price, m.unit_price, 0) AS unit_cost,
-      COALESCE(
-        wbs_category_to_stage(mr.wbs_category), 
-        'WBS 1: Pembongkaran'
-      ) AS wbs_stage,
-      it.issued_by_user_id,
-      it.issued_by_name,
-      it.issued_by_role,
-      it.audit_notes,
-      it.issued_at AS created_at
-    FROM inventory_transactions it
-    LEFT JOIN materials m ON it.material_id = m.id
-    LEFT JOIN material_requisitions mr ON it.requisition_id = mr.id
-    WHERE it.status = 'ACTIVE' OR it.status IS NULL;
-  END IF;
-END $$;
+-- 1. Ensure required columns exist on public.spk
+ALTER TABLE public.spk
+ADD COLUMN IF NOT EXISTS is_profit_locked BOOLEAN DEFAULT FALSE,
+ADD COLUMN IF NOT EXISTS bast_date TIMESTAMPTZ,
+ADD COLUMN IF NOT EXISTS locked_revenue NUMERIC(15, 2),
+ADD COLUMN IF NOT EXISTS locked_cogs NUMERIC(15, 2),
+ADD COLUMN IF NOT EXISTS locked_profit NUMERIC(15, 2),
+ADD COLUMN IF NOT EXISTS locked_margin_pct NUMERIC(5, 2),
+ADD COLUMN IF NOT EXISTS final_revenue NUMERIC(15, 2),
+ADD COLUMN IF NOT EXISTS final_cogs NUMERIC(15, 2),
+ADD COLUMN IF NOT EXISTS final_profit NUMERIC(15, 2);
 
 -- 2. Drop dependent views first
 DROP VIEW IF EXISTS public.view_corporate_monthly_pnl CASCADE;
@@ -43,6 +27,7 @@ WITH all_items AS (
   SELECT 
     ri.spk_id,
     ri.package_id,
+    ri.package_name,
     ri.item_type,
     ri.quantity,
     ri.unit_price,
@@ -50,13 +35,14 @@ WITH all_items AS (
     -- Jika material, prioritaskan harga barang keluar (material_issues) atau harga master gudang terkini jika ada kenaikan
     CASE 
       WHEN ri.item_type = 'MATERIAL' AND mi.unit_cost IS NOT NULL THEN mi.unit_cost
-      WHEN ri.item_type = 'MATERIAL' AND m.cost_price > ri.cost_price THEN m.cost_price
+      WHEN ri.item_type = 'MATERIAL' AND m.cost_price IS NOT NULL AND m.cost_price > 0 THEN m.cost_price
       ELSE ri.cost_price
-    END AS effective_cost
+    END AS effective_cost,
+    (ri.package_id IS NOT NULL OR (ri.package_name IS NOT NULL AND ri.package_name <> '') OR ri.description ILIKE 'Paket:%') AS is_package
   FROM public.rab_items ri
   LEFT JOIN public.materials m ON ri.material_id = m.id
   LEFT JOIN LATERAL (
-    SELECT COALESCE(unit_cost, unit_price) AS unit_cost FROM public.material_issues 
+    SELECT unit_price AS unit_cost FROM public.material_issues 
     WHERE spk_id = ri.spk_id AND material_id = ri.material_id 
     ORDER BY created_at DESC LIMIT 1
   ) mi ON true
@@ -67,20 +53,22 @@ WITH all_items AS (
   SELECT 
     co.spk_id,
     coi.package_source_id AS package_id,
+    coi.package_name,
     coi.item_type,
     coi.quantity,
     coi.unit_price,
     coi.cost_price AS estimated_cost,
     CASE 
       WHEN coi.item_type = 'MATERIAL' AND mi.unit_cost IS NOT NULL THEN mi.unit_cost
-      WHEN coi.item_type = 'MATERIAL' AND m.cost_price > coi.cost_price THEN m.cost_price
+      WHEN coi.item_type = 'MATERIAL' AND m.cost_price IS NOT NULL AND m.cost_price > 0 THEN m.cost_price
       ELSE coi.cost_price
-    END AS effective_cost
+    END AS effective_cost,
+    (coi.package_source_id IS NOT NULL OR (coi.package_name IS NOT NULL AND coi.package_name <> '')) AS is_package
   FROM public.change_order_items coi
   JOIN public.change_orders co ON coi.change_order_id = co.id
   LEFT JOIN public.materials m ON coi.material_id = m.id
   LEFT JOIN LATERAL (
-    SELECT COALESCE(unit_cost, unit_price) AS unit_cost FROM public.material_issues 
+    SELECT unit_price AS unit_cost FROM public.material_issues 
     WHERE spk_id = co.spk_id AND material_id = coi.material_id 
     ORDER BY created_at DESC LIMIT 1
   ) mi ON true
@@ -92,17 +80,19 @@ spk_summary AS (
     COALESCE(SUM(quantity * unit_price), 0) AS total_revenue,
     COALESCE(SUM(quantity * estimated_cost), 0) AS initial_cogs,
     COALESCE(SUM(quantity * effective_cost), 0) AS actual_cogs,
+    -- Component Breakdown
     COALESCE(SUM(CASE WHEN item_type = 'MATERIAL' THEN quantity * effective_cost ELSE 0 END), 0) AS actual_material_cost,
     COALESCE(SUM(CASE WHEN item_type = 'LABOR' THEN quantity * effective_cost ELSE 0 END), 0) AS actual_labor_cost,
     COALESCE(SUM(CASE WHEN item_type = 'OVERHEAD' THEN quantity * effective_cost ELSE 0 END), 0) AS actual_overhead_cost,
-    COALESCE(SUM(CASE WHEN package_id IS NOT NULL THEN quantity * unit_price ELSE 0 END), 0) AS package_revenue,
-    COALESCE(SUM(CASE WHEN package_id IS NOT NULL THEN quantity * effective_cost ELSE 0 END), 0) AS package_cogs,
-    COALESCE(SUM(CASE WHEN package_id IS NULL AND item_type = 'MATERIAL' THEN quantity * unit_price ELSE 0 END), 0) AS granular_mat_revenue,
-    COALESCE(SUM(CASE WHEN package_id IS NULL AND item_type = 'MATERIAL' THEN quantity * effective_cost ELSE 0 END), 0) AS granular_mat_cogs,
-    COALESCE(SUM(CASE WHEN package_id IS NULL AND item_type = 'LABOR' THEN quantity * unit_price ELSE 0 END), 0) AS granular_labor_revenue,
-    COALESCE(SUM(CASE WHEN package_id IS NULL AND item_type = 'LABOR' THEN quantity * effective_cost ELSE 0 END), 0) AS granular_labor_cogs,
-    COALESCE(SUM(CASE WHEN package_id IS NULL AND item_type = 'OVERHEAD' THEN quantity * unit_price ELSE 0 END), 0) AS granular_foh_revenue,
-    COALESCE(SUM(CASE WHEN package_id IS NULL AND item_type = 'OVERHEAD' THEN quantity * effective_cost ELSE 0 END), 0) AS granular_foh_cogs
+    -- Package vs Granular Pillars
+    COALESCE(SUM(CASE WHEN is_package THEN quantity * unit_price ELSE 0 END), 0) AS package_revenue,
+    COALESCE(SUM(CASE WHEN is_package THEN quantity * effective_cost ELSE 0 END), 0) AS package_cogs,
+    COALESCE(SUM(CASE WHEN NOT is_package AND item_type = 'MATERIAL' THEN quantity * unit_price ELSE 0 END), 0) AS granular_mat_revenue,
+    COALESCE(SUM(CASE WHEN NOT is_package AND item_type = 'MATERIAL' THEN quantity * effective_cost ELSE 0 END), 0) AS granular_mat_cogs,
+    COALESCE(SUM(CASE WHEN NOT is_package AND item_type = 'LABOR' THEN quantity * unit_price ELSE 0 END), 0) AS granular_labor_revenue,
+    COALESCE(SUM(CASE WHEN NOT is_package AND item_type = 'LABOR' THEN quantity * effective_cost ELSE 0 END), 0) AS granular_labor_cogs,
+    COALESCE(SUM(CASE WHEN NOT is_package AND item_type = 'OVERHEAD' THEN quantity * unit_price ELSE 0 END), 0) AS granular_foh_revenue,
+    COALESCE(SUM(CASE WHEN NOT is_package AND item_type = 'OVERHEAD' THEN quantity * effective_cost ELSE 0 END), 0) AS granular_foh_cogs
   FROM all_items
   GROUP BY spk_id
 )
@@ -213,7 +203,7 @@ SELECT
   COALESCE(m.total_revenue, 0) AS total_revenue,
   COALESCE(m.total_material_cogs, 0) AS total_material_cogs,
   COALESCE(m.total_labor_cogs, 0) AS total_labor_cogs,
-  COALESCE(m.total_overhead_cost, 0) AS total_foh_cogs,
+  COALESCE(m.total_foh_cogs, 0) AS total_foh_cogs,
   COALESCE(m.total_cogs, 0) AS total_cogs,
   COALESCE(m.gross_profit, 0) AS gross_profit,
   COALESCE(o.total_opex, 0) AS total_opex,
@@ -228,4 +218,3 @@ FULL OUTER JOIN monthly_opex o ON m.report_month = o.report_month
 ORDER BY report_month DESC;
 
 GRANT SELECT ON public.view_corporate_monthly_pnl TO authenticated, anon;
-

@@ -278,7 +278,7 @@ EXECUTE FUNCTION public.freeze_spk_financials_on_bast();
 UPDATE public.spk s
 SET 
   is_profit_locked = TRUE,
-  bast_date = COALESCE(s.bast_date, s.updated_at, s.created_at),
+  bast_date = COALESCE(s.bast_date, s.created_at),
   locked_revenue = sub.total_revenue,
   locked_cogs = sub.total_cogs,
   locked_profit = sub.gross_profit,

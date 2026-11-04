@@ -565,8 +565,8 @@ export const AdminDashboardPage: React.FC = () => {
                 ) : (
                   filteredSpks.map((spk) => {
                     const fin = spk.financials || dashboardService.calculateSpkFinancialMetrics(spk);
-                    const totalHpp = fin.totalHpp;
-                    const totalTagihan = fin.totalTagihan;
+                    const totalHpp = Number(spk.total_cogs || spk.total_hpp || fin.totalHpp || spk.total_estimated_cost || 0);
+                    const totalTagihan = Number(spk.total_tagihan || fin.totalTagihan || 0);
                     const materialIssuedCost = fin.materialIssuedCost;
                     const laborActualCost = fin.laborActualCost;
                     const fohActualCost = fin.fohActualCost;
@@ -582,7 +582,7 @@ export const AdminDashboardPage: React.FC = () => {
                         </td>
                         <td className="px-4 py-3">{spk.customer_name}</td>
                         <td className="px-4 py-3 font-mono font-bold text-slate-200">
-                          Rp {Number(spk.total_cogs || spk.total_hpp || totalHpp || spk.total_estimated_cost || 0).toLocaleString('id-ID')}
+                          Rp {totalHpp.toLocaleString('id-ID')}
                           {Boolean(spk.total_cogs && spk.initial_cogs && spk.total_cogs > spk.initial_cogs) && (
                             <span className="block text-[10px] text-amber-400 font-normal">
                               (Revisi Belanja +Rp {Number((spk.total_cogs || 0) - (spk.initial_cogs || 0)).toLocaleString('id-ID')})
