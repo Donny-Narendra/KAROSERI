@@ -228,3 +228,4 @@ FULL OUTER JOIN monthly_opex o ON m.report_month = o.report_month
 ORDER BY report_month DESC;
 
 GRANT SELECT ON public.view_corporate_monthly_pnl TO authenticated, anon;
+
