@@ -55,6 +55,8 @@ export interface DashboardSpkItem {
   spk_overhead_logs?: any[];
   financials: SpkFinancialMetrics;
   total_hpp: number;
+  total_cogs?: number;
+  initial_cogs?: number;
   total_tagihan: number;
   total_realisasi_aktual: number;
 }
@@ -74,11 +76,18 @@ export function calculateSpkFinancialMetrics(spk: any, packagesCatalog?: any[]):
   if (rabItems.length > 0) {
     rabHpp = rabItems.reduce((sum: number, item: any) => {
       const q = Number(item.quantity ?? item.labor_hours ?? (item.overhead_hours ? Number(item.overhead_hours) / 8 : 1)) || 1;
-      const c = Number(item.cost_price || 0);
+      let c = Number(item.cost_price || 0);
+      if (item.effective_cost !== undefined && item.effective_cost !== null) {
+        c = Number(item.effective_cost);
+      } else if (item.item_type === 'MATERIAL') {
+        const matCost = Number(item.materials?.cost_price || item.material?.cost_price || 0);
+        if (matCost > c) c = matCost;
+      }
       return sum + (q * c);
     }, 0);
   } else {
     rabHpp = Number(
+      spk?.total_cogs ||
       spk?.total_estimated_cost || 
       spk?.rab_estimations?.[0]?.total_estimated_cost || 
       0
@@ -102,7 +111,13 @@ export function calculateSpkFinancialMetrics(spk: any, packagesCatalog?: any[]):
     if (coItems.length > 0) {
       const itemsHpp = coItems.reduce((itemSum: number, item: any) => {
         const q = Number(item.quantity || 1);
-        const c = Number(item.cost_price || 0);
+        let c = Number(item.cost_price || 0);
+        if (item.effective_cost !== undefined && item.effective_cost !== null) {
+          c = Number(item.effective_cost);
+        } else if (item.item_type === 'MATERIAL') {
+          const matCost = Number(item.materials?.cost_price || item.material?.cost_price || 0);
+          if (matCost > c) c = matCost;
+        }
         return itemSum + (q * c);
       }, 0);
       return sum + itemsHpp;
@@ -111,7 +126,9 @@ export function calculateSpkFinancialMetrics(spk: any, packagesCatalog?: any[]):
     return sum + (isNaN(cost) ? 0 : cost);
   }, 0);
 
-  const totalHpp = rabHpp + coHpp;
+  const totalHpp = (spk?.total_cogs !== undefined && spk?.total_cogs !== null && !isNaN(Number(spk.total_cogs)) && Number(spk.total_cogs) > 0)
+    ? Number(spk.total_cogs)
+    : (rabHpp + coHpp);
 
   // 2. Total Tagihan (Revenue = Quotation/Kontrak Awal + CO Selling Price)
   let sellingPriceAwal = 0;
@@ -388,19 +405,56 @@ export const dashboardService = {
       spkRows = data || [];
     }
 
+    // Query view_spk_job_profitability to synchronize dynamic actual COGS
+    const profitabilityMap = new Map<string, any>();
+    try {
+      const { data: profData } = await supabase
+        .from('view_spk_job_profitability')
+        .select('*');
+      if (profData) {
+        profData.forEach((p: any) => {
+          if (p.spk_id) profitabilityMap.set(p.spk_id, p);
+          if (p.spk_number) profitabilityMap.set(p.spk_number, p);
+        });
+      }
+    } catch (profErr) {
+      console.warn('Could not query view_spk_job_profitability in dashboardService:', profErr);
+    }
+
     return spkRows.map(spk => {
-      const financials = calculateSpkFinancialMetrics(spk, packagesList);
+      const prof = profitabilityMap.get(spk.id) || profitabilityMap.get(spk.spk_no) || profitabilityMap.get(spk.spk_number);
+      const totalCogs = prof?.total_cogs !== undefined && prof?.total_cogs !== null 
+        ? Number(prof.total_cogs)
+        : (spk.total_cogs !== undefined && spk.total_cogs !== null ? Number(spk.total_cogs) : undefined);
+      const initialCogs = prof?.initial_cogs !== undefined && prof?.initial_cogs !== null
+        ? Number(prof.initial_cogs)
+        : (spk.initial_cogs !== undefined && spk.initial_cogs !== null ? Number(spk.initial_cogs) : Number(spk.total_estimated_cost || 0));
+
+      const enrichedSpk = {
+        ...spk,
+        ...(totalCogs !== undefined ? { total_cogs: totalCogs } : {}),
+        initial_cogs: initialCogs,
+      };
+
+      const financials = calculateSpkFinancialMetrics(enrichedSpk, packagesList);
       const invoice = Array.isArray(spk.invoices) && spk.invoices.length > 0 ? spk.invoices[0] : null;
       const paymentStatus = spk.payment_status || (invoice?.status === 'LUNAS' ? 'PAID' : (invoice?.status || 'UNPAID'));
       const dpAmount = Number(spk.dp_amount !== undefined && spk.dp_amount !== null ? spk.dp_amount : (invoice?.dp_amount || 0));
+
+      const finalTotalHpp = totalCogs ?? financials.totalHpp;
 
       return {
         ...spk,
         payment_status: paymentStatus,
         dp_amount: dpAmount,
-        financials,
-        total_hpp: financials.totalHpp,
-        total_tagihan: financials.totalTagihan,
+        financials: {
+          ...financials,
+          totalHpp: finalTotalHpp,
+        },
+        total_cogs: finalTotalHpp,
+        initial_cogs: initialCogs || financials.rabHpp,
+        total_hpp: finalTotalHpp,
+        total_tagihan: prof?.total_revenue ? Number(prof.total_revenue) : financials.totalTagihan,
         total_realisasi_aktual: financials.totalRealisasiAktual,
         is_overbudget: financials.isOverbudget || spk.is_overbudget === true,
       };

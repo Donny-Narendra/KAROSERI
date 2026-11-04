@@ -44,6 +44,7 @@ export interface SpkJobProfitabilityItem {
   actual_material_cost: number;
   actual_labor_cost: number;
   actual_overhead_cost: number;
+  initial_cogs?: number;
   total_cogs: number;
   gross_profit: number;
   gross_margin_percentage: number;

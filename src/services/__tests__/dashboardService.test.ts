@@ -248,19 +248,39 @@ describe('Service: dashboardService (Owner SPK Financial Metrics)', () => {
         order: vi.fn().mockResolvedValue({ data: mockSpkData, error: null }),
       };
 
-      vi.mocked(supabase.from).mockReturnValue({
-        select: vi.fn().mockReturnValue(mockQueryBuilder),
-      } as any);
+      vi.mocked(supabase.from).mockImplementation((table: string) => {
+        if (table === 'view_spk_job_profitability') {
+          return {
+            select: vi.fn().mockResolvedValue({
+              data: [
+                {
+                  spk_id: 'spk-1',
+                  spk_number: 'SPK-2026-001',
+                  initial_cogs: 50000000,
+                  total_cogs: 55065000, // revised actual cogs
+                  total_revenue: 73000000,
+                },
+              ],
+              error: null,
+            }),
+          } as any;
+        }
+        return {
+          select: vi.fn().mockReturnValue(mockQueryBuilder),
+        } as any;
+      });
 
       const result = await dashboardService.fetchOwnerDashboardSpks();
 
       expect(result).toHaveLength(1);
       const row = result[0];
       expect(row.spk_no).toBe('SPK-2026-001');
-      expect(row.total_hpp).toBe(55000000); // 50m + 5m CO
+      expect(row.total_hpp).toBe(55065000); // Synchronized with revised view_spk_job_profitability total_cogs
+      expect(row.total_cogs).toBe(55065000);
+      expect(row.initial_cogs).toBe(50000000);
       expect(row.total_tagihan).toBe(73000000); // 65m + 8m CO
       expect(row.total_realisasi_aktual).toBe(32000000); // 20m + 10m + 2m
-      expect(row.financials.varianceAmount).toBe(23000000);
+      expect(row.financials.varianceAmount).toBe(23065000);
       expect(row.is_overbudget).toBe(false);
     });
 

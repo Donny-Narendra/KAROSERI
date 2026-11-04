@@ -93,10 +93,14 @@ export const financialReportsService = {
       .map(row => {
         const total_revenue = Number(row.total_revenue || 0);
         const total_cogs = Number(row.total_cogs || 0);
-        const gross_profit = Number(row.gross_profit ?? (total_revenue - total_cogs));
-        const gross_margin_percentage = Number(
-          row.gross_margin_percentage ?? (total_revenue > 0 ? (gross_profit / total_revenue) * 100 : 0)
-        );
+        const initial_cogs = Number(row.initial_cogs || row.total_estimated_cost || total_cogs);
+        const isLocked = Boolean(row.is_profit_locked);
+        const gross_profit = isLocked && row.locked_profit !== null && row.locked_profit !== undefined
+          ? Number(row.locked_profit)
+          : (total_revenue - total_cogs);
+        const gross_margin_percentage = isLocked && row.locked_margin_pct !== null && row.locked_margin_pct !== undefined
+          ? Number(row.locked_margin_pct)
+          : Number(total_revenue > 0 ? ((gross_profit / total_revenue) * 100).toFixed(2) : 0);
 
         const granular_labor_profit = Number(row.granular_labor_profit ?? 0);
         const granular_overhead_profit = Number(row.granular_overhead_profit ?? row.granular_foh_profit ?? 0);
@@ -110,6 +114,7 @@ export const financialReportsService = {
           actual_material_cost: Number(row.actual_material_cost ?? row.granular_mat_cogs ?? 0),
           actual_labor_cost: Number(row.actual_labor_cost ?? row.granular_labor_cogs ?? 0),
           actual_overhead_cost: Number(row.actual_overhead_cost ?? row.granular_foh_cogs ?? 0),
+          initial_cogs,
           total_cogs,
           gross_profit,
           gross_margin_percentage,

@@ -370,4 +370,55 @@ describe('Component: JobProfitabilityTab (Operational SPKs & 4-Pillar Segregated
     // Margin: 42.4%
     expect(screen.getAllByText(/42\.4%/).length).toBeGreaterThanOrEqual(1);
   });
+
+  it('correctly renders SPK-8209 with revised actual HPP Rp 2.330.000 and updated Gross Profit Rp 769.998', async () => {
+    const mockSpk8209Row: SpkJobProfitability = {
+      spk_id: 'spk-uuid-8209',
+      spk_number: 'SPK-8209',
+      customer_name: 'PT Mitra Logistik 8209',
+      customer_phone: '081282098209',
+      vehicle_plate: 'L 8209 AA',
+      spk_status: 'ACTIVE',
+      registration_date: '2026-11-04T08:00:00Z',
+      total_revenue: 3_099_998,
+      actual_material_cost: 1_080_000,
+      actual_labor_cost: 1_000_000,
+      actual_overhead_cost: 250_000,
+      initial_cogs: 2_265_000,
+      total_cogs: 2_330_000,
+      gross_profit: 769_998,
+      gross_margin_percentage: 24.8,
+      payment_status: 'PARTIAL',
+      package_revenue: 2_500_000,
+      package_cogs: 1_800_000,
+      package_profit: 700_000,
+      granular_material_revenue: 350_000,
+      granular_material_cogs: 300_000,
+      granular_material_profit: 50_000,
+      granular_labor_revenue: 150_000,
+      granular_labor_cogs: 140_000,
+      granular_labor_profit: 10_000,
+      granular_foh_revenue: 99_998,
+      granular_foh_cogs: 90_000,
+      granular_overhead_profit: 9_998,
+    };
+
+    vi.mocked(financialReportsService.getJobProfitability).mockResolvedValueOnce([mockSpk8209Row]);
+
+    render(<JobProfitabilityTab />);
+
+    await waitFor(() => {
+      expect(screen.getByText('SPK-8209')).toBeInTheDocument();
+    });
+
+    // 1. Table Row for SPK-8209
+    // Pendapatan: Rp 3.099.998
+    expect(screen.getAllByText(/3\.099\.998/).length).toBeGreaterThanOrEqual(1);
+    // HPP Proyek displays revised actual HPP: Rp 2.330.000
+    expect(screen.getAllByText(/2\.330\.000/).length).toBeGreaterThanOrEqual(1);
+    // Laba Kotor (Gross) displays: Rp 769.998
+    expect(screen.getAllByText(/769\.998/).length).toBeGreaterThanOrEqual(1);
+    // Margin: 24.8%
+    expect(screen.getAllByText(/24\.8%/).length).toBeGreaterThanOrEqual(1);
+  });
 });

@@ -88,4 +88,66 @@ describe('Page: AdminDashboardPage (Consolidated WIP & Costing Verification)', (
     // TOTAL TAGIHAN in row
     expect(screen.getAllByText(/Rp\s*5\.322\.000/).length).toBeGreaterThanOrEqual(1);
   });
+
+  it('correctly renders revised actual HPP (Rp 2.330.000) and informative badge "(Revisi Belanja +Rp 65.000)" for SPK-8209', async () => {
+    const mockSpk8209 = {
+      id: 'spk-uuid-8209',
+      spk_no: 'SPK-8209',
+      customer_name: 'PT Mitra Logistik 8209',
+      vehicle_plate: 'L 8209 AA',
+      status: 'ACTIVE',
+      qc_status: 'IN_PROGRESS',
+      dp_amount: 500000,
+      payment_status: 'UNPAID',
+      created_at: '2026-11-04T00:00:00Z',
+      initial_cogs: 2265000,
+      total_cogs: 2330000,
+      total_hpp: 2330000,
+      total_tagihan: 3099998,
+      total_realisasi_aktual: 2330000,
+      financials: {
+        rabHpp: 2265000,
+        coHpp: 0,
+        totalHpp: 2330000,
+        sellingPriceAwal: 3099998,
+        coRevenue: 0,
+        totalTagihan: 3099998,
+        materialIssuedCost: 1080000,
+        laborActualCost: 1000000,
+        fohActualCost: 250000,
+        totalRealisasiAktual: 2330000,
+        varianceAmount: 0,
+        variancePercentage: 0,
+        isOverbudget: false,
+      },
+      rab_estimations: [
+        { total_estimated_cost: 2265000 }
+      ],
+      rab_items: [],
+      change_orders: [],
+      spk_amendments: [],
+      inventory_transactions: [],
+      material_issues: [],
+      spk_borongan: [],
+      spk_overhead_logs: [],
+    };
+
+    vi.spyOn(dashboardService, 'fetchOwnerDashboardSpks').mockResolvedValue([mockSpk8209 as any]);
+
+    render(<AdminDashboardPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('SPK-8209')).toBeInTheDocument();
+    });
+
+    // Verify Active SPK Monitoring row for SPK-8209
+    expect(screen.getByText('PT Mitra Logistik 8209')).toBeInTheDocument();
+    expect(screen.getByText('L 8209 AA')).toBeInTheDocument();
+
+    // TOTAL HPP displays Rp 2.330.000 (actual COGS), not initial 2.265.000
+    expect(screen.getAllByText(/Rp\s*2\.330\.000/).length).toBeGreaterThanOrEqual(1);
+
+    // Informative badge displayed for price increase
+    expect(screen.getByText(/\(Revisi Belanja \+Rp\s*65\.000\)/)).toBeInTheDocument();
+  });
 });
