@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 export interface Material {
   id: string;
   name: string;
+  barcode?: string | null;
   unit: string;
   unit_price: number;
   cost_price?: number;

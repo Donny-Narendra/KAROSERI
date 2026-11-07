@@ -299,6 +299,7 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
       id: mat.id,
       name: mat.name,
       code: (mat as any).code,
+      barcode: mat.barcode,
       current_stock: mat.current_stock ?? 0,
       unit: mat.unit || 'pcs',
       waste_factor_percentage: mat.waste_factor_percentage,

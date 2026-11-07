@@ -63,16 +63,22 @@ export const ImportInventoryModal: React.FC<ImportInventoryModalProps> = ({ onCl
               return; 
             }
 
+            const rawBarcode = getVal(row, ['Kode Barcode', 'Barcode', 'SKU', 'barcode']);
+            const barcode = rawBarcode !== undefined && rawBarcode !== null ? String(rawBarcode).trim() : undefined;
+
             const unit = getVal(row, ['Satuan (Unit)', 'Satuan', 'unit']) || 'pcs';
             const current_stock = parseFloat(getVal(row, ['Stok Saat Ini', 'current_stock'])) || 0;
             const minStockVal = getVal(row, ['Stok Minimum', 'Stok Min', 'minimum_stock']);
             const minimum_stock = minStockVal !== undefined 
               ? (parseFloat(minStockVal) || 0) 
-              : (existingMaterials.find(m => m.name.toLowerCase() === String(name).toLowerCase())?.minimum_stock || 0);
+              : (existingMaterials.find(m => (barcode && m.barcode && m.barcode.toLowerCase() === barcode.toLowerCase()) || m.name.toLowerCase() === String(name).toLowerCase())?.minimum_stock || 0);
             const unit_price = parseFloat(getVal(row, ['Harga Satuan (Rp)', 'Harga Satuan', 'unit_price'])) || 0;
             const waste_factor_percentage = parseFloat(getVal(row, ['Waste Factor (%)', 'Waste %', 'waste_factor_percentage'])) || 0;
 
-            const existing = existingMaterials.find(m => m.name.toLowerCase() === String(name).toLowerCase());
+            const existing = existingMaterials.find(m => 
+              (barcode && m.barcode && m.barcode.toLowerCase() === barcode.toLowerCase()) ||
+              m.name.toLowerCase() === String(name).toLowerCase()
+            );
 
             if (existing) {
               const hasChanges = 
@@ -80,7 +86,8 @@ export const ImportInventoryModal: React.FC<ImportInventoryModalProps> = ({ onCl
                 existing.current_stock !== current_stock ||
                 existing.minimum_stock !== minimum_stock ||
                 existing.unit_price !== unit_price ||
-                existing.waste_factor_percentage !== waste_factor_percentage;
+                existing.waste_factor_percentage !== waste_factor_percentage ||
+                (barcode !== undefined && (existing.barcode || '') !== barcode);
 
               if (hasChanges) {
                 updates.push({
@@ -89,7 +96,8 @@ export const ImportInventoryModal: React.FC<ImportInventoryModalProps> = ({ onCl
                   current_stock,
                   minimum_stock,
                   unit_price,
-                  waste_factor_percentage
+                  waste_factor_percentage,
+                  ...(barcode !== undefined ? { barcode: barcode || undefined } : {})
                 });
               } else {
                 skips++;
@@ -97,6 +105,7 @@ export const ImportInventoryModal: React.FC<ImportInventoryModalProps> = ({ onCl
             } else {
               inserts.push({
                 name: String(name),
+                ...(barcode ? { barcode } : {}),
                 unit,
                 current_stock,
                 minimum_stock,
@@ -163,7 +172,7 @@ export const ImportInventoryModal: React.FC<ImportInventoryModalProps> = ({ onCl
                 <FileText className="w-10 h-10 text-text-muted mb-3" />
                 <p className="text-text-muted text-sm mb-4">
                   Upload file Excel (.xlsx) dengan kolom: <br/>
-                  <span className="font-mono bg-surface-hover px-1 rounded mt-2 inline-block">ID Material, Nama Bahan, Satuan (Unit), Stok Saat Ini, Harga Satuan (Rp), Waste Factor (%)</span>
+                  <span className="font-mono bg-surface-hover px-1 rounded mt-2 inline-block">ID Material, Kode Barcode, Nama Bahan, Satuan (Unit), Stok Saat Ini, Harga Satuan (Rp), Waste Factor (%)</span>
                 </p>
                 <label className="bg-surface-hover hover:bg-border text-text border border-border px-4 py-2 rounded text-sm font-medium transition cursor-pointer flex items-center gap-2">
                   <Upload className="w-4 h-4" />

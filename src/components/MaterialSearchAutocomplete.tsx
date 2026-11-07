@@ -5,6 +5,7 @@ export interface MaterialOption {
   id: string;
   name: string;
   code?: string;
+  barcode?: string | null;
   unit?: string;
   current_stock?: number;
   waste_factor_percentage?: number;
@@ -49,13 +50,14 @@ export const MaterialSearchAutocomplete: React.FC<MaterialSearchAutocompleteProp
     }
   }, [selectedMaterialId, materials]);
 
-  // Real-time case-insensitive filter by name or code
+  // Real-time case-insensitive filter by name, code, or barcode
   const filteredMaterials = searchQuery
     ? materials.filter((m) => {
         const query = searchQuery.toLowerCase();
         const matchName = m.name.toLowerCase().includes(query);
         const matchCode = m.code ? m.code.toLowerCase().includes(query) : false;
-        return matchName || matchCode;
+        const matchBarcode = m.barcode ? m.barcode.toLowerCase().includes(query) : false;
+        return matchName || matchCode || matchBarcode;
       })
     : materials;
 
@@ -154,6 +156,14 @@ export const MaterialSearchAutocomplete: React.FC<MaterialSearchAutocompleteProp
       }
     } else if (e.key === 'Enter') {
       e.preventDefault();
+      const q = searchQuery.toLowerCase().trim();
+      const exactBarcodeMatch = materials.find(
+        (m) => m.barcode && m.barcode.toLowerCase() === q && !m.has_been_issued
+      );
+      if (exactBarcodeMatch) {
+        handleSelectMaterial(exactBarcodeMatch);
+        return;
+      }
       if (
         highlightedIndex >= 0 &&
         highlightedIndex < filteredMaterials.length
@@ -292,6 +302,11 @@ export const MaterialSearchAutocomplete: React.FC<MaterialSearchAutocompleteProp
                         {mat.code && (
                           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
                             {mat.code}
+                          </span>
+                        )}
+                        {mat.barcode && (
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                            {mat.barcode}
                           </span>
                         )}
                         {mat.is_rab && (

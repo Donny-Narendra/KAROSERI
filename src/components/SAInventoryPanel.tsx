@@ -259,22 +259,29 @@ export const SAInventoryPanel: React.FC = () => {
                     {materials.map(mat => (
                       <tr key={mat.id} className="hover:bg-surface-hover/50">
                         <td className="px-4 py-3 font-medium text-text">
-                          <div className="flex items-center gap-2">
-                            <span>{mat.name}</span>
-                            {mat.item_type === 'LABOR' && (
-                              <span className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/30 px-1.5 py-0.5 rounded font-mono font-bold">
-                                JASA
-                              </span>
-                            )}
-                            {mat.item_type === 'OVERHEAD' && (
-                              <span className="text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/30 px-1.5 py-0.5 rounded font-mono font-bold">
-                                OVERHEAD
-                              </span>
-                            )}
-                            {mat.current_stock <= mat.minimum_stock && (
-                              <span className="flex h-2 w-2 relative">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-status-danger opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-status-danger"></span>
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-2">
+                              <span>{mat.name}</span>
+                              {mat.item_type === 'LABOR' && (
+                                <span className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/30 px-1.5 py-0.5 rounded font-mono font-bold">
+                                  JASA
+                                </span>
+                              )}
+                              {mat.item_type === 'OVERHEAD' && (
+                                <span className="text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/30 px-1.5 py-0.5 rounded font-mono font-bold">
+                                  OVERHEAD
+                                </span>
+                              )}
+                              {mat.current_stock <= mat.minimum_stock && (
+                                <span className="flex h-2 w-2 relative">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-status-danger opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-status-danger"></span>
+                                </span>
+                              )}
+                            </div>
+                            {mat.barcode && (
+                              <span className="text-[10px] font-mono text-amber-400/90 flex items-center gap-1 mt-0.5">
+                                <span className="opacity-70">BARCODE:</span> {mat.barcode}
                               </span>
                             )}
                           </div>

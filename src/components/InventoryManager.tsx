@@ -30,6 +30,7 @@ export const InventoryManager: React.FC = () => {
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [formData, setFormData] = useState<{
     name: string;
+    barcode: string;
     unit: string;
     current_stock: number;
     minimum_stock: number;
@@ -40,6 +41,7 @@ export const InventoryManager: React.FC = () => {
     item_type: 'MATERIAL' | 'LABOR' | 'OVERHEAD';
   }>({
     name: '',
+    barcode: '',
     unit: 'pcs',
     current_stock: 0,
     minimum_stock: 0,
@@ -97,6 +99,7 @@ export const InventoryManager: React.FC = () => {
       setEditingMaterial(material);
       setFormData({
         name: material.name,
+        barcode: material.barcode || '',
         unit: material.unit,
         current_stock: material.current_stock,
         minimum_stock: material.minimum_stock,
@@ -110,6 +113,7 @@ export const InventoryManager: React.FC = () => {
       setEditingMaterial(null);
       setFormData({
         name: '',
+        barcode: '',
         unit: 'pcs',
         current_stock: 0,
         minimum_stock: 0,
@@ -130,6 +134,7 @@ export const InventoryManager: React.FC = () => {
 
     const submitData = {
       ...formData,
+      barcode: formData.barcode ? formData.barcode.trim() : null,
       unit_price: formData.selling_price || formData.unit_price || 0,
       cost_price: formData.cost_price || 0,
       selling_price: formData.selling_price || formData.unit_price || 0,
@@ -215,7 +220,8 @@ export const InventoryManager: React.FC = () => {
   };
 
   const filteredMaterials = materials.filter(m => 
-    m.name.toLowerCase().includes(searchTerm.toLowerCase())
+    m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (m.barcode && m.barcode.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const totalPages = Math.ceil(filteredMaterials.length / itemsPerPage);
@@ -340,21 +346,28 @@ export const InventoryManager: React.FC = () => {
                     />
                   </td>
                   <td className="px-4 py-3 font-medium">
-                    <div className="flex items-center gap-2">
-                      <span>{m.name}</span>
-                      {m.item_type === 'LABOR' && (
-                        <span className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/30 px-1.5 py-0.5 rounded font-mono font-bold">
-                          Jasa (Labor)
-                        </span>
-                      )}
-                      {m.item_type === 'OVERHEAD' && (
-                        <span className="text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/30 px-1.5 py-0.5 rounded font-mono font-bold">
-                          Overhead
-                        </span>
-                      )}
-                      {(!m.item_type || m.item_type === 'MATERIAL') && (
-                        <span className="text-[10px] bg-surface-hover text-text-muted border border-border px-1.5 py-0.5 rounded font-mono">
-                          Material
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-100">{m.name}</span>
+                        {m.item_type === 'LABOR' && (
+                          <span className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/30 px-1.5 py-0.5 rounded font-mono font-bold">
+                            Jasa (Labor)
+                          </span>
+                        )}
+                        {m.item_type === 'OVERHEAD' && (
+                          <span className="text-[10px] bg-purple-500/10 text-purple-400 border border-purple-500/30 px-1.5 py-0.5 rounded font-mono font-bold">
+                            Overhead
+                          </span>
+                        )}
+                        {(!m.item_type || m.item_type === 'MATERIAL') && (
+                          <span className="text-[10px] bg-surface-hover text-text-muted border border-border px-1.5 py-0.5 rounded font-mono">
+                            Material
+                          </span>
+                        )}
+                      </div>
+                      {m.barcode && (
+                        <span className="text-[10px] font-mono text-amber-400/90 flex items-center gap-1 mt-0.5">
+                          <span className="opacity-70">BARCODE:</span> {m.barcode}
                         </span>
                       )}
                     </div>
@@ -447,6 +460,21 @@ export const InventoryManager: React.FC = () => {
             
             <form onSubmit={handleSubmit} className="p-6 overflow-y-auto">
               <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Kode Barcode / SKU <span className="text-slate-500 font-normal">(Opsional / Scan Barcode)</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={formData.barcode || ''}
+                      onChange={(e) => setFormData({ ...formData, barcode: e.target.value.trim() })}
+                      placeholder="Contoh: 899123456789 atau BRG-001"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 font-mono"
+                    />
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="material-name-input" className="block text-sm font-medium text-text-muted mb-1">Nama Barang / Jasa</label>

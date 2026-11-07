@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import type { Material } from '../services/inventoryService';
 
 interface MaterialAutocompleteProps {
@@ -22,10 +22,30 @@ export const MaterialAutocomplete: React.FC<MaterialAutocompleteProps> = ({
   const listRef = useRef<HTMLUListElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Filter materials based on query
-  const filteredMaterials = query
-    ? materials.filter(m => m.name.toLowerCase().includes(query.toLowerCase()))
-    : materials;
+  // Filter materials based on query (name or barcode)
+  const filteredMaterials = useMemo(() => {
+    if (!query.trim()) return materials.slice(0, 50);
+    const q = query.toLowerCase().trim();
+    const matched = materials.filter(m => 
+      m.name?.toLowerCase().includes(q) || 
+      (m.barcode && m.barcode.toLowerCase().includes(q))
+    );
+
+    // Sort so exact barcode match or barcode prefix match appears first
+    return matched.sort((a, b) => {
+      const aBarcodeExact = a.barcode && a.barcode.toLowerCase() === q;
+      const bBarcodeExact = b.barcode && b.barcode.toLowerCase() === q;
+      if (aBarcodeExact && !bBarcodeExact) return -1;
+      if (!aBarcodeExact && bBarcodeExact) return 1;
+
+      const aBarcodeStarts = a.barcode && a.barcode.toLowerCase().startsWith(q);
+      const bBarcodeStarts = b.barcode && b.barcode.toLowerCase().startsWith(q);
+      if (aBarcodeStarts && !bBarcodeStarts) return -1;
+      if (!aBarcodeStarts && bBarcodeStarts) return 1;
+
+      return 0;
+    });
+  }, [materials, query]);
 
   useEffect(() => {
     // Sync initial value changes
@@ -42,9 +62,6 @@ export const MaterialAutocomplete: React.FC<MaterialAutocompleteProps> = ({
     if (isOpen && highlightedIndex >= 0 && listRef.current) {
       const activeItem = listRef.current.children[highlightedIndex] as HTMLElement;
       if (activeItem) {
-        // Option 1: activeItem.scrollIntoView({ block: 'nearest' });
-        // But scrollIntoView can sometimes scroll the whole page if not careful.
-        // Option 2: manual scroll adjustment
         const ul = listRef.current;
         if (activeItem.offsetTop < ul.scrollTop) {
           ul.scrollTop = activeItem.offsetTop;
@@ -55,7 +72,37 @@ export const MaterialAutocomplete: React.FC<MaterialAutocompleteProps> = ({
     }
   }, [highlightedIndex, isOpen]);
 
+  const handleSelect = (material: Material) => {
+    if (clearOnSelect) {
+      setQuery('');
+    } else {
+      setQuery(material.name);
+    }
+    setIsOpen(false);
+    onSelect(material);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      const q = query.toLowerCase().trim();
+      // Cek apakah query persis sama dengan salah satu barcode material
+      const exactBarcodeMatch = materials.find(
+        m => m.barcode && m.barcode.toLowerCase() === q
+      );
+      if (exactBarcodeMatch) {
+        e.preventDefault();
+        handleSelect(exactBarcodeMatch);
+        return;
+      }
+
+      // Fallback navigasi keyboard biasa
+      if (isOpen && highlightedIndex >= 0 && filteredMaterials[highlightedIndex]) {
+        e.preventDefault();
+        handleSelect(filteredMaterials[highlightedIndex]);
+        return;
+      }
+    }
+
     if (!isOpen) {
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         setIsOpen(true);
@@ -69,24 +116,9 @@ export const MaterialAutocomplete: React.FC<MaterialAutocompleteProps> = ({
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setHighlightedIndex(prev => (prev - 1 + filteredMaterials.length) % filteredMaterials.length);
-    } else if (e.key === 'Enter') {
-      e.preventDefault(); // Prevent form submission
-      if (highlightedIndex >= 0 && highlightedIndex < filteredMaterials.length) {
-        handleSelect(filteredMaterials[highlightedIndex]);
-      }
     } else if (e.key === 'Escape') {
       setIsOpen(false);
     }
-  };
-
-  const handleSelect = (material: Material) => {
-    if (clearOnSelect) {
-      setQuery('');
-    } else {
-      setQuery(material.name);
-    }
-    setIsOpen(false);
-    onSelect(material);
   };
 
   const handleBlur = () => {
@@ -137,9 +169,16 @@ export const MaterialAutocomplete: React.FC<MaterialAutocompleteProps> = ({
                   isHighlighted ? 'bg-primary/20 text-primary font-medium' : 'text-text hover:bg-surface-hover'
                 }`}
               >
-                <div className="flex justify-between items-center">
-                  <span>{material.name}</span>
-                  <span className="text-xs text-text-muted font-mono bg-background px-1.5 py-0.5 rounded">
+                <div className="flex justify-between items-center py-0.5">
+                  <div>
+                    <span className="font-medium text-slate-200 block">{material.name}</span>
+                    {material.barcode && (
+                      <span className="text-[10px] font-mono text-amber-400 block mt-0.5">
+                        Kode: {material.barcode}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs text-text-muted font-mono bg-background px-1.5 py-0.5 rounded shrink-0">
                     Stok: {material.current_stock} {material.unit}
                   </span>
                 </div>
