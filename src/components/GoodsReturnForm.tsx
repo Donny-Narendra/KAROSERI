@@ -49,27 +49,28 @@ export const GoodsReturnForm: React.FC<GoodsReturnFormProps> = ({ onSuccess }) =
   const fetchIssuedMaterials = async (spkId: string) => {
     const { data: invData, error: invError } = await supabase
       .from('inventory_transactions')
-      .select('material_id, quantity_issued, materials(id, name, unit)')
+      .select('material_id, quantity_issued, materials(id, name, unit, barcode)')
       .eq('spk_id', spkId);
 
     if (invError) {
       console.error('Error fetching inventory:', invError);
       setIssuedMaterials([]);
     } else if (invData) {
-      const totals: Record<string, { total_issued: number; name: string; unit: string }> = {};
+      const totals: Record<string, { total_issued: number; name: string; unit: string; barcode?: string | null }> = {};
       invData.forEach((tx: any) => {
         if (!totals[tx.material_id]) {
           totals[tx.material_id] = {
             total_issued: 0,
             name: tx.materials?.name || 'Unknown',
-            unit: tx.materials?.unit || 'unit'
+            unit: tx.materials?.unit || 'unit',
+            barcode: tx.materials?.barcode || null
           };
         }
         totals[tx.material_id].total_issued += Number(tx.quantity_issued);
       });
       
       const issuedArr: IssuedMaterialItem[] = Object.entries(totals)
-        .map(([id, info]) => ({ material_id: id, ...info }))
+        .map(([id, info]) => ({ material_id: id, id, ...info }))
         .filter(m => m.total_issued > 0);
         
       setIssuedMaterials(issuedArr);

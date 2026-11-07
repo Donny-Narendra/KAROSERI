@@ -36,7 +36,10 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
   }, []);
 
   const fetchMasterMaterials = async () => {
-    const { data } = await supabase.from('materials').select('id, name, current_stock, unit').order('name');
+    const { data } = await supabase
+      .from('materials')
+      .select('id, name, barcode, unit, current_stock, cost_price, selling_price')
+      .order('name');
     if (data) setMasterMaterials(data);
   };
 
@@ -61,7 +64,10 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
 
   const fetchRabAndInventory = async (spkId: string) => {
     // Fetch master materials first for tolerant matching
-    const { data: masterData } = await supabase.from('materials').select('id, name, current_stock, unit, waste_factor_percentage').order('name');
+    const { data: masterData } = await supabase
+      .from('materials')
+      .select('id, name, barcode, unit, current_stock, cost_price, selling_price, waste_factor_percentage')
+      .order('name');
     if (masterData) setMasterMaterials(masterData);
 
     const { data: rabData } = await supabase
@@ -302,6 +308,8 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
       barcode: mat.barcode,
       current_stock: mat.current_stock ?? 0,
       unit: mat.unit || 'pcs',
+      cost_price: mat.cost_price,
+      selling_price: mat.selling_price,
       waste_factor_percentage: mat.waste_factor_percentage,
       is_rab: isRab,
       has_been_issued: hasBeenIssued,

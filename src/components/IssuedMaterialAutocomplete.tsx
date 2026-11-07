@@ -1,11 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, ChevronDown, X, Package } from 'lucide-react';
+import { searchMaterials, findExactBarcodeMatch } from '../utils/materialSearch';
 
 export interface IssuedMaterialItem {
+  id?: string;
   material_id: string;
   name: string;
+  barcode?: string | null;
   total_issued: number;
   unit?: string;
+  [key: string]: any;
 }
 
 interface IssuedMaterialAutocompleteProps {
@@ -22,7 +26,7 @@ export const IssuedMaterialAutocomplete: React.FC<IssuedMaterialAutocompleteProp
   selectedMaterialId,
   onSelect,
   disabled = false,
-  placeholder = 'Ketik nama material yang telah dikeluarkan...',
+  placeholder = 'Ketik nama atau scan barcode material...',
   onEnterFocusNext
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -45,12 +49,10 @@ export const IssuedMaterialAutocomplete: React.FC<IssuedMaterialAutocompleteProp
     }
   }, [selectedMaterialId, materials]);
 
-  // Real-time case-insensitive filter
-  const filteredMaterials = searchQuery
-    ? materials.filter((m) =>
-        m.name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : materials;
+  // Real-time case-insensitive filter by name or barcode
+  const filteredMaterials = useMemo(() => {
+    return searchMaterials(materials, searchQuery);
+  }, [materials, searchQuery]);
 
   // Reset highlight index when query changes or list opens/closes
   useEffect(() => {
@@ -144,6 +146,11 @@ export const IssuedMaterialAutocomplete: React.FC<IssuedMaterialAutocompleteProp
       }
     } else if (e.key === 'Enter') {
       e.preventDefault();
+      const exactBarcodeMatch = findExactBarcodeMatch(materials, searchQuery);
+      if (exactBarcodeMatch) {
+        handleSelectMaterial(exactBarcodeMatch);
+        return;
+      }
       if (
         highlightedIndex >= 0 &&
         highlightedIndex < filteredMaterials.length
@@ -262,14 +269,19 @@ export const IssuedMaterialAutocomplete: React.FC<IssuedMaterialAutocompleteProp
                         }`}
                       />
                       <div className="truncate">
-                        <span className="font-medium text-sm block truncate">
+                        <span className="font-semibold text-slate-100 block truncate">
                           {mat.name}
                         </span>
+                        {mat.barcode && (
+                          <span className="text-[10px] font-mono text-amber-400 bg-amber-950/60 border border-amber-500/30 px-1.5 py-0.2 rounded mt-0.5 inline-block">
+                            BARCODE: {mat.barcode}
+                          </span>
+                        )}
                       </div>
                     </div>
 
                     <div className="shrink-0 flex items-center">
-                      <span className="text-xs font-mono px-2 py-0.5 rounded bg-slate-800 text-orange-300/90 border border-slate-700/80">
+                      <span className="text-xs font-mono text-slate-400">
                         Issued: {mat.total_issued} {mat.unit || 'unit'}
                       </span>
                     </div>

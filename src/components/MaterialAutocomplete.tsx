@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import type { Material } from '../services/inventoryService';
+import { searchMaterials, findExactBarcodeMatch } from '../utils/materialSearch';
 
 interface MaterialAutocompleteProps {
   materials: Material[];
@@ -22,29 +23,9 @@ export const MaterialAutocomplete: React.FC<MaterialAutocompleteProps> = ({
   const listRef = useRef<HTMLUListElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Filter materials based on query (name or barcode)
+  // Filter materials based on query (name or barcode) using universal helper
   const filteredMaterials = useMemo(() => {
-    if (!query.trim()) return materials.slice(0, 50);
-    const q = query.toLowerCase().trim();
-    const matched = materials.filter(m => 
-      m.name?.toLowerCase().includes(q) || 
-      (m.barcode && m.barcode.toLowerCase().includes(q))
-    );
-
-    // Sort so exact barcode match or barcode prefix match appears first
-    return matched.sort((a, b) => {
-      const aBarcodeExact = a.barcode && a.barcode.toLowerCase() === q;
-      const bBarcodeExact = b.barcode && b.barcode.toLowerCase() === q;
-      if (aBarcodeExact && !bBarcodeExact) return -1;
-      if (!aBarcodeExact && bBarcodeExact) return 1;
-
-      const aBarcodeStarts = a.barcode && a.barcode.toLowerCase().startsWith(q);
-      const bBarcodeStarts = b.barcode && b.barcode.toLowerCase().startsWith(q);
-      if (aBarcodeStarts && !bBarcodeStarts) return -1;
-      if (!aBarcodeStarts && bBarcodeStarts) return 1;
-
-      return 0;
-    });
+    return searchMaterials(materials, query);
   }, [materials, query]);
 
   useEffect(() => {
@@ -84,11 +65,8 @@ export const MaterialAutocomplete: React.FC<MaterialAutocompleteProps> = ({
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      const q = query.toLowerCase().trim();
-      // Cek apakah query persis sama dengan salah satu barcode material
-      const exactBarcodeMatch = materials.find(
-        m => m.barcode && m.barcode.toLowerCase() === q
-      );
+      // Cek apakah query persis sama dengan salah satu barcode material (instant scanner match)
+      const exactBarcodeMatch = findExactBarcodeMatch(materials, query);
       if (exactBarcodeMatch) {
         e.preventDefault();
         handleSelect(exactBarcodeMatch);
@@ -99,6 +77,10 @@ export const MaterialAutocomplete: React.FC<MaterialAutocompleteProps> = ({
       if (isOpen && highlightedIndex >= 0 && filteredMaterials[highlightedIndex]) {
         e.preventDefault();
         handleSelect(filteredMaterials[highlightedIndex]);
+        return;
+      } else if (isOpen && filteredMaterials.length === 1) {
+        e.preventDefault();
+        handleSelect(filteredMaterials[0]);
         return;
       }
     }
@@ -169,16 +151,16 @@ export const MaterialAutocomplete: React.FC<MaterialAutocompleteProps> = ({
                   isHighlighted ? 'bg-primary/20 text-primary font-medium' : 'text-text hover:bg-surface-hover'
                 }`}
               >
-                <div className="flex justify-between items-center py-0.5">
+                <div className="flex justify-between items-center py-2 px-3">
                   <div>
-                    <span className="font-medium text-slate-200 block">{material.name}</span>
+                    <span className="font-semibold text-slate-100 block">{material.name}</span>
                     {material.barcode && (
-                      <span className="text-[10px] font-mono text-amber-400 block mt-0.5">
-                        Kode: {material.barcode}
+                      <span className="text-[10px] font-mono text-amber-400 bg-amber-950/60 border border-amber-500/30 px-1.5 py-0.2 rounded mt-0.5 inline-block">
+                        BARCODE: {material.barcode}
                       </span>
                     )}
                   </div>
-                  <span className="text-xs text-text-muted font-mono bg-background px-1.5 py-0.5 rounded shrink-0">
+                  <span className="text-xs font-mono text-slate-400">
                     Stok: {material.current_stock} {material.unit}
                   </span>
                 </div>

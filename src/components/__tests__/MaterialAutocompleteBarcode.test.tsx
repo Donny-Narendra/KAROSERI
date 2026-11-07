@@ -61,7 +61,7 @@ describe('Component: MaterialAutocomplete (Barcode Field & Instant Scan Detectio
 
     // Option should be visible
     expect(screen.getByText('BAUT 12 3CM')).toBeInTheDocument();
-    expect(screen.getByText('Kode: 899000123')).toBeInTheDocument();
+    expect(screen.getByText('BARCODE: 899000123')).toBeInTheDocument();
     // Non-matching item should not be visible
     expect(screen.queryByText('PLAT BESI 2MM')).not.toBeInTheDocument();
   });

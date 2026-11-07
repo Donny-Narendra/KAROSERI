@@ -76,7 +76,7 @@ export const RestockModal: React.FC<RestockModalProps> = ({ isOpen, onClose, onS
                 key={isOpen ? 'open' : 'closed'} // Force remount to reset internal state when reopened
                 materials={materials}
                 onSelect={(m) => setSelectedMaterial(m)}
-                placeholder="Ketik nama material..."
+                placeholder="Ketik nama atau scan barcode material..."
                 initialValue={selectedMaterial ? selectedMaterial.name : ''}
               />
             </div>

@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Search, ChevronDown, X, Package } from 'lucide-react';
+import { searchMaterials, findExactBarcodeMatch } from '../utils/materialSearch';
 
 export interface MaterialOption {
   id: string;
@@ -8,6 +9,8 @@ export interface MaterialOption {
   barcode?: string | null;
   unit?: string;
   current_stock?: number;
+  cost_price?: number;
+  selling_price?: number;
   waste_factor_percentage?: number;
   is_rab?: boolean;
   has_been_issued?: boolean;
@@ -50,16 +53,10 @@ export const MaterialSearchAutocomplete: React.FC<MaterialSearchAutocompleteProp
     }
   }, [selectedMaterialId, materials]);
 
-  // Real-time case-insensitive filter by name, code, or barcode
-  const filteredMaterials = searchQuery
-    ? materials.filter((m) => {
-        const query = searchQuery.toLowerCase();
-        const matchName = m.name.toLowerCase().includes(query);
-        const matchCode = m.code ? m.code.toLowerCase().includes(query) : false;
-        const matchBarcode = m.barcode ? m.barcode.toLowerCase().includes(query) : false;
-        return matchName || matchCode || matchBarcode;
-      })
-    : materials;
+  // Filter materials using universal search helper (name, code, or barcode)
+  const filteredMaterials = useMemo(() => {
+    return searchMaterials(materials, searchQuery);
+  }, [materials, searchQuery]);
 
   // Reset highlight index when query changes or list opens/closes
   useEffect(() => {
@@ -156,11 +153,8 @@ export const MaterialSearchAutocomplete: React.FC<MaterialSearchAutocompleteProp
       }
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      const q = searchQuery.toLowerCase().trim();
-      const exactBarcodeMatch = materials.find(
-        (m) => m.barcode && m.barcode.toLowerCase() === q && !m.has_been_issued
-      );
-      if (exactBarcodeMatch) {
+      const exactBarcodeMatch = findExactBarcodeMatch(materials, searchQuery);
+      if (exactBarcodeMatch && !exactBarcodeMatch.has_been_issued) {
         handleSelectMaterial(exactBarcodeMatch);
         return;
       }
@@ -295,35 +289,39 @@ export const MaterialSearchAutocomplete: React.FC<MaterialSearchAutocompleteProp
                             : 'text-slate-400'
                         }`}
                       />
-                      <div className="truncate flex items-center gap-2">
-                        <span className="font-medium text-sm truncate">
-                          {mat.name}
-                        </span>
-                        {mat.code && (
-                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                            {mat.code}
+                      <div className="truncate">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-slate-100 block truncate">
+                            {mat.name}
                           </span>
-                        )}
-                        {mat.barcode && (
-                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30">
-                            {mat.barcode}
-                          </span>
-                        )}
-                        {mat.is_rab && (
-                          <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                            RAB
-                          </span>
-                        )}
-                        {mat.has_been_issued && (
-                          <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/30">
-                            Sudah Diambil
-                          </span>
-                        )}
+                          {mat.is_rab && (
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                              RAB
+                            </span>
+                          )}
+                          {mat.has_been_issued && (
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/30">
+                              Sudah Diambil
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {mat.barcode && (
+                            <span className="text-[10px] font-mono text-amber-400 bg-amber-950/60 border border-amber-500/30 px-1.5 py-0.2 rounded inline-block">
+                              BARCODE: {mat.barcode}
+                            </span>
+                          )}
+                          {mat.code && (
+                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700 inline-block">
+                              {mat.code}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
                     <div className="shrink-0 flex items-center">
-                      <span className="text-xs font-mono px-2 py-0.5 rounded bg-slate-800 text-orange-300/90 border border-slate-700/80">
+                      <span className="text-xs font-mono text-slate-400">
                         Stok: {mat.current_stock ?? 0} {mat.unit || ''}
                       </span>
                     </div>
