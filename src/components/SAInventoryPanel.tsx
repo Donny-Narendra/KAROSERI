@@ -83,6 +83,7 @@ export const SAInventoryPanel: React.FC = () => {
       cost_price: mat.cost_price !== undefined ? mat.cost_price : Math.round(mat.unit_price * 0.8),
       selling_price: mat.selling_price !== undefined ? mat.selling_price : mat.unit_price,
       name: mat.name,
+      barcode: mat.barcode || '',
       unit: mat.unit,
       minimum_stock: mat.minimum_stock,
       item_type: mat.item_type || 'MATERIAL',
@@ -106,6 +107,7 @@ export const SAInventoryPanel: React.FC = () => {
     try {
       const submitData = {
         ...formData,
+        barcode: formData.barcode ? formData.barcode.trim() : null,
         unit_price: formData.selling_price || formData.unit_price || 0,
         cost_price: formData.cost_price || 0,
         selling_price: formData.selling_price || formData.unit_price || 0
@@ -121,7 +123,8 @@ export const SAInventoryPanel: React.FC = () => {
         selling_price: selectedMaterial.selling_price,
         name: selectedMaterial.name,
         unit: selectedMaterial.unit,
-        minimum_stock: selectedMaterial.minimum_stock
+        minimum_stock: selectedMaterial.minimum_stock,
+        barcode: selectedMaterial.barcode
       };
 
       await inventoryService.updateMaterialWithAudit(
@@ -248,6 +251,7 @@ export const SAInventoryPanel: React.FC = () => {
                   <thead className="bg-surface-hover text-text-muted font-mono text-xs uppercase">
                     <tr>
                       <th className="px-4 py-3 rounded-tl-lg">Nama Material</th>
+                      <th className="px-4 py-3 text-left">BARCODE</th>
                       <th className="px-4 py-3">Stok</th>
                       <th className="px-4 py-3">Harga Modal (HPP)</th>
                       <th className="px-4 py-3">Harga Jual</th>
@@ -279,12 +283,16 @@ export const SAInventoryPanel: React.FC = () => {
                                 </span>
                               )}
                             </div>
-                            {mat.barcode && (
-                              <span className="text-[10px] font-mono text-amber-400/90 flex items-center gap-1 mt-0.5">
-                                <span className="opacity-70">BARCODE:</span> {mat.barcode}
-                              </span>
-                            )}
                           </div>
+                        </td>
+                        <td className="px-4 py-3 align-middle">
+                          {mat.barcode ? (
+                            <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-slate-900 text-amber-300 border border-amber-500/30 whitespace-nowrap">
+                              {mat.barcode}
+                            </span>
+                          ) : (
+                            <span className="text-slate-500 text-xs font-mono">-</span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <span className={`font-mono ${mat.current_stock <= mat.minimum_stock ? 'text-status-danger font-bold' : ''}`}>
@@ -604,6 +612,18 @@ export const SAInventoryPanel: React.FC = () => {
                         <option value="OVERHEAD">Overhead (Utilitas/Bay)</option>
                       </select>
                     </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-text-muted mb-1">
+                      Barcode
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Contoh: 899123456789 atau BRG-001"
+                      value={formData.barcode || ''}
+                      onChange={e => setFormData({...formData, barcode: e.target.value})}
+                      className="w-full bg-background border border-border rounded px-3 py-2 text-text font-mono focus:border-primary focus:outline-none transition"
+                    />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
