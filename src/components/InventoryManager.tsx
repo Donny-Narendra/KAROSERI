@@ -316,6 +316,7 @@ export const InventoryManager: React.FC = () => {
                 />
               </th>
               <th className="px-4 py-3">Nama Bahan</th>
+              <th className="px-4 py-3 text-left">BARCODE</th>
               <th className="px-4 py-3">Satuan</th>
               <th className="px-4 py-3 text-right">Stok Saat Ini</th>
               <th className="px-4 py-3 text-right">Stok Min</th>
@@ -328,11 +329,11 @@ export const InventoryManager: React.FC = () => {
           <tbody className="divide-y divide-border">
             {loading ? (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-text-muted">Loading data...</td>
+                <td colSpan={10} className="px-4 py-8 text-center text-text-muted">Loading data...</td>
               </tr>
             ) : filteredMaterials.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-text-muted">Tidak ada material ditemukan.</td>
+                <td colSpan={10} className="px-4 py-8 text-center text-text-muted">Tidak ada material ditemukan.</td>
               </tr>
             ) : (
               paginatedMaterials.map((m) => (
@@ -365,12 +366,16 @@ export const InventoryManager: React.FC = () => {
                           </span>
                         )}
                       </div>
-                      {m.barcode && (
-                        <span className="text-[10px] font-mono text-amber-400/90 flex items-center gap-1 mt-0.5">
-                          <span className="opacity-70">BARCODE:</span> {m.barcode}
-                        </span>
-                      )}
                     </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    {m.barcode ? (
+                      <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-slate-900 text-amber-300 border border-amber-500/30 whitespace-nowrap">
+                        {m.barcode}
+                      </span>
+                    ) : (
+                      <span className="text-slate-500 text-xs font-mono">-</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-text-muted">{m.unit}</td>
                   <td className={`px-4 py-3 text-right font-mono ${m.current_stock <= m.minimum_stock ? 'text-status-danger font-bold' : ''}`}>

@@ -56,8 +56,9 @@ describe('Component: InventoryManager (Barcode Field Integration)', () => {
       expect(screen.getByText('BAUT 12 3CM')).toBeInTheDocument();
     });
 
+    expect(screen.getByText('BARCODE')).toBeInTheDocument();
     expect(screen.getByText('899000123')).toBeInTheDocument();
-    expect(screen.getByText('BARCODE:')).toBeInTheDocument();
+    expect(screen.getByText('-')).toBeInTheDocument();
   });
 
   it('filters table by barcode search term', async () => {
@@ -149,3 +150,4 @@ describe('Component: InventoryManager (Barcode Field Integration)', () => {
     });
   });
 });
+
