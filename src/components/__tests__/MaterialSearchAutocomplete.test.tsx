@@ -116,3 +116,4 @@ describe('Component: MaterialSearchAutocomplete (Dual-Mode Search & Scanner Ente
     );
   });
 });
+

@@ -85,3 +85,4 @@ describe('Universal materialSearch helper', () => {
     expect(emptyMatch).toBeUndefined();
   });
 });
+

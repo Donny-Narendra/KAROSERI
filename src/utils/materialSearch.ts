@@ -66,3 +66,4 @@ export function findExactBarcodeMatch<T extends SearchableMaterial>(
   const q = rawQuery.toLowerCase().trim();
   return materials.find(m => m.barcode && m.barcode.toLowerCase() === q);
 }
+
