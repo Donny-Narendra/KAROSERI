@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
   BarChart3, AlertTriangle, ShieldCheck, Factory, LogOut, Package,
-  Settings, Bell, Check, X, Search, RotateCcw, FileSpreadsheet, Ban, TrendingUp, BookOpen 
+  Settings, Bell, Check, X, Search, RotateCcw, FileSpreadsheet, Ban, TrendingUp, BookOpen,
+  Archive, ShieldAlert
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { PackageManager } from '../components/PackageManager';
@@ -13,6 +14,7 @@ import { CancelledSpkAuditLog } from '../components/CancelledSpkAuditLog';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { dashboardService, type DashboardSpkItem } from '../services/dashboardService';
 import { ResetSimulationModal } from '../components/owner/ResetSimulationModal';
+import { SpkIsolationManagerModal } from '../components/dashboard/SpkIsolationManagerModal';
 
 export const AdminDashboardPage: React.FC = () => {
   const { t } = useTranslation();
@@ -38,6 +40,10 @@ export const AdminDashboardPage: React.FC = () => {
   // Modal State untuk Ekspor Laporan
   const [showExportModal, setShowExportModal] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [isIsolationModalOpen, setIsIsolationModalOpen] = useState(false);
+
+  // State Filter SPK Uji Coba / Arsip
+  const [showArchivedTest, setShowArchivedTest] = useState(false);
 
   // Modal Feedback / Notifikasi Umum
   const [feedbackModal, setFeedbackModal] = useState<{
@@ -52,21 +58,21 @@ export const AdminDashboardPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'PENDING_QC' | 'OVERBUDGET' | 'CANCELLED'>('ALL');
   const [actionLoading, setActionLoading] = useState(false);
 
-  useEffect(() => {
-    fetchSpks();
-  }, []);
-
-  const fetchSpks = async () => {
+  const fetchSpks = React.useCallback(async () => {
     setLoading(true);
     try {
-      const data = await dashboardService.fetchOwnerDashboardSpks();
+      const data = await dashboardService.fetchOwnerDashboardSpks({ showHidden: showArchivedTest });
       setSpks(data);
     } catch (error) {
       console.error('Error fetching SPKs:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [showArchivedTest]);
+
+  useEffect(() => {
+    fetchSpks();
+  }, [fetchSpks]);
 
   const handleApprovalActionConfirm = async () => {
     if (!pendingActionTarget) return;
@@ -336,14 +342,24 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
           <div className="flex items-center gap-2.5 shrink-0">
             {profile?.role === 'owner' && (
-              <button
-                onClick={() => setIsResetModalOpen(true)}
-                className="px-3 py-1.5 bg-rose-950/80 hover:bg-rose-900 border border-rose-700/60 text-rose-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
-                title="Khusus Owner: Reset data transaksi untuk mengulang simulasi"
-              >
-                <span>⚠️</span>
-                <span>Reset Simulasi Transaksi</span>
-              </button>
+              <>
+                <button
+                  onClick={() => setIsIsolationModalOpen(true)}
+                  className="px-3 py-1.5 bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700/60 text-indigo-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                  title="Khusus Owner: Kelola Isolasi & Penyembunyian SPK Uji Coba"
+                >
+                  <ShieldAlert className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Isolasi SPK Uji Coba</span>
+                </button>
+                <button
+                  onClick={() => setIsResetModalOpen(true)}
+                  className="px-3 py-1.5 bg-rose-950/80 hover:bg-rose-900 border border-rose-700/60 text-rose-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                  title="Khusus Owner: Reset data transaksi untuk mengulang simulasi"
+                >
+                  <span>⚠️</span>
+                  <span>Reset Simulasi Transaksi</span>
+                </button>
+              </>
             )}
             <div className="bg-primary/20 text-primary text-xs font-mono px-2 py-1 rounded">
               {t('admin.live_telemetry')}
@@ -514,6 +530,34 @@ export const AdminDashboardPage: React.FC = () => {
                 </button>
               )}
 
+              {/* Toggle Tampilkan SPK Uji Coba / Arsip */}
+              <button
+                type="button"
+                onClick={() => setShowArchivedTest(!showArchivedTest)}
+                className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition flex items-center gap-1.5 shadow-xs cursor-pointer ${
+                  showArchivedTest
+                    ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                    : 'bg-surface border-border text-text-muted hover:text-text hover:border-border-hover'
+                }`}
+                title={showArchivedTest ? 'Sembunyikan SPK Uji Coba / Arsip' : 'Tampilkan SPK Uji Coba / Arsip'}
+              >
+                <Archive className="w-3.5 h-3.5 text-amber-400" />
+                <span>{showArchivedTest ? 'Sembunyikan SPK Uji Coba' : 'Tampilkan SPK Uji Coba / Arsip'}</span>
+              </button>
+
+              {/* Tombol Buka Modal Kelola Isolasi SPK (Khusus Owner) */}
+              {profile?.role === 'owner' && (
+                <button
+                  type="button"
+                  onClick={() => setIsIsolationModalOpen(true)}
+                  className="px-3 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/30 hover:bg-indigo-500/20 text-indigo-300 text-xs font-medium transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  title="Kelola Isolasi & Penyembunyian SPK Uji Coba"
+                >
+                  <ShieldAlert className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Kelola Isolasi SPK</span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() => setShowExportModal(true)}
@@ -567,15 +611,22 @@ export const AdminDashboardPage: React.FC = () => {
                     const fin = spk.financials || dashboardService.calculateSpkFinancialMetrics(spk);
                     const totalHpp = Number(spk.total_cogs || spk.total_hpp || fin.totalHpp || spk.total_estimated_cost || 0);
                     const totalTagihan = Number(spk.total_tagihan || fin.totalTagihan || 0);
-                    const materialIssuedCost = fin.materialIssuedCost;
-                    const laborActualCost = fin.laborActualCost;
-                    const fohActualCost = fin.fohActualCost;
-                    const totalRealisasiAktual = fin.totalRealisasiAktual;
+                    const materialIssuedCost = Number(fin?.materialIssuedCost || 0);
+                    const laborActualCost = Number(fin?.laborActualCost || 0);
+                    const fohActualCost = Number(fin?.fohActualCost || 0);
+                    const totalRealisasiAktual = Number(fin?.totalRealisasiAktual || 0);
 
                     return (
                       <tr key={spk.id} className="hover:bg-surface-hover/50 transition">
                         <td className="px-4 py-3 font-mono font-medium">
-                          <div>{spk.spk_no}</div>
+                          <div className="flex items-center gap-1.5">
+                            <span>{spk.spk_no}</span>
+                            {(spk.is_hidden || spk.is_test) && (
+                              <span className="text-[9px] font-mono font-semibold px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                                TERISOLASI
+                              </span>
+                            )}
+                          </div>
                           {spk.vehicle_plate && (
                             <div className="text-xs text-text-muted font-normal">{spk.vehicle_plate}</div>
                           )}
@@ -908,6 +959,17 @@ export const AdminDashboardPage: React.FC = () => {
           variant={feedbackModal.variant}
           onConfirm={() => setFeedbackModal(null)}
           onCancel={() => setFeedbackModal(null)}
+        />
+      )}
+
+      {/* Modal Manajemen Isolasi SPK (Khusus Owner) */}
+      {profile?.role === 'owner' && (
+        <SpkIsolationManagerModal
+          isOpen={isIsolationModalOpen}
+          onClose={() => setIsIsolationModalOpen(false)}
+          onSuccess={() => {
+            fetchSpks();
+          }}
         />
       )}
 

@@ -44,5 +44,10 @@ export interface Spk {
   final_revenue?: number | null;
   final_cogs?: number | null;
   final_profit?: number | null;
+  is_test?: boolean;
+  is_hidden?: boolean;
+  hidden_at?: string | null;
+  hidden_by?: string | null;
+  hidden_reason?: string | null;
   [key: string]: any;
 }

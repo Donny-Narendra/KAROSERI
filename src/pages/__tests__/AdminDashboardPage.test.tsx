@@ -150,4 +150,58 @@ describe('Page: AdminDashboardPage (Consolidated WIP & Costing Verification)', (
     // Informative badge displayed for price increase
     expect(screen.getByText(/\(Revisi Belanja \+Rp\s*65\.000\)/)).toBeInTheDocument();
   });
+
+  it('renders toggle button for test/archived SPK and triggers fetchOwnerDashboardSpks with options', async () => {
+    const fetchSpy = vi.spyOn(dashboardService, 'fetchOwnerDashboardSpks').mockResolvedValue([]);
+
+    const { fireEvent } = await import('@testing-library/react');
+    render(<AdminDashboardPage />);
+
+    expect(fetchSpy).toHaveBeenCalledWith({ showHidden: false });
+
+    const toggleBtn = screen.getByRole('button', { name: /Tampilkan SPK Uji Coba \/ Arsip/i });
+    expect(toggleBtn).toBeInTheDocument();
+
+    fireEvent.click(toggleBtn);
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledWith({ showHidden: true });
+    });
+  });
+
+  it('renders "Kelola Isolasi SPK" for Owner and displays TERISOLASI badge for hidden/test SPK', async () => {
+    const mockIsolatedSpk = {
+      id: 'spk-iso-1',
+      spk_no: 'SPK-TEST-99',
+      customer_name: 'Simulasi Customer',
+      vehicle_plate: 'TEST 123',
+      status: 'ACTIVE',
+      is_hidden: true,
+      is_test: true,
+      total_hpp: 1000000,
+      total_tagihan: 2000000,
+      financials: { totalHpp: 1000000, totalTagihan: 2000000 },
+    };
+
+    vi.spyOn(dashboardService, 'fetchOwnerDashboardSpks').mockResolvedValue([mockIsolatedSpk as any]);
+
+    const { fireEvent } = await import('@testing-library/react');
+    render(<AdminDashboardPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('SPK-TEST-99')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('TERISOLASI')).toBeInTheDocument();
+
+    // Owner isolation management button
+    const manageBtns = screen.getAllByRole('button', { name: /Kelola Isolasi SPK|Isolasi SPK Uji Coba/i });
+    expect(manageBtns.length).toBeGreaterThan(0);
+
+    fireEvent.click(manageBtns[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Manajemen Isolasi SPK \(Soft-Isolation\)/i)).toBeInTheDocument();
+    });
+  });
 });

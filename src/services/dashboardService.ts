@@ -44,6 +44,11 @@ export interface DashboardSpkItem {
     full_name: string;
     role: string;
   } | null;
+  is_test?: boolean;
+  is_hidden?: boolean;
+  hidden_at?: string | null;
+  hidden_by?: string | null;
+  hidden_reason?: string | null;
   [key: string]: any;
   rab_estimations?: any[];
   rab_items?: any[];
@@ -276,7 +281,7 @@ export const dashboardService = {
   /**
    * Mengambil daftar SPK untuk Owner Dashboard beserta agregasi metrik finansial lengkap
    */
-  async fetchOwnerDashboardSpks(): Promise<DashboardSpkItem[]> {
+  async fetchOwnerDashboardSpks(options?: { showHidden?: boolean }): Promise<DashboardSpkItem[]> {
     let spkRows: any[] = [];
     let packagesList: any[] = [];
 
@@ -290,7 +295,7 @@ export const dashboardService = {
     }
 
     // Coba query komprehensif relasi terlebih dahulu
-    const { data, error } = await supabase.from('spk').select(`
+    let query = supabase.from('spk').select(`
       *,
       cancelled_by_profile:profiles!cancelled_by ( id, full_name, role ),
       rab_estimations ( id, total_estimated_cost, total_labor_cost, total_overhead_cost ),
@@ -323,17 +328,33 @@ export const dashboardService = {
       spk_borongan ( id, contract_value, total_amount, status ),
       spk_overhead_logs ( id, total_amount, frequency_qty, rate_per_unit ),
       invoices ( id, status, total_amount, dp_amount )
-    `).order('created_at', { ascending: false });
+    `);
+
+    if (!options?.showHidden) {
+      if (typeof (query as any).eq === 'function') {
+        query = (query as any).eq('is_hidden', false);
+      }
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
       console.warn('Comprehensive SPK fetch encountered issue, falling back to progressive query:', error.message);
-      const fallbackRes = await supabase.from('spk').select(`
+      let fallbackQuery = supabase.from('spk').select(`
         *,
         cancelled_by_profile:profiles!cancelled_by ( id, full_name, role ),
         rab_estimations ( id, total_estimated_cost, total_labor_cost, total_overhead_cost ),
         inventory_transactions ( quantity_issued, custom_unit_price, materials ( unit_price, is_customer_supplied ) ),
         spk_amendments ( id, description, cost_adjustment, status, created_at, spk_id )
-      `).order('created_at', { ascending: false });
+      `);
+
+      if (!options?.showHidden) {
+        if (typeof (fallbackQuery as any).eq === 'function') {
+          fallbackQuery = (fallbackQuery as any).eq('is_hidden', false);
+        }
+      }
+
+      const fallbackRes = await fallbackQuery.order('created_at', { ascending: false });
 
       if (fallbackRes.error) {
         console.error('Fatal error fetching SPKs:', fallbackRes.error);
@@ -484,8 +505,8 @@ export const dashboardService = {
   /**
    * Alias fetchActiveSpkMonitoring for owner dashboard monitoring
    */
-  async fetchActiveSpkMonitoring(): Promise<DashboardSpkItem[]> {
-    return this.fetchOwnerDashboardSpks();
+  async fetchActiveSpkMonitoring(options?: { showHidden?: boolean }): Promise<DashboardSpkItem[]> {
+    return this.fetchOwnerDashboardSpks(options);
   },
 };
 

@@ -59,6 +59,11 @@ export interface SpkRecord {
   qc_status?: string;
   customer_phone?: string | null;
   released_at?: string | null;
+  is_test?: boolean;
+  is_hidden?: boolean;
+  hidden_at?: string | null;
+  hidden_by?: string | null;
+  hidden_reason?: string | null;
   agreement_photos?: Array<{
     url?: string;
     secure_url: string;

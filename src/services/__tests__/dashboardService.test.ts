@@ -369,6 +369,29 @@ describe('Service: dashboardService (Owner SPK Financial Metrics)', () => {
       await dashboardService.fetchActiveSpkMonitoring();
       expect(spy).toHaveBeenCalledTimes(1);
     });
+
+    it('filters out hidden SPKs by default using .eq("is_hidden", false)', async () => {
+      const mockQueryBuilder: any = {
+        eq: vi.fn(),
+        order: vi.fn().mockResolvedValue({ data: [], error: null }),
+      };
+      mockQueryBuilder.eq.mockReturnValue(mockQueryBuilder);
+
+      vi.mocked(supabase.from).mockImplementation((table: string) => {
+        if (table === 'view_spk_job_profitability') {
+          return { select: vi.fn().mockResolvedValue({ data: [], error: null }) } as any;
+        }
+        return { select: vi.fn().mockReturnValue(mockQueryBuilder) } as any;
+      });
+
+      await dashboardService.fetchOwnerDashboardSpks();
+      expect(mockQueryBuilder.eq).toHaveBeenCalledWith('is_hidden', false);
+
+      // When showHidden is true, .eq('is_hidden', false) is not called
+      mockQueryBuilder.eq.mockClear();
+      await dashboardService.fetchOwnerDashboardSpks({ showHidden: true });
+      expect(mockQueryBuilder.eq).not.toHaveBeenCalledWith('is_hidden', false);
+    });
   });
 });
 
