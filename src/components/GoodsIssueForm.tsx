@@ -44,8 +44,14 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
   };
 
   const fetchSpks = async () => {
-    const { data, error } = await supabase.from('spk').select('id, spk_no, customer_name, vehicle_plate, sub_tasks, status').eq('status', 'ACTIVE').order('created_at', { ascending: false });
-    if (data) setSpks(data);
+    const { data, error } = await supabase
+      .from('spk')
+      .select('id, spk_no, customer_name, vehicle_plate, sub_tasks, status, is_hidden, is_test')
+      .eq('status', 'ACTIVE')
+      .eq('is_hidden', false)
+      .eq('is_test', false)
+      .order('created_at', { ascending: false });
+    if (data) setSpks(data.filter(s => !s.is_hidden && !s.is_test));
     if (error) console.error('Error fetching SPKs:', error);
   };
 

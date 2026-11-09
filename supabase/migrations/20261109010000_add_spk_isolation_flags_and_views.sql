@@ -371,3 +371,4 @@ WHERE UPPER(s.status::text) NOT IN ('DRAFT', 'PENDING_PAYMENT')
   AND s.is_test = FALSE;
 
 GRANT SELECT ON public.view_wbs_cost_variance TO authenticated;
+

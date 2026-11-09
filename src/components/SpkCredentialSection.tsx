@@ -55,14 +55,19 @@ export const SpkCredentialSection: React.FC<SpkCredentialSectionProps> = ({
   }, [spk, isEditMode]);
 
   useEffect(() => {
-    if (initialEditMode) {
+    if (initialEditMode && !spk.is_hidden && !spk.is_test) {
       setIsEditMode(true);
     }
-  }, [initialEditMode]);
+  }, [initialEditMode, spk.is_hidden, spk.is_test]);
 
   const handleOpenConfirm = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (spk.is_hidden || spk.is_test) {
+      setError('SPK ini telah diisolasi/diarsipkan dan tidak dapat diubah.');
+      return;
+    }
 
     if (!customerName.trim()) {
       setError('Nama pelanggan wajib diisi.');
@@ -174,7 +179,12 @@ export const SpkCredentialSection: React.FC<SpkCredentialSectionProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
-          {!isEditMode ? (
+          {spk.is_hidden || spk.is_test ? (
+            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-status-danger/10 text-status-danger border border-status-danger/30 rounded-lg text-xs font-semibold">
+              <Lock className="w-3.5 h-3.5" />
+              Terkunci (Terisolasi)
+            </span>
+          ) : !isEditMode ? (
             <button
               type="button"
               onClick={() => setIsEditMode(true)}

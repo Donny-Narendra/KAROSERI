@@ -181,7 +181,7 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
           notes,
           requested_by,
           created_at,
-          spk ( id, spk_no, customer_name, vehicle_plate, sub_tasks, total_estimated_cost ),
+          spk ( id, spk_no, customer_name, vehicle_plate, sub_tasks, total_estimated_cost, is_hidden, is_test ),
           profiles ( full_name ),
           material_requisition_items (
             id,
@@ -207,13 +207,19 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
 
       if (error) throw error;
 
+      // Saring data requisition untuk mengabaikan SPK yang diisolasi atau pengujian (hidden/test)
+      const validData = (data || []).filter((req: any) => {
+        const spk = Array.isArray(req.spk) ? req.spk[0] : req.spk;
+        return !spk || (!spk.is_hidden && !spk.is_test);
+      });
+
       // Ambil katalog master materials untuk fallback pencarian harga dan id jika relasi kosong
       const { data: masterMaterials } = await supabase
         .from('materials')
         .select('id, name, unit, unit_price');
 
       // Ambil data RAB, Requisition Approved, dan Direct Issues untuk akumulasi Gate 2 (Eksklusif Material)
-      const spkIds = Array.from(new Set((data || []).map((r: any) => r.spk_id).filter(Boolean)));
+      const spkIds = Array.from(new Set(validData.map((r: any) => r.spk_id).filter(Boolean)));
       const rabItemsBySpk: any[] = [];
       let rabEstsData: any[] = [];
       let approvedReqsData: any[] = [];
@@ -336,7 +342,7 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
       }
 
       // Normalisasi data requisition agar mendukung berbagai penamaan properti secara defensif
-      const normalizedData = (data || []).map((req: any) => {
+      const normalizedData = validData.map((req: any) => {
         const rawItems = req.material_requisition_items || req.items || [];
         const items = rawItems.map((item: any) => {
           const mat = item.material || item.materials;

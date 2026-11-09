@@ -67,18 +67,24 @@ export const ServiceAdvisorDashboard: React.FC = () => {
 
   const fetchPendingReqCount = async () => {
     try {
-      const { data, count, error } = await supabase
+      const { data, error } = await supabase
         .from('material_requisitions')
         .select(`
           id,
-          spk ( id, spk_no, customer_name, vehicle_plate, sub_tasks )
-        `, { count: 'exact' })
+          spk ( id, spk_no, customer_name, vehicle_plate, sub_tasks, is_hidden, is_test )
+        `)
         .in('status', ['PENDING', 'PARTIALLY_ISSUED']);
       
       if (!error && data) {
-        setPendingReqCount(count ?? data.length);
+        // Exclude requisitions associated with hidden or test SPKs
+        const validRequisitions = data.filter((req: any) => {
+          const spk = Array.isArray(req.spk) ? req.spk[0] : req.spk;
+          return !spk || (!spk.is_hidden && !spk.is_test);
+        });
+
+        setPendingReqCount(validRequisitions.length);
         const map = new Map<string, SpkFilterItem>();
-        data.forEach((req: any) => {
+        validRequisitions.forEach((req: any) => {
           const spk = Array.isArray(req.spk) ? req.spk[0] : req.spk;
           const spkId = spk?.id;
           const spkNo = spk?.spk_no || 'Tanpa SPK';
@@ -118,10 +124,14 @@ export const ServiceAdvisorDashboard: React.FC = () => {
   const fetchSpks = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('spk')
         .select('*')
+        .eq('is_hidden', false)
+        .eq('is_test', false)
         .order('created_at', { ascending: false });
+
+      const { data, error } = await query;
         
       if (error) throw error;
       setSpks(data || []);
@@ -164,9 +174,10 @@ export const ServiceAdvisorDashboard: React.FC = () => {
     }
   };
 
-  const filteredSpks = spks.filter(s => 
-    listTab === 'active' ? s.status !== 'CANCELLED' : s.status === 'CANCELLED'
-  );
+  const filteredSpks = spks.filter(s => {
+    if (s.is_hidden || s.is_test) return false;
+    return listTab === 'active' ? s.status !== 'CANCELLED' : s.status === 'CANCELLED';
+  });
 
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans">
@@ -362,63 +373,82 @@ export const ServiceAdvisorDashboard: React.FC = () => {
             {/* SPK Credentials Section (View & Edit Mode) */}
             {(() => {
               const curSpk = spks.find(s => s.id === selectedSpkId);
-              if (!curSpk) return null;
+              if (!curSpk || curSpk.is_hidden || curSpk.is_test) {
+                return (
+                  <div className="bg-surface border border-status-danger/40 rounded-lg p-6 text-center space-y-3">
+                    <p className="text-status-danger font-semibold">SPK Terisolasi / Diarsipkan</p>
+                    <p className="text-text-muted text-sm">SPK ini telah diisolasi atau ditandai sebagai data pengujian dan tidak dapat diakses atau diedit di portal Service Advisor.</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedSpkId(null);
+                        setIsEditCredentialMode(false);
+                      }}
+                      className="px-4 py-2 bg-primary text-background rounded font-semibold text-sm cursor-pointer hover:bg-primary-hover transition"
+                    >
+                      Kembali ke Daftar SPK
+                    </button>
+                  </div>
+                );
+              }
               return (
-                <SpkCredentialSection
-                  spk={curSpk}
-                  onUpdated={fetchSpks}
-                  initialEditMode={isEditCredentialMode}
-                />
+                <>
+                  <SpkCredentialSection
+                    spk={curSpk}
+                    onUpdated={fetchSpks}
+                    initialEditMode={isEditCredentialMode}
+                  />
+
+                  {/* Tabs for RAB, Change Orders, RAB Perubahan, WBS */}
+                  <div className="bg-surface border border-border rounded-lg overflow-hidden p-6 mb-6">
+                     <div className="flex gap-2 border-b border-border pb-0">
+                       <button 
+                         onClick={() => setActiveTab('rab')}
+                         className={`px-4 py-2 text-sm font-medium border-b-2 transition cursor-pointer ${activeTab === 'rab' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-text'}`}
+                       >
+                         RAB Calculator
+                       </button>
+                       <button 
+                         onClick={() => setActiveTab('amendments')}
+                         className={`px-4 py-2 text-sm font-medium border-b-2 transition cursor-pointer ${activeTab === 'amendments' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-text'}`}
+                       >
+                         Change Orders
+                       </button>
+                       <button 
+                         type="button"
+                         onClick={() => setActiveTab('rab_perubahan')}
+                         className={`px-4 py-2 text-sm font-medium border-b-2 transition cursor-pointer ${
+                           activeTab === 'rab_perubahan'
+                             ? 'border-amber-500 text-amber-400 bg-amber-500/10'
+                             : 'border-transparent text-text-muted hover:text-text'
+                         }`}
+                       >
+                         RAB Perubahan
+                       </button>
+                       <button 
+                         onClick={() => setActiveTab('wbs')}
+                         className={`px-4 py-2 text-sm font-medium border-b-2 transition cursor-pointer ${activeTab === 'wbs' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-text'}`}
+                       >
+                         Tahapan & QC
+                       </button>
+                     </div>
+                  </div>
+                  
+                  {activeTab === 'rab' ? (
+                    <RabCalculator spkId={selectedSpkId} />
+                  ) : activeTab === 'amendments' ? (
+                    <AmendmentManager spkId={selectedSpkId} spkNo={curSpk.spk_no} />
+                  ) : activeTab === 'rab_perubahan' ? (
+                    <RabPerubahanTab
+                      spkId={selectedSpkId}
+                      spk={curSpk}
+                    />
+                  ) : (
+                    <WbsChecklist spkId={selectedSpkId} />
+                  )}
+                </>
               );
             })()}
-
-            {/* Tabs for RAB, Change Orders, RAB Perubahan, WBS */}
-            <div className="bg-surface border border-border rounded-lg overflow-hidden p-6 mb-6">
-               <div className="flex gap-2 border-b border-border pb-0">
-                 <button 
-                   onClick={() => setActiveTab('rab')}
-                   className={`px-4 py-2 text-sm font-medium border-b-2 transition cursor-pointer ${activeTab === 'rab' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-text'}`}
-                 >
-                   RAB Calculator
-                 </button>
-                 <button 
-                   onClick={() => setActiveTab('amendments')}
-                   className={`px-4 py-2 text-sm font-medium border-b-2 transition cursor-pointer ${activeTab === 'amendments' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-text'}`}
-                 >
-                   Change Orders
-                 </button>
-                 <button 
-                   type="button"
-                   onClick={() => setActiveTab('rab_perubahan')}
-                   className={`px-4 py-2 text-sm font-medium border-b-2 transition cursor-pointer ${
-                     activeTab === 'rab_perubahan'
-                       ? 'border-amber-500 text-amber-400 bg-amber-500/10'
-                       : 'border-transparent text-text-muted hover:text-text'
-                   }`}
-                 >
-                   RAB Perubahan
-                 </button>
-                 <button 
-                   onClick={() => setActiveTab('wbs')}
-                   className={`px-4 py-2 text-sm font-medium border-b-2 transition cursor-pointer ${activeTab === 'wbs' ? 'border-primary text-primary' : 'border-transparent text-text-muted hover:text-text'}`}
-                 >
-                   Tahapan & QC
-                 </button>
-               </div>
-            </div>
-            
-            {activeTab === 'rab' ? (
-              <RabCalculator spkId={selectedSpkId} />
-            ) : activeTab === 'amendments' ? (
-              <AmendmentManager spkId={selectedSpkId} spkNo={spks.find(s => s.id === selectedSpkId)?.spk_no} />
-            ) : activeTab === 'rab_perubahan' ? (
-              <RabPerubahanTab
-                spkId={selectedSpkId}
-                spk={spks.find(s => s.id === selectedSpkId)}
-              />
-            ) : (
-              <WbsChecklist spkId={selectedSpkId} />
-            )}
           </div>
         ) : (
           <div className="bg-surface border border-border rounded-lg overflow-hidden">

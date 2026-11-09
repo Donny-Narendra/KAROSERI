@@ -52,6 +52,8 @@ export const spkService = {
         rab_estimations ( total_estimated_cost )
       `)
       .eq('status', 'CANCELLED')
+      .eq('is_hidden', false)
+      .eq('is_test', false)
       .order('cancelled_at', { ascending: false });
 
     if (error) {
@@ -120,7 +122,7 @@ export const spkService = {
     // SPK must be in DRAFT or PENDING_PAYMENT status
     const { data: spk, error: fetchError } = await supabase
       .from('spk')
-      .select('status, dp_amount')
+      .select('status, dp_amount, is_hidden, is_test')
       .eq('id', spkId)
       .single();
 
@@ -130,6 +132,10 @@ export const spkService = {
     
     if (!spk) {
       throw new Error('SPK not found');
+    }
+
+    if (spk.is_hidden || spk.is_test) {
+      throw new Error('SPK ini telah diisolasi/diarsipkan dan tidak dapat dibatalkan.');
     }
 
     if (spk.status !== 'DRAFT' && spk.status !== 'PENDING_PAYMENT') {
@@ -310,6 +316,17 @@ export const spkService = {
     createdBy?: string;
     status?: 'DRAFT' | 'PENDING' | 'APPROVED';
   }) {
+    // Guard: Prevent creating change order on hidden or test SPK
+    const { data: targetSpk } = await supabase
+      .from('spk')
+      .select('is_hidden, is_test')
+      .eq('id', spkId)
+      .maybeSingle();
+
+    if (targetSpk && (targetSpk.is_hidden || targetSpk.is_test)) {
+      throw new Error('Tidak dapat membuat transaksi baru pada SPK yang diisolasi/diarsipkan.');
+    }
+
     // 1. Calculate total selling price adjustment
     const calculatedTotal = items.reduce(
       (sum, item) => sum + (Number(item.quantity || 0) * Number(item.unit_price || 0)),
@@ -440,6 +457,17 @@ export const spkService = {
     }
     if (!vehiclePlate || vehiclePlate.trim() === '') {
       throw new Error('Vehicle Plate is required');
+    }
+
+    // Guard: Prevent updating credentials of hidden or test SPK
+    const { data: existingSpk } = await supabase
+      .from('spk')
+      .select('is_hidden, is_test')
+      .eq('spk_no', spkNo.trim())
+      .maybeSingle();
+
+    if (existingSpk && (existingSpk.is_hidden || existingSpk.is_test)) {
+      throw new Error('SPK ini telah diisolasi/diarsipkan dan tidak dapat diubah.');
     }
 
     const payload: Record<string, any> = {
