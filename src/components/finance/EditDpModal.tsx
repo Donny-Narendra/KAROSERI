@@ -12,6 +12,8 @@ export interface EditDpModalProps {
   customerName?: string;
   currentDp: number;
   onSuccess: (newAmount: number, adjustment: DpAdjustment) => void;
+  isHidden?: boolean;
+  isTest?: boolean;
 }
 
 export const EditDpModal: React.FC<EditDpModalProps> = ({
@@ -22,6 +24,8 @@ export const EditDpModal: React.FC<EditDpModalProps> = ({
   customerName = 'Pelanggan',
   currentDp,
   onSuccess,
+  isHidden,
+  isTest,
 }) => {
   const { user, profile } = useAuth();
   const [newDp, setNewDp] = useState<string>('');
@@ -40,6 +44,31 @@ export const EditDpModal: React.FC<EditDpModalProps> = ({
 
   if (!isOpen) return null;
 
+  if (isHidden || isTest) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+        <div className="bg-surface border border-status-danger/40 rounded-xl max-w-md w-full p-6 shadow-2xl">
+          <div className="flex items-center gap-3 text-status-danger mb-4">
+            <ShieldAlert className="w-6 h-6 shrink-0" />
+            <h3 className="text-lg font-semibold text-text-primary">SPK Terisolasi</h3>
+          </div>
+          <p className="text-sm text-text-muted mb-6">
+            SPK ini telah diisolasi/diarsipkan dan nilai DP-nya tidak dapat diubah dari sistem operasional kasir.
+          </p>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium bg-surface-border hover:bg-surface-border/80 text-text-primary rounded-lg transition-colors cursor-pointer"
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const numericNewDp = Number(newDp);
   const difference = (numericNewDp || 0) - currentDp;
   const isReasonValid = reason.trim().length >= 10;
@@ -48,6 +77,11 @@ export const EditDpModal: React.FC<EditDpModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isHidden || isTest) {
+      setErrorMsg('SPK ini telah diisolasi/diarsipkan dan nilai DP-nya tidak dapat diubah.');
+      return;
+    }
 
     if (isNaN(numericNewDp) || numericNewDp <= 0) {
       setErrorMsg('Nominal DP Baru wajib diisi dan harus lebih besar dari Rp 0.');

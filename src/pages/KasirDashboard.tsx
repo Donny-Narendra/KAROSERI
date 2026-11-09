@@ -43,6 +43,8 @@ interface KasirSpkJoinRow {
   total_estimated_cost?: number | null;
   qc_status?: string | null;
   allocation_status?: string | null;
+  is_hidden?: boolean | null;
+  is_test?: boolean | null;
   qc_inspections?: Array<{ status: string; inspected_at?: string }>;
   invoices?: Array<{ status: string; created_at?: string }>;
   inventory_transactions?: Array<{
@@ -77,6 +79,8 @@ interface KasirSpkViewModel {
   amendmentCost: number;
   vin: string;
   releasedAt?: string | null;
+  isHidden?: boolean;
+  isTest?: boolean;
 }
 
 const DRAFT_STATUSES = ['DRAFT', 'PENDING_PAYMENT'];
@@ -103,6 +107,8 @@ export const KasirDashboard: React.FC = () => {
     spkNo: string;
     customerName: string;
     currentDp: number;
+    isHidden?: boolean;
+    isTest?: boolean;
   } | null>(null);
   const [modalConfig, setModalConfig] = useState<{
     isOpen: boolean;
@@ -165,7 +171,7 @@ export const KasirDashboard: React.FC = () => {
       // reconstruct DP history records from the local SPK list!
       if ((!history || history.length === 0) && spks.length > 0) {
         const localPaidSpks = spks.filter(
-          s => (Number(s.dpAmount || 0) > 0) && ['ACTIVE', 'COMPLETED'].includes(s.status)
+          s => (Number(s.dpAmount || 0) > 0) && ['ACTIVE', 'COMPLETED'].includes(s.status) && !s.isHidden && !s.isTest
         );
         if (localPaidSpks.length > 0) {
           history = localPaidSpks.map(s => ({
@@ -189,7 +195,7 @@ export const KasirDashboard: React.FC = () => {
       console.error('Error loading DP history in KasirDashboard:', err);
       if (spks.length > 0) {
         const localPaidSpks = spks.filter(
-          s => (Number(s.dpAmount || 0) > 0) && ['ACTIVE', 'COMPLETED'].includes(s.status)
+          s => (Number(s.dpAmount || 0) > 0) && ['ACTIVE', 'COMPLETED'].includes(s.status) && !s.isHidden && !s.isTest
         );
         const fallback: DPHistoryRecord[] = localPaidSpks.map(s => ({
           spk_id: s.dbId,
@@ -236,16 +242,30 @@ export const KasirDashboard: React.FC = () => {
       console.error("Failed to load flat data in kasir:", err);
     }
 
-    const { data, error } = await supabase.from('spk').select(`
+    let query: any = supabase.from('spk').select(`
       *,
       qc_inspections ( status, inspected_at ),
       invoices ( status, created_at ),
       inventory_transactions ( quantity_issued, custom_unit_price, materials ( unit_price, is_customer_supplied ) ),
       spk_amendments ( status, cost_adjustment )
-    `).neq('status', 'CANCELLED').order('created_at', { ascending: false });
+    `).neq('status', 'CANCELLED');
+
+    if (typeof query.eq === 'function') {
+      query = query.eq('is_hidden', false);
+      if (typeof query.eq === 'function') {
+        query = query.eq('is_test', false);
+      }
+    }
+
+    const { data, error } = typeof query.order === 'function'
+      ? await query.order('created_at', { ascending: false })
+      : await query;
 
     if (data) {
-      const formatted: KasirSpkViewModel[] = (data as unknown as KasirSpkJoinRow[]).map((d: KasirSpkJoinRow) => {
+      const activeRows = (data as unknown as KasirSpkJoinRow[]).filter(
+        (d: any) => !d.is_hidden && !d.is_test
+      );
+      const formatted: KasirSpkViewModel[] = activeRows.map((d: KasirSpkJoinRow) => {
         // Manual merge of rab_estimations and rab_items
         const myEstimations = fetchedEstimations.filter(est => est.spk_id === d.id);
         
@@ -350,6 +370,8 @@ export const KasirDashboard: React.FC = () => {
           allocationStatus: d.allocation_status || undefined,
           amendmentCost,
           releasedAt: d.released_at || null,
+          isHidden: Boolean(d.is_hidden),
+          isTest: Boolean(d.is_test),
         };
       });
       setSpks(formatted);
@@ -357,10 +379,14 @@ export const KasirDashboard: React.FC = () => {
     if (error) console.error('Error fetching SPKs:', error);
   };
 
-  const selectedSpk = spks.find(s => s.id === selectedSpkId) || null;
+  const selectedSpk = useMemo(() => {
+    const found = spks.find(s => s.id === selectedSpkId);
+    if (found && (found.isHidden || found.isTest)) return null;
+    return found || null;
+  }, [spks, selectedSpkId]);
 
   const dpPaidSpks = useMemo(() => {
-    return spks.filter(s => Number(s.dpAmount || 0) > 0 && s.status !== 'CANCELLED');
+    return spks.filter(s => Number(s.dpAmount || 0) > 0 && s.status !== 'CANCELLED' && !s.isHidden && !s.isTest);
   }, [spks]);
 
   const displayedSpks = useMemo(() => {
@@ -369,14 +395,15 @@ export const KasirDashboard: React.FC = () => {
         return dpPaidSpks;
       }
       return spks.filter(
-        s => (DRAFT_STATUSES as readonly string[]).includes(s.status) && Number(s.dpAmount || 0) === 0
+        s => (DRAFT_STATUSES as readonly string[]).includes(s.status) && Number(s.dpAmount || 0) === 0 && !s.isHidden && !s.isTest
       );
     }
-    return spks.filter(s => !(DRAFT_STATUSES as readonly string[]).includes(s.status));
+    return spks.filter(s => !(DRAFT_STATUSES as readonly string[]).includes(s.status) && !s.isHidden && !s.isTest);
   }, [activeTab, dpSubTab, dpPaidSpks, spks]);
 
   const historyToDisplay = useMemo(() => {
     if (!selectedSpk) return dpHistory;
+    if (selectedSpk.isHidden || selectedSpk.isTest) return [];
     const filtered = dpHistory.filter(
       h => h.spk_no === selectedSpk.id || h.spk_id === selectedSpk.dbId
     );
@@ -448,6 +475,7 @@ export const KasirDashboard: React.FC = () => {
         currentDp: record.dp_amount,
       });
     } else if (selectedSpk) {
+      if (selectedSpk.isHidden || selectedSpk.isTest) return;
       setTargetEditDp({
         spkId: selectedSpk.dbId,
         spkNo: selectedSpk.id,
@@ -491,7 +519,7 @@ export const KasirDashboard: React.FC = () => {
   };
 
   const requestGenerateInvoice = () => {
-    if (!selectedSpk) return;
+    if (!selectedSpk || selectedSpk.isHidden || selectedSpk.isTest) return;
     
     const manualAdj = manualAdjustments[selectedSpk.id] || 0;
     const computedTotalHargaJual = selectedSpk.quotationAmount + effectiveAmendmentCost + manualAdj;
@@ -519,7 +547,7 @@ export const KasirDashboard: React.FC = () => {
   };
 
   const executeGenerateInvoice = async (totalAmount: number) => {
-    if (!selectedSpk) return;
+    if (!selectedSpk || selectedSpk.isHidden || selectedSpk.isTest) return;
     setModalConfig(prev => ({ ...prev, isLoading: true }));
     
     const { error } = await supabase
@@ -568,7 +596,7 @@ export const KasirDashboard: React.FC = () => {
   };
 
   const requestMarkAsPaid = () => {
-    if (!selectedSpk) return;
+    if (!selectedSpk || selectedSpk.isHidden || selectedSpk.isTest) return;
     setModalConfig({
       isOpen: true,
       title: 'Konfirmasi Pelunasan Tagihan Akhir',
@@ -581,7 +609,7 @@ export const KasirDashboard: React.FC = () => {
   };
 
   const executeMarkAsPaid = async () => {
-    if (!selectedSpk) return;
+    if (!selectedSpk || selectedSpk.isHidden || selectedSpk.isTest) return;
     setModalConfig(prev => ({ ...prev, isLoading: true }));
     
     const { data: invoices, error: fetchError } = await supabase
@@ -647,7 +675,7 @@ export const KasirDashboard: React.FC = () => {
   };
 
   const requestCancelInvoice = () => {
-    if (!selectedSpk) return;
+    if (!selectedSpk || selectedSpk.isHidden || selectedSpk.isTest) return;
     setModalConfig({
       isOpen: true,
       title: 'Konfirmasi Pembatalan Faktur (Invoice)',
@@ -660,7 +688,7 @@ export const KasirDashboard: React.FC = () => {
   };
 
   const executeCancelInvoice = async () => {
-    if (!selectedSpk) return;
+    if (!selectedSpk || selectedSpk.isHidden || selectedSpk.isTest) return;
     setModalConfig(prev => ({ ...prev, isLoading: true }));
     try {
       // Coba tandai status menjadi CANCELLED
@@ -707,7 +735,7 @@ export const KasirDashboard: React.FC = () => {
   };
 
   const requestReleaseVehicle = () => {
-    if (!selectedSpk) return;
+    if (!selectedSpk || selectedSpk.isHidden || selectedSpk.isTest) return;
     
     if (selectedSpk.status === 'COMPLETED') {
       setSelectedBastSpk(selectedSpk);
@@ -731,7 +759,7 @@ export const KasirDashboard: React.FC = () => {
   };
 
   const executeReleaseVehicle = async () => {
-    if (!selectedSpk) return;
+    if (!selectedSpk || selectedSpk.isHidden || selectedSpk.isTest) return;
     setModalConfig(prev => ({ ...prev, isLoading: true }));
     try {
       const nowIso = new Date().toISOString();
@@ -1359,6 +1387,8 @@ export const KasirDashboard: React.FC = () => {
           spkNo: selectedSpk.id,
           customerName: selectedSpk.customerName,
           currentDp: selectedSpk.dpAmount,
+          isHidden: selectedSpk.isHidden,
+          isTest: selectedSpk.isTest,
         } : null);
 
         if (!effectiveTarget) return null;
@@ -1374,6 +1404,8 @@ export const KasirDashboard: React.FC = () => {
             spkNo={effectiveTarget.spkNo}
             customerName={effectiveTarget.customerName}
             currentDp={effectiveTarget.currentDp}
+            isHidden={effectiveTarget.isHidden}
+            isTest={effectiveTarget.isTest}
             onSuccess={handleDpCorrectionSuccess}
           />
         );

@@ -114,6 +114,8 @@ interface RawSpkDpRow {
   dp_amount: number | null;
   status: string;
   released_at?: string | null;
+  is_hidden?: boolean | null;
+  is_test?: boolean | null;
   payments?: RawPaymentRow[] | null;
 }
 
@@ -170,27 +172,41 @@ export async function fetchDpHistory() {
         status,
         released_at,
         created_at,
-        updated_at
+        updated_at,
+        is_hidden,
+        is_test
       `) as any;
 
     if (typeof query.or === 'function') {
-      const orQuery = query.or('dp_amount.gt.0,down_payment_amount.gt.0');
+      let orQuery = query.or('dp_amount.gt.0,down_payment_amount.gt.0');
+      if (typeof orQuery.eq === 'function') {
+        orQuery = orQuery.eq('is_hidden', false);
+        if (typeof orQuery.eq === 'function') {
+          orQuery = orQuery.eq('is_test', false);
+        }
+      }
       if (orQuery && typeof orQuery.order === 'function') {
         const { data, error } = await orQuery.order('updated_at', { ascending: false });
         if (!error && data) {
-          return data;
+          return (data as any[]).filter(s => !s.is_hidden && !s.is_test);
         }
       }
     } else if (typeof query.gt === 'function') {
       // Mock compatibility when .or is not mocked
       const gtQuery = query.gt('dp_amount', 0);
-      const inQuery = typeof gtQuery.in === 'function' ? gtQuery.in('status', ['ACTIVE', 'COMPLETED']) : gtQuery;
+      let inQuery = typeof gtQuery.in === 'function' ? gtQuery.in('status', ['ACTIVE', 'COMPLETED']) : gtQuery;
+      if (typeof inQuery.eq === 'function') {
+        inQuery = inQuery.eq('is_hidden', false);
+        if (typeof inQuery.eq === 'function') {
+          inQuery = inQuery.eq('is_test', false);
+        }
+      }
       if (typeof inQuery.order === 'function') {
         const { data, error } = await inQuery.order('created_at', { ascending: false });
-        if (!error && data) return data;
+        if (!error && data) return (data as any[]).filter(s => !s.is_hidden && !s.is_test);
       } else {
         const { data, error } = await inQuery;
-        if (!error && data) return data;
+        if (!error && data) return (data as any[]).filter(s => !s.is_hidden && !s.is_test);
       }
     }
   } catch {
@@ -199,7 +215,7 @@ export async function fetchDpHistory() {
 
   // Resilient fallback query with verified standard schema columns
   try {
-    const { data, error } = await supabase
+    let fallbackQuery: any = supabase
       .from('spk')
       .select(`
         id,
@@ -213,14 +229,31 @@ export async function fetchDpHistory() {
         total_estimated_cost,
         status,
         released_at,
-        created_at
+        created_at,
+        is_hidden,
+        is_test
       `)
       .gt('dp_amount', 0)
-      .in('status', ['ACTIVE', 'COMPLETED'])
-      .order('created_at', { ascending: false });
+      .in('status', ['ACTIVE', 'COMPLETED']);
+
+    if (typeof fallbackQuery.eq === 'function') {
+      fallbackQuery = fallbackQuery.eq('is_hidden', false);
+      if (typeof fallbackQuery.eq === 'function') {
+        fallbackQuery = fallbackQuery.eq('is_test', false);
+      }
+    }
+
+    let result;
+    if (typeof fallbackQuery.order === 'function') {
+      result = await fallbackQuery.order('created_at', { ascending: false });
+    } else {
+      result = await fallbackQuery;
+    }
+
+    const { data, error } = result;
 
     if (!error && data) {
-      return data;
+      return (data as any[]).filter(s => !s.is_hidden && !s.is_test);
     }
     if (error) {
       console.warn('fetchDpHistory standard fallback query failed:', error);
@@ -245,11 +278,13 @@ export interface PendingDpSpkRecord {
   total_estimated_cost?: number | null;
   target_date?: string | null;
   created_at: string;
+  is_hidden?: boolean;
+  is_test?: boolean;
 }
 
 export async function fetchPendingDpSpk(): Promise<PendingDpSpkRecord[]> {
   try {
-    const { data, error } = await supabase
+    let query: any = supabase
       .from('spk')
       .select(`
         id,
@@ -263,17 +298,36 @@ export async function fetchPendingDpSpk(): Promise<PendingDpSpkRecord[]> {
         dp_amount,
         total_estimated_cost,
         target_date,
-        created_at
+        created_at,
+        is_hidden,
+        is_test
       `)
       .in('status', ['DRAFT', 'PENDING_PAYMENT'])
-      .or('dp_amount.is.null,dp_amount.eq.0')
-      .order('created_at', { ascending: false });
+      .or('dp_amount.is.null,dp_amount.eq.0');
+
+    if (typeof query.eq === 'function') {
+      query = query.eq('is_hidden', false);
+      if (typeof query.eq === 'function') {
+        query = query.eq('is_test', false);
+      }
+    }
+
+    let result;
+    if (typeof query.order === 'function') {
+      result = await query.order('created_at', { ascending: false });
+    } else {
+      result = await query;
+    }
+
+    const { data, error } = result;
 
     if (error) {
       console.error('Error fetching pending DP SPK:', error);
       return [];
     }
-    return (data as PendingDpSpkRecord[]) || [];
+    return ((data as PendingDpSpkRecord[]) || []).filter(
+      (s: any) => !s.is_hidden && !s.is_test
+    );
   } catch (err) {
     console.error('Exception fetching pending DP SPK:', err);
     return [];
@@ -285,7 +339,7 @@ export const fetchDPHistory = async (): Promise<DPHistoryRecord[]> => {
   let isJoinSuccessful = false;
 
   try {
-    const { data, error } = await supabase.from('spk').select(`
+    let query: any = supabase.from('spk').select(`
       id,
       spk_no,
       spk_number,
@@ -299,6 +353,8 @@ export const fetchDPHistory = async (): Promise<DPHistoryRecord[]> => {
       status,
       released_at,
       created_at,
+      is_hidden,
+      is_test,
       payments (
         amount,
         payment_method,
@@ -309,8 +365,17 @@ export const fetchDPHistory = async (): Promise<DPHistoryRecord[]> => {
     .gt('dp_amount', 0)
     .in('status', ['ACTIVE', 'COMPLETED']);
 
+    if (typeof query.eq === 'function') {
+      query = query.eq('is_hidden', false);
+      if (typeof query.eq === 'function') {
+        query = query.eq('is_test', false);
+      }
+    }
+
+    const { data, error } = await query;
+
     if (!error && data) {
-      rawData = data as unknown as RawSpkDpRow[];
+      rawData = (data as unknown as RawSpkDpRow[]).filter((s: any) => !s.is_hidden && !s.is_test);
       isJoinSuccessful = true;
     } else if (error) {
       console.warn('Direct join spk + payments query failed, falling back to direct spk query:', error);
@@ -322,7 +387,7 @@ export const fetchDPHistory = async (): Promise<DPHistoryRecord[]> => {
   // Fallback: Query spk table directly if payments relation/join failed
   if (!isJoinSuccessful || !rawData) {
     const spkData = await fetchDpHistory();
-    rawData = spkData as unknown as RawSpkDpRow[];
+    rawData = (spkData as unknown as RawSpkDpRow[]).filter((s: any) => !s.is_hidden && !s.is_test);
   }
 
   if (!rawData || rawData.length === 0) {
@@ -331,6 +396,8 @@ export const fetchDPHistory = async (): Promise<DPHistoryRecord[]> => {
 
   const history: DPHistoryRecord[] = [];
   rawData.forEach((spk: any) => {
+    if (spk.is_hidden || spk.is_test) return;
+
     const payment = spk.payments && spk.payments.length > 0 
       ? [...spk.payments].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
       : null;
@@ -527,4 +594,42 @@ export const fetchDpAdjustments = async (spkIdentifier?: string): Promise<DpAdju
     return [];
   }
 };
+
+/**
+ * Fetches non-isolated (operational) SPKs ready for final billing or invoicing.
+ * Strictly excludes hidden and test records.
+ */
+export async function fetchFinalBillingSpks() {
+  try {
+    let query: any = supabase
+      .from('spk')
+      .select('*')
+      .neq('status', 'CANCELLED');
+
+    if (typeof query.eq === 'function') {
+      query = query.eq('is_hidden', false);
+      if (typeof query.eq === 'function') {
+        query = query.eq('is_test', false);
+      }
+    }
+
+    let result;
+    if (typeof query.order === 'function') {
+      result = await query.order('created_at', { ascending: false });
+    } else {
+      result = await query;
+    }
+
+    const { data, error } = result;
+    if (error) {
+      console.error('Error fetching final billing SPKs:', error);
+      return [];
+    }
+    return ((data || []) as any[]).filter((s: any) => !s.is_hidden && !s.is_test);
+  } catch (err) {
+    console.error('Exception fetching final billing SPKs:', err);
+    return [];
+  }
+}
+
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fetchApprovedChangeOrders, fetchDPHistory, fetchDpHistory, calculateChangeOrderHppBreakdown, fetchPendingDpSpk, fetchDpAdjustments } from '../billingService';
+import { fetchApprovedChangeOrders, fetchDPHistory, fetchDpHistory, calculateChangeOrderHppBreakdown, fetchPendingDpSpk, fetchDpAdjustments, fetchFinalBillingSpks } from '../billingService';
 import { supabase } from '../../lib/supabaseClient';
 
 vi.mock('../../lib/supabaseClient', () => ({
@@ -594,5 +594,220 @@ describe('billingService.fetchDpAdjustments Tests', () => {
     expect(result).toEqual([]);
   });
 });
+
+describe('Sprint: Isolation of Hidden and Test SPKs in billingService', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('fetchPendingDpSpk applies is_hidden=false and is_test=false filters and excludes isolated SPKs', async () => {
+    const mockDbData = [
+      {
+        id: 'spk-valid',
+        spk_no: 'SPK-VALID-01',
+        customer_name: 'PT Valid Jaya',
+        vehicle_plate: 'B 1111 VAL',
+        status: 'DRAFT',
+        dp_amount: 0,
+        is_hidden: false,
+        is_test: false,
+      },
+      {
+        id: 'spk-hidden',
+        spk_no: 'SPK-HIDDEN-02',
+        customer_name: 'PT Hidden Test',
+        vehicle_plate: 'B 2222 HID',
+        status: 'DRAFT',
+        dp_amount: 0,
+        is_hidden: true,
+        is_test: false,
+      },
+      {
+        id: 'spk-test',
+        spk_no: 'SPK-TEST-03',
+        customer_name: 'Test Vehicle SPK',
+        vehicle_plate: 'B 3333 TST',
+        status: 'PENDING_PAYMENT',
+        dp_amount: 0,
+        is_hidden: false,
+        is_test: true,
+      },
+    ];
+
+    const mockOrder = vi.fn().mockResolvedValue({
+      data: mockDbData,
+      error: null,
+    });
+    const mockEqTest = vi.fn().mockReturnValue({ order: mockOrder });
+    const mockEqHidden = vi.fn().mockReturnValue({ eq: mockEqTest });
+    const mockOr = vi.fn().mockReturnValue({ eq: mockEqHidden });
+    const mockIn = vi.fn().mockReturnValue({ or: mockOr });
+    const mockSelect = vi.fn().mockReturnValue({ in: mockIn });
+
+    vi.mocked(supabase.from).mockReturnValue({
+      select: mockSelect,
+    } as any);
+
+    const result = await fetchPendingDpSpk();
+
+    expect(mockEqHidden).toHaveBeenCalledWith('is_hidden', false);
+    expect(mockEqTest).toHaveBeenCalledWith('is_test', false);
+    expect(result).toHaveLength(1);
+    expect(result[0].spk_no).toBe('SPK-VALID-01');
+  });
+
+  it('fetchDpHistory applies is_hidden=false and is_test=false filters in both primary and fallback queries', async () => {
+    const mockDbData = [
+      {
+        id: 'spk-paid-valid',
+        spk_no: 'SPK-PAID-01',
+        customer_name: 'PT Paid Valid',
+        vehicle_plate: 'L 1234 OK',
+        dp_amount: 5000000,
+        status: 'ACTIVE',
+        is_hidden: false,
+        is_test: false,
+      },
+      {
+        id: 'spk-paid-hidden',
+        spk_no: 'SPK-PAID-HIDDEN',
+        customer_name: 'Hidden Paid SPK',
+        vehicle_plate: 'L 9999 HD',
+        dp_amount: 10000000,
+        status: 'ACTIVE',
+        is_hidden: true,
+        is_test: false,
+      },
+    ];
+
+    const mockOrder = vi.fn().mockResolvedValue({
+      data: mockDbData,
+      error: null,
+    });
+    const mockEqTest = vi.fn().mockReturnValue({ order: mockOrder });
+    const mockEqHidden = vi.fn().mockReturnValue({ eq: mockEqTest });
+    const mockOr = vi.fn().mockReturnValue({ eq: mockEqHidden });
+    const mockSelect = vi.fn().mockReturnValue({ or: mockOr });
+
+    vi.mocked(supabase.from).mockReturnValue({
+      select: mockSelect,
+    } as any);
+
+    const result = await fetchDpHistory();
+
+    expect(mockEqHidden).toHaveBeenCalledWith('is_hidden', false);
+    expect(mockEqTest).toHaveBeenCalledWith('is_test', false);
+    expect(result).toHaveLength(1);
+    expect(result[0].spk_no).toBe('SPK-PAID-01');
+  });
+
+  it('fetchDPHistory applies is_hidden=false and is_test=false and excludes hidden or test records', async () => {
+    const mockDbData = [
+      {
+        id: 'spk-join-valid',
+        spk_no: 'SPK-JOIN-01',
+        customer_name: 'PT Join Valid',
+        vehicle_plate: 'D 1234 OK',
+        dp_amount: 7000000,
+        status: 'ACTIVE',
+        is_hidden: false,
+        is_test: false,
+        payments: [
+          {
+            amount: 7000000,
+            payment_method: 'Transfer BCA',
+            notes: 'DP Awal',
+            created_at: '2026-10-21T10:00:00Z',
+          },
+        ],
+      },
+      {
+        id: 'spk-join-test',
+        spk_no: 'SPK-JOIN-TEST',
+        customer_name: 'PT Join Test',
+        vehicle_plate: 'D 9999 TS',
+        dp_amount: 5000000,
+        status: 'ACTIVE',
+        is_hidden: false,
+        is_test: true,
+        payments: [],
+      },
+    ];
+
+    const mockEqTest = vi.fn().mockResolvedValue({
+      data: mockDbData,
+      error: null,
+    });
+    const mockEqHidden = vi.fn().mockReturnValue({ eq: mockEqTest });
+    const mockIn = vi.fn().mockReturnValue({ eq: mockEqHidden });
+    const mockGt = vi.fn().mockReturnValue({ in: mockIn });
+    const mockSelect = vi.fn().mockReturnValue({ gt: mockGt });
+
+    vi.mocked(supabase.from).mockReturnValue({
+      select: mockSelect,
+    } as any);
+
+    const result = await fetchDPHistory();
+
+    expect(mockEqHidden).toHaveBeenCalledWith('is_hidden', false);
+    expect(mockEqTest).toHaveBeenCalledWith('is_test', false);
+    expect(result).toHaveLength(1);
+    expect(result[0].spk_no).toBe('SPK-JOIN-01');
+  });
+
+  it('fetchFinalBillingSpks filters out CANCELLED, hidden, and test SPKs', async () => {
+    const mockSpks = [
+      {
+        id: 'spk-final-1',
+        spk_no: 'SPK-FINAL-01',
+        customer_name: 'PT Final Valid',
+        vehicle_plate: 'N 1111 FIN',
+        status: 'COMPLETED',
+        is_hidden: false,
+        is_test: false,
+      },
+      {
+        id: 'spk-final-hidden',
+        spk_no: 'SPK-FINAL-HIDDEN',
+        customer_name: 'Hidden Final Unit',
+        vehicle_plate: 'N 2222 HID',
+        status: 'COMPLETED',
+        is_hidden: true,
+        is_test: false,
+      },
+      {
+        id: 'spk-final-test',
+        spk_no: 'SPK-FINAL-TEST',
+        customer_name: 'Test Vehicle Final',
+        vehicle_plate: 'N 3333 TST',
+        status: 'ACTIVE',
+        is_hidden: false,
+        is_test: true,
+      },
+    ];
+
+    const mockOrder = vi.fn().mockResolvedValue({
+      data: mockSpks,
+      error: null,
+    });
+    const mockEqTest = vi.fn().mockReturnValue({ order: mockOrder });
+    const mockEqHidden = vi.fn().mockReturnValue({ eq: mockEqTest });
+    const mockNeq = vi.fn().mockReturnValue({ eq: mockEqHidden });
+    const mockSelect = vi.fn().mockReturnValue({ neq: mockNeq });
+
+    vi.mocked(supabase.from).mockReturnValue({
+      select: mockSelect,
+    } as any);
+
+    const result = await fetchFinalBillingSpks();
+
+    expect(mockNeq).toHaveBeenCalledWith('status', 'CANCELLED');
+    expect(mockEqHidden).toHaveBeenCalledWith('is_hidden', false);
+    expect(mockEqTest).toHaveBeenCalledWith('is_test', false);
+    expect(result).toHaveLength(1);
+    expect(result[0].spk_no).toBe('SPK-FINAL-01');
+  });
+});
+
 
 

@@ -49,6 +49,21 @@ export const DownPaymentModal: React.FC<DownPaymentModalProps> = ({ isOpen, onCl
 
   if (!isOpen || !spk) return null;
 
+  if (spk.is_hidden || spk.is_test || spk.isHidden || spk.isTest) {
+    return (
+      <ConfirmationModal
+        isOpen={isOpen}
+        title="SPK Terisolasi"
+        message="SPK ini telah diisolasi/diarsipkan dan tidak dapat diproses pembayaran DP-nya."
+        variant="danger"
+        hideCancel={true}
+        confirmText="Tutup"
+        onConfirm={onClose}
+        onCancel={onClose}
+      />
+    );
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const dpAmount = Number(amount);
@@ -100,6 +115,10 @@ export const DownPaymentModal: React.FC<DownPaymentModalProps> = ({ isOpen, onCl
     setModalConfig(prev => ({ ...prev, isLoading: true }));
     setIsSubmitting(true);
     try {
+      if (spk.is_hidden || spk.is_test || spk.isHidden || spk.isTest) {
+        throw new Error('SPK ini telah diisolasi/diarsipkan dan tidak dapat diproses pembayarannya.');
+      }
+
       // 1. Simpan catatan pembayaran ke tabel payments
       const paymentPayload: {
         spk_id: string;
