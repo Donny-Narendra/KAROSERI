@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Search, X, CheckCircle2, ClipboardList, Clock } from 'lucide-react';
 import type { Spk } from '../types/spk';
 import { formatSubTasks } from '../utils/spkUtils';
@@ -22,6 +22,21 @@ export const SpkSelector: React.FC<SpkSelectorProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
+  // 1. Saring sumber SPK terlebih dahulu: mutlak HANYA SPK operasional sah (!is_hidden && !is_test)
+  const operationalSpks = useMemo(() => {
+    return spks.filter((spk) => !spk.is_hidden && !spk.is_test);
+  }, [spks]);
+
+  // Perlindungan Guard Detail SPK Terpilih: jika SPK terpilih ternyata hidden/test, reset pemilihan
+  useEffect(() => {
+    if (selectedSpkId) {
+      const selectedItem = spks.find((s) => s.id === selectedSpkId);
+      if (selectedItem && (selectedItem.is_hidden || selectedItem.is_test)) {
+        onSelectSpk('');
+      }
+    }
+  }, [selectedSpkId, spks, onSelectSpk]);
+
   // Saring daftar SPK secara case-insensitive berdasarkan:
   // 1. Nomor SPK (spk_no / spk_number)
   // 2. Nama Customer (customer_name)
@@ -29,9 +44,9 @@ export const SpkSelector: React.FC<SpkSelectorProps> = ({
   // 4. Sub Task / Modifikasi (sub_tasks)
   const filteredSpks = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return spks;
+    if (!q) return operationalSpks;
 
-    return spks.filter((spk) => {
+    return operationalSpks.filter((spk) => {
       const spkNo = (spk.spk_no || spk.spk_number || '').toLowerCase();
       const customer = (spk.customer_name || '').toLowerCase();
       const plate = (spk.vehicle_plate || spk.vehicle_number || '').toLowerCase();
@@ -39,7 +54,7 @@ export const SpkSelector: React.FC<SpkSelectorProps> = ({
 
       return spkNo.includes(q) || customer.includes(q) || plate.includes(q) || subTasks.includes(q);
     });
-  }, [spks, searchQuery]);
+  }, [operationalSpks, searchQuery]);
 
   return (
     <div className={`bg-surface border border-border rounded-xl overflow-hidden shadow-sm flex flex-col ${className}`}>
@@ -59,8 +74,8 @@ export const SpkSelector: React.FC<SpkSelectorProps> = ({
         <div className="flex items-center gap-2">
           <span className="text-xs font-mono px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 font-semibold">
             {searchQuery
-              ? `${filteredSpks.length} dari ${spks.length} SPK`
-              : `${spks.length} SPK Aktif`}
+              ? `${filteredSpks.length} dari ${operationalSpks.length} SPK`
+              : `${operationalSpks.length} SPK Aktif`}
           </span>
         </div>
       </div>
@@ -96,7 +111,7 @@ export const SpkSelector: React.FC<SpkSelectorProps> = ({
             <div className="inline-block w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mb-2" />
             <p className="text-xs">Memuat daftar SPK aktif...</p>
           </div>
-        ) : spks.length === 0 ? (
+        ) : operationalSpks.length === 0 ? (
           <div className="text-center py-10 text-text-muted border-2 border-dashed border-border rounded-lg">
             <p className="text-sm font-medium">Tidak ada SPK aktif saat ini</p>
             <p className="text-xs text-slate-500 mt-1">SPK baru yang aktif akan muncul di sini</p>

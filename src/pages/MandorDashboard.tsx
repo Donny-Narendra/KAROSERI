@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ClipboardList } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { WbsChecklist } from '../components/WbsChecklist';
@@ -9,7 +10,9 @@ import { SpkSelector } from '../components/SpkSelector';
 
 export const MandorDashboard: React.FC = () => {
   const { profile, signOut } = useAuth();
-  const [selectedSpk, setSelectedSpk] = useState<string>('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlSpkId = searchParams.get('spkId') || searchParams.get('spk_id') || searchParams.get('id') || '';
+  const [selectedSpk, setSelectedSpk] = useState<string>(urlSpkId);
   const [spks, setSpks] = useState<Spk[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [wbsUpdateKey, setWbsUpdateKey] = useState<number>(0);
@@ -18,10 +21,51 @@ export const MandorDashboard: React.FC = () => {
     setWbsUpdateKey((prev) => prev + 1);
   }, []);
 
+  const handleSelectSpk = useCallback((id: string) => {
+    setSelectedSpk(id);
+    setSearchParams((params) => {
+      const next = new URLSearchParams(params);
+      if (id) {
+        next.set('spkId', id);
+      } else {
+        next.delete('spkId');
+        next.delete('spk_id');
+        next.delete('id');
+      }
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  // Sinkronisasi parameter URL jika terjadi navigasi eksternal
+  useEffect(() => {
+    if (urlSpkId && urlSpkId !== selectedSpk) {
+      setSelectedSpk(urlSpkId);
+    }
+  }, [urlSpkId, selectedSpk]);
+
   const fetchSpks = useCallback(async () => {
     try {
       const [spkRes, reqRes] = await Promise.all([
-        supabase.from('spk').select('*').eq('status', 'ACTIVE').order('created_at', { ascending: false }),
+        supabase
+          .from('spk')
+          .select(`
+            id,
+            spk_no,
+            spk_number,
+            customer_name,
+            vehicle_plate,
+            status,
+            qc_status,
+            sub_tasks,
+            target_date,
+            is_hidden,
+            is_test,
+            created_at
+          `)
+          .eq('status', 'ACTIVE')
+          .eq('is_hidden', false)
+          .eq('is_test', false)
+          .order('created_at', { ascending: false }),
         supabase.from('material_requisitions').select('id, spk_id').in('status', ['PENDING', 'PARTIALLY_ISSUED'])
       ]);
 
@@ -40,15 +84,19 @@ export const MandorDashboard: React.FC = () => {
       }
 
       if (spkRes.data) {
-        const enrichedSpks: Spk[] = (spkRes.data as Spk[]).map((spk) => ({
+        // Double-filter in-memory: pastikan HANYA memuat SPK operasional sah (!is_hidden && !is_test)
+        const rawRows = (spkRes.data as any[]) || [];
+        const cleanSpks = rawRows.filter((s) => !s.is_hidden && !s.is_test);
+        const enrichedSpks: Spk[] = cleanSpks.map((spk) => ({
           ...spk,
+          vehicle_number: spk.vehicle_number || spk.vehicle_plate || '',
           pending_requisitions_count: pendingCountMap.get(spk.id) || 0,
-        }));
+        })) as Spk[];
         setSpks(enrichedSpks);
 
         setSelectedSpk((prev) => {
           if (!prev) return '';
-          const stillExists = enrichedSpks.some((s) => s.id === prev);
+          const stillExists = enrichedSpks.some((s) => s.id === prev && !s.is_hidden && !s.is_test);
           return stillExists ? prev : '';
         });
       }
@@ -58,6 +106,25 @@ export const MandorDashboard: React.FC = () => {
       setLoading(false);
     }
   }, []);
+
+  // Perlindungan Guard Detail SPK Terpilih:
+  // Jika selectedSpk mengarah ke SPK yang is_hidden === true atau is_test === true (atau tidak ada di antrean aktif):
+  // Reset pilihan ke '' dan kembalikan panel kanan ke placeholder kosong
+  useEffect(() => {
+    if (!selectedSpk || loading) return;
+
+    const matched = spks.find((s) => s.id === selectedSpk);
+    if (!matched || matched.is_hidden || matched.is_test) {
+      setSelectedSpk('');
+      setSearchParams((params) => {
+        const next = new URLSearchParams(params);
+        next.delete('spkId');
+        next.delete('spk_id');
+        next.delete('id');
+        return next;
+      }, { replace: true });
+    }
+  }, [selectedSpk, spks, loading, setSearchParams]);
 
   useEffect(() => {
     let isMounted = true;
@@ -101,7 +168,7 @@ export const MandorDashboard: React.FC = () => {
             <SpkSelector
               spks={spks}
               selectedSpkId={selectedSpk}
-              onSelectSpk={setSelectedSpk}
+              onSelectSpk={handleSelectSpk}
               isLoading={loading}
               maxHeightClassName="max-h-[420px] lg:max-h-[calc(100vh-220px)]"
             />

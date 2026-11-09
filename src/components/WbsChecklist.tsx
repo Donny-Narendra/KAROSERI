@@ -59,6 +59,7 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
   }>>({});
   
   const [isDraft, setIsDraft] = useState(false);
+  const [isIsolated, setIsIsolated] = useState(false);
   const [spkSubTasks, setSpkSubTasks] = useState<string[]>([]);
 
   // Notification / Alert Modal state
@@ -244,19 +245,26 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
 
   useEffect(() => {
     if (!spkId) return;
+    setIsIsolated(false);
+    setIsDraft(false);
     
     const fetchData = async () => {
       setInitialFetchLoading(true);
       try {
-        // Fetch SPK status & sub_tasks
+        // Fetch SPK status, sub_tasks, is_hidden, is_test
         const { data: spkData, error: spkError } = await supabase
           .from('spk')
-          .select('status, sub_tasks')
+          .select('status, sub_tasks, is_hidden, is_test')
           .eq('id', spkId)
           .single();
           
         if (spkError) throw spkError;
         
+        if (spkData?.is_hidden || spkData?.is_test) {
+          setIsIsolated(true);
+          return;
+        }
+
         if (spkData.sub_tasks) {
           const parsed = Array.isArray(spkData.sub_tasks) ? spkData.sub_tasks : [spkData.sub_tasks];
           setSpkSubTasks(parsed);
@@ -473,6 +481,26 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
     return (
       <div className="bg-surface p-6 rounded-lg shadow-sm border border-border flex justify-center items-center h-48">
         <p className="text-text-muted">Loading Checklist Tahapan...</p>
+      </div>
+    );
+  }
+
+  if (isIsolated) {
+    return (
+      <div className="bg-rose-500/10 border-l-4 border-rose-500 p-4 rounded mb-6">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <svg className="h-5 w-5 text-rose-500" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-rose-400">Akses Dibatasi - SPK Tersembunyi / Uji Coba</h3>
+            <div className="mt-2 text-sm text-rose-300/80">
+              <p>SPK ini telah diarsipkan atau ditandai sebagai uji coba, sehingga dinonaktifkan dari lembar kerja bengkel dan Mandor Terminal.</p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
