@@ -6,7 +6,7 @@ import { SpkBoronganPanel } from './SpkBoronganPanel';
 import { WbsGalleryUploader } from './WbsGalleryUploader';
 import type { WbsAsset } from './WbsGalleryUploader';
 import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
-import { useStageSettings } from '../hooks/useStageSettings';
+import { useStageSettings, resolveStageIndex } from '../hooks/useStageSettings';
 import { AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 import { isRabItemAllocated } from '../utils/rabItemAllocation';
 import { WbsPendingMaterialModal, type PendingWbsMaterial } from './WbsPendingMaterialModal';
@@ -575,8 +575,10 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
       )}
       
       <div className="space-y-6">
-        {WBS_CATEGORIES.map((category) => (
-          <div key={category} className="bg-background p-4 rounded border border-border flex flex-col gap-4">
+        {[...WBS_CATEGORIES]
+          .sort((a, b) => Number(resolveStageIndex(a)) - Number(resolveStageIndex(b)))
+          .map((category) => (
+            <div key={category} className="bg-background p-4 rounded border border-border flex flex-col gap-4">
             <div className="flex flex-col md:flex-row justify-between gap-4">
               <div className="flex-1">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-1 gap-2">

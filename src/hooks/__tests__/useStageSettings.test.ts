@@ -54,6 +54,22 @@ describe('Hook: useStageSettings & getStageDisplayName', () => {
     expect(getStageDisplayName('5', customAliases)).toBe('Tahapan 5: Kelistrikan & Pompa Hidrolik');
   });
 
+  it('avoids keyword collision when stage 5 is alias Finishing and stage 3 is Pendempulan', () => {
+    const collisionAliases = {
+      '1': 'Pembongkaran',
+      '2': 'Sasis/Rangka',
+      '3': 'Pendempulan',
+      '4': 'Pengecatan',
+      '5': 'Finishing',
+    };
+
+    expect(getStageDisplayName('1', collisionAliases)).toBe('Tahapan 1: Pembongkaran');
+    expect(getStageDisplayName('2', collisionAliases)).toBe('Tahapan 2: Sasis/Rangka');
+    expect(getStageDisplayName('Dinding/Fabrikasi', collisionAliases)).toBe('Tahapan 3: Pendempulan');
+    expect(getStageDisplayName('Cat/Finishing', collisionAliases)).toBe('Tahapan 4: Pengecatan');
+    expect(getStageDisplayName('Kelistrikan/Hidrolik', collisionAliases)).toBe('Tahapan 5: Finishing');
+  });
+
   it('fetches stage_aliases from workshop_settings on mount and updates state', async () => {
     const mockAliases = {
       '1': 'Perombakan & Bodi',
@@ -166,3 +182,4 @@ describe('Hook: useStageSettings & getStageDisplayName', () => {
     expect(result.current.stageAliases['1']).toBe('Pembongkaran');
   });
 });
+

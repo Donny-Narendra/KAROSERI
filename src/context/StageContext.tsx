@@ -3,6 +3,8 @@ import {
   useStageSettings as useStageSettingsHook, 
   type UseStageSettingsReturn, 
   DEFAULT_STAGE_NAMES, 
+  EXACT_ENUM_MAP,
+  resolveStageIndex,
   getStageDisplayName, 
   getCachedStageAliases, 
   setCachedStageAliases,
@@ -32,6 +34,8 @@ export function useStageContext(): UseStageSettingsReturn {
 
 export { 
   DEFAULT_STAGE_NAMES, 
+  EXACT_ENUM_MAP,
+  resolveStageIndex,
   getStageDisplayName, 
   getCachedStageAliases, 
   setCachedStageAliases, 

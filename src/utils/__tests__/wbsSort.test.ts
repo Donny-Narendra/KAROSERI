@@ -5,10 +5,81 @@ import {
   formatWbsBadge,
   formatTahapanBadge,
   getWbsBadgeClass,
-  compareWbsAsc
+  compareWbsAsc,
+  resolveStageIndex,
+  EXACT_ENUM_MAP
 } from '../wbsSort';
 
 describe('wbsSort Utilities', () => {
+  describe('resolveStageIndex and EXACT_ENUM_MAP', () => {
+    it('maps enum values, numbers, and keywords deterministically without collision', () => {
+      expect(EXACT_ENUM_MAP['Cat/Finishing']).toBe('4');
+      expect(EXACT_ENUM_MAP['Pembongkaran']).toBe('1');
+      expect(EXACT_ENUM_MAP['Sasis/Rangka']).toBe('2');
+      expect(EXACT_ENUM_MAP['Dinding/Fabrikasi']).toBe('3');
+      expect(EXACT_ENUM_MAP['Pengecatan']).toBe('4');
+      expect(EXACT_ENUM_MAP['Kelistrikan/Hidrolik']).toBe('5');
+
+      expect(resolveStageIndex('1')).toBe('1');
+      expect(resolveStageIndex('2')).toBe('2');
+      expect(resolveStageIndex('3')).toBe('3');
+      expect(resolveStageIndex('4')).toBe('4');
+      expect(resolveStageIndex('5')).toBe('5');
+
+      expect(resolveStageIndex('Pembongkaran')).toBe('1');
+      expect(resolveStageIndex('Sasis/Rangka')).toBe('2');
+      expect(resolveStageIndex('Dinding/Fabrikasi')).toBe('3');
+      expect(resolveStageIndex('Cat/Finishing')).toBe('4');
+      expect(resolveStageIndex('cat/finishing')).toBe('4');
+      expect(resolveStageIndex('Kelistrikan/Hidrolik')).toBe('5');
+
+      expect(resolveStageIndex('WBS 1')).toBe('1');
+      expect(resolveStageIndex('Tahap 4')).toBe('4');
+      expect(resolveStageIndex('Tahapan 5: Finishing')).toBe('5');
+
+      expect(resolveStageIndex('bongkar')).toBe('1');
+      expect(resolveStageIndex('sasis')).toBe('2');
+      expect(resolveStageIndex('dempul')).toBe('3');
+      expect(resolveStageIndex('finishing')).toBe('4');
+      expect(resolveStageIndex('wiring')).toBe('5');
+
+      expect(resolveStageIndex(null)).toBe('1');
+      expect(resolveStageIndex(undefined)).toBe('1');
+      expect(resolveStageIndex('')).toBe('1');
+      expect(resolveStageIndex('unknown-stage')).toBe('1');
+    });
+
+    it('prevents collision when stage 5 alias is Finishing and restores stage 4', () => {
+      const collisionAliases = {
+        '1': 'Pembongkaran',
+        '2': 'Sasis/Rangka',
+        '3': 'Pendempulan',
+        '4': 'Pengecatan',
+        '5': 'Finishing'
+      };
+
+      // Cat/Finishing must strictly resolve to index 4, NOT 5
+      expect(resolveStageIndex('Cat/Finishing', collisionAliases)).toBe('4');
+      expect(getWbsWeight('Cat/Finishing', collisionAliases)).toBe(4);
+      expect(formatTahapanBadge('Cat/Finishing', collisionAliases)).toBe('Tahapan 4: Pengecatan');
+
+      // Stage 5 must resolve to 5
+      expect(resolveStageIndex('Kelistrikan/Hidrolik', collisionAliases)).toBe('5');
+      expect(getWbsWeight('Kelistrikan/Hidrolik', collisionAliases)).toBe(5);
+      expect(formatTahapanBadge('Kelistrikan/Hidrolik', collisionAliases)).toBe('Tahapan 5: Finishing');
+
+      // Sorting the 5 stages produces 1, 2, 3, 4, 5 without duplicates
+      const stages = ['Kelistrikan/Hidrolik', 'Cat/Finishing', 'Dinding/Fabrikasi', 'Pembongkaran', 'Sasis/Rangka'];
+      stages.sort((a, b) => Number(resolveStageIndex(a, collisionAliases)) - Number(resolveStageIndex(b, collisionAliases)));
+      expect(stages).toEqual([
+        'Pembongkaran',
+        'Sasis/Rangka',
+        'Dinding/Fabrikasi',
+        'Cat/Finishing',
+        'Kelistrikan/Hidrolik'
+      ]);
+    });
+  });
   describe('getWbsWeight and getWbsOrderWeight', () => {
     it('correctly maps WBS stages 1 through 5 by number or keyword', () => {
       // Stage 1

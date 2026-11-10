@@ -1,4 +1,11 @@
-import { DEFAULT_STAGE_NAMES, getCachedStageAliases } from '../hooks/useStageSettings';
+import { 
+  DEFAULT_STAGE_NAMES, 
+  getCachedStageAliases, 
+  EXACT_ENUM_MAP, 
+  resolveStageIndex 
+} from '../hooks/useStageSettings';
+
+export { EXACT_ENUM_MAP, resolveStageIndex };
 
 /**
  * WBS Normalization and Ascending Sorting Utilities
@@ -7,23 +14,38 @@ import { DEFAULT_STAGE_NAMES, getCachedStageAliases } from '../hooks/useStageSet
  */
 
 export function getWbsWeight(wbs: string | number | null | undefined, customAliases?: Record<string, string>): number {
-  if (!wbs) return 99;
-  const s = String(wbs).toLowerCase().trim();
-  if (!s || s === 'null' || s === 'undefined' || s === '-') return 99;
+  if (wbs === null || wbs === undefined || wbs === '') return 99;
+  const raw = String(wbs).trim();
+  if (!raw || raw === 'null' || raw === 'undefined' || raw === '-') return 99;
 
-  // Cek kecocokan kustom alias terlebih dahulu jika tersedia
+  // 1. Cek langsung jika input sudah berupa angka 1..5
+  if (['1', '2', '3', '4', '5'].includes(raw)) return Number(raw);
+
+  // 2. Cek pencocokan eksak dengan Enum DB
+  if (EXACT_ENUM_MAP[raw]) return Number(EXACT_ENUM_MAP[raw]);
+  const foundEnum = Object.keys(EXACT_ENUM_MAP).find(k => k.toLowerCase() === raw.toLowerCase());
+  if (foundEnum) return Number(EXACT_ENUM_MAP[foundEnum]);
+
+  // 3. Cek pola eksplisit "WBS X" atau "Tahap(an) X"
+  const numMatch = raw.match(/(?:wbs|tahap(?:an)?)\s*([1-5])/i);
+  if (numMatch && numMatch[1]) return Number(numMatch[1]);
+
+  // 4. Pencocokan kata kunci (Prioritaskan Cat/Finishing ke index 4)
+  const s = raw.toLowerCase();
+  if (s.includes('bongkar')) return 1;
+  if (s.includes('sasis') || s.includes('rangka')) return 2;
+  if (s.includes('dinding') || s.includes('fabrikasi') || s.includes('dempul')) return 3;
+  if (s.includes('cat') || s.includes('paint') || s.includes('pengecatan') || s.includes('finishing')) return 4;
+  if (s.includes('listrik') || s.includes('kelistrikan') || s.includes('hidrolik') || s.includes('wiring')) return 5;
+
+  // 5. Cek kecocokan kustom alias jika ada
   const aliases = { ...DEFAULT_STAGE_NAMES, ...(customAliases || getCachedStageAliases() || {}) };
   for (const [key, alias] of Object.entries(aliases)) {
-    if (alias && s.includes(alias.toLowerCase())) {
+    if (alias && (s === alias.toLowerCase() || s.includes(alias.toLowerCase()))) {
       return Number(key);
     }
   }
 
-  if (s.includes('1') || s.includes('pembongkaran') || s.includes('bongkar')) return 1;
-  if (s.includes('2') || s.includes('sasis') || s.includes('rangka')) return 2;
-  if (s.includes('3') || s.includes('dinding') || s.includes('fabrikasi')) return 3;
-  if (s.includes('4') || s.includes('cat') || s.includes('pengecatan') || s.includes('finishing')) return 4;
-  if (s.includes('5') || s.includes('kelistrikan') || s.includes('hidrolik')) return 5;
   return 99;
 }
 

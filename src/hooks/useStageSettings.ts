@@ -9,6 +9,15 @@ export const DEFAULT_STAGE_NAMES: Record<string, string> = {
   '5': 'Kelistrikan/Hidrolik'
 };
 
+export const EXACT_ENUM_MAP: Record<string, string> = {
+  'Pembongkaran': '1',
+  'Sasis/Rangka': '2',
+  'Dinding/Fabrikasi': '3',
+  'Cat/Finishing': '4',
+  'Pengecatan': '4',
+  'Kelistrikan/Hidrolik': '5'
+};
+
 // In-memory cache for fast synchronous access
 let cachedStageAliases: Record<string, string> = { ...DEFAULT_STAGE_NAMES };
 
@@ -20,30 +29,56 @@ export function setCachedStageAliases(aliases: Record<string, string>): void {
   cachedStageAliases = { ...DEFAULT_STAGE_NAMES, ...(aliases || {}) };
 }
 
+export function resolveStageIndex(
+  stageValue: string | number | null | undefined,
+  customAliases?: Record<string, string>
+): string {
+  if (!stageValue) return '1';
+  const raw = String(stageValue).trim();
+
+  // 1. Cek langsung jika input sudah berupa angka 1..5
+  if (['1', '2', '3', '4', '5'].includes(raw)) return raw;
+
+  // 2. Cek pencocokan eksak dengan Enum DB
+  if (EXACT_ENUM_MAP[raw]) return EXACT_ENUM_MAP[raw];
+  const foundEnum = Object.keys(EXACT_ENUM_MAP).find(k => k.toLowerCase() === raw.toLowerCase());
+  if (foundEnum) return EXACT_ENUM_MAP[foundEnum];
+
+  // 3. Cek pola eksplisit "WBS X" atau "Tahap(an) X"
+  const numMatch = raw.match(/(?:wbs|tahap(?:an)?)\s*([1-5])/i);
+  if (numMatch && numMatch[1]) return numMatch[1];
+
+  // 4. Pencocokan kata kunci (Prioritaskan Cat/Finishing ke index 4)
+  const s = raw.toLowerCase();
+  if (s.includes('bongkar')) return '1';
+  if (s.includes('sasis') || s.includes('rangka')) return '2';
+  if (s.includes('dinding') || s.includes('fabrikasi') || s.includes('dempul')) return '3';
+  if (s.includes('cat') || s.includes('paint') || s.includes('pengecatan') || s.includes('finishing')) return '4';
+  if (s.includes('listrik') || s.includes('kelistrikan') || s.includes('hidrolik') || s.includes('wiring')) return '5';
+
+  // 5. Cek kecocokan kustom alias jika ada
+  const aliases = { ...DEFAULT_STAGE_NAMES, ...(customAliases || cachedStageAliases || {}) };
+  for (const [key, alias] of Object.entries(aliases)) {
+    if (alias && (s === alias.toLowerCase() || s.includes(alias.toLowerCase()))) {
+      return key;
+    }
+  }
+
+  return '1';
+}
+
 export function getStageDisplayName(
   stageKey: string | number | null | undefined, 
   customAliases?: Record<string, string>
 ): string {
-  const aliases = { ...DEFAULT_STAGE_NAMES, ...(customAliases || cachedStageAliases || {}) };
-  if (!stageKey) return 'Tahapan Pekerjaan';
-
-  const keyStr = String(stageKey).toLowerCase();
-
-  // Cek apakah kecocokan langsung dengan nama alias kustom
-  for (const [k, val] of Object.entries(aliases)) {
-    if (val && keyStr.includes(val.toLowerCase())) {
-      return `Tahapan ${k}: ${aliases[k] || DEFAULT_STAGE_NAMES[k]}`;
-    }
+  if (stageKey === null || stageKey === undefined || stageKey === '') {
+    return 'Tahapan Pekerjaan';
   }
 
-  let idx = '1';
-  if (keyStr.includes('1') || keyStr.includes('bongkar')) idx = '1';
-  else if (keyStr.includes('2') || keyStr.includes('sasis') || keyStr.includes('rangka')) idx = '2';
-  else if (keyStr.includes('3') || keyStr.includes('dinding') || keyStr.includes('fabrikasi')) idx = '3';
-  else if (keyStr.includes('4') || keyStr.includes('cat') || keyStr.includes('finishing')) idx = '4';
-  else if (keyStr.includes('5') || keyStr.includes('kelistrikan') || keyStr.includes('hidrolik')) idx = '5';
+  const aliases = { ...DEFAULT_STAGE_NAMES, ...(customAliases || cachedStageAliases || {}) };
+  const idx = resolveStageIndex(stageKey, aliases);
 
-  return `Tahapan ${idx}: ${aliases[idx] || DEFAULT_STAGE_NAMES[idx]}`;
+  return `Tahapan ${idx}: ${aliases[idx] || DEFAULT_STAGE_NAMES[idx] || 'Pekerjaan'}`;
 }
 
 export const STAGE_SETTINGS_EVENT = 'stage-settings-updated';
@@ -199,3 +234,4 @@ export function useStageSettings(): UseStageSettingsReturn {
     refresh: fetchAliases
   };
 }
+

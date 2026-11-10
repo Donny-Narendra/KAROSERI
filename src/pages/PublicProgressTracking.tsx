@@ -9,7 +9,7 @@ import {
 import { getOptimizedImageUrl } from '../lib/cloudinary';
 import { checkTrackingExpiration } from '../utils/trackingExpiration';
 import { createStyleProxy } from '../utils/pdfExportUtils';
-import { useStageSettings } from '../hooks/useStageSettings';
+import { useStageSettings, resolveStageIndex } from '../hooks/useStageSettings';
 
 const WBS_CATEGORIES = [
   'Pembongkaran',
@@ -153,12 +153,17 @@ export const PublicProgressTracking: React.FC = () => {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   const wbsStages = useMemo(() => {
-    return WBS_CATEGORIES.map((cat, idx) => {
+    const sortedCategories = [...WBS_CATEGORIES].sort(
+      (a, b) => Number(resolveStageIndex(a)) - Number(resolveStageIndex(b))
+    );
+
+    return sortedCategories.map((cat) => {
+      const idx = Number(resolveStageIndex(cat));
       const data = checklists[cat];
       const catAssets = assets[cat] || [];
       return {
         id: cat,
-        wbsNumber: idx + 1,
+        wbsNumber: idx,
         title: getStageDisplayName(cat),
         progress: data?.progress_percentage || 0,
         notes: (data?.mandor_notes || data?.notes || '').trim(),
@@ -168,7 +173,7 @@ export const PublicProgressTracking: React.FC = () => {
           caption: asset.caption || `Dokumentasi #${pIdx + 1}`,
         })),
       };
-    });
+    }).sort((a, b) => a.wbsNumber - b.wbsNumber);
   }, [checklists, assets, getStageDisplayName]);
 
   const waitForImages = async (container: HTMLElement) => {
