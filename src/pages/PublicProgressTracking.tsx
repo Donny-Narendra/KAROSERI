@@ -9,6 +9,7 @@ import {
 import { getOptimizedImageUrl } from '../lib/cloudinary';
 import { checkTrackingExpiration } from '../utils/trackingExpiration';
 import { createStyleProxy } from '../utils/pdfExportUtils';
+import { useStageSettings } from '../hooks/useStageSettings';
 
 const WBS_CATEGORIES = [
   'Pembongkaran',
@@ -18,17 +19,10 @@ const WBS_CATEGORIES = [
   'Kelistrikan/Hidrolik'
 ];
 
-const WBS_LABELS: Record<string, string> = {
-  'Pembongkaran': 'Tahapan 1: Pembongkaran',
-  'Sasis/Rangka': 'Tahapan 2: Sasis/Rangka',
-  'Dinding/Fabrikasi': 'Tahapan 3: Dinding/Fabrikasi',
-  'Cat/Finishing': 'Tahapan 4: Pengecatan',
-  'Kelistrikan/Hidrolik': 'Tahapan 5: Kelistrikan/Hidrolik',
-};
-
 export const PublicProgressTracking: React.FC = () => {
   const { spk_no } = useParams<{ spk_no: string }>();
   const navigate = useNavigate();
+  const { getStageDisplayName } = useStageSettings();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -165,7 +159,7 @@ export const PublicProgressTracking: React.FC = () => {
       return {
         id: cat,
         wbsNumber: idx + 1,
-        title: WBS_LABELS[cat] || cat,
+        title: getStageDisplayName(cat),
         progress: data?.progress_percentage || 0,
         notes: (data?.mandor_notes || data?.notes || '').trim(),
         photos: catAssets.map((asset: any, pIdx: number) => ({
@@ -175,7 +169,7 @@ export const PublicProgressTracking: React.FC = () => {
         })),
       };
     });
-  }, [checklists, assets]);
+  }, [checklists, assets, getStageDisplayName]);
 
   const waitForImages = async (container: HTMLElement) => {
     const images = Array.from(container.querySelectorAll('img'));

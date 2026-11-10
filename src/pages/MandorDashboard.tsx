@@ -39,9 +39,20 @@ export const MandorDashboard: React.FC = () => {
   // Sinkronisasi parameter URL jika terjadi navigasi eksternal
   useEffect(() => {
     if (urlSpkId && urlSpkId !== selectedSpk) {
-      setSelectedSpk(urlSpkId);
+      if (loading || spks.some((s) => s.id === urlSpkId && !s.is_hidden && !s.is_test)) {
+        setSelectedSpk(urlSpkId);
+      } else if (!loading) {
+        setSelectedSpk('');
+        setSearchParams((params) => {
+          const next = new URLSearchParams(params);
+          next.delete('spkId');
+          next.delete('spk_id');
+          next.delete('id');
+          return next;
+        }, { replace: true });
+      }
     }
-  }, [urlSpkId, selectedSpk]);
+  }, [urlSpkId, selectedSpk, loading, spks, setSearchParams]);
 
   const fetchSpks = useCallback(async () => {
     try {
@@ -176,7 +187,7 @@ export const MandorDashboard: React.FC = () => {
 
           {/* Kolom Kanan: WBS Progress & QC (Detail) */}
           <div className="lg:col-span-8 xl:col-span-8 space-y-6">
-            {selectedSpk ? (
+            {selectedSpk && spks.some((s) => s.id === selectedSpk && !s.is_hidden && !s.is_test) ? (
               <>
                 <WbsChecklist spkId={selectedSpk} onWbsUpdated={handleWbsUpdated} />
                 <QcInspectionForm spkId={selectedSpk} onQcUpdated={fetchSpks} wbsUpdateKey={wbsUpdateKey} />

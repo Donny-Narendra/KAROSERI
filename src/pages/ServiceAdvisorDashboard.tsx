@@ -134,7 +134,9 @@ export const ServiceAdvisorDashboard: React.FC = () => {
       const { data, error } = await query;
         
       if (error) throw error;
-      setSpks(data || []);
+      const cleanData = (data || []).filter((s: any) => !s.is_hidden && !s.is_test);
+      setSpks(cleanData);
+      setSelectedSpkId((prev) => (prev && cleanData.some((s: any) => s.id === prev) ? prev : null));
     } catch (error) {
       console.error('Error fetching SPKs:', error);
     } finally {

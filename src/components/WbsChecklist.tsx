@@ -6,6 +6,7 @@ import { SpkBoronganPanel } from './SpkBoronganPanel';
 import { WbsGalleryUploader } from './WbsGalleryUploader';
 import type { WbsAsset } from './WbsGalleryUploader';
 import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
+import { useStageSettings } from '../hooks/useStageSettings';
 import { AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 import { isRabItemAllocated } from '../utils/rabItemAllocation';
 import { WbsPendingMaterialModal, type PendingWbsMaterial } from './WbsPendingMaterialModal';
@@ -24,18 +25,11 @@ const WBS_CATEGORIES = [
   'Kelistrikan/Hidrolik'
 ];
 
-const WBS_LABELS: Record<string, string> = {
-  'Pembongkaran': 'Tahapan 1: Pembongkaran',
-  'Sasis/Rangka': 'Tahapan 2: Sasis/Rangka',
-  'Dinding/Fabrikasi': 'Tahapan 3: Dinding/Fabrikasi',
-  'Cat/Finishing': 'Tahapan 4: Pengecatan',
-  'Kelistrikan/Hidrolik': 'Tahapan 5: Kelistrikan/Hidrolik',
-};
-
 const PROGRESS_STEPS = [0, 25, 50, 75, 100];
 
 export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated }) => {
   const { user } = useAuth();
+  const { getStageDisplayName } = useStageSettings();
   const [loading, setLoading] = useState(false);
   const [initialFetchLoading, setInitialFetchLoading] = useState(true);
   
@@ -586,7 +580,7 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
             <div className="flex flex-col md:flex-row justify-between gap-4">
               <div className="flex-1">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-1 gap-2">
-                  <h4 className="font-medium text-text text-lg">{WBS_LABELS[category]}</h4>
+                  <h4 className="font-medium text-text text-lg">{getStageDisplayName(category)}</h4>
                   <div className="flex flex-wrap md:flex-nowrap items-center gap-2">
                     {/* Badge Indikator Alokasi Material & Tenaga WBS */}
                     {wbsAllocations[category] && (
@@ -766,7 +760,7 @@ export const WbsChecklist: React.FC<WbsChecklistProps> = ({ spkId, onWbsUpdated 
         isOpen={!!pendingModalCategory}
         onClose={() => setPendingModalCategory(null)}
         category={pendingModalCategory || ''}
-        categoryLabel={pendingModalCategory ? WBS_LABELS[pendingModalCategory] : undefined}
+        categoryLabel={pendingModalCategory ? getStageDisplayName(pendingModalCategory) : undefined}
         pendingMaterials={pendingModalCategory ? (wbsAllocations[pendingModalCategory]?.pendingList || []) : []}
         onOpenRequisition={() => {
           if (pendingModalCategory) {

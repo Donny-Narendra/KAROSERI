@@ -11,6 +11,7 @@ import { ConfirmationModal, type ConfirmationModalVariant } from '../components/
 import { supabase } from '../lib/supabaseClient';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { StageSettingsPanel } from '../components/owner/StageSettingsPanel';
 
 export const AdminSettingsPage: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -516,6 +517,11 @@ export const AdminSettingsPage: React.FC = () => {
                 </button>
               </div>
             </form>
+
+            {/* Panel Konfigurasi Istilah Tahapan Kerja (WBS) */}
+            <div className="mt-8 pt-8 border-t border-border">
+              <StageSettingsPanel />
+            </div>
           </div>
         )}
 

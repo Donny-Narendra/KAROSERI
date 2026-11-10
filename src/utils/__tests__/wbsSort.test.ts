@@ -83,6 +83,23 @@ describe('wbsSort Utilities', () => {
       expect(formatTahapanBadge('')).toBe('-');
       expect(formatTahapanBadge('Custom Stage')).toBe('Custom Stage');
     });
+
+    it('formats WBS strings with custom stage aliases dynamically', () => {
+      const customAliases = {
+        '1': 'Bongkar & Kupas Plat',
+        '2': 'Sasis & Rangka Utama',
+        '3': 'Fabrikasi Bak & Dinding',
+        '4': 'Dempul & Cat Oven',
+        '5': 'Kelistrikan & Sistem Hidrolik'
+      };
+
+      expect(formatTahapanBadge('Pembongkaran', customAliases)).toBe('Tahapan 1: Bongkar & Kupas Plat');
+      expect(formatTahapanBadge('WBS 1: Pembongkaran', customAliases)).toBe('Tahapan 1: Bongkar & Kupas Plat');
+      expect(formatTahapanBadge('sasis', customAliases)).toBe('Tahapan 2: Sasis & Rangka Utama');
+      expect(formatTahapanBadge('dinding', customAliases)).toBe('Tahapan 3: Fabrikasi Bak & Dinding');
+      expect(formatTahapanBadge('Cat/Finishing', customAliases)).toBe('Tahapan 4: Dempul & Cat Oven');
+      expect(formatTahapanBadge('kelistrikan', customAliases)).toBe('Tahapan 5: Kelistrikan & Sistem Hidrolik');
+    });
   });
 
   describe('getWbsBadgeClass', () => {

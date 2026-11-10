@@ -20,6 +20,8 @@ import { calculateSegregatedProfit } from '../utils/financialCalculations';
 
 import { rabService, type RabItem, type RabSpkDetails, type DbRabItemRecord } from '../services/rabService';
 import { deduplicateRabItems } from '../utils/rabDeduplication';
+import { useStageSettings } from '../hooks/useStageSettings';
+import type { WbsCategory } from '../types/database';
 
 export type { RabItem, RabSpkDetails, DbRabItemRecord };
 export { calculateSegregatedProfit };
@@ -52,13 +54,15 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
   // Toggle mode: 'material' (default) | 'labor' | 'overhead'
   const [itemMode, setItemMode] = useState<'material' | 'labor' | 'overhead'>('material');
 
-  const wbsCategories = [
-    { id: 'Pembongkaran', label: 'Tahapan 1: Pembongkaran' },
-    { id: 'Sasis/Rangka', label: 'Tahapan 2: Sasis/Rangka' },
-    { id: 'Dinding/Fabrikasi', label: 'Tahapan 3: Dinding/Fabrikasi' },
-    { id: 'Cat/Finishing', label: 'Tahapan 4: Pengecatan' },
-    { id: 'Kelistrikan/Hidrolik', label: 'Tahapan 5: Kelistrikan/Hidrolik' },
-  ];
+  const { getStageDisplayName } = useStageSettings();
+
+  const wbsCategories = useMemo(() => [
+    { id: 'Pembongkaran' as WbsCategory, label: getStageDisplayName('1') },
+    { id: 'Sasis/Rangka' as WbsCategory, label: getStageDisplayName('2') },
+    { id: 'Dinding/Fabrikasi' as WbsCategory, label: getStageDisplayName('3') },
+    { id: 'Cat/Finishing' as WbsCategory, label: getStageDisplayName('4') },
+    { id: 'Kelistrikan/Hidrolik' as WbsCategory, label: getStageDisplayName('5') },
+  ], [getStageDisplayName]);
 
   // Dedicated state for Labor / Tukang item entry
   const [laborForm, setLaborForm] = useState({
@@ -1215,11 +1219,11 @@ export const RabCalculator: React.FC<{ spkId: string }> = ({ spkId }) => {
                 <div className="border border-border rounded-md overflow-hidden bg-surface">
                   <div className="grid grid-cols-7 text-center text-xs font-semibold border-b border-border bg-surface-hover/90 py-1.5 text-text-muted font-mono">
                     <div className="border-r border-border">TOTAL QTY</div>
-                    <div title="Tahapan 1: Pembongkaran">Tahap 1</div>
-                    <div title="Tahapan 2: Sasis/Rangka">Tahap 2</div>
-                    <div title="Tahapan 3: Dinding/Fabrikasi">Tahap 3</div>
-                    <div title="Tahapan 4: Pengecatan">Tahap 4</div>
-                    <div title="Tahapan 5: Kelistrikan/Hidrolik">Tahap 5</div>
+                    <div title={getStageDisplayName('1')}>Tahap 1</div>
+                    <div title={getStageDisplayName('2')}>Tahap 2</div>
+                    <div title={getStageDisplayName('3')}>Tahap 3</div>
+                    <div title={getStageDisplayName('4')}>Tahap 4</div>
+                    <div title={getStageDisplayName('5')}>Tahap 5</div>
                     <div className="border-l border-border">STATUS</div>
                   </div>
                   <div className="grid grid-cols-7 text-center items-center py-2 px-1 gap-1">

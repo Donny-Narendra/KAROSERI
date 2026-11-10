@@ -14,6 +14,7 @@ import type { WbsCostVariance } from '../../../types/financialReports';
 
 import { formatRupiah } from '../../../utils/formatters';
 import { formatTahapanBadge } from '../../../utils/wbsSort';
+import { useStageSettings } from '../../../hooks/useStageSettings';
 
 interface WbsCostVarianceTabProps {
   globalSearch?: string;
@@ -31,6 +32,7 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
   globalSearch = '',
   refreshTrigger,
 }) => {
+  const { getStageDisplayName } = useStageSettings();
   const [data, setData] = useState<WbsCostVariance[]>([]);
   const [spkList, setSpkList] = useState<SpkOption[]>([]);
   const [selectedSpkId, setSelectedSpkId] = useState<string>('ALL');
@@ -131,11 +133,11 @@ export const WbsCostVarianceTab: React.FC<WbsCostVarianceTabProps> = ({
             className="bg-background/80 border border-border rounded-lg px-3 py-1.5 text-sm text-text focus:outline-none focus:border-primary"
           >
             <option value="ALL">Semua Tahapan Pekerjaan</option>
-            <option value="WBS 1">Tahapan 1 (Chassis / Rangka Bawah)</option>
-            <option value="WBS 2">Tahapan 2 (Lantai, Dinding, Rangka Bodi)</option>
-            <option value="WBS 3">Tahapan 3 (Atap & Eksterior)</option>
-            <option value="WBS 4">Tahapan 4 (Pengecatan & Finishing)</option>
-            <option value="WBS 5">Tahapan 5 (Instalasi Kelistrikan & Aksesoris)</option>
+            <option value="WBS 1">{getStageDisplayName('1')}</option>
+            <option value="WBS 2">{getStageDisplayName('2')}</option>
+            <option value="WBS 3">{getStageDisplayName('3')}</option>
+            <option value="WBS 4">{getStageDisplayName('4')}</option>
+            <option value="WBS 5">{getStageDisplayName('5')}</option>
           </select>
 
           {/* Local Search Box */}

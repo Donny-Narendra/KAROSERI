@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { StageProvider } from './context/StageContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { GuestRoute } from './components/GuestRoute';
 import { LoginPage } from './pages/LoginPage';
@@ -74,10 +75,11 @@ const IdleTimeoutManager: React.FC = () => {
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <IdleTimeoutManager />
-        <Suspense fallback={<PageLoadingFallback />}>
-          <Routes>
+      <StageProvider>
+        <BrowserRouter>
+          <IdleTimeoutManager />
+          <Suspense fallback={<PageLoadingFallback />}>
+            <Routes>
             <Route path="/" element={<RootRedirect />} />
             <Route element={<GuestRoute />}>
               <Route path="/login" element={<LoginPage />} />
@@ -123,7 +125,8 @@ function App() {
           </Routes>
         </Suspense>
       </BrowserRouter>
-    </AuthProvider>
+    </StageProvider>
+  </AuthProvider>
   );
 }
 

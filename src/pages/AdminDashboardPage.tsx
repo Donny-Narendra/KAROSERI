@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { 
   BarChart3, AlertTriangle, ShieldCheck, Factory, LogOut, Package,
   Settings, Bell, Check, X, Search, RotateCcw, FileSpreadsheet, Ban, TrendingUp, BookOpen,
-  Archive, ShieldAlert
+  Archive, ShieldAlert, Layers
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { PackageManager } from '../components/PackageManager';
@@ -15,6 +15,7 @@ import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { dashboardService, type DashboardSpkItem } from '../services/dashboardService';
 import { ResetSimulationModal } from '../components/owner/ResetSimulationModal';
 import { SpkIsolationManagerModal } from '../components/dashboard/SpkIsolationManagerModal';
+import { StageSettingsModal } from '../components/owner/StageSettingsModal';
 
 export const AdminDashboardPage: React.FC = () => {
   const { t } = useTranslation();
@@ -41,6 +42,7 @@ export const AdminDashboardPage: React.FC = () => {
   const [showExportModal, setShowExportModal] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [isIsolationModalOpen, setIsIsolationModalOpen] = useState(false);
+  const [isStageSettingsModalOpen, setIsStageSettingsModalOpen] = useState(false);
 
   // State Filter SPK Uji Coba / Arsip
   const [showArchivedTest, setShowArchivedTest] = useState(false);
@@ -343,6 +345,14 @@ export const AdminDashboardPage: React.FC = () => {
           <div className="flex items-center gap-2.5 shrink-0">
             {profile?.role === 'owner' && (
               <>
+                <button
+                  onClick={() => setIsStageSettingsModalOpen(true)}
+                  className="px-3 py-1.5 bg-amber-950/80 hover:bg-amber-900 border border-amber-700/60 text-amber-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+                  title="Khusus Owner: Pengaturan Istilah Tahapan Kerja (WBS)"
+                >
+                  <Layers className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Istilah Tahapan WBS</span>
+                </button>
                 <button
                   onClick={() => setIsIsolationModalOpen(true)}
                   className="px-3 py-1.5 bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700/60 text-indigo-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
@@ -970,6 +980,14 @@ export const AdminDashboardPage: React.FC = () => {
           onSuccess={() => {
             fetchSpks();
           }}
+        />
+      )}
+
+      {/* Modal Pengaturan Istilah WBS (Khusus Owner) */}
+      {profile?.role === 'owner' && (
+        <StageSettingsModal
+          isOpen={isStageSettingsModalOpen}
+          onClose={() => setIsStageSettingsModalOpen(false)}
         />
       )}
 
