@@ -872,4 +872,108 @@ describe('RabPerubahanTab Component', () => {
     expect(screen.getAllByText('Rp 5.000.000').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/33\.3% Margin/).length).toBeGreaterThanOrEqual(1);
   });
+
+  it('tracks downward HPP cost variance (deflation), displays emerald badge, and adds savings to profit', async () => {
+    const supabaseMock = await import('../../../lib/supabaseClient');
+    const originalFrom = supabaseMock.supabase.from;
+
+    const deflatedSpk = {
+      id: 'spk-5132-test',
+      spk_no: 'SPK-5132',
+      customer_name: 'Customer Winglet',
+      vehicle_plate: 'B 5132 XYZ',
+    };
+
+    const deflatedRabItems = [
+      {
+        id: 'rab-item-winglet',
+        rab_estimation_id: 'est-5132',
+        spk_id: 'spk-5132-test',
+        wbs_category: 'Pembongkaran',
+        wbs_stage: 'WBS 1: Pembongkaran',
+        item_type: 'MATERIAL',
+        material_name: 'WINGLET',
+        description: 'WINGLET',
+        quantity: 1,
+        unit: 'batang',
+        cost_price: 70000,
+        unit_price: 70000,
+        subtotal: 70000,
+        material_id: 'mat-winglet-1',
+      },
+    ];
+
+    const storeMaterials = [
+      {
+        id: 'mat-winglet-1',
+        name: 'WINGLET',
+        cost_price: 65000, // Decreased from Rp 70.000 to Rp 65.000 in master inventory
+        unit_price: 70000,
+        current_stock: 75,
+      },
+    ];
+
+    (supabaseMock.supabase.from as any) = vi.fn((table: string) => {
+      if (table === 'rab_estimations') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: { id: 'est-5132', spk_id: 'spk-5132-test' },
+            error: null,
+          }),
+        };
+      }
+      if (table === 'rab_items') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockResolvedValue({
+            data: deflatedRabItems,
+            error: null,
+          }),
+        };
+      }
+      if (table === 'materials') {
+        return {
+          select: vi.fn().mockResolvedValue({
+            data: storeMaterials,
+            error: null,
+          }),
+        };
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockResolvedValue({ data: [], error: null }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      };
+    });
+
+    const spkServiceMock = await import('../../../services/spkService');
+    vi.spyOn(spkServiceMock.spkService, 'getChangeOrders').mockResolvedValueOnce([]);
+
+    try {
+      render(<RabPerubahanTab spkId="spk-5132-test" spk={deflatedSpk} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('WINGLET')).toBeInTheDocument();
+      });
+
+      // 1. Base HPP estimation Rp 70.000 is displayed
+      expect(screen.getAllByText('Rp 70.000').length).toBeGreaterThanOrEqual(1);
+
+      // 2. Emerald downward indicator badge shows decrease to Rp 65.000 (-Rp 5.000)
+      expect(screen.getByText(/▼ Turun ke: Rp 65\.000/)).toBeInTheDocument();
+      expect(screen.getAllByText(/\(-Rp 5\.000\)/).length).toBeGreaterThanOrEqual(1);
+
+      // 3. Top summary cards reflect Rp 5.000 cost decrease and Rp 5.000 profit increase
+      expect(screen.getAllByText('Rp 65.000').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText('▼ -Rp 5.000')).toBeInTheDocument();
+      expect(screen.getByText('Efisiensi / penurunan harga belanja')).toBeInTheDocument();
+      expect(screen.getByText(/▲ \+Rp 5\.000 \(Penambahan margin laba\)/)).toBeInTheDocument();
+      expect(screen.getAllByText('Rp 5.000').length).toBeGreaterThanOrEqual(1);
+    } finally {
+      (supabaseMock.supabase.from as any) = originalFrom;
+    }
+  });
 });

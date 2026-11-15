@@ -46,6 +46,8 @@ export interface ProfitBreakdownResult {
   // Workshop-Absorbed Cost Variance Tracking (Fixed-Price Contract)
   grandTotalEstimatedCost?: number;
   grandTotalMarginErosion?: number;
+  /** Net signed cost variance (grandTotalCost - grandTotalEstimatedCost): >0 means inflation, <0 means cost savings */
+  netCostVariance?: number;
 }
 
 export type PackageMasterLookup = 
@@ -144,7 +146,7 @@ export function computeSegregatedProjectProfit(
         : (item.costPrice ?? 0)
     );
 
-    // Tentukan HPP efektif yang menyerap kenaikan belanja gudang (Dynamic Effective Cost)
+    // Tentukan HPP efektif yang melacak fluktuasi harga gudang selama barang belum dikeluarkan fisik (Dynamic Effective Cost)
     const rawMatCost = item.materials
       ? (Array.isArray(item.materials) ? item.materials[0]?.cost_price : item.materials.cost_price)
       : undefined;
@@ -152,14 +154,15 @@ export function computeSegregatedProjectProfit(
     const baseCostPrice = item.cost_price !== undefined && item.cost_price !== null
       ? Number(item.cost_price)
       : (item.costPrice !== undefined && item.costPrice !== null ? Number(item.costPrice) : 0);
+    const isFulfilled = item.fulfillment_status === 'FULFILLED' || item.fulfillmentStatus === 'FULFILLED';
 
     const effectiveUnitCost = Number(
       item.effective_cost_price ?? 
       item.effectiveCostPrice ?? 
       item.actual_cost_price ?? 
       item.actualCostPrice ?? 
-      (matCostPrice !== null && matCostPrice > baseCostPrice ? matCostPrice : null) ?? 
-      (item.materials?.cost_price && item.materials.cost_price > item.cost_price ? item.materials.cost_price : null) ?? 
+      (!isFulfilled && matCostPrice !== null && matCostPrice > 0 && matCostPrice !== baseCostPrice ? matCostPrice : null) ?? 
+      (!isFulfilled && item.materials?.cost_price !== undefined && item.materials?.cost_price !== null && Number(item.materials.cost_price) > 0 && Number(item.materials.cost_price) !== baseCostPrice ? item.materials.cost_price : null) ?? 
       item.cost_price ?? 
       item.costPrice ?? 
       0
@@ -258,7 +261,7 @@ export function computeSegregatedProjectProfit(
       netProfit,
       marginPercentage,
       estimatedCost: p.estimatedCostAccum,
-      costVariance: Math.max(0, totalCost - p.estimatedCostAccum),
+      costVariance: totalCost - p.estimatedCostAccum,
     };
   });
 
@@ -282,7 +285,8 @@ export function computeSegregatedProjectProfit(
     : 0;
 
   const grandTotalEstimatedCost = totalEstimatedCostAccum;
-  const grandTotalMarginErosion = Math.max(0, grandTotalCost - grandTotalEstimatedCost);
+  const netCostVariance = grandTotalCost - grandTotalEstimatedCost;
+  const grandTotalMarginErosion = Math.max(0, netCostVariance);
 
   return {
     packages: packageList,
@@ -316,5 +320,6 @@ export function computeSegregatedProjectProfit(
     grandTotalMarginPercentage,
     grandTotalEstimatedCost,
     grandTotalMarginErosion,
+    netCostVariance,
   };
 }

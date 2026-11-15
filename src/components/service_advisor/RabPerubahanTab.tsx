@@ -32,6 +32,45 @@ interface RabPerubahanTabProps {
   spk?: any;
 }
 
+/**
+ * Resolves dynamic effective HPP cost and bidirectional variance flags (upward or downward)
+ * while the item has not yet been physically issued from the warehouse.
+ */
+function resolveBidirectionalCostVariance(
+  itemType: 'MATERIAL' | 'LABOR' | 'OVERHEAD',
+  fulfillmentStatus: 'FULFILLED' | 'PENDING',
+  estimatedCostPrice: number,
+  actualStoreCostPrice: number,
+  realizedIssueCostPrice: number,
+  qty: number
+) {
+  let effectiveCostPrice = estimatedCostPrice;
+  if (itemType === 'MATERIAL') {
+    if (fulfillmentStatus === 'FULFILLED') {
+      effectiveCostPrice = realizedIssueCostPrice > 0
+        ? realizedIssueCostPrice
+        : (actualStoreCostPrice > 0 ? actualStoreCostPrice : estimatedCostPrice);
+    } else {
+      effectiveCostPrice = actualStoreCostPrice > 0 ? actualStoreCostPrice : estimatedCostPrice;
+    }
+  }
+
+  const costVariancePerUnit = effectiveCostPrice - estimatedCostPrice;
+  const totalCostVariance = qty * costVariancePerUnit;
+  const isCostChanged = Math.abs(costVariancePerUnit) > 0 && fulfillmentStatus !== 'FULFILLED';
+  const isCostInflated = costVariancePerUnit > 0 && fulfillmentStatus !== 'FULFILLED';
+  const isCostDeflated = costVariancePerUnit < 0 && fulfillmentStatus !== 'FULFILLED';
+
+  return {
+    effectiveCostPrice,
+    costVariancePerUnit,
+    totalCostVariance,
+    isCostChanged,
+    isCostInflated,
+    isCostDeflated,
+  };
+}
+
 function computeProportionalPackageBreakdown(
   items: any[],
   fetchedPackages: any[],
@@ -499,22 +538,22 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
           }
         }
 
-        // Active comparison HPP (effective_cost_price)
-        let effectiveCostPrice = estimatedCostPrice;
-        if (itemType === 'MATERIAL') {
-          if (fulfillmentStatus === 'FULFILLED') {
-            effectiveCostPrice = realizedIssueCostPrice > 0
-              ? realizedIssueCostPrice
-              : (actualStoreCostPrice > 0 ? actualStoreCostPrice : estimatedCostPrice);
-          } else {
-            // PENDING (Belum Diambil / Belanja Baru)
-            effectiveCostPrice = actualStoreCostPrice > 0 ? actualStoreCostPrice : estimatedCostPrice;
-          }
-        }
-
-        const costVariancePerUnit = effectiveCostPrice - estimatedCostPrice;
-        const totalCostVariance = qty * costVariancePerUnit;
-        const isCostInflated = costVariancePerUnit > 0;
+        // Active comparison HPP (effective_cost_price) and bidirectional variance flags
+        const {
+          effectiveCostPrice,
+          costVariancePerUnit,
+          totalCostVariance,
+          isCostChanged,
+          isCostInflated,
+          isCostDeflated,
+        } = resolveBidirectionalCostVariance(
+          itemType,
+          fulfillmentStatus,
+          estimatedCostPrice,
+          actualStoreCostPrice,
+          realizedIssueCostPrice,
+          qty
+        );
 
         mappedRabItems.push({
           id: dbItem.id,
@@ -534,8 +573,12 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
           effective_cost_price: effectiveCostPrice,
           cost_variance_per_unit: costVariancePerUnit,
           total_cost_variance: totalCostVariance,
+          is_cost_changed: isCostChanged,
+          isCostChanged,
           is_cost_inflated: isCostInflated,
-          isCostInflated: isCostInflated,
+          isCostInflated,
+          is_cost_deflated: isCostDeflated,
+          isCostDeflated,
           has_new_stock: hasNewStock,
           unit_price: unitPrice,
           subtotal,
@@ -674,20 +717,21 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
             }
           }
 
-          let effectiveCostPrice = estimatedCostPrice;
-          if (itemType === 'MATERIAL') {
-            if (fulfillmentStatus === 'FULFILLED') {
-              effectiveCostPrice = realizedIssueCostPrice > 0
-                ? realizedIssueCostPrice
-                : (actualStoreCostPrice > 0 ? actualStoreCostPrice : estimatedCostPrice);
-            } else {
-              effectiveCostPrice = actualStoreCostPrice > 0 ? actualStoreCostPrice : estimatedCostPrice;
-            }
-          }
-
-          const costVariancePerUnit = effectiveCostPrice - estimatedCostPrice;
-          const totalCostVariance = qty * costVariancePerUnit;
-          const isCostInflated = costVariancePerUnit > 0;
+          const {
+            effectiveCostPrice,
+            costVariancePerUnit,
+            totalCostVariance,
+            isCostChanged,
+            isCostInflated,
+            isCostDeflated,
+          } = resolveBidirectionalCostVariance(
+            itemType,
+            fulfillmentStatus,
+            estimatedCostPrice,
+            actualStoreCostPrice,
+            realizedIssueCostPrice,
+            qty
+          );
 
           mappedCoItems.push({
             id: item.id,
@@ -707,8 +751,12 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
             effective_cost_price: effectiveCostPrice,
             cost_variance_per_unit: costVariancePerUnit,
             total_cost_variance: totalCostVariance,
+            is_cost_changed: isCostChanged,
+            isCostChanged,
             is_cost_inflated: isCostInflated,
-            isCostInflated: isCostInflated,
+            isCostInflated,
+            is_cost_deflated: isCostDeflated,
+            isCostDeflated,
             has_new_stock: hasNewStock,
             unit_price: unitPrice,
             subtotal,
@@ -867,7 +915,9 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
     return totalQuotation > 0 ? (revisedProfit / totalQuotation) * 100 : 0;
   }, [isLockedBast, activeSpk, totalQuotation, revisedProfit]);
 
-  const costInflation = Math.max(0, revisedCost - initialCost);
+  const netCostVariance = revisedCost - initialCost;
+  const costInflation = Math.max(0, netCostVariance);
+  const costSavings = Math.max(0, -netCostVariance);
 
   // Subtotal filter untuk item yang sedang tampil di tabel
   const filteredTotalRevenue = useMemo(() => 
@@ -887,7 +937,9 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
       totalCogs: revisedCost,
       totalProfit: revisedProfit,
       marginPercentage: Number(revisedMarginPercent.toFixed(1)),
-      totalMarginErosion: costInflation
+      totalMarginErosion: costInflation,
+      netCostVariance,
+      totalCostSavings: costSavings,
     });
   };
 
@@ -898,7 +950,9 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
       totalCogs: revisedCost,
       totalProfit: revisedProfit,
       marginPercentage: Number(revisedMarginPercent.toFixed(1)),
-      totalMarginErosion: costInflation
+      totalMarginErosion: costInflation,
+      netCostVariance,
+      totalCostSavings: costSavings,
     });
   };
 
@@ -1027,21 +1081,47 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
           <p className="text-[11px] text-slate-500">Anggaran modal kontrak awal</p>
         </div>
 
-        {/* KARTU 2: HPP SESUDAH KENAIKAN */}
-        <div className="bg-slate-900/90 border border-amber-500/30 rounded-xl p-3.5 flex flex-col justify-between bg-amber-950/10">
-          <div className="flex items-center justify-between text-amber-400 text-xs">
-            <span className="font-semibold uppercase tracking-wider text-[10px]">HPP Aktual (Sesudah Kenaikan)</span>
-            <span className="px-1.5 py-0.5 rounded text-[9px] bg-amber-500/20 text-amber-300 font-mono font-bold">
-              {costInflation > 0 ? `▲ +Rp ${Number(costInflation).toLocaleString('id-ID')}` : 'Stabil'}
+        {/* KARTU 2: HPP SESUDAH PERUBAHAN */}
+        <div
+          className={`bg-slate-900/90 border rounded-xl p-3.5 flex flex-col justify-between ${
+            netCostVariance < 0
+              ? 'border-emerald-500/30 bg-emerald-950/10'
+              : 'border-amber-500/30 bg-amber-950/10'
+          }`}
+        >
+          <div className={`flex items-center justify-between text-xs ${netCostVariance < 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+            <span className="font-semibold uppercase tracking-wider text-[10px]">
+              {netCostVariance < 0 ? 'HPP Aktual (Sesudah Penurunan)' : 'HPP Aktual (Sesudah Kenaikan)'}
+            </span>
+            <span
+              className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold ${
+                netCostVariance > 0
+                  ? 'bg-rose-500/20 text-rose-300'
+                  : netCostVariance < 0
+                    ? 'bg-emerald-500/20 text-emerald-300'
+                    : 'bg-amber-500/20 text-amber-300'
+              }`}
+            >
+              {netCostVariance > 0
+                ? `▲ +Rp ${Number(netCostVariance).toLocaleString('id-ID')}`
+                : netCostVariance < 0
+                  ? `▼ -Rp ${Math.abs(Number(netCostVariance)).toLocaleString('id-ID')}`
+                  : 'Stabil'}
             </span>
           </div>
           <div className="my-1.5">
-            <span className="text-xl font-bold font-mono text-amber-400">
+            <span className={`text-xl font-bold font-mono ${netCostVariance < 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
               Rp {Number(revisedCost).toLocaleString('id-ID')}
             </span>
           </div>
-          <p className="text-[11px] text-amber-400/80">
-            {isLockedBast ? 'HPP final saat serah terima (Terkunci)' : 'Menyerap kenaikan belanja gudang'}
+          <p className={`text-[11px] ${netCostVariance < 0 ? 'text-emerald-400/80' : 'text-amber-400/80'}`}>
+            {isLockedBast
+              ? 'HPP final saat serah terima (Terkunci)'
+              : netCostVariance > 0
+                ? 'Menyerap kenaikan belanja gudang'
+                : netCostVariance < 0
+                  ? 'Efisiensi / penurunan harga belanja'
+                  : 'Sesuai estimasi modal awal'}
           </p>
         </div>
 
@@ -1061,7 +1141,7 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
           <p className="text-[11px] text-slate-500">Proyeksi laba kontrak awal</p>
         </div>
 
-        {/* KARTU 4: PROFIT SESUDAH KENAIKAN */}
+        {/* KARTU 4: PROFIT SESUDAH PERUBAHAN */}
         <div className="bg-slate-900/90 border border-emerald-500/30 rounded-xl p-3.5 flex flex-col justify-between bg-emerald-950/10">
           <div className="flex items-center justify-between text-emerald-400 text-xs">
             <span className="font-semibold uppercase tracking-wider text-[10px]">Profit Revisi (Laba Bersih)</span>
@@ -1077,12 +1157,14 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
               Margin Bersih: {revisedMarginPercent.toFixed(1)}%
             </span>
           </div>
-          <p className="text-[11px] text-emerald-400/80">
+          <p className={`text-[11px] ${netCostVariance > 0 ? 'text-rose-300/90' : 'text-emerald-400/80'}`}>
             {isLockedBast 
               ? 'Laba bersih final resmi unit diserahkan' 
-              : costInflation > 0 
-                ? `Terkoreksi -Rp ${Number(costInflation).toLocaleString('id-ID')} (beban bengkel)` 
-                : 'Margin terjaga optimal'}
+              : netCostVariance > 0 
+                ? `Terkoreksi -Rp ${Number(netCostVariance).toLocaleString('id-ID')} (beban bengkel)` 
+                : netCostVariance < 0
+                  ? `▲ +Rp ${Math.abs(Number(netCostVariance)).toLocaleString('id-ID')} (Penambahan margin laba)`
+                  : 'Margin terjaga optimal'}
           </p>
         </div>
       </div>
@@ -1356,17 +1438,19 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
 
             <div className="p-3.5 rounded-xl bg-background border border-border flex flex-col">
               <span className="text-[11px] text-text-muted font-medium">
-                Total Modal HPP
+                {netCostVariance < 0 ? 'Total Modal HPP (Efisiensi Belanja)' : 'Total Modal HPP'}
               </span>
               <span className="text-lg font-bold font-mono text-text mt-1">
                 {formatRupiah(revisedCost)}
               </span>
-              <span className="text-[10px] text-text-muted font-mono mt-0.5">
+              <span className={`text-[10px] font-mono mt-0.5 ${netCostVariance < 0 ? 'text-emerald-400' : 'text-text-muted'}`}>
                 {isLockedBast 
                   ? 'HPP final disahkan serah terima (Terkunci BAST)'
-                  : (costInflation > 0
-                      ? `Menyerap kenaikan belanja (+Rp ${Number(costInflation).toLocaleString('id-ID')})`
-                      : '= grandTotalCost (Bahan + Upah + FOH)')}
+                  : netCostVariance > 0
+                    ? `Menyerap kenaikan belanja (+Rp ${Number(netCostVariance).toLocaleString('id-ID')})`
+                    : netCostVariance < 0
+                      ? `Efisiensi / penurunan harga belanja (-Rp ${Math.abs(Number(netCostVariance)).toLocaleString('id-ID')})`
+                      : '= grandTotalCost (Bahan + Upah + FOH)'}
               </span>
             </div>
 
@@ -1385,9 +1469,14 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
               <span className="text-[10px] text-text-muted font-mono mt-0.5">
                 {isLockedBast ? 'Laba bersih disahkan (BAST)' : '= grandTotalProfit (Laba Bersih SPK)'}
               </span>
-              {costInflation > 0 && !isLockedBast && (
+              {netCostVariance > 0 && !isLockedBast && (
                 <span className="text-[10px] text-rose-400 font-semibold mt-1">
-                  Margin terkoreksi -Rp {Number(costInflation).toLocaleString('id-ID')} akibat kenaikan harga belanja material.
+                  Margin terkoreksi -Rp {Number(netCostVariance).toLocaleString('id-ID')} akibat kenaikan harga belanja material.
+                </span>
+              )}
+              {netCostVariance < 0 && !isLockedBast && (
+                <span className="text-[10px] text-emerald-400 font-semibold mt-1">
+                  Margin bertambah +Rp {Math.abs(Number(netCostVariance)).toLocaleString('id-ID')} akibat efisiensi penurunan harga belanja material.
                 </span>
               )}
             </div>
@@ -1687,11 +1776,22 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
                           {(item.is_cost_inflated || item.isCostInflated) && (
                             <span
                               className="text-[10px] text-rose-400 font-semibold flex items-center gap-1 mt-0.5"
-                              title="Harga modal belanja aktual lebih tinggi dari estimasi awal"
+                              title="Harga modal belanja di inventory naik dari estimasi awal"
                             >
                               <span>▲ Naik ke: Rp {Number(item.effective_cost_price).toLocaleString('id-ID')}</span>
                               <span className="bg-rose-500/20 text-rose-300 border border-rose-500/30 px-1 py-0.2 rounded text-[9px]">
                                 (+Rp {Number(item.cost_variance_per_unit).toLocaleString('id-ID')})
+                              </span>
+                            </span>
+                          )}
+                          {(item.is_cost_deflated || item.isCostDeflated) && (
+                            <span
+                              className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1 mt-0.5"
+                              title="Harga modal belanja di inventory turun (hemat) dari estimasi awal"
+                            >
+                              <span>▼ Turun ke: Rp {Number(item.effective_cost_price).toLocaleString('id-ID')}</span>
+                              <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1 py-0.2 rounded text-[9px]">
+                                (-Rp {Math.abs(Number(item.cost_variance_per_unit)).toLocaleString('id-ID')})
                               </span>
                             </span>
                           )}

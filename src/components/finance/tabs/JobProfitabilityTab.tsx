@@ -468,6 +468,10 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
                             <span className="block text-[10px] text-amber-400 font-normal">
                               (+{formatCurrency(row.total_cogs - row.initial_cogs)})
                             </span>
+                          ) : row.initial_cogs && row.total_cogs < row.initial_cogs ? (
+                            <span className="block text-[10px] text-emerald-400 font-normal">
+                              ▼ Hemat: {formatCurrency(row.initial_cogs - row.total_cogs)}
+                            </span>
                           ) : null}
                         </td>
                         <td className={`py-3 px-4 text-right font-mono font-bold ${row.gross_profit >= 0 ? 'text-emerald-400' : 'text-status-danger'}`}>

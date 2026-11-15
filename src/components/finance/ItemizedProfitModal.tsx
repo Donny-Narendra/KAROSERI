@@ -213,15 +213,15 @@ export const ItemizedProfitModal: React.FC<ItemizedProfitModalProps> = ({
   const grossProfit = (totalRevenue > 0 || totalCogs > 0) ? computedGrossProfit : (rowGrossProfit ?? 0);
   const marginPct = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : (rowMarginPercentage ?? 0);
 
-  // Track if there is inflation/procurement cost increase
+  // Track bidirectional HPP price variance (increase or cost savings)
   const initialCogs = (computedProfit.grandTotalEstimatedCost && computedProfit.grandTotalEstimatedCost > 0)
     ? computedProfit.grandTotalEstimatedCost
     : (rowInitialCogs || totalCogs);
-  const costIncrease = Math.max(
-    0,
-    computedProfit.grandTotalMarginErosion || 0,
-    totalCogs > initialCogs ? totalCogs - initialCogs : 0
-  );
+  const costVariance = computedProfit.netCostVariance !== undefined
+    ? computedProfit.netCostVariance
+    : (totalCogs - initialCogs);
+  const costIncrease = Math.max(0, costVariance);
+  const costSavings = Math.max(0, -costVariance);
 
   if (!isOpen) return null;
 
@@ -292,6 +292,11 @@ export const ItemizedProfitModal: React.FC<ItemizedProfitModalProps> = ({
                   {costIncrease > 0 && (
                     <div className="text-[10px] text-amber-400 font-mono mt-0.5" data-testid="cogs-inflation-badge">
                       (Menyerap kenaikan belanja +{formatRupiah(costIncrease)})
+                    </div>
+                  )}
+                  {costSavings > 0 && (
+                    <div className="text-[10px] text-emerald-400 font-mono mt-0.5" data-testid="cogs-deflation-badge">
+                      (Efisiensi / penurunan harga belanja -{formatRupiah(costSavings)})
                     </div>
                   )}
                 </div>
@@ -376,6 +381,11 @@ export const ItemizedProfitModal: React.FC<ItemizedProfitModalProps> = ({
                               {pkg.costVariance !== undefined && pkg.costVariance > 0 && (
                                 <span className="block text-[9px] text-amber-400 font-mono">
                                   (+{formatRupiah(pkg.costVariance)})
+                                </span>
+                              )}
+                              {pkg.costVariance !== undefined && pkg.costVariance < 0 && (
+                                <span className="block text-[9px] text-emerald-400 font-mono">
+                                  (-{formatRupiah(Math.abs(pkg.costVariance))})
                                 </span>
                               )}
                             </div>

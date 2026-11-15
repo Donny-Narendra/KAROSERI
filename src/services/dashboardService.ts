@@ -66,6 +66,19 @@ export interface DashboardSpkItem {
   total_realisasi_aktual: number;
 }
 
+/** Resolves effective unit HPP cost for RAB and CO line items (bidirectional variance when unfulfilled). */
+function resolveEffectiveUnitCost(item: any): number {
+  if (item.effective_cost !== undefined && item.effective_cost !== null) {
+    return Number(item.effective_cost);
+  }
+  const baseCost = Number(item.cost_price || 0);
+  if (item.item_type === 'MATERIAL') {
+    const matCost = Number(item.materials?.cost_price || item.material?.cost_price || 0);
+    if (matCost > 0 && matCost !== baseCost) return matCost;
+  }
+  return baseCost;
+}
+
 /**
  * Menghitung metrik finansial komprehensif per SPK:
  * 1. Total HPP (Modal = RAB Cost + CO Cost)
@@ -81,14 +94,7 @@ export function calculateSpkFinancialMetrics(spk: any, packagesCatalog?: any[]):
   if (rabItems.length > 0) {
     rabHpp = rabItems.reduce((sum: number, item: any) => {
       const q = Number(item.quantity ?? item.labor_hours ?? (item.overhead_hours ? Number(item.overhead_hours) / 8 : 1)) || 1;
-      let c = Number(item.cost_price || 0);
-      if (item.effective_cost !== undefined && item.effective_cost !== null) {
-        c = Number(item.effective_cost);
-      } else if (item.item_type === 'MATERIAL') {
-        const matCost = Number(item.materials?.cost_price || item.material?.cost_price || 0);
-        if (matCost > c) c = matCost;
-      }
-      return sum + (q * c);
+      return sum + (q * resolveEffectiveUnitCost(item));
     }, 0);
   } else {
     rabHpp = Number(
@@ -116,14 +122,7 @@ export function calculateSpkFinancialMetrics(spk: any, packagesCatalog?: any[]):
     if (coItems.length > 0) {
       const itemsHpp = coItems.reduce((itemSum: number, item: any) => {
         const q = Number(item.quantity || 1);
-        let c = Number(item.cost_price || 0);
-        if (item.effective_cost !== undefined && item.effective_cost !== null) {
-          c = Number(item.effective_cost);
-        } else if (item.item_type === 'MATERIAL') {
-          const matCost = Number(item.materials?.cost_price || item.material?.cost_price || 0);
-          if (matCost > c) c = matCost;
-        }
-        return itemSum + (q * c);
+        return itemSum + (q * resolveEffectiveUnitCost(item));
       }, 0);
       return sum + itemsHpp;
     }

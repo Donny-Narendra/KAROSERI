@@ -34,6 +34,7 @@ export interface ConsolidatedRabItem {
   unit_price: number;
   subtotal: number;
   fulfillment_status: 'FULFILLED' | 'PENDING';
+  fulfillmentStatus?: 'FULFILLED' | 'PENDING';
   fulfillment_qty: number;
   material_id?: string | null;
   change_order_id?: string | null;
@@ -46,8 +47,12 @@ export interface ConsolidatedRabItem {
   effective_cost_price?: number;
   cost_variance_per_unit?: number;
   total_cost_variance?: number;
+  is_cost_changed?: boolean;
+  isCostChanged?: boolean;
   is_cost_inflated?: boolean;
   isCostInflated?: boolean;
+  is_cost_deflated?: boolean;
+  isCostDeflated?: boolean;
   has_new_stock?: boolean;
 }
 
@@ -76,6 +81,23 @@ export interface RabPerubahanTotals {
   // Workshop-Absorbed Cost Variance Metrics
   totalEstimatedCogs?: number;
   totalMarginErosion?: number;
+  /** Signed net HPP variance: > 0 means cost increase (erosion), < 0 means cost decrease (savings) */
+  netCostVariance?: number;
+  /** Total HPP savings when netCostVariance < 0 */
+  totalCostSavings?: number;
+}
+
+/** Resolves effective cost, unit variance, and bidirectional variance flags for an export row. */
+function resolveItemCostVariance(item: ConsolidatedRabItem) {
+  const estCost = Number(item.estimated_cost_price ?? item.cost_price ?? 0);
+  const effCost = Number(item.effective_cost_price ?? item.cost_price ?? 0);
+  const variance = Number(item.cost_variance_per_unit ?? (effCost - estCost));
+  const isFulfilled = (item.fulfillment_status ?? item.fulfillmentStatus) === 'FULFILLED';
+  const explicitInflated = item.is_cost_inflated ?? item.isCostInflated;
+  const explicitDeflated = item.is_cost_deflated ?? item.isCostDeflated;
+  const isCostInflated = explicitInflated !== undefined ? Boolean(explicitInflated) : (!isFulfilled && variance > 0);
+  const isCostDeflated = explicitDeflated !== undefined ? Boolean(explicitDeflated) : (!isFulfilled && variance < 0);
+  return { estCost, effCost, variance, isCostInflated, isCostDeflated };
 }
 
 /**
@@ -115,7 +137,9 @@ export function computeRabPerubahanTotals(
     ? Math.round((materialFulfilledCount / materialTotalCount) * 100)
     : 100;
 
-  const totalMarginErosion = Math.max(0, profitResult.grandTotalCost - totalEstimatedCogs);
+  const netCostVariance = profitResult.grandTotalCost - totalEstimatedCogs;
+  const totalMarginErosion = Math.max(0, netCostVariance);
+  const totalCostSavings = Math.max(0, -netCostVariance);
 
   return {
     packageRevenue: profitResult.totalPackageRevenue,
@@ -140,6 +164,8 @@ export function computeRabPerubahanTotals(
     itemizedPackages: profitResult.packages,
     totalEstimatedCogs,
     totalMarginErosion,
+    netCostVariance,
+    totalCostSavings,
   };
 }
 
@@ -197,12 +223,12 @@ export function exportRabPerubahanToExcel(
           ? (hasNewStock ? 'Belum Diambil (Stok Baru Tersedia)' : 'Belum Diambil')
           : item.item_type === 'LABOR' ? 'Belum Terbit' : 'Belum Dicatat');
 
-    const estCost = Number(item.estimated_cost_price ?? item.cost_price ?? 0);
-    const effCost = Number(item.effective_cost_price ?? item.cost_price ?? 0);
-    const variance = Number(item.cost_variance_per_unit ?? (effCost - estCost));
-    const bebanLabel = (item.is_cost_inflated || item.isCostInflated || variance > 0)
-      ? 'Ditanggung Bengkel (Internal Absorption)'
-      : 'Sesuai Estimasi';
+    const { estCost, effCost, variance, isCostInflated, isCostDeflated } = resolveItemCostVariance(item);
+    const bebanLabel = isCostInflated
+      ? `Naik ke Rp ${effCost.toLocaleString('id-ID')} (+Rp ${variance.toLocaleString('id-ID')}) - Ditanggung Bengkel`
+      : isCostDeflated
+        ? `Turun ke Rp ${effCost.toLocaleString('id-ID')} (-Rp ${Math.abs(variance).toLocaleString('id-ID')}) - Efisiensi Belanja`
+        : 'Sesuai Estimasi';
 
     wsData.push([
       idx + 1,
@@ -227,8 +253,11 @@ export function exportRabPerubahanToExcel(
   wsData.push(["", "", "", "", "", "", "", "", "", "", "", "", "Total Penjualan Quotation (Terkunci)", calcTotals.totalRevenue]);
   wsData.push(["", "", "", "", "", "", "", "", "", "", "", "", "Total Modal HPP Estimasi Awal", calcTotals.totalEstimatedCogs ?? calcTotals.totalCogs]);
   wsData.push(["", "", "", "", "", "", "", "", "", "", "", "", "Total Modal HPP Aktual", calcTotals.totalCogs]);
-  if ((calcTotals.totalMarginErosion ?? 0) > 0) {
-    wsData.push(["", "", "", "", "", "", "", "", "", "", "", "", "Total Pembengkakan HPP (Beban Bengkel)", -1 * (calcTotals.totalMarginErosion ?? 0)]);
+  const netVarianceExcel = calcTotals.netCostVariance ?? (calcTotals.totalCogs - (calcTotals.totalEstimatedCogs ?? calcTotals.totalCogs));
+  if (netVarianceExcel > 0) {
+    wsData.push(["", "", "", "", "", "", "", "", "", "", "", "", "Total Pembengkakan HPP (Beban Bengkel)", -1 * netVarianceExcel]);
+  } else if (netVarianceExcel < 0) {
+    wsData.push(["", "", "", "", "", "", "", "", "", "", "", "", "Total Penurunan HPP (Efisiensi / Penghematan Belanja)", Math.abs(netVarianceExcel)]);
   }
   wsData.push(["", "", "", "", "", "", "", "", "", "", "", "", "Total Profit SPK Revisi", calcTotals.totalProfit]);
   wsData.push(["", "", "", "", "", "", "", "", "", "", "", "", "Margin Laba Bersih (%)", `${calcTotals.marginPercentage}%`]);
@@ -343,18 +372,20 @@ export function printRabPerubahanReport(
         statusBadge = `<span class="badge badge-pending">⏳ ${text}</span>`;
       }
 
-      const estCost = Number(item.estimated_cost_price ?? item.cost_price ?? 0);
-      const effCost = Number(item.effective_cost_price ?? item.cost_price ?? 0);
-      const variance = Number(item.cost_variance_per_unit ?? (effCost - estCost));
-      const isInflated = Boolean(item.is_cost_inflated || item.isCostInflated || variance > 0);
+      const { estCost, effCost, variance, isCostInflated, isCostDeflated } = resolveItemCostVariance(item);
+      const fmt = (n: number) => n.toLocaleString('id-ID');
 
-      const hppActualHtml = isInflated
-        ? `Rp ${effCost.toLocaleString('id-ID')} <span style="color: #e11d48; font-size: 9px; display: block; font-weight: 600;">(+Rp ${variance.toLocaleString('id-ID')})</span>`
-        : `Rp ${effCost.toLocaleString('id-ID')}`;
+      const hppActualHtml = isCostInflated
+        ? `<div style="color: #e11d48; font-weight: 700;">▲ Rp ${fmt(effCost)}</div><div style="font-size: 9px; color: #e11d48;">(+Rp ${fmt(variance)}/unit)</div>`
+        : isCostDeflated
+          ? `<div style="color: #059669; font-weight: 700;">▼ Rp ${fmt(effCost)}</div><div style="font-size: 9px; color: #059669;">(-Rp ${fmt(Math.abs(variance))}/unit)</div>`
+          : `Rp ${fmt(effCost)}`;
 
-      const bebanBadge = isInflated
-        ? `<span class="badge" style="background: #ffe4e6; color: #be123c;">Beban Bengkel</span>`
-        : `<span class="badge" style="background: #f1f5f9; color: #475569;">Normal</span>`;
+      const bebanBadge = isCostInflated
+        ? `<span class="badge" style="background: #ffe4e6; color: #be123c; border: 1px solid #fda4af;">Naik ke Rp ${fmt(effCost)} (+Rp ${fmt(variance)})</span>`
+        : isCostDeflated
+          ? `<span class="badge" style="background: #d1fae5; color: #047857; border: 1px solid #6ee7b7;">Turun ke Rp ${fmt(effCost)} (-Rp ${fmt(Math.abs(variance))})</span>`
+          : `<span class="badge" style="background: #f1f5f9; color: #475569;">Sesuai Estimasi</span>`;
 
       tableRowsHtml += `
         <tr>
@@ -750,12 +781,24 @@ export function printRabPerubahanReport(
             <span>Total Modal HPP Aktual</span>
             <span>Rp ${calcTotals.totalCogs.toLocaleString('id-ID')}</span>
           </div>
-          ${(calcTotals.totalMarginErosion ?? 0) > 0 ? `
+          ${(() => {
+            const netVariancePdf = calcTotals.netCostVariance ?? (calcTotals.totalCogs - (calcTotals.totalEstimatedCogs ?? calcTotals.totalCogs));
+            if (netVariancePdf > 0) {
+              return `
             <div class="tot-row" style="color: #dc2626; font-weight: 600;">
               <span>Pembengkakan HPP (Beban Bengkel)</span>
-              <span>-Rp ${(calcTotals.totalMarginErosion ?? 0).toLocaleString('id-ID')}</span>
-            </div>
-          ` : ''}
+              <span>-Rp ${netVariancePdf.toLocaleString('id-ID')}</span>
+            </div>`;
+            }
+            if (netVariancePdf < 0) {
+              return `
+            <div class="tot-row" style="color: #059669; font-weight: 600;">
+              <span>Efisiensi / Penurunan HPP Belanja</span>
+              <span>-Rp ${Math.abs(netVariancePdf).toLocaleString('id-ID')}</span>
+            </div>`;
+            }
+            return '';
+          })()}
           <div class="tot-row grand">
             <span>Grand Total Profit SPK</span>
             <span style="color: ${calcTotals.totalProfit >= 0 ? '#059669' : '#dc2626'};">Rp ${calcTotals.totalProfit.toLocaleString('id-ID')}</span>
@@ -764,11 +807,22 @@ export function printRabPerubahanReport(
             <span>Margin Laba Bersih</span>
             <span><strong>${calcTotals.marginPercentage}%</strong></span>
           </div>
-          ${(calcTotals.totalMarginErosion ?? 0) > 0 ? `
+          ${(() => {
+            const netVariancePdf = calcTotals.netCostVariance ?? (calcTotals.totalCogs - (calcTotals.totalEstimatedCogs ?? calcTotals.totalCogs));
+            if (netVariancePdf > 0) {
+              return `
             <div style="font-size: 9px; color: #dc2626; margin-top: 4px; font-style: italic;">
-              * Margin terkoreksi -Rp ${(calcTotals.totalMarginErosion ?? 0).toLocaleString('id-ID')} akibat kenaikan harga belanja material gudang (Fixed-Price Contract).
-            </div>
-          ` : ''}
+              * Margin terkoreksi -Rp ${netVariancePdf.toLocaleString('id-ID')} akibat kenaikan harga belanja material gudang (Fixed-Price Contract).
+            </div>`;
+            }
+            if (netVariancePdf < 0) {
+              return `
+            <div style="font-size: 9px; color: #059669; margin-top: 4px; font-style: italic;">
+              * Margin bertambah +Rp ${Math.abs(netVariancePdf).toLocaleString('id-ID')} berkat efisiensi penurunan harga belanja material gudang.
+            </div>`;
+            }
+            return '';
+          })()}
         </div>
       </div>
 

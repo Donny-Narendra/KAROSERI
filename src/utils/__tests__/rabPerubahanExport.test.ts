@@ -314,4 +314,65 @@ describe('rabPerubahanExport: Consolidated Calculations & Export Engines', () =>
       expect(htmlContent).toContain('Disetujui Oleh');
     });
   });
+
+  describe('bidirectional downward HPP variance (cost savings)', () => {
+    const deflatedItems: ConsolidatedRabItem[] = [
+      {
+        id: 'item-winglet',
+        source_origin: 'RAB',
+        source_label: 'RAB',
+        is_package: false,
+        package_name: null,
+        item_type: 'MATERIAL',
+        wbs_stage: 'WBS 1: Pembongkaran',
+        description: 'WINGLET',
+        quantity: 1,
+        unit: 'batang',
+        cost_price: 70000,
+        estimated_cost_price: 70000,
+        effective_cost_price: 65000,
+        cost_variance_per_unit: -5000,
+        total_cost_variance: -5000,
+        is_cost_changed: true,
+        is_cost_inflated: false,
+        is_cost_deflated: true,
+        unit_price: 70000,
+        subtotal: 70000,
+        fulfillment_status: 'PENDING',
+        fulfillment_qty: 0,
+      },
+    ];
+
+    it('calculates netCostVariance and totalCostSavings when inventory HPP decreases', () => {
+      const totals = computeRabPerubahanTotals(deflatedItems);
+
+      expect(totals.totalEstimatedCogs).toBe(70000);
+      expect(totals.totalCogs).toBe(65000);
+      expect(totals.totalProfit).toBe(5000);
+      expect(totals.netCostVariance).toBe(-5000);
+      expect(totals.totalMarginErosion).toBe(0);
+      expect(totals.totalCostSavings).toBe(5000);
+    });
+
+    it('records downward HPP price and note in Excel and PDF exports', () => {
+      exportRabPerubahanToExcel(mockSpk, deflatedItems);
+      const sheetData = (XLSX.utils.aoa_to_sheet as any).mock.calls[0][0];
+      const wingletRow = sheetData.find((row: any[]) => row[5] === 'WINGLET');
+
+      expect(wingletRow).toBeDefined();
+      expect(wingletRow[8]).toBe(70000);
+      expect(wingletRow[9]).toBe(65000);
+      expect(wingletRow[10]).toBe(-5000);
+      expect(wingletRow[11]).toContain('Turun ke Rp 65.000 (-Rp 5.000)');
+
+      const mockDocument = { write: vi.fn(), close: vi.fn() };
+      vi.spyOn(window, 'open').mockReturnValue({ document: mockDocument } as any);
+      printRabPerubahanReport(mockSpk, deflatedItems);
+
+      const htmlContent = mockDocument.write.mock.calls[0][0];
+      expect(htmlContent).toContain('Turun ke Rp 65.000 (-Rp 5.000)');
+      expect(htmlContent).toContain('Rp 65.000');
+      expect(htmlContent).toContain('Efisiensi / Penurunan HPP Belanja');
+    });
+  });
 });
