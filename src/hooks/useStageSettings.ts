@@ -109,9 +109,9 @@ export interface UseStageSettingsReturn {
   refresh: () => Promise<void>;
 }
 
-export function useStageSettings(): UseStageSettingsReturn {
+export function useStageSettings(enabled: boolean = true): UseStageSettingsReturn {
   const [stageAliases, setStageAliases] = useState<Record<string, string>>(() => cachedStageAliases);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(enabled);
   const [error, setError] = useState<Error | null>(null);
 
   const fetchAliases = useCallback(async () => {
@@ -142,6 +142,11 @@ export function useStageSettings(): UseStageSettingsReturn {
   }, []);
 
   useEffect(() => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
+
     fetchAliases();
 
     // Listen to local window events
@@ -182,7 +187,7 @@ export function useStageSettings(): UseStageSettingsReturn {
         bc.close();
       }
     };
-  }, [fetchAliases]);
+  }, [enabled, fetchAliases]);
 
   const updateStageAliases = useCallback(async (newAliases: Record<string, string>) => {
     try {

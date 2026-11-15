@@ -25,11 +25,8 @@ export const StageProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
 export function useStageContext(): UseStageSettingsReturn {
   const context = useContext(StageContext);
-  if (!context) {
-    // Graceful fallback to the standalone hook if provider is not present
-    return useStageSettingsHook();
-  }
-  return context;
+  const fallback = useStageSettingsHook(!context);
+  return context ?? fallback;
 }
 
 export { 
