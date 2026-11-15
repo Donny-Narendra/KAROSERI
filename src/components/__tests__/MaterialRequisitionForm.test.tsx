@@ -28,7 +28,8 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
     rabItemsData: any[] = [],
     masterMaterials: any[] = [],
     existingRequisitions: any[] = [],
-    changeOrderItemsData: any[] = []
+    changeOrderItemsData: any[] = [],
+    activeBorongans: any[] = []
   ) => {
     const mockInsert = vi.fn().mockReturnValue({
       select: vi.fn().mockReturnValue({
@@ -109,7 +110,7 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
           neq: vi.fn().mockResolvedValue({
-            data: [],
+            data: activeBorongans,
             error: null,
           }),
         } as any;
@@ -724,5 +725,126 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
     expect(screen.getByText('AMPLAS 100')).toBeInTheDocument();
     const leftPanelHeader = screen.getByText('Daftar Permintaan Material').closest('div');
     expect(within(leftPanelHeader!).getByText('0')).toBeInTheDocument();
+  });
+
+  it('displays package MATERIAL items by master material name with package badge and does not exclude them when package LABOR is in spk_borongan', async () => {
+    const pkgMaterials = [
+      { id: 'mat-2', name: 'material tes 2', unit: 'pcs', unit_price: 75000, current_stock: 91 },
+      { id: 'mat-3', name: 'material tes 3', unit: 'pcs', unit_price: 30000, current_stock: 95 },
+      { id: 'mat-4', name: 'material test 4', unit: 'pcs', unit_price: 555, current_stock: 94 },
+    ];
+
+    const packageRabItems = [
+      {
+        id: 'rab-pkg-mat-2',
+        description: 'Paket: PAKET MATERIAL EX CUBE',
+        material_name: 'material tes 2',
+        item_type: 'MATERIAL',
+        quantity: 1,
+        unit: 'pcs',
+        item_total: 121194,
+        unit_price: 121194,
+        wbs_category: 'Pembongkaran',
+        material_id: 'mat-2',
+        package_id: 'pkg-1',
+        package_name: 'PAKET MATERIAL EX CUBE',
+        product_packages: { id: 'pkg-1', name: 'PAKET MATERIAL EX CUBE' },
+        materials: { id: 'mat-2', name: 'material tes 2', unit: 'pcs', unit_price: 75000, current_stock: 91 },
+      },
+      {
+        id: 'rab-pkg-mat-3',
+        description: 'Paket: PAKET MATERIAL EX CUBE',
+        material_name: 'material tes 3',
+        item_type: 'MATERIAL',
+        quantity: 1,
+        unit: 'pcs',
+        item_total: 44748,
+        unit_price: 44748,
+        wbs_category: 'Pembongkaran',
+        material_id: 'mat-3',
+        package_id: 'pkg-1',
+        package_name: 'PAKET MATERIAL EX CUBE',
+        product_packages: { id: 'pkg-1', name: 'PAKET MATERIAL EX CUBE' },
+        materials: { id: 'mat-3', name: 'material tes 3', unit: 'pcs', unit_price: 30000, current_stock: 95 },
+      },
+      {
+        id: 'rab-pkg-mat-4',
+        description: 'Paket: PAKET MATERIAL EX CUBE',
+        material_name: 'material test 4',
+        item_type: 'MATERIAL',
+        quantity: 1,
+        unit: 'pcs',
+        item_total: 828,
+        unit_price: 828,
+        wbs_category: 'Pembongkaran',
+        material_id: 'mat-4',
+        package_id: 'pkg-1',
+        package_name: 'PAKET MATERIAL EX CUBE',
+        product_packages: { id: 'pkg-1', name: 'PAKET MATERIAL EX CUBE' },
+        materials: { id: 'mat-4', name: 'material test 4', unit: 'pcs', unit_price: 555, current_stock: 94 },
+      },
+      {
+        id: 'rab-labor-pkg-1',
+        description: 'Paket: PAKET MATERIAL EX CUBE',
+        material_name: 'materias tes tukang 1',
+        item_type: 'LABOR',
+        quantity: 1,
+        unit: 'pcs',
+        item_total: 186452,
+        unit_price: 186452,
+        wbs_category: 'Pembongkaran',
+        material_id: null,
+        package_id: 'pkg-1',
+        package_name: 'PAKET MATERIAL EX CUBE',
+        product_packages: { id: 'pkg-1', name: 'PAKET MATERIAL EX CUBE' },
+        materials: null,
+      },
+    ];
+
+    const activeBorongans = [
+      {
+        id: 'spkb-pkg-labor-1',
+        wbs_category: 'Pembongkaran',
+        worker_name: 'Adi LAs',
+        task_description: 'Paket: PAKET MATERIAL EX CUBE',
+        rab_item_id: 'rab-labor-pkg-1',
+        material_id: null,
+        status: 'ACTIVE',
+      },
+    ];
+
+    setupSupabaseMock(packageRabItems, pkgMaterials, [], [], activeBorongans);
+
+    render(
+      <MaterialRequisitionForm
+        spkId={mockSpkId}
+        wbsCategory={mockWbsCategory}
+        onClose={mockOnClose}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('material tes 2')).toBeInTheDocument();
+      expect(screen.getByText('material tes 3')).toBeInTheDocument();
+      expect(screen.getByText('material test 4')).toBeInTheDocument();
+    });
+
+    const rightPanelHeader = screen.getByText(/Alokasi RAB \((?:WBS|Tahapan) Terkait\)/i).closest('div');
+    expect(within(rightPanelHeader!).getByText('3')).toBeInTheDocument();
+
+    const pkgBadges = screen.getAllByText('Paket: PAKET MATERIAL EX CUBE');
+    expect(pkgBadges).toHaveLength(3);
+
+    // Transfer material tes 2 to Daftar Permintaan Material
+    const mat2Row = screen.getByText('material tes 2').closest('div[class*="cursor-pointer"]');
+    fireEvent.doubleClick(mat2Row!);
+
+    await waitFor(() => {
+      const leftPanel = screen.getByText('Daftar Permintaan Material').closest('.md\\:col-span-5') as HTMLElement;
+      expect(within(leftPanel).getByText('material tes 2')).toBeInTheDocument();
+      expect(within(leftPanel).getByText('Paket: PAKET MATERIAL EX CUBE')).toBeInTheDocument();
+    });
+
+    expect(within(rightPanelHeader!).getByText('2')).toBeInTheDocument();
   });
 });

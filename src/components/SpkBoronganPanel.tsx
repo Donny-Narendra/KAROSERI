@@ -203,6 +203,8 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
           unit,
           wbs_category,
           description,
+          material_name,
+          package_name,
           item_total,
           unit_price,
           material_id,
@@ -232,12 +234,12 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
         });
 
         matchingCategory.forEach((item: any) => {
-          const rawName = item.materials?.name || item.description || 'Pekerjaan Borongan';
+          const rawName = item.materials?.name || item.material_name || item.description || 'Pekerjaan Borongan';
           combinedAvailable.push({
             ...item,
             wbs_stage: item.wbs_category,
             name: rawName,
-            material_name: item.materials?.name || item.description,
+            material_name: item.materials?.name || item.material_name || item.description,
             cost_price: item.cost_price || item.unit_price || 0,
             sourceType: 'RAB',
             is_change_order: false,

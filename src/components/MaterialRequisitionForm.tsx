@@ -83,9 +83,16 @@ interface ActiveSpkBorongan {
   id: string;
   material_id?: string;
   rab_item_id?: string;
+  change_order_item_id?: string;
   task_description?: string;
   status: string;
 }
+
+const formatPackageBadgeLabel = (pkgName?: string | null): string | null => {
+  const trimmed = pkgName?.trim();
+  if (!trimmed) return null;
+  return /^Paket:/i.test(trimmed) ? trimmed : `Paket: ${trimmed}`;
+};
 
 interface MaterialRequisitionFormProps {
   spkId: string;
@@ -184,12 +191,18 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
           .select(`
             id,
             quantity,
+            unit,
+            unit_price,
+            cost_price,
             wbs_category,
             description,
+            material_name,
+            notes,
             item_total,
             material_id,
             item_type,
             package_id,
+            package_name,
             product_packages:package_id ( id, name ),
             materials (
               id,
@@ -223,26 +236,39 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
 
           // Map to RabSourceItem
           sourceList = filtered.map((item: any) => {
-            const rawMat = item.materials;
+            const rawMat = Array.isArray(item.materials) ? item.materials[0] : item.materials;
+            const isDescPackageLabel =
+              typeof item.description === 'string' &&
+              /^(?:Bagian dari paket:\s*)?\[?Paket:/i.test(item.description.trim());
             let matchedMat = rawMat;
-            
-            // If rawMat is null or missing id, match by description or material_id in master
+
+            // If rawMat is null or missing id, match by material_id, material_name, or non-package description in master
             if (!matchedMat && item.material_id) {
               matchedMat = loadedMaster.find(m => m.id === item.material_id);
             }
-            if (!matchedMat && item.description) {
+            if (!matchedMat && item.material_name) {
+              const cleanMatName = normalizeText(item.material_name);
+              matchedMat = loadedMaster.find(m => normalizeText(m.name) === cleanMatName);
+            }
+            if (!matchedMat && item.description && !isDescPackageLabel) {
               const cleanDesc = normalizeText(item.description);
               matchedMat = loadedMaster.find(m => normalizeText(m.name) === cleanDesc);
             }
 
             // CRITICAL FIX: NEVER fallback to item.id (which is rab_items.id)!
             const materialId = matchedMat?.id || item.material_id || null;
-            const name = matchedMat?.name || item.description || 'Material Tanpa Nama';
-            const unit = matchedMat?.unit || 'pcs';
+            const name =
+              rawMat?.name ||
+              matchedMat?.name ||
+              item.material_name ||
+              (!isDescPackageLabel ? item.description : null) ||
+              item.description ||
+              'Material Tanpa Nama';
+            const unit = rawMat?.unit || matchedMat?.unit || item.unit || 'pcs';
             const qty = Number(item.quantity || 0);
 
-            // Determine unit price with multi-layer fallback (master unit_price -> rab item_total / qty)
-            let unitPrice = Number(matchedMat?.unit_price || 0);
+            // Determine unit price with multi-layer fallback (master unit_price -> rab unit_price -> rab item_total / qty)
+            let unitPrice = Number(matchedMat?.unit_price || rawMat?.unit_price || item.unit_price || 0);
             if (unitPrice === 0 && item.item_total && qty > 0) {
               unitPrice = Number(item.item_total) / qty;
             } else if (unitPrice === 0 && item.item_total) {
@@ -250,7 +276,12 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
             }
 
             const calculatedSubtotal = item.item_total ? Number(item.item_total) : (qty * unitPrice);
-            const packageName = item.product_packages?.name || null;
+            const descPackageName = isDescPackageLabel
+              ? item.description.trim().replace(/^(?:Bagian dari paket:\s*)?\[?Paket:\s*/i, '').replace(/\]$/, '').trim()
+              : item.notes && /Paket:\s*/i.test(item.notes)
+                ? item.notes.trim().replace(/^(?:Bagian dari paket:\s*)?\[?Paket:\s*/i, '').replace(/\]$/, '').trim()
+                : null;
+            const packageName = item.product_packages?.name || item.package_name || descPackageName || null;
 
             return {
               id: item.id,
@@ -430,14 +461,16 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                 const cleanItemName = (item.material_name || item.materials?.name || '').trim();
                 const normItemName = normalizeText(cleanItemName);
 
-                // Check if this requisition item matches a RAB item or Change Order item from sourceList
-                const matchedSource = sourceList.find(r => 
-                  (item.rab_item_id && r.sourceType === 'RAB' && r.id === item.rab_item_id) ||
-                  (item.change_order_item_id && r.sourceType === 'CHANGE_ORDER' && r.id === item.change_order_item_id) ||
-                  (item.rab_item_id && r.id === item.rab_item_id) ||
-                  (item.change_order_item_id && r.id === item.change_order_item_id) ||
-                  (normItemName && normalizeText(r.name) === normItemName)
-                );
+                // Check if this requisition item matches a RAB item or Change Order item from sourceList strictly by unique ID
+                const matchedSource = sourceList.find(r => {
+                  if (item.change_order_item_id) {
+                    return r.changeOrderItemId === item.change_order_item_id || r.id === item.change_order_item_id;
+                  }
+                  if (item.rab_item_id) {
+                    return r.rabItemId === item.rab_item_id || r.id === item.rab_item_id;
+                  }
+                  return false;
+                });
 
                 // Check if item matches master materials table
                 const matchedMaster = loadedMaster.find(m => 
@@ -511,11 +544,21 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
       }
 
       // 6. Calculate initial available RAB / Change Order items
-      // Items are excluded if already persisted in a requisition for this WBS,
-      // or already assigned in active SPK Borongan.
+      // Items are excluded strictly by unique row ID (rab_item_id / change_order_item_id)
+      // if already persisted in a requisition for this WBS or assigned in active SPK Borongan.
       const persistedSourceIds = new Set(
         persistedItems
-          .map(p => p.changeOrderItemId || p.sourceRabId)
+          .map(p => p.changeOrderItemId || p.rab_item_id || p.sourceRabId)
+          .filter((id): id is string => Boolean(id))
+      );
+
+      const boronganSourceIds = new Set(
+        matchingBorong
+          .filter(b => {
+            const status = (b.status || '').toUpperCase();
+            return status !== 'CUT_OFF' && status !== 'CANCELLED';
+          })
+          .map(b => b.rab_item_id || b.change_order_item_id)
           .filter((id): id is string => Boolean(id))
       );
 
@@ -523,16 +566,8 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
         // Exclude if already in a saved requisition
         if (persistedSourceIds.has(item.id)) return false;
 
-        // Exclude if allocated in active SPK Borongan
-        const isBorong = matchingBorong.some(b => {
-          const status = (b.status || '').toUpperCase();
-          if (status === 'CUT_OFF' || status === 'CANCELLED') return false;
-          if (b.rab_item_id && b.rab_item_id === item.id) return true;
-          const bDesc = normalizeText(b.task_description);
-          const rName = normalizeText(item.name);
-          return bDesc && rName && bDesc === rName;
-        });
-        if (isBorong) return false;
+        // Exclude if allocated in active SPK Borongan by unique row ID
+        if (boronganSourceIds.has(item.id)) return false;
 
         return true;
       });
@@ -1072,6 +1107,14 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                                           Ekstra
                                         </span>
                                       )}
+                                      {(() => {
+                                        const pkgBadge = formatPackageBadgeLabel(item.package_name || item.packageName);
+                                        return pkgBadge ? (
+                                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30">
+                                            {pkgBadge}
+                                          </span>
+                                        ) : null;
+                                      })()}
                                     </div>
                                     <p className="text-[11px] text-text-muted mt-0.5">
                                       Estimasi: <span className="font-mono font-medium text-emerald-400">{formatCurrency(item.subtotal)}</span>
@@ -1215,6 +1258,14 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                                       Change Order
                                     </span>
                                   )}
+                                  {(() => {
+                                    const pkgBadge = formatPackageBadgeLabel(item.package_name || item.packageName);
+                                    return pkgBadge ? (
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30">
+                                        {pkgBadge}
+                                      </span>
+                                    ) : null;
+                                  })()}
                                 </p>
                                 <div className="flex items-center gap-2 mt-0.5 text-[11px] text-text-muted">
                                   <span>Stok: {item.currentStock} {item.unit}</span>

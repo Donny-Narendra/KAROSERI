@@ -107,7 +107,17 @@ export function isRabItemAllocated(
   const rabMaterialsObj = Array.isArray(rabItem.materials) ? rabItem.materials[0] : rabItem.materials;
   const rabItemId = rabItem.id;
   const materialId = rabMaterialsObj?.id || rabItem.material_id || rabItem.materialId;
-  const itemName = (rabMaterialsObj?.name || rabItem.name || rabItem.description || '').trim();
+  const isDescPackage =
+    typeof rabItem.description === 'string' &&
+    /^(?:Bagian dari paket:\s*)?\[?Paket:/i.test(rabItem.description.trim());
+  const itemName = (
+    rabMaterialsObj?.name ||
+    rabItem.material_name ||
+    rabItem.name ||
+    (!isDescPackage ? rabItem.description : '') ||
+    rabItem.description ||
+    ''
+  ).trim();
   const normalizedItemName = normalizeText(itemName);
 
   // 1. Check in Requisitions
@@ -132,8 +142,11 @@ export function isRabItemAllocated(
             const subMatId = subMat?.id || subItem.material_id;
             const subRabId = subItem.rab_item_id;
             const subCoId = subItem.change_order_item_id;
-            // Exact RAB Item ID or Change Order Item ID match
-            if (rabItemId && (subRabId === rabItemId || subCoId === rabItemId || subMatId === rabItemId)) return true;
+            // If subItem carries explicit rab_item_id or change_order_item_id, match strictly by unique ID
+            if (subRabId || subCoId) {
+              return Boolean(rabItemId && (subRabId === rabItemId || subCoId === rabItemId));
+            }
+            if (rabItemId && subMatId === rabItemId) return true;
 
             const subName = (subMat?.name || subItem.material_name || '').trim();
             const normSubName = normalizeText(subName);
@@ -194,6 +207,7 @@ export function isRabItemAllocated(
 
   // 3. Check in SPK Borongan Assignments
   if (assignments && Array.isArray(assignments)) {
+    const isMaterialItem = (rabItem.item_type || '').toUpperCase() === 'MATERIAL';
     const matchInBorong = assignments.some((borong) => {
       if (!borong) return false;
       const status = (borong.status || '').toUpperCase();
@@ -218,6 +232,9 @@ export function isRabItemAllocated(
         if (isCoItem) return false;
         return borong.rab_item_id === rabItemId;
       }
+
+      // MATERIAL items must never fall back to task_description / material_id matching against SPK Borongan
+      if (isMaterialItem) return false;
 
       // Legacy fallback (only if assignment has neither rab_item_id nor change_order_item_id):
       if (materialId && borong.material_id && borong.material_id === materialId) return true;
