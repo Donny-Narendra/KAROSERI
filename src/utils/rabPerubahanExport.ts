@@ -89,14 +89,15 @@ export interface RabPerubahanTotals {
 
 /** Resolves effective cost, unit variance, and bidirectional variance flags for an export row. */
 function resolveItemCostVariance(item: ConsolidatedRabItem) {
+  const qty = Number(item.quantity ?? 1);
   const estCost = Number(item.estimated_cost_price ?? item.cost_price ?? 0);
   const effCost = Number(item.effective_cost_price ?? item.cost_price ?? 0);
   const variance = Number(item.cost_variance_per_unit ?? (effCost - estCost));
-  const isFulfilled = (item.fulfillment_status ?? item.fulfillmentStatus) === 'FULFILLED';
+  const rowVariance = Math.round(qty * effCost) - Math.round(qty * estCost);
   const explicitInflated = item.is_cost_inflated ?? item.isCostInflated;
   const explicitDeflated = item.is_cost_deflated ?? item.isCostDeflated;
-  const isCostInflated = explicitInflated !== undefined ? Boolean(explicitInflated) : (!isFulfilled && variance > 0);
-  const isCostDeflated = explicitDeflated !== undefined ? Boolean(explicitDeflated) : (!isFulfilled && variance < 0);
+  const isCostInflated = explicitInflated !== undefined ? Boolean(explicitInflated) : rowVariance > 1;
+  const isCostDeflated = explicitDeflated !== undefined ? Boolean(explicitDeflated) : rowVariance < -1;
   return { estCost, effCost, variance, isCostInflated, isCostDeflated };
 }
 

@@ -649,6 +649,11 @@ export const AdminDashboardPage: React.FC = () => {
                               (Revisi Belanja +Rp {Number((spk.total_cogs || 0) - (spk.initial_cogs || 0)).toLocaleString('id-ID')})
                             </span>
                           )}
+                          {Boolean(spk.initial_cogs && spk.total_cogs !== undefined && spk.total_cogs < spk.initial_cogs) && (
+                            <span className="block text-[10px] text-emerald-400 font-normal">
+                              (Efisiensi Belanja -Rp {Number((spk.initial_cogs || 0) - (spk.total_cogs || 0)).toLocaleString('id-ID')})
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-left">
                           <div className="font-mono font-bold text-amber-400 text-xs">

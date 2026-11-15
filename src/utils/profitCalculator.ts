@@ -150,21 +150,20 @@ export function computeSegregatedProjectProfit(
     const rawMatCost = item.materials
       ? (Array.isArray(item.materials) ? item.materials[0]?.cost_price : item.materials.cost_price)
       : undefined;
-    const matCostPrice = rawMatCost !== undefined && rawMatCost !== null ? Number(rawMatCost) : null;
-    const baseCostPrice = item.cost_price !== undefined && item.cost_price !== null
-      ? Number(item.cost_price)
-      : (item.costPrice !== undefined && item.costPrice !== null ? Number(item.costPrice) : 0);
+    const liveMaterialCost =
+      rawMatCost !== undefined && rawMatCost !== null && Number(rawMatCost) > 0
+        ? Number(rawMatCost)
+        : null;
     const isFulfilled = item.fulfillment_status === 'FULFILLED' || item.fulfillmentStatus === 'FULFILLED';
 
     const effectiveUnitCost = Number(
-      item.effective_cost_price ?? 
-      item.effectiveCostPrice ?? 
-      item.actual_cost_price ?? 
-      item.actualCostPrice ?? 
-      (!isFulfilled && matCostPrice !== null && matCostPrice > 0 && matCostPrice !== baseCostPrice ? matCostPrice : null) ?? 
-      (!isFulfilled && item.materials?.cost_price !== undefined && item.materials?.cost_price !== null && Number(item.materials.cost_price) > 0 && Number(item.materials.cost_price) !== baseCostPrice ? item.materials.cost_price : null) ?? 
-      item.cost_price ?? 
-      item.costPrice ?? 
+      item.effective_cost_price ??
+      item.effectiveCostPrice ??
+      item.actual_cost_price ??
+      item.actualCostPrice ??
+      (!isFulfilled && liveMaterialCost !== null ? liveMaterialCost : null) ??
+      item.cost_price ??
+      item.costPrice ??
       0
     );
 

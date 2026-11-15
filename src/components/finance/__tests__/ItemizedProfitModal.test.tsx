@@ -265,4 +265,113 @@ describe('ItemizedProfitModal Component', () => {
     // Package Margin: 25.7%
     expect(screen.getByText('25.7%')).toBeInTheDocument();
   });
+
+  it('synchronizes realized material_issues increases and unfulfilled downward inventory savings identically', async () => {
+    const supabaseMock = await import('../../../lib/supabaseClient');
+    const originalFrom = supabaseMock.supabase.from;
+
+    const spk5132Items = [
+      {
+        id: 'ri-herex',
+        item_type: 'MATERIAL',
+        material_id: 'm-herex',
+        package_id: null,
+        quantity: 1,
+        unit_price: 230000,
+        cost_price: 180000,
+        subtotal: 230000,
+        materials: { id: 'm-herex', cost_price: 185000 },
+      },
+      {
+        id: 'ri-esser',
+        item_type: 'MATERIAL',
+        material_id: 'm-esser',
+        package_id: null,
+        quantity: 0.15,
+        unit_price: 427000,
+        cost_price: 341600,
+        subtotal: 64050,
+        materials: { id: 'm-esser', cost_price: 341600 },
+      },
+      {
+        id: 'ri-winglet',
+        item_type: 'MATERIAL',
+        material_id: 'm-winglet',
+        package_id: null,
+        quantity: 1,
+        unit_price: 70000,
+        cost_price: 70000,
+        subtotal: 70000,
+        materials: { id: 'm-winglet', cost_price: 65000 },
+      },
+    ];
+
+    (supabaseMock.supabase.from as any) = vi.fn((table: string) => {
+      if (table === 'rab_estimations') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'est-5132' }, error: null }),
+        };
+      }
+      if (table === 'rab_items') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockResolvedValue({ data: spk5132Items, error: null }),
+        };
+      }
+      if (table === 'material_issues') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockResolvedValue({
+            data: [
+              { material_id: 'm-herex', unit_price: 230000, created_at: '2026-11-12T07:55:58Z' },
+              { material_id: 'm-esser', unit_price: 427000, created_at: '2026-11-12T08:36:13Z' },
+            ],
+            error: null,
+          }),
+        };
+      }
+      if (table === 'materials') {
+        return {
+          select: vi.fn().mockResolvedValue({
+            data: [{ id: 'm-winglet', cost_price: 65000 }],
+            error: null,
+          }),
+        };
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      };
+    });
+
+    try {
+      render(
+        <ItemizedProfitModal
+          isOpen={true}
+          onClose={vi.fn()}
+          spkId="spk-5132"
+          spkNumber="SPK-5132"
+          customerName="RS SL-05"
+          vehiclePlate="R 0BE L"
+        />
+      );
+
+      await waitFor(() => {
+        // Revenue = 230.000 + 64.050 + 70.000 = 364.050
+        expect(screen.getByText('Rp 364.050')).toBeInTheDocument();
+      });
+
+      // Actual HPP = 230.000 + 64.050 + 65.000 = 359.050
+      expect(screen.getByText('Rp 359.050')).toBeInTheDocument();
+      // Net variance = 359.050 - (180.000 + 51.240 + 70.000 = 301.240) = +57.810
+      expect(screen.getByText(/Menyerap kenaikan belanja \+Rp 57\.810/)).toBeInTheDocument();
+      // Gross profit = 364.050 - 359.050 = 5.000
+      expect(screen.getAllByText('Rp 5.000').length).toBeGreaterThanOrEqual(2);
+    } finally {
+      (supabaseMock.supabase.from as any) = originalFrom;
+    }
+  });
 });

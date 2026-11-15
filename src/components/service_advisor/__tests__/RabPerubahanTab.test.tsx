@@ -976,4 +976,189 @@ describe('RabPerubahanTab Component', () => {
       (supabaseMock.supabase.from as any) = originalFrom;
     }
   });
+
+  it('simultaneously renders upward badges for FULFILLED SPK-5132 items and downward badge for pending WINGLET', async () => {
+    const supabaseMock = await import('../../../lib/supabaseClient');
+    const originalFrom = supabaseMock.supabase.from;
+
+    const spk5132 = {
+      id: '48d51277-da8b-45a2-bf74-592f2e9ba79d',
+      spk_no: 'SPK-5132',
+      customer_name: 'RS SL-05',
+      vehicle_plate: 'R 0BE L',
+      status: 'ACTIVE',
+    };
+
+    const spk5132RabItems = [
+      {
+        id: 'rab-herex',
+        rab_estimation_id: 'est-5132-full',
+        spk_id: spk5132.id,
+        wbs_stage: 'WBS 1: Pembongkaran',
+        item_type: 'MATERIAL',
+        material_name: 'BENDINGAN HEREX ATAS',
+        description: 'BENDINGAN HEREX ATAS',
+        quantity: 1,
+        unit: 'pcs',
+        cost_price: 180000,
+        unit_price: 230000,
+        subtotal: 230000,
+        material_id: 'mat-herex',
+      },
+      {
+        id: 'rab-esser',
+        rab_estimation_id: 'est-5132-full',
+        spk_id: spk5132.id,
+        wbs_stage: 'WBS 1: Pembongkaran',
+        item_type: 'MATERIAL',
+        material_name: 'PLAT ESSER 1,0',
+        description: 'PLAT ESSER 1,0',
+        quantity: 0.15,
+        unit: 'lbr',
+        cost_price: 341600,
+        unit_price: 427000,
+        subtotal: 64050,
+        material_id: 'mat-esser',
+      },
+      {
+        id: 'rab-streep',
+        rab_estimation_id: 'est-5132-full',
+        spk_id: spk5132.id,
+        wbs_stage: 'WBS 1: Pembongkaran',
+        item_type: 'MATERIAL',
+        material_name: 'STREEP DUDUKAN STOPLAMP',
+        description: 'STREEP DUDUKAN STOPLAMP',
+        quantity: 1,
+        unit: 'pcs',
+        cost_price: 66400,
+        unit_price: 100000,
+        subtotal: 100000,
+        material_id: 'mat-streep',
+      },
+      {
+        id: 'rab-winglet',
+        rab_estimation_id: 'est-5132-full',
+        spk_id: spk5132.id,
+        wbs_stage: 'WBS 3: Dinding/Fabrikasi',
+        item_type: 'MATERIAL',
+        material_name: 'WINGLET',
+        description: 'WINGLET',
+        quantity: 1,
+        unit: 'batang',
+        cost_price: 70000,
+        unit_price: 70000,
+        subtotal: 70000,
+        material_id: 'mat-winglet',
+      },
+    ];
+
+    const spk5132Issues = [
+      {
+        id: 'iss-herex',
+        spk_id: spk5132.id,
+        material_id: 'mat-herex',
+        quantity: 1,
+        unit_price: 230000,
+        created_at: '2026-11-12T07:55:58Z',
+      },
+      {
+        id: 'iss-esser',
+        spk_id: spk5132.id,
+        material_id: 'mat-esser',
+        quantity: 0.15,
+        unit_price: 427000,
+        created_at: '2026-11-12T08:36:13Z',
+      },
+      {
+        id: 'iss-streep',
+        spk_id: spk5132.id,
+        material_id: 'mat-streep',
+        quantity: 1,
+        unit_price: 100000,
+        created_at: '2026-11-12T08:44:18Z',
+      },
+    ];
+
+    const spk5132Materials = [
+      { id: 'mat-herex', name: 'BENDINGAN HEREX ATAS', cost_price: 185000, unit_price: 230000, current_stock: 0 },
+      { id: 'mat-esser', name: 'PLAT ESSER 1,0', cost_price: 341600, unit_price: 427000, current_stock: 0 },
+      { id: 'mat-streep', name: 'STREEP DUDUKAN STOPLAMP', cost_price: 66400, unit_price: 100000, current_stock: 0 },
+      { id: 'mat-winglet', name: 'WINGLET', cost_price: 65000, unit_price: 70000, current_stock: 76 },
+    ];
+
+    (supabaseMock.supabase.from as any) = vi.fn((table: string) => {
+      if (table === 'rab_estimations') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'est-5132-full', spk_id: spk5132.id }, error: null }),
+        };
+      }
+      if (table === 'rab_items') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockResolvedValue({ data: spk5132RabItems, error: null }),
+        };
+      }
+      if (table === 'material_issues') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockResolvedValue({ data: spk5132Issues, error: null }),
+        };
+      }
+      if (table === 'materials') {
+        return {
+          select: vi.fn().mockResolvedValue({ data: spk5132Materials, error: null }),
+        };
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockResolvedValue({ data: [], error: null }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      };
+    });
+
+    const spkServiceMock = await import('../../../services/spkService');
+    vi.spyOn(spkServiceMock.spkService, 'getChangeOrders').mockResolvedValueOnce([]);
+
+    try {
+      render(<RabPerubahanTab spkId={spk5132.id} spk={spk5132} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('BENDINGAN HEREX ATAS')).toBeInTheDocument();
+        expect(screen.getByText('WINGLET')).toBeInTheDocument();
+      });
+
+      // Row 1: BENDINGAN HEREX ATAS -> Rp 180.000 + ▲ Naik ke: Rp 230.000 (+Rp 50.000)
+      expect(screen.getByText('Rp 180.000')).toBeInTheDocument();
+      expect(screen.getByText(/▲ Naik ke: Rp 230\.000/)).toBeInTheDocument();
+      expect(screen.getByText('(+Rp 50.000)')).toBeInTheDocument();
+
+      // Row 2: PLAT ESSER 1,0 -> Rp 341.600 + ▲ Naik ke: Rp 427.000 (+Rp 85.400)
+      expect(screen.getByText('Rp 341.600')).toBeInTheDocument();
+      expect(screen.getByText(/▲ Naik ke: Rp 427\.000/)).toBeInTheDocument();
+      expect(screen.getByText('(+Rp 85.400)')).toBeInTheDocument();
+
+      // Row 3: STREEP DUDUKAN STOPLAMP -> Rp 66.400 + ▲ Naik ke: Rp 100.000 (+Rp 33.600)
+      expect(screen.getByText('Rp 66.400')).toBeInTheDocument();
+      expect(screen.getByText(/▲ Naik ke: Rp 100\.000/)).toBeInTheDocument();
+      expect(screen.getByText('(+Rp 33.600)')).toBeInTheDocument();
+
+      // Row 4: WINGLET -> Rp 70.000 + ▼ Turun ke: Rp 65.000 (-Rp 5.000)
+      expect(screen.getAllByText('Rp 70.000').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText(/▼ Turun ke: Rp 65\.000/)).toBeInTheDocument();
+      expect(screen.getByText('(-Rp 5.000)')).toBeInTheDocument();
+
+      // Net totals across the 4 rows:
+      // Initial Cost = 180.000 + (0.15 * 341.600 = 51.240) + 66.400 + 70.000 = 367.640
+      // Effective Cost = 230.000 + (0.15 * 427.000 = 64.050) + 100.000 + 65.000 = 459.050
+      // Net Variance = 459.050 - 367.640 = +91.410 (+50.000 + 12.810 + 33.600 - 5.000)
+      expect(screen.getByText('Rp 367.640')).toBeInTheDocument();
+      expect(screen.getAllByText('Rp 459.050').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText('▲ +Rp 91.410')).toBeInTheDocument();
+    } finally {
+      (supabaseMock.supabase.from as any) = originalFrom;
+    }
+  });
 });

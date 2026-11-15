@@ -470,7 +470,7 @@ export const JobProfitabilityTab: React.FC<JobProfitabilityTabProps> = ({
                             </span>
                           ) : row.initial_cogs && row.total_cogs < row.initial_cogs ? (
                             <span className="block text-[10px] text-emerald-400 font-normal">
-                              ▼ Hemat: {formatCurrency(row.initial_cogs - row.total_cogs)}
+                              (-{formatCurrency(row.initial_cogs - row.total_cogs)})
                             </span>
                           ) : null}
                         </td>

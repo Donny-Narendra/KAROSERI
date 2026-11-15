@@ -34,7 +34,8 @@ interface RabPerubahanTabProps {
 
 /**
  * Resolves dynamic effective HPP cost and bidirectional variance flags (upward or downward)
- * while the item has not yet been physically issued from the warehouse.
+ * using total row cost comparison across both pending (live inventory cost) and fulfilled
+ * (realized warehouse issue cost) items.
  */
 function resolveBidirectionalCostVariance(
   itemType: 'MATERIAL' | 'LABOR' | 'OVERHEAD',
@@ -44,25 +45,36 @@ function resolveBidirectionalCostVariance(
   realizedIssueCostPrice: number,
   qty: number
 ) {
-  let effectiveCostPrice = estimatedCostPrice;
+  const safeQty = Number(qty || 1);
+  const safeEstimatedCost = Number(estimatedCostPrice || 0);
+  const safeStoreCost = Number(actualStoreCostPrice || 0);
+  const safeIssueCost = Number(realizedIssueCostPrice || 0);
+
+  let effectiveCostPrice = safeEstimatedCost;
   if (itemType === 'MATERIAL') {
-    if (fulfillmentStatus === 'FULFILLED') {
-      effectiveCostPrice = realizedIssueCostPrice > 0
-        ? realizedIssueCostPrice
-        : (actualStoreCostPrice > 0 ? actualStoreCostPrice : estimatedCostPrice);
-    } else {
-      effectiveCostPrice = actualStoreCostPrice > 0 ? actualStoreCostPrice : estimatedCostPrice;
+    if (fulfillmentStatus === 'FULFILLED' && safeIssueCost > 0) {
+      effectiveCostPrice = safeIssueCost;
+    } else if (safeStoreCost > 0) {
+      effectiveCostPrice = safeStoreCost;
     }
   }
 
-  const costVariancePerUnit = effectiveCostPrice - estimatedCostPrice;
-  const totalCostVariance = qty * costVariancePerUnit;
-  const isCostChanged = Math.abs(costVariancePerUnit) > 0 && fulfillmentStatus !== 'FULFILLED';
-  const isCostInflated = costVariancePerUnit > 0 && fulfillmentStatus !== 'FULFILLED';
-  const isCostDeflated = costVariancePerUnit < 0 && fulfillmentStatus !== 'FULFILLED';
+  const initialRowCost = Math.round(safeQty * safeEstimatedCost);
+  const effectiveRowCost = Math.round(safeQty * effectiveCostPrice);
+  const rowCostVariance = effectiveRowCost - initialRowCost;
+
+  const costVariancePerUnit = effectiveCostPrice - safeEstimatedCost;
+  const totalCostVariance = rowCostVariance;
+
+  // Gunakan toleransi > 1 rupiah pada total biaya baris untuk menghindari selisih pembulatan desimal (misal qty 0.15)
+  const isCostInflated = rowCostVariance > 1;
+  const isCostDeflated = rowCostVariance < -1;
+  const isCostChanged = isCostInflated || isCostDeflated;
 
   return {
     effectiveCostPrice,
+    initialRowCost,
+    effectiveRowCost,
     costVariancePerUnit,
     totalCostVariance,
     isCostChanged,
@@ -297,7 +309,12 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
           .from('material_issues')
           .select('*')
           .eq('spk_id', spkId);
-        if (issuesData) materialIssues = issuesData;
+        if (issuesData) {
+          // Sort descending by created_at so .find() picks the latest realized issue cost matching SQL view
+          materialIssues = [...issuesData].sort(
+            (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+          );
+        }
       } catch {
         // table might be empty or restricted
       }
@@ -1787,7 +1804,7 @@ export const RabPerubahanTab: React.FC<RabPerubahanTabProps> = ({ spkId, spk }) 
                           {(item.is_cost_deflated || item.isCostDeflated) && (
                             <span
                               className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1 mt-0.5"
-                              title="Harga modal belanja di inventory turun (hemat) dari estimasi awal"
+                              title="Harga modal belanja di inventory turun dari estimasi awal"
                             >
                               <span>▼ Turun ke: Rp {Number(item.effective_cost_price).toLocaleString('id-ID')}</span>
                               <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1 py-0.2 rounded text-[9px]">

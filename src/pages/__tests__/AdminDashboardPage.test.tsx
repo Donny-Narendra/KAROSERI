@@ -204,4 +204,33 @@ describe('Page: AdminDashboardPage (Consolidated WIP & Costing Verification)', (
       expect(screen.getByText(/Manajemen Isolasi SPK \(Soft-Isolation\)/i)).toBeInTheDocument();
     });
   });
+
+  it('renders "(Efisiensi Belanja -Rp 5.000)" badge when actual total_cogs decreases below initial_cogs', async () => {
+    const mockDeflatedSpk = {
+      id: 'spk-deflated-1',
+      spk_no: 'SPK-HEMAT-01',
+      customer_name: 'PT Efisien Selalu',
+      vehicle_plate: 'R 7777 HM',
+      status: 'ACTIVE',
+      qc_status: 'IN_PROGRESS',
+      dp_amount: 0,
+      payment_status: 'UNPAID',
+      initial_cogs: 70000,
+      total_cogs: 65000,
+      total_hpp: 65000,
+      total_tagihan: 100000,
+      total_realisasi_aktual: 0,
+      financials: { totalHpp: 65000, totalTagihan: 100000, totalRealisasiAktual: 0 },
+    };
+
+    vi.spyOn(dashboardService, 'fetchOwnerDashboardSpks').mockResolvedValue([mockDeflatedSpk as any]);
+
+    render(<AdminDashboardPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('SPK-HEMAT-01')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/\(Efisiensi Belanja -Rp\s*5\.000\)/)).toBeInTheDocument();
+  });
 });

@@ -66,13 +66,31 @@ export interface DashboardSpkItem {
   total_realisasi_aktual: number;
 }
 
-/** Resolves effective unit HPP cost for RAB and CO line items (bidirectional variance when unfulfilled). */
-function resolveEffectiveUnitCost(item: any): number {
+/** Resolves effective unit HPP cost for RAB and CO line items (realized warehouse issue first, then bidirectional inventory variance). */
+function resolveEffectiveUnitCost(item: any, materialIssues?: any[]): number {
   if (item.effective_cost !== undefined && item.effective_cost !== null) {
     return Number(item.effective_cost);
   }
   const baseCost = Number(item.cost_price || 0);
   if (item.item_type === 'MATERIAL') {
+    if (Array.isArray(materialIssues) && materialIssues.length > 0) {
+      // Sort descending by created_at so latest warehouse issue matches SQL view
+      const sortedIssues = [...materialIssues].sort(
+        (a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime()
+      );
+      const matchedIssue = sortedIssues.find((issue: any) => {
+        if (!issue) return false;
+        if (issue.rab_item_id && item.id && issue.rab_item_id === item.id) return true;
+        if (item.material_id && issue.material_id === item.material_id) return true;
+        return false;
+      });
+      if (matchedIssue) {
+        const issueCost = Number(
+          matchedIssue.custom_unit_price ?? matchedIssue.unit_price ?? matchedIssue.cost_price ?? matchedIssue.unit_cost ?? 0
+        );
+        if (issueCost > 0) return issueCost;
+      }
+    }
     const matCost = Number(item.materials?.cost_price || item.material?.cost_price || 0);
     if (matCost > 0 && matCost !== baseCost) return matCost;
   }
@@ -90,11 +108,12 @@ export function calculateSpkFinancialMetrics(spk: any, packagesCatalog?: any[]):
   // 1. Total HPP (Modal = RAB Cost + CO Cost)
   let rabHpp = 0;
   const rabItems = Array.isArray(spk?.rab_items) ? spk.rab_items : [];
+  const materialIssues = Array.isArray(spk?.material_issues) ? spk.material_issues : [];
 
   if (rabItems.length > 0) {
     rabHpp = rabItems.reduce((sum: number, item: any) => {
       const q = Number(item.quantity ?? item.labor_hours ?? (item.overhead_hours ? Number(item.overhead_hours) / 8 : 1)) || 1;
-      return sum + (q * resolveEffectiveUnitCost(item));
+      return sum + (q * resolveEffectiveUnitCost(item, materialIssues));
     }, 0);
   } else {
     rabHpp = Number(
@@ -122,7 +141,7 @@ export function calculateSpkFinancialMetrics(spk: any, packagesCatalog?: any[]):
     if (coItems.length > 0) {
       const itemsHpp = coItems.reduce((itemSum: number, item: any) => {
         const q = Number(item.quantity || 1);
-        return itemSum + (q * resolveEffectiveUnitCost(item));
+        return itemSum + (q * resolveEffectiveUnitCost(item, materialIssues));
       }, 0);
       return sum + itemsHpp;
     }

@@ -374,5 +374,38 @@ describe('rabPerubahanExport: Consolidated Calculations & Export Engines', () =>
       expect(htmlContent).toContain('Rp 65.000');
       expect(htmlContent).toContain('Efisiensi / Penurunan HPP Belanja');
     });
+
+    it('preserves upward HPP variance in exports for FULFILLED items when explicit flags are omitted', () => {
+      const fulfilledInflated: ConsolidatedRabItem[] = [
+        {
+          id: 'item-fulfilled-herex',
+          source_origin: 'RAB',
+          source_label: 'RAB',
+          is_package: false,
+          package_name: null,
+          item_type: 'MATERIAL',
+          wbs_stage: 'WBS 1: Pembongkaran',
+          description: 'BENDINGAN HEREX ATAS',
+          quantity: 1,
+          unit: 'pcs',
+          cost_price: 180000,
+          estimated_cost_price: 180000,
+          effective_cost_price: 230000,
+          cost_variance_per_unit: 50000,
+          unit_price: 230000,
+          subtotal: 230000,
+          fulfillment_status: 'FULFILLED',
+          fulfillment_qty: 1,
+        },
+      ];
+
+      exportRabPerubahanToExcel(mockSpk, fulfilledInflated);
+      const sheetData = (XLSX.utils.aoa_to_sheet as any).mock.calls[0][0];
+      const herexRow = sheetData.find((row: any[]) => row[5] === 'BENDINGAN HEREX ATAS');
+
+      expect(herexRow).toBeDefined();
+      expect(herexRow[10]).toBe(50000);
+      expect(herexRow[11]).toContain('Naik ke Rp 230.000 (+Rp 50.000)');
+    });
   });
 });

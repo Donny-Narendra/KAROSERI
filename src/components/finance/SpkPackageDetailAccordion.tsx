@@ -69,10 +69,13 @@ export const SpkPackageDetailAccordion: React.FC<SpkPackageDetailAccordionProps>
         try {
           const { data: issuesData } = await supabase
             .from('material_issues')
-            .select('material_id, rab_item_id, unit_price, cost_price, custom_unit_price')
+            .select('*')
             .eq('spk_id', spkId);
           if (issuesData) {
-            issuesData.forEach((iss: any) => {
+            const sortedIssues = [...issuesData].sort(
+              (a: any, b: any) => new Date(a?.created_at || 0).getTime() - new Date(b?.created_at || 0).getTime()
+            );
+            sortedIssues.forEach((iss: any) => {
               const issueCost = Number(iss.custom_unit_price ?? iss.unit_price ?? iss.cost_price ?? 0);
               if (issueCost > 0) {
                 if (iss.rab_item_id) materialIssuesMap.set(`rab_${iss.rab_item_id}`, issueCost);

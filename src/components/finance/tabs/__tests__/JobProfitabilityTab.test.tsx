@@ -421,4 +421,74 @@ describe('Component: JobProfitabilityTab (Operational SPKs & 4-Pillar Segregated
     // Margin: 24.8%
     expect(screen.getAllByText(/24\.8%/).length).toBeGreaterThanOrEqual(1);
   });
+
+  it('displays net upward (+Rp) and downward (-Rp) COGS variance indicators in HPP Proyek column', async () => {
+    const upwardRow: SpkJobProfitability = {
+      spk_id: 'spk-5132',
+      spk_number: 'SPK-5132',
+      customer_name: 'RS SL-05',
+      customer_phone: '0812',
+      vehicle_plate: 'R 0BE L',
+      spk_status: 'ACTIVE',
+      registration_date: '2026-11-12T08:00:00Z',
+      total_revenue: 951_750,
+      actual_material_cost: 929_412,
+      actual_labor_cost: 0,
+      actual_overhead_cost: 0,
+      initial_cogs: 818_862,
+      total_cogs: 929_412,
+      gross_profit: 22_338,
+      gross_margin_percentage: 2.35,
+      payment_status: 'ACTIVE',
+      package_revenue: 0,
+      package_cogs: 0,
+      package_profit: 0,
+      granular_material_revenue: 951_750,
+      granular_material_cogs: 929_412,
+      granular_material_profit: 22_338,
+      granular_labor_profit: 0,
+      granular_overhead_profit: 0,
+      granular_other_profit: 0,
+    };
+
+    const downwardRow: SpkJobProfitability = {
+      spk_id: 'spk-hemat-1',
+      spk_number: 'SPK-HEMAT-1',
+      customer_name: 'CV Hemat',
+      customer_phone: '0813',
+      vehicle_plate: 'B 1111 HM',
+      spk_status: 'ACTIVE',
+      registration_date: '2026-11-13T08:00:00Z',
+      total_revenue: 100_000,
+      actual_material_cost: 65_000,
+      actual_labor_cost: 0,
+      actual_overhead_cost: 0,
+      initial_cogs: 70_000,
+      total_cogs: 65_000,
+      gross_profit: 35_000,
+      gross_margin_percentage: 35,
+      payment_status: 'ACTIVE',
+      package_revenue: 0,
+      package_cogs: 0,
+      package_profit: 0,
+      granular_material_revenue: 100_000,
+      granular_material_cogs: 65_000,
+      granular_material_profit: 35_000,
+      granular_labor_profit: 0,
+      granular_overhead_profit: 0,
+      granular_other_profit: 0,
+    };
+
+    vi.mocked(financialReportsService.getJobProfitability).mockResolvedValueOnce([upwardRow, downwardRow]);
+
+    render(<JobProfitabilityTab />);
+
+    await waitFor(() => {
+      expect(screen.getByText('SPK-5132')).toBeInTheDocument();
+      expect(screen.getByText('SPK-HEMAT-1')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/\(\+Rp\s*110\.550\)/)).toBeInTheDocument();
+    expect(screen.getByText(/\(-Rp\s*5\.000\)/)).toBeInTheDocument();
+  });
 });
