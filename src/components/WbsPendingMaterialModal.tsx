@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { AlertTriangle, X, PackageOpen, Users, Package, Clock } from 'lucide-react';
+import { useStageSettings } from '../hooks/useStageSettings';
 
 export interface PendingWbsMaterial {
   id: string;
@@ -41,10 +42,12 @@ export const WbsPendingMaterialModal: React.FC<WbsPendingMaterialModalProps> = (
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  const { getStageDisplayName } = useStageSettings();
+
   if (!isOpen) return null;
 
   const totalCost = pendingMaterials.reduce((acc, item) => acc + (item.estimatedCost || 0), 0);
-  const title = categoryLabel || category;
+  const title = categoryLabel || getStageDisplayName(category);
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -78,8 +81,9 @@ export const WbsPendingMaterialModal: React.FC<WbsPendingMaterialModalProps> = (
               <h3 className="text-lg font-bold font-display text-text mt-0.5">
                 Material & Jasa Belum Diminta / Ditugaskan
               </h3>
-              <p className="text-xs text-text-muted mt-0.5">
-                Tahapan: <span className="font-semibold text-text">{title}</span>
+              <p className="text-xs text-text-muted mt-0.5 flex items-center gap-1.5">
+                <span className="inline-block w-2 h-2 rounded-full bg-amber-400"></span>
+                <span className="font-semibold text-text">{title}</span>
               </p>
             </div>
           </div>

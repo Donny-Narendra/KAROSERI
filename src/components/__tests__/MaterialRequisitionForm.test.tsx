@@ -29,7 +29,8 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
     masterMaterials: any[] = [],
     existingRequisitions: any[] = [],
     changeOrderItemsData: any[] = [],
-    activeBorongans: any[] = []
+    activeBorongans: any[] = [],
+    materialIssuesData: any[] = []
   ) => {
     const mockInsert = vi.fn().mockReturnValue({
       select: vi.fn().mockReturnValue({
@@ -137,6 +138,16 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
         } as any;
       }
 
+      if (table === 'material_issues') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockResolvedValue({
+            data: materialIssuesData,
+            error: null,
+          }),
+        } as any;
+      }
+
       return {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
@@ -147,8 +158,8 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
   };
 
   const sampleMasterMaterials = [
-    { id: 'mat-1', name: 'AMPLAS 100', unit: 'lembar', unit_price: 5000, current_stock: 50 },
-    { id: 'mat-2', name: 'material tes 2', unit: 'pcs', unit_price: 25000, current_stock: 30 },
+    { id: 'mat-1', name: 'AMPLAS 100', unit: 'lembar', unit_price: 5000, cost_price: 4000, current_stock: 50 },
+    { id: 'mat-2', name: 'material tes 2', unit: 'pcs', unit_price: 25000, cost_price: 20000, current_stock: 30 },
   ];
 
   const sampleMixedRabItems = [
@@ -160,9 +171,10 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
       unit: 'lembar',
       item_total: 50000,
       unit_price: 5000,
+      cost_price: 4000,
       wbs_category: 'Pembongkaran',
       material_id: 'mat-1',
-      materials: { id: 'mat-1', name: 'AMPLAS 100', unit: 'lembar', unit_price: 5000, current_stock: 50 },
+      materials: { id: 'mat-1', name: 'AMPLAS 100', unit: 'lembar', unit_price: 5000, cost_price: 4000, current_stock: 50 },
     },
     {
       id: 'rab-item-mat-2',
@@ -172,9 +184,10 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
       unit: 'pcs',
       item_total: 125000,
       unit_price: 25000,
+      cost_price: 20000,
       wbs_category: 'Pembongkaran',
       material_id: 'mat-2',
-      materials: { id: 'mat-2', name: 'material tes 2', unit: 'pcs', unit_price: 25000, current_stock: 30 },
+      materials: { id: 'mat-2', name: 'material tes 2', unit: 'pcs', unit_price: 25000, cost_price: 20000, current_stock: 30 },
     },
     {
       id: 'rab-item-labor-tukang',
@@ -372,7 +385,9 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
             material_name: 'AMPLAS 100',
             quantity: 10,
             unit: 'lembar',
-            unit_price: 5000,
+            unit_price: 4000,
+            cost_price: 4000,
+            subtotal: 40000,
           }),
         ])
       );
@@ -529,7 +544,9 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
             change_order_item_id: 'co-item-uuid-1',
             quantity: 2,
             unit: 'pcs',
-            unit_price: 15000,
+            unit_price: 12000,
+            cost_price: 12000,
+            subtotal: 24000,
           }),
         ])
       );
@@ -639,8 +656,9 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
             material_name: '[CO-SPK2668-1407] material test 1',
             quantity: 2,
             unit: 'pcs',
-            unit_price: 15000,
-            subtotal: 30000,
+            unit_price: 12000,
+            cost_price: 12000,
+            subtotal: 24000,
             wbs_stage: 'Pembongkaran',
             materials: null,
           },
@@ -693,8 +711,9 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
             material_name: 'AMPLAS 100',
             quantity: 10,
             unit: 'lembar',
-            unit_price: 5000,
-            subtotal: 50000,
+            unit_price: 4000,
+            cost_price: 4000,
+            subtotal: 40000,
             wbs_stage: 'Pembongkaran',
             materials: { id: 'mat-1', name: 'AMPLAS 100', unit: 'lembar', unit_price: 5000, current_stock: 50 },
           },
@@ -846,5 +865,246 @@ describe('Component: MaterialRequisitionForm (Strict MATERIAL Filter)', () => {
     });
 
     expect(within(rightPanelHeader!).getByText('2')).toBeInTheDocument();
+  });
+
+  it('displays and submits HPP (cost_price) rather than selling unit_price across cards and footer', async () => {
+    const hppMasterMaterials = [
+      { id: 'mat-hpp-1', name: 'material tes 2', unit: 'pcs', unit_price: 121194, cost_price: 40000, current_stock: 91 },
+      { id: 'mat-hpp-2', name: 'material tes 3', unit: 'pcs', unit_price: 44748, cost_price: 24000, current_stock: 95 },
+    ];
+    const hppRabItems = [
+      {
+        id: 'rab-hpp-1',
+        description: 'material tes 2',
+        item_type: 'MATERIAL',
+        quantity: 2,
+        unit: 'pcs',
+        unit_price: 121194,
+        item_total: 242388,
+        cost_price: 40000,
+        wbs_category: 'Pembongkaran',
+        material_id: 'mat-hpp-1',
+        materials: { id: 'mat-hpp-1', name: 'material tes 2', unit: 'pcs', unit_price: 121194, cost_price: 40000, current_stock: 91 },
+      },
+      {
+        id: 'rab-hpp-2',
+        description: 'material tes 3',
+        item_type: 'MATERIAL',
+        quantity: 1,
+        unit: 'pcs',
+        unit_price: 44748,
+        item_total: 44748,
+        cost_price: null,
+        wbs_category: 'Pembongkaran',
+        material_id: 'mat-hpp-2',
+        materials: { id: 'mat-hpp-2', name: 'material tes 3', unit: 'pcs', unit_price: 44748, cost_price: 24000, current_stock: 95 },
+      },
+    ];
+
+    const { mockItemsInsert } = setupSupabaseMock(hppRabItems, hppMasterMaterials, []);
+
+    render(
+      <MaterialRequisitionForm
+        spkId={mockSpkId}
+        wbsCategory={mockWbsCategory}
+        onClose={mockOnClose}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('material tes 2')).toBeInTheDocument();
+      expect(screen.getByText('material tes 3')).toBeInTheDocument();
+    });
+
+    // Right panel should display HPP (80.000 and 24.000), never selling prices (121.194 / 242.388 / 44.748)
+    expect(screen.getByText(/Estimasi HPP:\s*Rp\s*80\.000/i)).toBeInTheDocument();
+    expect(screen.getByText(/Estimasi HPP:\s*Rp\s*24\.000/i)).toBeInTheDocument();
+    expect(screen.queryByText(/121\.194/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/44\.748/)).not.toBeInTheDocument();
+
+    // Transfer both items to left panel
+    fireEvent.doubleClick(screen.getByText('material tes 2').closest('div[class*="cursor-pointer"]')!);
+    fireEvent.doubleClick(screen.getByText('material tes 3').closest('div[class*="cursor-pointer"]')!);
+
+    await waitFor(() => {
+      expect(screen.getByText('Total Estimasi HPP:')).toBeInTheDocument();
+      expect(screen.getByText(/Rp\s*104\.000/)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText(/Submit Requisition \(2 baru\)/i));
+
+    await waitFor(() => {
+      expect(mockItemsInsert).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            material_name: 'material tes 2',
+            unit_price: 40000,
+            cost_price: 40000,
+            subtotal: 80000,
+          }),
+          expect.objectContaining({
+            material_name: 'material tes 3',
+            unit_price: 24000,
+            cost_price: 24000,
+            subtotal: 24000,
+          }),
+        ])
+      );
+    });
+  });
+
+  it('uses live master HPP (materials.cost_price) over stale RAB snapshot and shows rose indicator on price increase', async () => {
+    const liveMasterMaterials = [
+      { id: 'mat-dempul', name: 'Dempul Alfagloss', unit: 'kaleng', unit_price: 400000, cost_price: 330555, current_stock: 10 },
+    ];
+    const staleRabItems = [
+      {
+        id: 'rab-dempul-1',
+        description: 'Dempul Alfagloss',
+        item_type: 'MATERIAL',
+        quantity: 1,
+        unit: 'kaleng',
+        unit_price: 400000,
+        item_total: 400000,
+        cost_price: 264444,
+        wbs_category: 'Pembongkaran',
+        material_id: 'mat-dempul',
+        materials: { id: 'mat-dempul', name: 'Dempul Alfagloss', unit: 'kaleng', unit_price: 400000, cost_price: 330555, current_stock: 10 },
+      },
+    ];
+
+    const { mockItemsInsert } = setupSupabaseMock(staleRabItems, liveMasterMaterials, []);
+
+    render(
+      <MaterialRequisitionForm
+        spkId={mockSpkId}
+        wbsCategory={mockWbsCategory}
+        onClose={mockOnClose}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Dempul Alfagloss')).toBeInTheDocument();
+    });
+
+    // Right panel shows live HPP 330.555 and rose-400 (RAB Awal: Rp 264.444)
+    expect(screen.getByText(/Estimasi HPP:\s*Rp\s*330\.555/i)).toBeInTheDocument();
+    const rabAwalBadge = screen.getByText(/\(RAB Awal:\s*Rp\s*264\.444\)/i);
+    expect(rabAwalBadge).toBeInTheDocument();
+    expect(rabAwalBadge).toHaveClass('text-rose-400');
+
+    // Transfer to left panel
+    fireEvent.doubleClick(screen.getByText('Dempul Alfagloss').closest('div[class*="cursor-pointer"]')!);
+
+    await waitFor(() => {
+      expect(screen.getByText('Total Estimasi HPP:')).toBeInTheDocument();
+      const footerTotal = screen.getByText('Total Estimasi HPP:').nextElementSibling;
+      expect(footerTotal).toHaveTextContent(/Rp\s*330\.555/);
+    });
+
+    fireEvent.click(screen.getByText(/Submit Requisition \(1 baru\)/i));
+
+    await waitFor(() => {
+      expect(mockItemsInsert).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            material_name: 'Dempul Alfagloss',
+            unit_price: 330555,
+            cost_price: 330555,
+            subtotal: 330555,
+          }),
+        ])
+      );
+    });
+  });
+
+  it('shows emerald indicator when live master HPP decreases compared to RAB snapshot', async () => {
+    const deflatedMaster = [
+      { id: 'mat-cat', name: 'Cat Dasar', unit: 'liter', unit_price: 150000, cost_price: 80000, current_stock: 20 },
+    ];
+    const rabItems = [
+      {
+        id: 'rab-cat-1',
+        description: 'Cat Dasar',
+        item_type: 'MATERIAL',
+        quantity: 2,
+        unit: 'liter',
+        unit_price: 150000,
+        item_total: 300000,
+        cost_price: 100000,
+        wbs_category: 'Pembongkaran',
+        material_id: 'mat-cat',
+        materials: { id: 'mat-cat', name: 'Cat Dasar', unit: 'liter', unit_price: 150000, cost_price: 80000, current_stock: 20 },
+      },
+    ];
+
+    setupSupabaseMock(rabItems, deflatedMaster, []);
+
+    render(
+      <MaterialRequisitionForm
+        spkId={mockSpkId}
+        wbsCategory={mockWbsCategory}
+        onClose={mockOnClose}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Cat Dasar')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Estimasi HPP:\s*Rp\s*160\.000/i)).toBeInTheDocument();
+    const rabAwalBadge = screen.getByText(/\(RAB Awal:\s*Rp\s*200\.000\)/i);
+    expect(rabAwalBadge).toBeInTheDocument();
+    expect(rabAwalBadge).toHaveClass('text-emerald-400');
+  });
+
+  it('uses realized material_issues cost price when item is FULFILLED', async () => {
+    const masterMats = [
+      { id: 'mat-thinner', name: 'Thinner A', unit: 'liter', unit_price: 50000, cost_price: 45000, current_stock: 15 },
+    ];
+    const rabItems = [
+      {
+        id: 'rab-thinner-1',
+        description: 'Thinner A',
+        item_type: 'MATERIAL',
+        quantity: 2,
+        unit: 'liter',
+        unit_price: 50000,
+        item_total: 100000,
+        cost_price: 30000,
+        wbs_category: 'Pembongkaran',
+        material_id: 'mat-thinner',
+        materials: { id: 'mat-thinner', name: 'Thinner A', unit: 'liter', unit_price: 50000, cost_price: 45000, current_stock: 15 },
+      },
+    ];
+    const materialIssues = [
+      {
+        id: 'issue-1',
+        spk_id: mockSpkId,
+        rab_item_id: 'rab-thinner-1',
+        material_id: 'mat-thinner',
+        quantity: 2,
+        custom_unit_price: 38000,
+        created_at: '2026-11-18T10:00:00Z',
+      },
+    ];
+
+    setupSupabaseMock(rabItems, masterMats, [], [], [], materialIssues);
+
+    render(
+      <MaterialRequisitionForm
+        spkId={mockSpkId}
+        wbsCategory={mockWbsCategory}
+        onClose={mockOnClose}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Thinner A')).toBeInTheDocument();
+    });
+
+    // 2 * 38.000 = 76.000 (realized issue price takes precedence over master 45.000)
+    expect(screen.getByText(/Estimasi HPP:\s*Rp\s*76\.000/i)).toBeInTheDocument();
+    expect(screen.getByText(/\(RAB Awal:\s*Rp\s*60\.000\)/i)).toBeInTheDocument();
   });
 });

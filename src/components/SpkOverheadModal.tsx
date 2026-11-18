@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabaseClient';
-import { formatTahapanBadge } from '../utils/wbsSort';
+import { useStageSettings } from '../hooks/useStageSettings';
 import { financialReportsService } from '../services/financialReportsService';
 import type { SpkOverheadLog, CreateSpkOverheadLogPayload } from '../types/financialReports';
 import { ConfirmationModal } from './ConfirmationModal';
@@ -108,6 +108,7 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
   onOverheadUpdated,
 }) => {
   const { user } = useAuth();
+  const { getStageDisplayName } = useStageSettings();
 
   // Header / Project state
   const [spkMeta, setSpkMeta] = useState<{
@@ -553,6 +554,7 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
                 SPK: <span className="font-semibold text-slate-200">{spkMeta.spkNumber || 'N/A'}</span>
                 {spkMeta.vehiclePlate && <> &bull; Plat: <span className="font-semibold text-slate-200">{spkMeta.vehiclePlate}</span></>}
                 {spkMeta.customerName && <> &bull; Pelanggan: <span className="font-semibold text-slate-200">{spkMeta.customerName}</span></>}
+                {wbsStage && <> &bull; <span className="font-semibold text-purple-300">{getStageDisplayName(wbsStage)}</span></>}
               </p>
             </div>
           </div>
@@ -594,7 +596,7 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
                   <Zap className="w-3.5 h-3.5 text-amber-400" />
-                  Alokasi Overhead dari RAB & Change Orders ({formatTahapanBadge(wbsStage)})
+                  Alokasi Overhead dari RAB & Change Orders ({getStageDisplayName(wbsStage)})
                 </span>
                 {fetchingRab && (
                   <span className="text-[10px] text-text-muted animate-pulse">Memuat RAB & CO...</span>
@@ -674,7 +676,7 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
               <div className="p-3.5 rounded-xl border border-dashed border-border bg-background/40 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs">
                 <div className="flex items-center gap-2 text-text-muted text-center sm:text-left">
                   <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
-                  <span>Tidak ada alokasi overhead RAB atau Change Orders untuk tahapan <strong>{formatTahapanBadge(wbsStage)}</strong>.</span>
+                  <span>Tidak ada alokasi overhead RAB atau Change Orders untuk tahapan <strong>{getStageDisplayName(wbsStage)}</strong>.</span>
                 </div>
                 {!showMasterPresets && (
                   <button
@@ -768,7 +770,7 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
                 >
                   {WBS_STAGES.map((stg) => (
                     <option key={stg} value={stg}>
-                      {formatTahapanBadge(stg)}
+                      {getStageDisplayName(stg)}
                     </option>
                   ))}
                 </select>
@@ -923,7 +925,7 @@ export const SpkOverheadModal: React.FC<SpkOverheadModalProps> = ({
                         </td>
                         <td className="py-2.5 px-3 whitespace-nowrap">
                           <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-purple-500/10 text-purple-300 border border-purple-500/20">
-                            {formatTahapanBadge(item.wbs_stage)}
+                            {getStageDisplayName(item.wbs_stage)}
                           </span>
                         </td>
                         <td className="py-2.5 px-3 font-medium text-slate-200">

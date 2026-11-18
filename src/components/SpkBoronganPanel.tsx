@@ -14,7 +14,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { normalizeText } from '../utils/rabItemAllocation';
-import { formatTahapanBadge } from '../utils/wbsSort';
+import { useStageSettings } from '../hooks/useStageSettings';
 import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
 
 interface SpkBoronganPanelProps {
@@ -100,6 +100,8 @@ const formatDeadlineDate = (dateStr?: string | null): string => {
 export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCategory, onClose }) => {
   const cleanWbsCategory = wbsCategory.replace(/^WBS\s*\d+:\s*/i, '').trim();
   const { user } = useAuth();
+  const { getStageDisplayName } = useStageSettings();
+  const stageDisplayName = getStageDisplayName(wbsCategory);
   const [loading, setLoading] = useState(false);
   const [records, setRecords] = useState<SpkBorongan[]>([]);
   
@@ -600,7 +602,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
 
           <div class="section">
             <div class="section-title">B. DETAIL PENUGASAN BORONGAN</div>
-            <div class="row"><div class="label">Tahapan</div><div class="value">: ${formatTahapanBadge(wbsCategory)}</div></div>
+            <div class="row"><div class="label">Tahapan</div><div class="value">: ${stageDisplayName}</div></div>
             <div class="row"><div class="label">Nama Pekerja/Mandor</div><div class="value">: <strong>${record.worker_name}</strong></div></div>
             <div class="row"><div class="label">Tugas/Uraian Kerja</div><div class="value">: ${record.task_description || '-'}</div></div>
             <div class="row"><div class="label">Nilai Kontrak</div><div class="value">: <strong>Rp ${record.contract_value.toLocaleString('id-ID')}</strong></div></div>
@@ -734,8 +736,9 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
                   </span>
                 )}
               </div>
-              <p className="text-xs sm:text-sm text-text-muted mt-0.5">
-                Tahapan: <strong className="text-text font-semibold">{formatTahapanBadge(wbsCategory)}</strong>
+              <p className="text-xs sm:text-sm text-text-muted mt-0.5 flex items-center gap-1.5">
+                <span className="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+                <strong className="text-text font-semibold">{stageDisplayName}</strong>
               </p>
             </div>
           </div>
@@ -1023,7 +1026,7 @@ export const SpkBoronganPanel: React.FC<SpkBoronganPanelProps> = ({ spkId, wbsCa
                   </span>
                 </div>
                 <p className="text-xs text-text-muted mb-2">
-                  Daftar pagu pekerjaan/jasa borongan yang dialokasikan untuk {formatTahapanBadge(wbsCategory)}. Item yang sudah ditugaskan di SPK Borongan otomatis dikecualikan.
+                  Daftar pagu pekerjaan/jasa borongan yang dialokasikan untuk {stageDisplayName}. Item yang sudah ditugaskan di SPK Borongan otomatis dikecualikan.
                 </p>
                 <div className="flex items-center gap-2">
                   <input

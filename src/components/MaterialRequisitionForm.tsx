@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { normalizeText } from '../utils/rabItemAllocation';
 import { ConfirmationModal, type ConfirmationModalVariant } from './ConfirmationModal';
+import { useStageSettings } from '../hooks/useStageSettings';
 
 interface MasterMaterial {
   id: string;
@@ -31,8 +32,14 @@ interface RabSourceItem {
   unit: string;
   unitPrice: number;
   costPrice?: number;
+  initialCostPrice?: number;
   rabQuantity: number;
   subtotal: number;
+  initialSubtotal?: number;
+  hasPriceChange?: boolean;
+  isPriceUp?: boolean;
+  fulfillmentStatus?: 'FULFILLED' | 'PENDING';
+  realizedIssueCostPrice?: number | null;
   currentStock: number;
   item_type?: string | null;
   sourceType?: 'RAB' | 'CHANGE_ORDER' | 'PACKAGE';
@@ -63,9 +70,13 @@ interface RequisitionItem {
   unit_price?: number;
   costPrice?: number;
   cost_price?: number;
+  initialCostPrice?: number;
   estimated_price?: number;
   quantity: number;
   subtotal: number;
+  initialSubtotal?: number;
+  hasPriceChange?: boolean;
+  isPriceUp?: boolean;
   wbs_stage?: string;
   item_type?: string | null;
   isManual?: boolean;
@@ -109,13 +120,103 @@ const formatCurrency = (val: number | null | undefined): string => {
   }).format(val);
 };
 
+interface EffectiveHppResult {
+  initialUnitCost: number;
+  effectiveUnitCost: number;
+  lineHppEstimate: number;
+  initialLineHpp: number;
+  hasPriceChange: boolean;
+  isPriceUp: boolean;
+}
+
+/**
+ * Menghitung HPP Efektif terkini per item (selaras dengan formula RabPerubahanTab):
+ * - Jika sudah dirilis penuh oleh gudang (FULFILLED), gunakan harga riil material_issues.
+ * - Jika belum dirilis, gunakan HPP master terkini (materials.cost_price), fallback ke HPP awal.
+ */
+function computeEffectiveHpp(params: {
+  quantity: number;
+  initialCostPrice?: number | null;
+  liveCostPrice?: number | null;
+  fulfillmentStatus?: string | null;
+  realizedIssueCostPrice?: number | null;
+}): EffectiveHppResult {
+  const qty = Number(params.quantity || 0);
+  const initialUnitCost = Number(params.initialCostPrice ?? 0);
+  const liveCost = Number(params.liveCostPrice ?? 0);
+  const realizedCost = Number(params.realizedIssueCostPrice ?? 0);
+
+  let effectiveUnitCost = initialUnitCost;
+  if (params.fulfillmentStatus === 'FULFILLED' && realizedCost > 0) {
+    effectiveUnitCost = realizedCost;
+  } else if (liveCost > 0) {
+    effectiveUnitCost = liveCost;
+  }
+
+  const lineHppEstimate = Math.round(qty * effectiveUnitCost);
+  const initialLineHpp = Math.round(qty * initialUnitCost);
+  const hasPriceChange = Math.abs(lineHppEstimate - initialLineHpp) > 1;
+  const isPriceUp = lineHppEstimate > initialLineHpp;
+
+  return {
+    initialUnitCost,
+    effectiveUnitCost,
+    lineHppEstimate,
+    initialLineHpp,
+    hasPriceChange,
+    isPriceUp,
+  };
+}
+
+function findRealizedIssueForItem(
+  materialIssues: any[],
+  opts: {
+    rabItemId?: string | null;
+    changeOrderItemId?: string | null;
+    materialId?: string | null;
+    name?: string | null;
+    quantity: number;
+  }
+): { fulfillmentStatus: 'FULFILLED' | 'PENDING'; realizedIssueCostPrice: number | null } {
+  if (!materialIssues.length) {
+    return { fulfillmentStatus: 'PENDING', realizedIssueCostPrice: null };
+  }
+
+  const normName = opts.name ? normalizeText(opts.name) : '';
+  const matchingIssues = materialIssues.filter((mi: any) => {
+    if (opts.changeOrderItemId && mi.change_order_item_id === opts.changeOrderItemId) return true;
+    if (opts.rabItemId && mi.rab_item_id === opts.rabItemId) return true;
+    if (opts.materialId && mi.material_id === opts.materialId) return true;
+    if (normName && mi.material_name && normalizeText(mi.material_name) === normName) return true;
+    return false;
+  });
+
+  if (matchingIssues.length === 0) {
+    return { fulfillmentStatus: 'PENDING', realizedIssueCostPrice: null };
+  }
+
+  const totalIssuedQty = matchingIssues.reduce((sum: number, mi: any) => sum + Number(mi.quantity || 0), 0);
+  const latestIssue = matchingIssues[0];
+  const realizedPrice = Number(
+    latestIssue.custom_unit_price || latestIssue.unit_price || latestIssue.cost_price || 0
+  );
+
+  const isFulfilled = opts.quantity > 0 && totalIssuedQty >= opts.quantity;
+  return {
+    fulfillmentStatus: isFulfilled ? 'FULFILLED' : 'PENDING',
+    realizedIssueCostPrice: realizedPrice > 0 ? realizedPrice : null,
+  };
+}
+
 export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = ({
   spkId,
   wbsCategory,
   onClose
 }) => {
   const { user } = useAuth();
+  const { getStageDisplayName } = useStageSettings();
   const cleanWbsCategory = wbsCategory.replace(/^WBS\s*\d+:\s*/i, '').trim();
+  const stageDisplayName = getStageDisplayName(wbsCategory);
 
   // Master materials from database
   const [masterMaterials, setMasterMaterials] = useState<MasterMaterial[]>([]);
@@ -162,7 +263,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
       // 2. Fetch Master Materials
       const { data: matData, error: matError } = await supabase
         .from('materials')
-        .select('id, name, unit, unit_price, current_stock')
+        .select('id, name, unit, unit_price, cost_price, current_stock')
         .order('name');
       if (matError) throw matError;
       
@@ -171,9 +272,26 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
         name: m.name,
         unit: m.unit || 'pcs',
         unit_price: Number(m.unit_price || 0),
+        cost_price: Number(m.cost_price ?? 0),
         current_stock: Number(m.current_stock || 0)
       }));
       setMasterMaterials(loadedMaster);
+
+      // 2b. Fetch Material Issues for this SPK (realized issue prices when fulfilled)
+      let materialIssues: any[] = [];
+      try {
+        const { data: issuesData } = await supabase
+          .from('material_issues')
+          .select('*')
+          .eq('spk_id', spkId);
+        if (Array.isArray(issuesData)) {
+          materialIssues = [...issuesData].sort(
+            (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+          );
+        }
+      } catch {
+        // table might be empty or restricted
+      }
 
       // 3. Fetch RAB Estimation & Items for this SPK and WBS Category
       let sourceList: RabSourceItem[] = [];
@@ -209,6 +327,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
               name,
               unit,
               unit_price,
+              cost_price,
               current_stock
             )
           `)
@@ -267,15 +386,21 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
             const unit = rawMat?.unit || matchedMat?.unit || item.unit || 'pcs';
             const qty = Number(item.quantity || 0);
 
-            // Determine unit price with multi-layer fallback (master unit_price -> rab unit_price -> rab item_total / qty)
-            let unitPrice = Number(matchedMat?.unit_price || rawMat?.unit_price || item.unit_price || 0);
-            if (unitPrice === 0 && item.item_total && qty > 0) {
-              unitPrice = Number(item.item_total) / qty;
-            } else if (unitPrice === 0 && item.item_total) {
-              unitPrice = Number(item.item_total);
-            }
+            const issueInfo = findRealizedIssueForItem(materialIssues, {
+              rabItemId: item.id,
+              materialId,
+              name,
+              quantity: qty,
+            });
 
-            const calculatedSubtotal = item.item_total ? Number(item.item_total) : (qty * unitPrice);
+            const hpp = computeEffectiveHpp({
+              quantity: qty,
+              initialCostPrice: item.estimated_cost_price ?? item.cost_price ?? 0,
+              liveCostPrice: rawMat?.cost_price ?? matchedMat?.cost_price ?? null,
+              fulfillmentStatus: issueInfo.fulfillmentStatus,
+              realizedIssueCostPrice: issueInfo.realizedIssueCostPrice,
+            });
+
             const descPackageName = isDescPackageLabel
               ? item.description.trim().replace(/^(?:Bagian dari paket:\s*)?\[?Paket:\s*/i, '').replace(/\]$/, '').trim()
               : item.notes && /Paket:\s*/i.test(item.notes)
@@ -288,9 +413,16 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
               materialId,
               name,
               unit,
-              unitPrice,
+              unitPrice: hpp.effectiveUnitCost,
+              costPrice: hpp.effectiveUnitCost,
+              initialCostPrice: hpp.initialUnitCost,
               rabQuantity: qty,
-              subtotal: calculatedSubtotal,
+              subtotal: hpp.lineHppEstimate,
+              initialSubtotal: hpp.initialLineHpp,
+              hasPriceChange: hpp.hasPriceChange,
+              isPriceUp: hpp.isPriceUp,
+              fulfillmentStatus: issueInfo.fulfillmentStatus,
+              realizedIssueCostPrice: issueInfo.realizedIssueCostPrice,
               currentStock: matchedMat ? Number(matchedMat.current_stock || 0) : 0,
               item_type: 'MATERIAL',
               sourceType: (packageName ? 'PACKAGE' : 'RAB') as 'PACKAGE' | 'RAB',
@@ -318,6 +450,14 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
             cost_price,
             wbs_stage,
             item_type,
+            materials (
+              id,
+              name,
+              unit,
+              unit_price,
+              cost_price,
+              current_stock
+            ),
             change_orders!inner ( status, co_number )
           `)
           .eq('spk_id', spkId)
@@ -336,8 +476,9 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
           });
 
           coFiltered.forEach((ci: any) => {
-            let matchedMat = null;
-            if (ci.material_id) matchedMat = loadedMaster.find(m => m.id === ci.material_id);
+            const rawCoMat = Array.isArray(ci.materials) ? ci.materials[0] : ci.materials;
+            let matchedMat = rawCoMat || null;
+            if (!matchedMat && ci.material_id) matchedMat = loadedMaster.find(m => m.id === ci.material_id);
             if (!matchedMat && ci.item_name) {
               const cleanDesc = normalizeText(ci.item_name);
               matchedMat = loadedMaster.find(m => normalizeText(m.name) === cleanDesc);
@@ -348,17 +489,37 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
             const name = `[${coNum}] ${matchedMat?.name || ci.item_name}`;
             const unit = ci.unit || matchedMat?.unit || 'pcs';
             const qty = Number(ci.quantity || 0);
-            const unitPrice = Number(ci.unit_price || matchedMat?.unit_price || 0);
-            const calculatedSubtotal = qty * unitPrice;
+
+            const issueInfo = findRealizedIssueForItem(materialIssues, {
+              changeOrderItemId: ci.id,
+              materialId,
+              name: matchedMat?.name || ci.item_name,
+              quantity: qty,
+            });
+
+            const hpp = computeEffectiveHpp({
+              quantity: qty,
+              initialCostPrice: ci.cost_price ?? 0,
+              liveCostPrice: rawCoMat?.cost_price ?? matchedMat?.cost_price ?? null,
+              fulfillmentStatus: issueInfo.fulfillmentStatus,
+              realizedIssueCostPrice: issueInfo.realizedIssueCostPrice,
+            });
 
             sourceList.push({
               id: ci.id,
               materialId,
               name,
               unit,
-              unitPrice,
+              unitPrice: hpp.effectiveUnitCost,
+              costPrice: hpp.effectiveUnitCost,
+              initialCostPrice: hpp.initialUnitCost,
               rabQuantity: qty,
-              subtotal: calculatedSubtotal,
+              subtotal: hpp.lineHppEstimate,
+              initialSubtotal: hpp.initialLineHpp,
+              hasPriceChange: hpp.hasPriceChange,
+              isPriceUp: hpp.isPriceUp,
+              fulfillmentStatus: issueInfo.fulfillmentStatus,
+              realizedIssueCostPrice: issueInfo.realizedIssueCostPrice,
               currentStock: matchedMat ? Number(matchedMat.current_stock || 0) : 0,
               item_type: 'MATERIAL',
               sourceType: 'CHANGE_ORDER' as const,
@@ -421,6 +582,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
               quantity,
               unit,
               unit_price,
+              cost_price,
               subtotal,
               wbs_stage,
               materials (
@@ -428,6 +590,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                 name,
                 unit,
                 unit_price,
+                cost_price,
                 current_stock
               )
             )
@@ -487,22 +650,23 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                 const unit = item.unit || item.materials?.unit || matchedSource?.unit || matchedMaster?.unit || 'pcs';
                 const qty = Number(item.quantity || (matchedSource?.rabQuantity ?? 1));
 
-                // Calculate price and subtotal
-                let unitPrice = Number(item.unit_price ?? item.materials?.unit_price ?? 0);
-                if (unitPrice === 0 && matchedSource) {
-                  unitPrice = matchedSource.unitPrice || (matchedSource.rabQuantity > 0 ? matchedSource.subtotal / matchedSource.rabQuantity : 0);
-                }
-                if (unitPrice === 0 && matchedMaster) {
-                  unitPrice = matchedMaster.unit_price;
-                }
-
-                let subtotal = Number(item.subtotal) || (qty * unitPrice);
-                if (subtotal === 0 && matchedSource && matchedSource.subtotal > 0) {
-                  subtotal = matchedSource.subtotal;
-                  if (qty > 0 && unitPrice === 0) {
-                    unitPrice = subtotal / qty;
-                  }
-                }
+                // Calculate effective HPP (same formula as RabPerubahanTab)
+                const issueInfo = findRealizedIssueForItem(materialIssues, {
+                  rabItemId: sourceRabId,
+                  changeOrderItemId,
+                  materialId,
+                  name,
+                  quantity: qty,
+                });
+                const isFulfilled =
+                  itemStatus === 'FULFILLED' || issueInfo.fulfillmentStatus === 'FULFILLED';
+                const hpp = computeEffectiveHpp({
+                  quantity: qty,
+                  initialCostPrice: matchedSource?.initialCostPrice ?? item.cost_price ?? 0,
+                  liveCostPrice: item.materials?.cost_price ?? matchedMaster?.cost_price ?? matchedSource?.costPrice ?? null,
+                  fulfillmentStatus: isFulfilled ? 'FULFILLED' : 'PENDING',
+                  realizedIssueCostPrice: issueInfo.realizedIssueCostPrice,
+                });
 
                 const resolvedPackage = item.package_name || matchedSource?.package_name || null;
 
@@ -523,11 +687,17 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                   packageName: resolvedPackage,
                   product_packages: matchedSource?.product_packages || null,
                   unit,
-                  unitPrice,
-                  unit_price: unitPrice,
-                  estimated_price: unitPrice,
+                  unitPrice: hpp.effectiveUnitCost,
+                  unit_price: hpp.effectiveUnitCost,
+                  costPrice: hpp.effectiveUnitCost,
+                  cost_price: hpp.effectiveUnitCost,
+                  initialCostPrice: hpp.initialUnitCost,
+                  estimated_price: hpp.effectiveUnitCost,
                   quantity: qty,
-                  subtotal,
+                  subtotal: hpp.lineHppEstimate,
+                  initialSubtotal: hpp.initialLineHpp,
+                  hasPriceChange: hpp.hasPriceChange,
+                  isPriceUp: hpp.isPriceUp,
                   wbs_stage: item.wbs_stage || cleanWbsCategory,
                   isManual: !isFromRab && !isFromCO,
                   isPersisted: true,
@@ -604,6 +774,15 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
 
     const resolvedPkg = sourceItem.package_name || sourceItem.packageName || sourceItem.product_packages?.name || null;
 
+    const transferQty = sourceItem.rabQuantity > 0 ? sourceItem.rabQuantity : 1;
+    const hpp = computeEffectiveHpp({
+      quantity: transferQty,
+      initialCostPrice: sourceItem.initialCostPrice ?? sourceItem.costPrice ?? sourceItem.unitPrice ?? 0,
+      liveCostPrice: sourceItem.costPrice ?? sourceItem.unitPrice ?? 0,
+      fulfillmentStatus: sourceItem.fulfillmentStatus,
+      realizedIssueCostPrice: sourceItem.realizedIssueCostPrice,
+    });
+
     // Add to left list (selectedItems)
     const newRequisitionItem: RequisitionItem = {
       tempId: `req-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
@@ -622,11 +801,17 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
       packageName: resolvedPkg,
       product_packages: sourceItem.product_packages || null,
       unit: sourceItem.unit,
-      unitPrice: sourceItem.unitPrice,
-      unit_price: sourceItem.unitPrice,
-      estimated_price: sourceItem.unitPrice,
-      quantity: sourceItem.rabQuantity > 0 ? sourceItem.rabQuantity : 1,
-      subtotal: sourceItem.subtotal,
+      unitPrice: hpp.effectiveUnitCost,
+      unit_price: hpp.effectiveUnitCost,
+      costPrice: hpp.effectiveUnitCost,
+      cost_price: hpp.effectiveUnitCost,
+      initialCostPrice: hpp.initialUnitCost,
+      estimated_price: hpp.effectiveUnitCost,
+      quantity: transferQty,
+      subtotal: hpp.lineHppEstimate,
+      initialSubtotal: hpp.initialLineHpp,
+      hasPriceChange: hpp.hasPriceChange,
+      isPriceUp: hpp.isPriceUp,
       wbs_stage: cleanWbsCategory,
       item_type: sourceItem.item_type || 'MATERIAL',
       isManual: false,
@@ -758,7 +943,8 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
 
     setSelectedItems(prev => prev.map(item => {
       if (item.tempId !== tempId) return item;
-      const subtotal = item.quantity * selectedMat.unit_price;
+      const unitHpp = Number(selectedMat.cost_price ?? 0);
+      const subtotal = Math.round(item.quantity * unitHpp);
       return {
         ...item,
         materialId: selectedMat.id,
@@ -766,10 +952,16 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
         name: selectedMat.name,
         material_name: selectedMat.name,
         unit: selectedMat.unit,
-        unitPrice: selectedMat.unit_price,
-        unit_price: selectedMat.unit_price,
-        estimated_price: selectedMat.unit_price,
+        unitPrice: unitHpp,
+        unit_price: unitHpp,
+        costPrice: unitHpp,
+        cost_price: unitHpp,
+        initialCostPrice: unitHpp,
+        estimated_price: unitHpp,
         subtotal,
+        initialSubtotal: subtotal,
+        hasPriceChange: false,
+        isPriceUp: false,
         wbs_stage: cleanWbsCategory
       };
     }));
@@ -780,17 +972,25 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
     const validQty = isNaN(newQty) || newQty < 0 ? 0 : newQty;
     setSelectedItems(prev => prev.map(item => {
       if (item.tempId !== tempId || item.isPersisted) return item;
-      const unitPrice = item.unitPrice || item.unit_price || item.estimated_price || 0;
+      const unitHpp = item.costPrice ?? item.cost_price ?? item.unitPrice ?? item.unit_price ?? item.estimated_price ?? 0;
+      const hpp = computeEffectiveHpp({
+        quantity: validQty,
+        initialCostPrice: item.initialCostPrice ?? unitHpp,
+        liveCostPrice: unitHpp,
+      });
       return {
         ...item,
         quantity: validQty,
-        subtotal: validQty * unitPrice
+        subtotal: hpp.lineHppEstimate,
+        initialSubtotal: hpp.initialLineHpp,
+        hasPriceChange: hpp.hasPriceChange,
+        isPriceUp: hpp.isPriceUp,
       };
     }));
   };
 
-  // Calculate Total Requisition Cost
-  const totalRequisitionCost = useMemo(() => {
+  // Calculate Total Requisition Cost (HPP Modal)
+  const totalEstimasiHpp = useMemo(() => {
     return selectedItems.reduce((acc, curr) => acc + (curr.subtotal || 0), 0);
   }, [selectedItems]);
 
@@ -882,11 +1082,16 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
           }
         }
 
-        const unitPrice = Number(item.estimated_price || item.unit_price || item.unitPrice || 0);
         const matchedMat = masterMaterials.find(m => m.id === resolvedMaterialId);
-        const costPrice = Number(item.cost_price || item.costPrice || (matchedMat?.cost_price !== undefined ? matchedMat.cost_price : Math.round(unitPrice * 0.8)));
+        const effectiveUnitCost = Number(
+          (item.cost_price !== undefined && item.cost_price !== null && Number(item.cost_price) > 0)
+            ? item.cost_price
+            : (item.costPrice !== undefined && item.costPrice !== null && Number(item.costPrice) > 0)
+              ? item.costPrice
+              : (matchedMat?.cost_price ?? item.initialCostPrice ?? 0)
+        );
         const quantity = Number(item.quantity) || 1;
-        const subtotal = Number(item.subtotal) || (quantity * unitPrice);
+        const lineHppEstimate = Math.round(quantity * effectiveUnitCost);
         const wbsStage = item.wbs_stage || cleanWbsCategory;
 
         // Distinguish RAB vs Change Order item
@@ -917,9 +1122,9 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
           source_type: resolvedSourceType,
           quantity,
           unit: item.unit || 'pcs',
-          unit_price: unitPrice,
-          cost_price: costPrice,
-          subtotal,
+          unit_price: effectiveUnitCost,
+          cost_price: effectiveUnitCost,
+          subtotal: lineHppEstimate,
           wbs_stage: wbsStage,
           status: 'PENDING'
         };
@@ -933,7 +1138,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
 
       setNotification({
         title: 'Permintaan Berhasil Diajukan',
-        message: `Permintaan material untuk ${cleanWbsCategory} (${validItems.length} item baru) berhasil diajukan dengan status PENDING.`,
+        message: `Permintaan material untuk ${stageDisplayName} (${validItems.length} item baru) berhasil diajukan dengan status PENDING.`,
         variant: 'success',
         onConfirm: onClose
       });
@@ -968,7 +1173,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
               </div>
               <p className="text-xs sm:text-sm text-text-muted mt-0.5 flex items-center gap-1.5">
                 <span className="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
-                Tahapan: <strong className="text-text font-semibold">{cleanWbsCategory}</strong>
+                <strong className="text-text font-semibold">{stageDisplayName}</strong>
               </p>
             </div>
           </div>
@@ -995,7 +1200,7 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
           {fetching ? (
             <div className="py-16 text-center text-text-muted">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
-              <p className="text-sm">Memuat alokasi material RAB untuk {cleanWbsCategory}...</p>
+              <p className="text-sm">Memuat alokasi material RAB untuk {stageDisplayName}...</p>
             </div>
           ) : (
             <>
@@ -1116,8 +1321,15 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                                         ) : null;
                                       })()}
                                     </div>
-                                    <p className="text-[11px] text-text-muted mt-0.5">
-                                      Estimasi: <span className="font-mono font-medium text-emerald-400">{formatCurrency(item.subtotal)}</span>
+                                    <p className="text-[11px] text-text-muted mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                      <span>
+                                        Estimasi HPP: <span className="font-mono font-medium text-emerald-400">{formatCurrency(item.subtotal)}</span>
+                                      </span>
+                                      {item.hasPriceChange && item.initialSubtotal != null && (
+                                        <span className={`text-[11px] ${item.isPriceUp ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                          (RAB Awal: {formatCurrency(item.initialSubtotal)})
+                                        </span>
+                                      )}
                                     </p>
                                   </div>
                                 )}
@@ -1167,11 +1379,11 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                     )}
                   </div>
 
-                  {/* Footer Kotak Kiri: Subtotal Permintaan */}
+                  {/* Footer Kotak Kiri: Subtotal Permintaan (HPP Modal) */}
                   <div className="p-2.5 sm:p-3 bg-emerald-500/5 border-t border-emerald-500/20 flex justify-between items-center text-xs shrink-0">
-                    <span className="text-text-muted">Total Estimasi Material:</span>
+                    <span className="text-text-muted">Total Estimasi HPP:</span>
                     <span className="font-bold font-mono text-emerald-400 text-sm">
-                      {formatCurrency(totalRequisitionCost)}
+                      {formatCurrency(totalEstimasiHpp)}
                     </span>
                   </div>
                 </div>
@@ -1281,9 +1493,14 @@ export const MaterialRequisitionForm: React.FC<MaterialRequisitionFormProps> = (
                                 <div className="inline-block px-2 py-0.5 rounded bg-surface border border-border text-xs font-mono font-bold text-primary">
                                   {item.rabQuantity} <span className="font-normal text-[10px] text-text-muted">{item.unit}</span>
                                 </div>
-                                <p className="text-xs font-semibold font-mono text-rose-400 mt-0.5">
-                                  {formatCurrency(item.subtotal)}
+                                <p className="text-[11px] font-semibold font-mono text-rose-400 mt-0.5">
+                                  Estimasi HPP: {formatCurrency(item.subtotal)}
                                 </p>
+                                {item.hasPriceChange && item.initialSubtotal != null && (
+                                  <p className={`text-[11px] font-mono ${item.isPriceUp ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                    (RAB Awal: {formatCurrency(item.initialSubtotal)})
+                                  </p>
+                                )}
                               </div>
                             </div>
                           </div>
