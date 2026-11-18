@@ -19,7 +19,7 @@ vi.mock('../../lib/supabaseClient', () => {
   };
 });
 
-describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Scope)', () => {
+describe('Component: RequisitionApproval (Quantity-Based Gate 2 & Non-Blocking HPP Variance)', () => {
   const spkId = 'ee645058-cc8f-4151-9edb-0ee667e5e154';
 
   const mockPendingRequisitionWbs1 = {
@@ -36,10 +36,10 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
       customer_name: 'Budi Santoso',
       vehicle_plate: 'B 2668 KRO',
       sub_tasks: [],
-      total_estimated_cost: 2415000
+      total_estimated_cost: 2415000,
     },
     profiles: {
-      full_name: 'Mandor WBS'
+      full_name: 'Mandor WBS',
     },
     material_requisition_items: [
       {
@@ -51,9 +51,9 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
         unit: 'pcs',
         unit_price: 55000,
         subtotal: 55000,
-        wbs_stage: 'Pembongkaran'
-      }
-    ]
+        wbs_stage: 'Pembongkaran',
+      },
+    ],
   };
 
   const mockRabEstimation = {
@@ -63,7 +63,6 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
     total_overhead_cost: 250000,
     total_estimated_cost: 2415000,
     rab_items: [
-      // WBS 1: Pure Material (Rp 55.000)
       {
         id: 'ca7e1cb3-fbe7-4e24-b8c9-97e1e6bcf968',
         description: 'material tes 2',
@@ -73,9 +72,8 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
         item_total: 55000,
         wbs_category: 'Pembongkaran',
         wbs_stage: 'WBS 1: Pembongkaran',
-        item_type: 'MATERIAL'
+        item_type: 'MATERIAL',
       },
-      // WBS 1: Labor (Rp 300.000) - MUST BE EXCLUDED FROM GATE 2 MATERIAL LIMIT
       {
         id: 'lab-wbs-1',
         description: 'TUKANG RANGKA BAK',
@@ -85,9 +83,8 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
         item_total: 300000,
         wbs_category: 'Pembongkaran',
         wbs_stage: 'WBS 1: Pembongkaran',
-        item_type: 'LABOR'
+        item_type: 'LABOR',
       },
-      // WBS 1: Overhead (Rp 30.000) - MUST BE EXCLUDED FROM GATE 2 MATERIAL LIMIT
       {
         id: 'oh-wbs-1',
         description: 'LISTRIK',
@@ -97,9 +94,8 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
         item_total: 30000,
         wbs_category: 'Pembongkaran',
         wbs_stage: 'WBS 1: Pembongkaran',
-        item_type: 'OVERHEAD'
+        item_type: 'OVERHEAD',
       },
-      // WBS 2: Material (Rp 55.000) - BELONGS TO WBS 2, MUST NOT INTERFERE WITH WBS 1
       {
         id: 'mat-wbs-2',
         description: 'material tes 2',
@@ -109,16 +105,23 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
         item_total: 55000,
         wbs_category: 'Sasis/Rangka',
         wbs_stage: 'WBS 2: Sasis/Rangka',
-        item_type: 'MATERIAL'
-      }
-    ]
+        item_type: 'MATERIAL',
+      },
+    ],
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  const setupSupabaseMock = (pendingReqs: any[] = [mockPendingRequisitionWbs1], approvedReqs: any[] = []) => {
+  const setupSupabaseMock = (
+    pendingReqs: any[] = [mockPendingRequisitionWbs1],
+    approvedReqs: any[] = [],
+    rabEstimation: any = mockRabEstimation,
+    masterMaterials: any[] = [
+      { id: 'mat-1', name: 'material tes 2', unit: 'pcs', unit_price: 55000, cost_price: 44000, current_stock: 10 },
+    ]
+  ) => {
     vi.mocked(supabase.from).mockImplementation((table: string) => {
       if (table === 'material_requisitions') {
         return {
@@ -128,50 +131,50 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
                 return {
                   order: vi.fn().mockResolvedValue({
                     data: pendingReqs,
-                    error: null
-                  })
+                    error: null,
+                  }),
                 };
               }
               if (val === 'APPROVED') {
                 return Promise.resolve({
                   data: approvedReqs,
-                  error: null
+                  error: null,
                 });
               }
               return Promise.resolve({ data: [], error: null });
             }),
-            in: vi.fn().mockImplementation((col: string, _val: any) => {
+            in: vi.fn().mockImplementation((col: string) => {
               if (col === 'status') {
                 return {
                   order: vi.fn().mockResolvedValue({
                     data: pendingReqs,
-                    error: null
-                  })
+                    error: null,
+                  }),
                 };
               }
               return {
                 eq: vi.fn().mockResolvedValue({
                   data: approvedReqs,
-                  error: null
+                  error: null,
                 }),
                 in: vi.fn().mockResolvedValue({
                   data: approvedReqs,
-                  error: null
-                })
+                  error: null,
+                }),
               };
-            })
+            }),
           })),
           update: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ data: null, error: null })
-          })
+            eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+          }),
         } as any;
       }
 
       if (table === 'material_requisition_items') {
         return {
           update: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ data: null, error: null })
-          })
+            eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+          }),
         } as any;
       }
 
@@ -180,20 +183,19 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
           select: vi.fn().mockImplementation(() => ({
             eq: vi.fn().mockImplementation(() => ({
               single: vi.fn().mockResolvedValue({
-                data: { id: 'mat-1', name: 'material tes 2', unit: 'pcs', current_stock: 10 },
-                error: null
-              })
+                data: masterMaterials[0],
+                error: null,
+              }),
             })),
-            then: (resolve: any) => resolve({
-              data: [
-                { id: 'mat-1', name: 'material tes 2', unit: 'pcs', unit_price: 55000, current_stock: 10 }
-              ],
-              error: null
-            })
+            then: (resolve: any) =>
+              resolve({
+                data: masterMaterials,
+                error: null,
+              }),
           })),
           update: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ data: null, error: null })
-          })
+            eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+          }),
         } as any;
       }
 
@@ -201,10 +203,10 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
         return {
           select: vi.fn().mockReturnValue({
             in: vi.fn().mockResolvedValue({
-              data: [mockRabEstimation],
-              error: null
-            })
-          })
+              data: [rabEstimation],
+              error: null,
+            }),
+          }),
         } as any;
       }
 
@@ -214,11 +216,11 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
             in: vi.fn().mockReturnValue({
               is: vi.fn().mockResolvedValue({
                 data: [],
-                error: null
-              })
-            })
+                error: null,
+              }),
+            }),
           }),
-          insert: vi.fn().mockResolvedValue({ data: null, error: null })
+          insert: vi.fn().mockResolvedValue({ data: null, error: null }),
         } as any;
       }
 
@@ -228,10 +230,10 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
             in: vi.fn().mockReturnValue({
               eq: vi.fn().mockResolvedValue({
                 data: [],
-                error: null
-              })
-            })
-          })
+                error: null,
+              }),
+            }),
+          }),
         } as any;
       }
 
@@ -246,46 +248,108 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
     });
   };
 
-  it('renders SPK-2668 WBS 1 requisition with VALID GREEN status without false-positive over-budget warning', async () => {
+  it('Sub-kondisi 1A: renders green Qty-compliant banner and active Approve buttons when Qty and HPP match RAB', async () => {
     setupSupabaseMock();
 
     render(<RequisitionApproval />);
 
-    // Wait for requisitions to load
     await waitFor(() => {
       expect(screen.getByText('SPK-2668')).toBeInTheDocument();
     });
 
-    // Check WBS stage and item details
-    expect(screen.getAllByText('Pembongkaran').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('material tes 2')).toBeInTheDocument();
+    const safeBanner = await screen.findByText(/Kuota Kuantitas Sesuai RAB \(Pembongkaran\): 1 \/ 1 pcs \(Aman untuk dirilis\)\./i);
+    expect(safeBanner).toBeInTheDocument();
 
-    // Verify Gate 2 Safe Info Badge is displayed for WBS 1
-    const safeBadge = await screen.findByText(/Alokasi Sesuai Pagu Material/i);
-    expect(safeBadge).toBeInTheDocument();
-    expect(safeBadge.textContent).toContain('Pembongkaran: Rp 55.000 / Rp 55.000');
+    expect(screen.queryByText(/PERINGATAN GATE 2 \(OVER QUOTA KUANTITAS\):/i)).not.toBeInTheDocument();
 
-    // Check that NO false-positive over-budget alert is shown
-    expect(screen.queryByText(/PERINGATAN PAGU GATE 2 \(OVER BUDGET\):/i)).not.toBeInTheDocument();
-
-    // Verify card footer Approve Semua button is standard primary and NOT amber
     const approveSemuaButton = screen.getByRole('button', { name: /approve semua/i });
+    expect(approveSemuaButton).toBeEnabled();
     expect(approveSemuaButton).toHaveClass('bg-primary');
-    expect(approveSemuaButton).not.toHaveClass('bg-amber-600');
-    expect(approveSemuaButton).toHaveAttribute('title', 'Setujui Seluruh Sisa Material Pending Sekaligus');
 
-    // Verify item-level action buttons (Rilis / Approve and Tolak / Hold) are present in the table row
     const itemApproveBtn = screen.getByRole('button', { name: /rilis \/ approve/i });
-    expect(itemApproveBtn).toBeInTheDocument();
-    const itemRejectBtn = screen.getByRole('button', { name: /tolak \/ hold/i });
-    expect(itemRejectBtn).toBeInTheDocument();
+    expect(itemApproveBtn).toBeEnabled();
+    expect(itemApproveBtn).toHaveClass('bg-emerald-600');
   });
 
-  it('shows red/amber Gate 2 warning and amber Approve Semua button when a requisition genuinely exceeds WBS budget', async () => {
-    // Requisition requesting 2 pcs of material tes 2 = Rp 110,000 (exceeding WBS 1 budget of Rp 55,000)
-    const overBudgetReq = {
+  it('Sub-kondisi 1B (SPK-3538 Pendempulan): shows non-blocking sky-blue audit info banner and keeps Approve buttons ACTIVE when supplier HPP rises but Qty matches RAB', async () => {
+    const spk3538Req = {
+      id: 'req-3538-dempul',
+      spk_id: spkId,
+      wbs_category: 'Dinding/Fabrikasi',
+      status: 'PENDING',
+      created_at: '2026-11-18T08:00:00Z',
+      spk: {
+        id: spkId,
+        spk_no: 'SPK-3538',
+        customer_name: 'PT Logistik Nusantara',
+      },
+      profiles: { full_name: 'Mandor 3' },
+      material_requisition_items: [
+        {
+          id: 'item-dempul-1',
+          material_id: 'mat-dempul',
+          rab_item_id: 'rab-dempul-3538',
+          material_name: 'Dempul Pendempulan',
+          quantity: 1,
+          unit: 'set',
+          unit_price: 330555,
+          subtotal: 330555,
+          wbs_stage: 'WBS 3: Dinding/Fabrikasi',
+          materials: { id: 'mat-dempul', name: 'Dempul Pendempulan', unit: 'set', unit_price: 330555, cost_price: 330555 },
+        },
+      ],
+    };
+
+    const spk3538Rab = {
+      spk_id: spkId,
+      rab_items: [
+        {
+          id: 'rab-dempul-3538',
+          material_id: 'mat-dempul',
+          description: 'Dempul Pendempulan',
+          quantity: 1,
+          cost_price: 264444, // Initial RAB HPP
+          unit_price: 290000,
+          item_total: 290000,
+          wbs_category: 'Dinding/Fabrikasi',
+          wbs_stage: 'WBS 3: Dinding/Fabrikasi',
+          item_type: 'MATERIAL',
+        },
+      ],
+    };
+
+    const masters = [
+      { id: 'mat-dempul', name: 'Dempul Pendempulan', unit: 'set', unit_price: 330555, cost_price: 330555, current_stock: 5 },
+    ];
+
+    setupSupabaseMock([spk3538Req], [], spk3538Rab, masters);
+
+    render(<RequisitionApproval />);
+
+    await waitFor(() => {
+      expect(screen.getByText('SPK-3538')).toBeInTheDocument();
+    });
+
+    // Must display sky-blue info banner (NOT red danger)
+    const infoBanner = await screen.findByText(/Kuantitas Sesuai Kuota RAB \(1 \/ 1 set\)\. Catatan Audit: Terjadi penyesuaian harga HPP gudang \(\+Rp 66\.111\) dari estimasi awal RAB\./i);
+    expect(infoBanner).toBeInTheDocument();
+    expect(screen.queryByText(/PERINGATAN GATE 2 \(OVER QUOTA KUANTITAS\):/i)).not.toBeInTheDocument();
+
+    // Both Approve Semua and item Rilis / Approve MUST be enabled and clickable
+    const approveSemuaButton = screen.getByRole('button', { name: /approve semua/i });
+    expect(approveSemuaButton).toBeEnabled();
+    expect(approveSemuaButton).toHaveClass('bg-primary');
+
+    const itemApproveBtn = screen.getByRole('button', { name: /rilis \/ approve/i });
+    expect(itemApproveBtn).toBeEnabled();
+    expect(itemApproveBtn).toHaveClass('bg-emerald-600');
+  });
+
+  it('Kondisi 2: displays red Gate 2 Over Quota banner and HARD-LOCKS Approve buttons when requested Qty exceeds RAB quota', async () => {
+    // Requesting 2 pcs while RAB quota is 1 pcs
+    const overQuotaReq = {
       ...mockPendingRequisitionWbs1,
-      id: 'req-overbudget',
+      id: 'req-overquota',
       material_requisition_items: [
         {
           id: 'item-req-over',
@@ -296,12 +360,12 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
           unit: 'pcs',
           unit_price: 55000,
           subtotal: 110000,
-          wbs_stage: 'Pembongkaran'
-        }
-      ]
+          wbs_stage: 'Pembongkaran',
+        },
+      ],
     };
 
-    setupSupabaseMock([overBudgetReq]);
+    setupSupabaseMock([overQuotaReq]);
 
     render(<RequisitionApproval />);
 
@@ -309,14 +373,16 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
       expect(screen.getByText('SPK-2668')).toBeInTheDocument();
     });
 
-    // Verify Over-Budget warning appears
-    const warningAlert = await screen.findByText(/PERINGATAN PAGU GATE 2 \(OVER BUDGET\):/i);
+    const warningAlert = await screen.findByText(/PERINGATAN GATE 2 \(OVER QUOTA KUANTITAS\):/i);
     expect(warningAlert).toBeInTheDocument();
+    expect(screen.getByText(/MELEBIHI kuota RAB \(1 pcs\) sebesar \+1 pcs/i)).toBeInTheDocument();
 
-    // Verify Approve Semua button turns amber
+    // Hard-Gate: Both Approve Semua and item Rilis / Approve MUST be disabled
     const approveSemuaButton = screen.getByRole('button', { name: /approve semua/i });
-    expect(approveSemuaButton).toHaveClass('bg-amber-600');
-    expect(approveSemuaButton).not.toHaveClass('bg-status-success');
+    expect(approveSemuaButton).toBeDisabled();
+
+    const itemApproveBtn = screen.getByRole('button', { name: /rilis \/ approve/i });
+    expect(itemApproveBtn).toBeDisabled();
   });
 
   it('renders granular status badges for APPROVED and REJECTED items and PARTIALLY_ISSUED card badge', async () => {
@@ -334,7 +400,7 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
           unit_price: 100000,
           subtotal: 500000,
           wbs_stage: 'Pembongkaran',
-          status: 'APPROVED'
+          status: 'APPROVED',
         },
         {
           id: 'item-req-pending',
@@ -345,7 +411,7 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
           unit_price: 2000,
           subtotal: 100000,
           wbs_stage: 'Pembongkaran',
-          status: 'PENDING'
+          status: 'PENDING',
         },
         {
           id: 'item-req-rejected',
@@ -356,12 +422,25 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
           unit_price: 15000,
           subtotal: 150000,
           wbs_stage: 'Pembongkaran',
-          status: 'REJECTED'
-        }
-      ]
+          status: 'REJECTED',
+        },
+      ],
     };
 
-    setupSupabaseMock([multiItemPartialReq]);
+    const rabPartial = {
+      spk_id: spkId,
+      rab_items: [
+        { id: 'r1', material_id: 'mat-1', description: 'Plat Besi 2mm', quantity: 5, cost_price: 100000, wbs_stage: 'Pembongkaran', item_type: 'MATERIAL' },
+        { id: 'r2', material_id: 'mat-2', description: 'Baut Hex M10', quantity: 50, cost_price: 2000, wbs_stage: 'Pembongkaran', item_type: 'MATERIAL' },
+        { id: 'r3', material_id: 'mat-3', description: 'Kabel Ties', quantity: 10, cost_price: 15000, wbs_stage: 'Pembongkaran', item_type: 'MATERIAL' },
+      ],
+    };
+
+    setupSupabaseMock([multiItemPartialReq], [], rabPartial, [
+      { id: 'mat-1', name: 'Plat Besi 2mm', unit: 'lbr', cost_price: 100000, unit_price: 100000, current_stock: 10 },
+      { id: 'mat-2', name: 'Baut Hex M10', unit: 'pcs', cost_price: 2000, unit_price: 2000, current_stock: 100 },
+      { id: 'mat-3', name: 'Kabel Ties', unit: 'pack', cost_price: 15000, unit_price: 15000, current_stock: 20 },
+    ]);
 
     render(<RequisitionApproval />);
 
@@ -369,20 +448,11 @@ describe('Component: RequisitionApproval (Gate 2 Material-Only & WBS-Specific Sc
       expect(screen.getByText('SPK-2668')).toBeInTheDocument();
     });
 
-    // Card header should display PARTIALLY_ISSUED badge with remaining pending items count
     expect(screen.getByText(/PARSIAL \(Sisa 1 Item Belum Disetujui\)/i)).toBeInTheDocument();
-
-    // Approved item row should render "✓ Dirilis" badge
     expect(screen.getByText(/✓ Dirilis/i)).toBeInTheDocument();
-
-    // Rejected item row should render "✕ Ditolak" badge
     expect(screen.getByText(/✕ Ditolak/i)).toBeInTheDocument();
-
-    // Pending item row should still have individual Rilis / Approve and Tolak / Hold buttons
-    expect(screen.getByRole('button', { name: /rilis \/ approve/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /rilis \/ approve/i })).toBeEnabled();
     expect(screen.getByRole('button', { name: /tolak \/ hold/i })).toBeInTheDocument();
-
-    // Table footer should display subtotals
     expect(screen.getByText(/Subtotal yang Sudah Dirilis:/i)).toBeInTheDocument();
     expect(screen.getByText(/Subtotal Belum Dirilis \(Pending\):/i)).toBeInTheDocument();
   });

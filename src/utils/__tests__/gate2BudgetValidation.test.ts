@@ -2,16 +2,17 @@ import { describe, it, expect } from 'vitest';
 import {
   normalizeWbsStage,
   matchWbsStage,
-  getWbsMaterialBudget,
-  getWbsMaterialCommitted,
-  evaluateGate2Budget,
+  evaluateGate2ItemQuota,
+  evaluateGate2TicketQuota,
+  GATE2_QTY_EPSILON,
   type RabItemGate2,
   type ChangeOrderItemGate2,
   type ApprovedRequisitionGate2,
-  type DirectIssueGate2
+  type DirectIssueGate2,
+  type MasterMaterialGate2,
 } from '../gate2BudgetValidation';
 
-describe('gate2BudgetValidation Unit Tests', () => {
+describe('gate2BudgetValidation Unit Tests (Quantity-Based Gate 2)', () => {
   describe('WBS Stage Normalization & Matching', () => {
     it('normalizes various WBS stage string formats consistently', () => {
       expect(normalizeWbsStage('WBS 1: Pembongkaran')).toBe('pembongkaran');
@@ -33,253 +34,313 @@ describe('gate2BudgetValidation Unit Tests', () => {
     });
   });
 
-  describe('getWbsMaterialBudget', () => {
-    const mockRabItems: RabItemGate2[] = [
-      // WBS 1: Pembongkaran
+  describe('evaluateGate2ItemQuota', () => {
+    const spkId = 'spk-3538-uuid';
+    const baseRabItems: RabItemGate2[] = [
       {
-        id: 'rab-1',
-        spk_id: 'SPK-2668',
-        wbs_stage: 'WBS 1: Pembongkaran',
-        wbs_category: 'Pembongkaran',
+        id: 'rab-dempul',
+        spk_id: spkId,
+        wbs_stage: 'WBS 3: Dinding/Fabrikasi',
+        wbs_category: 'Dinding/Fabrikasi',
         item_type: 'MATERIAL',
-        description: 'material tes 2',
-        quantity: 1,
-        unit_price: 55000,
-        item_total: 55000
+        material_id: 'mat-dempul',
+        description: 'Dempul Sanpolac 4kg',
+        quantity: 2,
+        unit: 'kaleng',
+        cost_price: 132222, // 2 * 132222 = 264444
+        unit_price: 160000,
+        item_total: 320000,
       },
       {
-        id: 'rab-2',
-        spk_id: 'SPK-2668',
-        wbs_stage: 'WBS 1: Pembongkaran',
-        wbs_category: 'Pembongkaran',
-        item_type: 'LABOR', // Labor MUST be ignored
-        description: 'TUKANG RANGKA BAK',
-        quantity: 0.3,
-        unit_price: 1000000,
-        item_total: 300000
+        id: 'rab-labor-1',
+        spk_id: spkId,
+        wbs_stage: 'WBS 3: Dinding/Fabrikasi',
+        item_type: 'LABOR', // MUST be excluded
+        description: 'Tukang Dempul',
+        quantity: 10,
+        cost_price: 50000,
       },
-      {
-        id: 'rab-3',
-        spk_id: 'SPK-2668',
-        wbs_stage: 'WBS 1: Pembongkaran',
-        wbs_category: 'Pembongkaran',
-        item_type: 'OVERHEAD', // Overhead MUST be ignored
-        description: 'LISTRIK',
-        quantity: 0.2,
-        unit_price: 150000,
-        item_total: 30000
-      },
-      {
-        id: 'rab-4',
-        spk_id: 'SPK-2668',
-        wbs_stage: 'WBS 1: Pembongkaran',
-        wbs_category: 'Pembongkaran',
-        item_type: 'OVERHEAD', // Overhead MUST be ignored
-        description: 'sewa kompressor',
-        quantity: 0.2,
-        unit_price: 100000,
-        item_total: 20000
-      },
-      // WBS 2: Sasis/Rangka
-      {
-        id: 'rab-5',
-        spk_id: 'SPK-2668',
-        wbs_stage: 'WBS 2: Sasis/Rangka',
-        wbs_category: 'Sasis/Rangka',
-        item_type: 'MATERIAL',
-        description: 'material tes 2',
-        quantity: 1,
-        unit_price: 55000,
-        item_total: 55000
-      }
-    ];
-
-    it('calculates pure material budget strictly for WBS 1, ignoring LABOR and OVERHEAD', () => {
-      const wbs1Budget = getWbsMaterialBudget('SPK-2668', 'Pembongkaran', mockRabItems);
-      // Only rab-1 is MATERIAL: 1 * 55,000 = 55,000
-      expect(wbs1Budget).toBe(55000);
-    });
-
-    it('calculates global SPK material budget when stage is not specified', () => {
-      const globalBudget = getWbsMaterialBudget('SPK-2668', null, mockRabItems);
-      // rab-1 (55,000) + rab-5 (55,000) = 110,000
-      expect(globalBudget).toBe(110000);
-    });
-
-    it('incorporates approved Change Order material allocations into WBS budget', () => {
-      const mockCoItems: ChangeOrderItemGate2[] = [
-        {
-          id: 'co-1',
-          spk_id: 'SPK-2668',
-          wbs_stage: 'WBS 1: Pembongkaran',
-          item_type: 'MATERIAL',
-          quantity: 2,
-          unit_price: 25000, // 50,000
-          subtotal: 50000
-        },
-        {
-          id: 'co-2',
-          spk_id: 'SPK-2668',
-          wbs_stage: 'WBS 1: Pembongkaran',
-          item_type: 'LABOR', // Labor CO ignored
-          quantity: 1,
-          unit_price: 100000,
-          subtotal: 100000
-        }
-      ];
-
-      const expandedBudget = getWbsMaterialBudget('SPK-2668', 'Pembongkaran', mockRabItems, mockCoItems);
-      // RAB 55,000 + CO Material 50,000 = 105,000
-      expect(expandedBudget).toBe(105000);
-    });
-  });
-
-  describe('getWbsMaterialCommitted', () => {
-    it('accurately accumulates approved requisition costs for the target WBS stage', () => {
-      const mockApprovedReqs: ApprovedRequisitionGate2[] = [
-        {
-          id: 'req-1',
-          spk_id: 'SPK-2668',
-          wbs_category: 'Pembongkaran',
-          material_requisition_items: [
-            {
-              id: 'item-1',
-              wbs_stage: 'Pembongkaran',
-              quantity: 1,
-              unit_price: 30000,
-              subtotal: 30000
-            }
-          ]
-        },
-        {
-          id: 'req-2',
-          spk_id: 'SPK-2668',
-          wbs_category: 'Sasis/Rangka',
-          material_requisition_items: [
-            {
-              id: 'item-2',
-              wbs_stage: 'Sasis/Rangka',
-              quantity: 1,
-              unit_price: 55000,
-              subtotal: 55000
-            }
-          ]
-        }
-      ];
-
-      const mockDirectIssues: DirectIssueGate2[] = [
-        {
-          id: 'dir-1',
-          spk_id: 'SPK-2668',
-          wbs_stage: 'Pembongkaran',
-          quantity_issued: 2,
-          custom_unit_price: 5000,
-          status: 'ISSUED'
-        }
-      ];
-
-      const res = getWbsMaterialCommitted('SPK-2668', 'Pembongkaran', mockApprovedReqs, mockDirectIssues);
-      expect(res.approvedReqCost).toBe(30000);
-      expect(res.directIssueCost).toBe(10000);
-      expect(res.totalCommitted).toBe(40000);
-    });
-  });
-
-  describe('evaluateGate2Budget (End-to-End Evaluation)', () => {
-    const spk2668RabItems: RabItemGate2[] = [
-      // WBS 1: Pembongkaran (Rp 55.000 material)
-      {
-        id: 'rab-mat-1',
-        spk_id: 'ee645058-cc8f-4151-9edb-0ee667e5e154',
-        wbs_stage: 'WBS 1: Pembongkaran',
-        wbs_category: 'Pembongkaran',
-        item_type: 'MATERIAL',
-        description: 'material tes 2',
-        quantity: 1,
-        unit_price: 55000,
-        item_total: 55000
-      },
-      // Jasa Borongan in WBS 1: Pembongkaran (Rp 300.000)
-      {
-        id: 'rab-lab-1',
-        spk_id: 'ee645058-cc8f-4151-9edb-0ee667e5e154',
-        wbs_stage: 'WBS 1: Pembongkaran',
-        wbs_category: 'Pembongkaran',
-        item_type: 'LABOR',
-        description: 'TUKANG RANGKA BAK',
-        quantity: 0.3,
-        unit_price: 1000000,
-        item_total: 300000
-      },
-      // Overhead in WBS 1: Pembongkaran (Rp 50.000)
       {
         id: 'rab-oh-1',
-        spk_id: 'ee645058-cc8f-4151-9edb-0ee667e5e154',
-        wbs_stage: 'WBS 1: Pembongkaran',
-        wbs_category: 'Pembongkaran',
-        item_type: 'OVERHEAD',
-        description: 'LISTRIK',
-        quantity: 0.2,
-        unit_price: 150000,
-        item_total: 30000
-      }
+        spk_id: spkId,
+        wbs_stage: 'WBS 3: Dinding/Fabrikasi',
+        item_type: 'OVERHEAD', // MUST be excluded
+        description: 'Listrik Kompressor',
+        quantity: 5,
+        cost_price: 25000,
+      },
+      {
+        id: 'rab-dempul-wbs4',
+        spk_id: spkId,
+        wbs_stage: 'WBS 4: Cat/Finishing',
+        item_type: 'MATERIAL',
+        material_id: 'mat-dempul',
+        description: 'Dempul Sanpolac 4kg',
+        quantity: 1,
+        cost_price: 132222,
+      },
     ];
 
-    it('evaluates SPK-2668 WBS 1 requisition (Rp 55.000) as VALID GREEN without overbudget error', () => {
-      const result = evaluateGate2Budget({
-        spkId: 'ee645058-cc8f-4151-9edb-0ee667e5e154',
-        wbsStage: 'Pembongkaran',
-        currentTicketCost: 55000,
-        rabItems: spk2668RabItems,
-        approvedReqs: [],
-        directIssues: []
+    it('Sub-kondisi 1A: passes with green status when Qty matches quota and supplier HPP is unchanged or lower', () => {
+      const masters: MasterMaterialGate2[] = [
+        { id: 'mat-dempul', name: 'Dempul Sanpolac 4kg', unit: 'kaleng', cost_price: 132222 },
+      ];
+
+      const res = evaluateGate2ItemQuota({
+        spkId,
+        wbsStage: 'Dinding/Fabrikasi',
+        materialId: 'mat-dempul',
+        materialName: 'Dempul Sanpolac 4kg',
+        unit: 'kaleng',
+        currentRequestQty: 2,
+        currentInventoryCostPrice: 132222,
+        rabItems: baseRabItems,
+        masterMaterials: masters,
       });
 
-      expect(result.wbsBudgetLimit).toBe(55000);
-      expect(result.approvedReqCost).toBe(0);
-      expect(result.directIssueCost).toBe(0);
-      expect(result.projectedTotal).toBe(55000);
-      expect(result.remainingQuota).toBe(0);
-      expect(result.overAmount).toBe(0);
-      expect(result.isOverBudget).toBe(false);
-      expect(result.statusBadge.variant).toBe('success');
-      expect(result.statusBadge.title).toContain('Pagu Gate 2 (Aman');
+      expect(res.qtyPaguRab).toBe(2);
+      expect(res.qtySudahKeluar).toBe(0);
+      expect(res.proyeksiTotalQty).toBe(2);
+      expect(res.isQtyOverQuota).toBe(false);
+      expect(res.costVarianceRp).toBe(0);
+      expect(res.statusVariant).toBe('success');
+      expect(res.statusBadge.title).toContain('Kuota Kuantitas Sesuai RAB');
     });
 
-    it('triggers Over-Budget warning when ticket cost exceeds remaining WBS budget', () => {
-      const result = evaluateGate2Budget({
-        spkId: 'ee645058-cc8f-4151-9edb-0ee667e5e154',
-        wbsStage: 'Pembongkaran',
-        currentTicketCost: 80000, // Exceeds 55,000 by 25,000
-        rabItems: spk2668RabItems,
-        approvedReqs: [],
-        directIssues: []
+    it('Sub-kondisi 1B: allows approval (non-blocking) with info banner when supplier HPP rises (e.g. Rp 264.444 -> Rp 330.555) and Qty is 100% within quota', () => {
+      const masters: MasterMaterialGate2[] = [
+        { id: 'mat-dempul', name: 'Dempul Sanpolac 4kg', unit: 'kaleng', cost_price: 165277.5 }, // 2 * 165277.5 = 330555
+      ];
+
+      const res = evaluateGate2ItemQuota({
+        spkId,
+        wbsStage: 'WBS 3: Dinding/Fabrikasi',
+        materialId: 'mat-dempul',
+        materialName: 'Dempul Sanpolac 4kg',
+        unit: 'kaleng',
+        currentRequestQty: 2,
+        currentInventoryCostPrice: 165277.5,
+        rabItems: baseRabItems,
+        masterMaterials: masters,
       });
 
-      expect(result.wbsBudgetLimit).toBe(55000);
-      expect(result.projectedTotal).toBe(80000);
-      expect(result.overAmount).toBe(25000);
-      expect(result.remainingQuota).toBe(0);
-      expect(result.isOverBudget).toBe(true);
-      expect(result.statusBadge.variant).toBe('danger');
-      expect(result.statusBadge.title).toContain('PERINGATAN PAGU GATE 2 (OVER BUDGET)');
+      expect(res.qtyPaguRab).toBe(2);
+      expect(res.proyeksiTotalQty).toBe(2);
+      expect(res.isQtyOverQuota).toBe(false);
+      expect(res.isOverBudget).toBe(false); // Never blocks on price!
+      expect(res.paguRupiahRab).toBe(264444);
+      expect(res.aktualRupiah).toBe(330555);
+      expect(res.costVarianceRp).toBe(66111);
+      expect(res.statusVariant).toBe('info');
+      expect(res.statusBadge.description).toContain('+Rp 66.111');
     });
 
-    it('handles unbudgeted material request when WBS budget is 0', () => {
-      const result = evaluateGate2Budget({
-        spkId: 'ee645058-cc8f-4151-9edb-0ee667e5e154',
+    it('Kondisi 2: triggers hard-gate when projected Qty exceeds RAB quota beyond EPSILON', () => {
+      const approvedReqs: ApprovedRequisitionGate2[] = [
+        {
+          id: 'req-prev',
+          spk_id: spkId,
+          wbs_category: 'Dinding/Fabrikasi',
+          status: 'APPROVED',
+          material_requisition_items: [
+            {
+              id: 'item-prev',
+              material_id: 'mat-dempul',
+              quantity: 1,
+              wbs_stage: 'WBS 3: Dinding/Fabrikasi',
+              status: 'APPROVED',
+            },
+          ],
+        },
+      ];
+
+      const res = evaluateGate2ItemQuota({
+        spkId,
+        wbsStage: 'Dinding/Fabrikasi',
+        materialId: 'mat-dempul',
+        materialName: 'Dempul Sanpolac 4kg',
+        unit: 'kaleng',
+        currentRequestQty: 1.5, // 1 + 1.5 = 2.5 > 2
+        rabItems: baseRabItems,
+        approvedReqs,
+      });
+
+      expect(res.qtyPaguRab).toBe(2);
+      expect(res.qtySudahKeluar).toBe(1);
+      expect(res.proyeksiTotalQty).toBe(2.5);
+      expect(res.overQty).toBe(0.5);
+      expect(res.isQtyOverQuota).toBe(true);
+      expect(res.statusVariant).toBe('danger');
+      expect(res.statusBadge.title).toContain('PERINGATAN GATE 2 (OVER QUOTA KUANTITAS)');
+    });
+
+    it('applies EPSILON = 0.001 tolerance for WBS decimal rounding without false-positive lock', () => {
+      const fractionalRab: RabItemGate2[] = [
+        {
+          id: 'rab-frac',
+          spk_id: spkId,
+          wbs_stage: 'WBS 2: Sasis/Rangka',
+          item_type: 'MATERIAL',
+          material_id: 'mat-plat',
+          description: 'Plat Besi 3mm',
+          quantity: 1 / 3 + 1 / 3 + 1 / 3, // ~1.0
+          cost_price: 100000,
+        },
+      ];
+
+      // Simulating 0.333 + 0.333 + 0.3345 slightly over by 0.0005 < EPSILON
+      const resWithinEpsilon = evaluateGate2ItemQuota({
+        spkId,
+        wbsStage: 'WBS 2: Sasis/Rangka',
+        materialId: 'mat-plat',
+        unit: 'lbr',
+        currentRequestQty: 1 + GATE2_QTY_EPSILON * 0.5,
+        rabItems: fractionalRab,
+      });
+      expect(resWithinEpsilon.isQtyOverQuota).toBe(false);
+
+      const resAboveEpsilon = evaluateGate2ItemQuota({
+        spkId,
+        wbsStage: 'WBS 2: Sasis/Rangka',
+        materialId: 'mat-plat',
+        unit: 'lbr',
+        currentRequestQty: 1 + GATE2_QTY_EPSILON * 2,
+        rabItems: fractionalRab,
+      });
+      expect(resAboveEpsilon.isQtyOverQuota).toBe(true);
+    });
+
+    it('aggregates BOM Package items, Granular items, Approved Change Orders, and Waste Percentage consistently', () => {
+      const mixedRab: RabItemGate2[] = [
+        // Exploded from Package A in WBS 2
+        {
+          id: 'rab-pkg-1',
+          spk_id: spkId,
+          wbs_stage: 'WBS 2: Sasis/Rangka',
+          item_type: 'MATERIAL',
+          material_id: 'mat-baut',
+          package_id: 'pkg-bak',
+          package_name: 'Paket Bak Besi',
+          description: '[Paket: Paket Bak Besi] Baut M10',
+          quantity: 10,
+          cost_price: 5000,
+        },
+        // Granular item of same material in WBS 2
+        {
+          id: 'rab-gran-1',
+          spk_id: spkId,
+          wbs_stage: 'WBS 2: Sasis/Rangka',
+          item_type: 'MATERIAL',
+          material_id: 'mat-baut',
+          description: 'Baut M10',
+          quantity: 5,
+          waste_percentage: 20, // 5 * 1.2 = 6 -> combined RAB = 16
+          cost_price: 5000,
+        },
+      ];
+
+      const coItems: ChangeOrderItemGate2[] = [
+        {
+          id: 'co-1',
+          spk_id: spkId,
+          wbs_stage: 'WBS 2: Sasis/Rangka',
+          item_type: 'MATERIAL',
+          material_id: 'mat-baut',
+          item_name: 'Baut M10',
+          quantity: 4, // total quota = 10 + 6 + 4 = 20
+          cost_price: 5000,
+        },
+      ];
+
+      const directIssues: DirectIssueGate2[] = [
+        {
+          id: 'dir-1',
+          spk_id: spkId,
+          wbs_stage: 'WBS 2: Sasis/Rangka',
+          material_id: 'mat-baut',
+          quantity_issued: 8,
+          status: 'ACTIVE',
+        },
+        {
+          id: 'dir-void',
+          spk_id: spkId,
+          wbs_stage: 'WBS 2: Sasis/Rangka',
+          material_id: 'mat-baut',
+          quantity_issued: 50,
+          status: 'VOID', // MUST be ignored
+        },
+      ];
+
+      const res = evaluateGate2ItemQuota({
+        spkId,
+        wbsStage: 'Sasis/Rangka',
+        materialId: 'mat-baut',
+        materialName: 'Baut M10',
+        unit: 'pcs',
+        currentRequestQty: 12, // 8 + 12 = 20 == 20
+        rabItems: mixedRab,
+        approvedCoItems: coItems,
+        directIssues,
+      });
+
+      expect(res.qtyPaguRab).toBe(20);
+      expect(res.qtySudahKeluar).toBe(8);
+      expect(res.proyeksiTotalQty).toBe(20);
+      expect(res.isQtyOverQuota).toBe(false);
+    });
+
+    it('blocks unbudgeted material requests (qtyPaguRab = 0)', () => {
+      const res = evaluateGate2ItemQuota({
+        spkId,
         wbsStage: 'Kelistrikan/Hidrolik',
-        currentTicketCost: 50000,
-        rabItems: spk2668RabItems, // No materials budgeted for Kelistrikan in this subset
-        approvedReqs: [],
-        directIssues: []
+        materialId: 'mat-unbudgeted',
+        materialName: 'Relay 24V',
+        unit: 'pcs',
+        currentRequestQty: 2,
+        rabItems: baseRabItems,
       });
 
-      expect(result.wbsBudgetLimit).toBe(0);
-      expect(result.hasWbsBudget).toBe(false);
-      expect(result.isOverBudget).toBe(true);
-      expect(result.overAmount).toBe(50000);
-      expect(result.statusBadge.variant).toBe('danger');
+      expect(res.qtyPaguRab).toBe(0);
+      expect(res.hasRabQuota).toBe(false);
+      expect(res.isQtyOverQuota).toBe(true);
+      expect(res.overQty).toBe(2);
+      expect(res.statusVariant).toBe('danger');
+    });
+  });
+
+  describe('evaluateGate2TicketQuota', () => {
+    it('combines duplicate pending material rows in the same ticket when evaluating batch quota', () => {
+      const spkId = 'spk-ticket-1';
+      const rab: RabItemGate2[] = [
+        {
+          id: 'rab-1',
+          spk_id: spkId,
+          wbs_stage: 'WBS 2: Sasis/Rangka',
+          item_type: 'MATERIAL',
+          material_id: 'mat-besi',
+          description: 'Besi UNP 100',
+          quantity: 10,
+          cost_price: 200000,
+        },
+      ];
+
+      const res = evaluateGate2TicketQuota({
+        spkId,
+        wbsStage: 'WBS 2: Sasis/Rangka',
+        pendingItems: [
+          { id: 'pi-1', material_id: 'mat-besi', material_name: 'Besi UNP 100', quantity: 6, unit: 'btg', wbs_stage: 'Sasis/Rangka' },
+          { id: 'pi-2', material_id: 'mat-besi', material_name: 'Besi UNP 100', quantity: 6, unit: 'btg', wbs_stage: 'Sasis/Rangka' },
+        ],
+        rabItems: rab,
+        approvedReqs: [],
+      });
+
+      // Individual rows are 6 <= 10, but combined ticket is 12 > 10!
+      expect(res.itemEvaluations['pi-1'].isQtyOverQuota).toBe(false);
+      expect(res.itemEvaluations['pi-2'].isQtyOverQuota).toBe(false);
+      expect(res.isQtyOverQuota).toBe(true);
+      expect(res.primaryOverQuotaItem?.proyeksiTotalQty).toBe(12);
+      expect(res.primaryOverQuotaItem?.overQty).toBe(2);
     });
   });
 });

@@ -1,17 +1,20 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
-import { ClipboardList, Loader2, AlertTriangle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { ClipboardList, Loader2, AlertTriangle, Lock, Info, CheckCircle2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { ConfirmationModal } from './ConfirmationModal';
 import type { StockAuditItem } from './RecentApprovedMaterials';
 import { normalizeText } from '../utils/rabItemAllocation';
 import {
-  evaluateGate2Budget,
+  evaluateGate2ItemQuota,
+  evaluateGate2TicketQuota,
+  formatGate2Qty,
   type RabItemGate2,
   type ChangeOrderItemGate2,
   type ApprovedRequisitionGate2,
   type DirectIssueGate2,
-  type Gate2EvaluationResult
+  type MasterMaterialGate2,
+  type Gate2TicketEvaluationResult
 } from '../utils/gate2BudgetValidation';
 import { formatWbsBadge, getWbsWeight } from '../utils/wbsSort';
 import { resolveDetailedSource, extractPackageFromNotes } from '../utils/sourceOrigin';
@@ -57,6 +60,8 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
   const [approvedCoItemsList, setApprovedCoItemsList] = useState<ChangeOrderItemGate2[]>([]);
   const [approvedReqsList, setApprovedReqsList] = useState<ApprovedRequisitionGate2[]>([]);
   const [directIssuesList, setDirectIssuesList] = useState<DirectIssueGate2[]>([]);
+  const [masterMaterialsList, setMasterMaterialsList] = useState<MasterMaterialGate2[]>([]);
+  const [ownerOverrideMap, setOwnerOverrideMap] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
@@ -197,7 +202,7 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
             wbs_stage,
             package_name,
             source_type,
-            materials ( id, name, unit, unit_price ),
+            materials ( id, name, unit, unit_price, cost_price, waste_factor_percentage ),
             rab_items ( id, item_total, quantity, description, notes, package_id, product_packages:package_id ( id, name ) ),
             change_order_items ( id, item_name, unit_price, quantity, notes, change_order_id )
           )
@@ -213,10 +218,11 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
         return !spk || (!spk.is_hidden && !spk.is_test);
       });
 
-      // Ambil katalog master materials untuk fallback pencarian harga dan id jika relasi kosong
+      // Ambil katalog master materials untuk fallback pencarian harga, HPP cost_price, waste_factor, dan id
       const { data: masterMaterials } = await supabase
         .from('materials')
-        .select('id, name, unit, unit_price');
+        .select('id, name, unit, unit_price, cost_price, waste_factor_percentage');
+      setMasterMaterialsList(masterMaterials || []);
 
       // Ambil data RAB, Requisition Approved, dan Direct Issues untuk akumulasi Gate 2 (Eksklusif Material)
       const spkIds = Array.from(new Set(validData.map((r: any) => r.spk_id).filter(Boolean)));
@@ -262,8 +268,11 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                 unit_price,
                 subtotal,
                 material_id,
+                rab_item_id,
+                change_order_item_id,
+                material_name,
                 wbs_stage,
-                materials ( unit_price )
+                materials ( id, name, unit_price, cost_price )
               )
             `)
             .in('spk_id', spkIds)
@@ -276,8 +285,9 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
               material_id,
               quantity_issued,
               custom_unit_price,
+              wbs_stage,
               status,
-              materials ( unit_price )
+              materials ( id, name, unit_price, cost_price )
             `)
             .in('spk_id', spkIds)
             .is('requisition_id', null),
@@ -290,6 +300,8 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
               cost_adjustment,
               change_order_items (
                 id,
+                material_id,
+                item_name,
                 item_type,
                 wbs_stage,
                 quantity,
@@ -398,6 +410,23 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
           const pkgId = item.package_id || rab?.package_id || null;
           const srcType = item.source_type || (coId ? 'CHANGE_ORDER' : (pkgName ? 'PACKAGE' : 'RAB'));
 
+          const resolvedMatObj = mat
+            ? {
+                ...mat,
+                cost_price: mat.cost_price ?? matchedMaster?.cost_price ?? null,
+                waste_factor_percentage: mat.waste_factor_percentage ?? matchedMaster?.waste_factor_percentage ?? 0,
+              }
+            : resolvedMaterialId
+              ? {
+                  id: resolvedMaterialId,
+                  name,
+                  unit,
+                  unit_price: unitPrice,
+                  cost_price: matchedMaster?.cost_price ?? null,
+                  waste_factor_percentage: matchedMaster?.waste_factor_percentage ?? 0,
+                }
+              : null;
+
           return {
             ...item,
             status: itemStatus,
@@ -406,8 +435,8 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
             change_order_id: coId,
             source_type: srcType,
             material_id: resolvedMaterialId,
-            material: mat || (resolvedMaterialId ? { id: resolvedMaterialId, name, unit, unit_price: unitPrice } : null),
-            materials: mat || (resolvedMaterialId ? { id: resolvedMaterialId, name, unit, unit_price: unitPrice } : null),
+            material: resolvedMatObj,
+            materials: resolvedMatObj,
             material_name: name,
             unit,
             unit_price: unitPrice,
@@ -481,21 +510,24 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
     fetchRequisitions();
   }, [refreshKey]);
 
-  const getRequisitionGate2Evaluation = useCallback((requisition: any): Gate2EvaluationResult => {
+  const getRequisitionGate2Evaluation = useCallback((requisition: any): Gate2TicketEvaluationResult => {
     const sId = requisition.spk_id || requisition.spk?.id;
     const wbsStage = requisition.wbs_stage || requisition.wbs_category || requisition.material_requisition_items?.[0]?.wbs_stage || null;
-    const currentTicketCost = Number(requisition.pendingCost ?? requisition.totalRequisitionCost ?? requisition.total_estimated_cost ?? 0);
+    const pendingItems = (requisition.material_requisition_items || []).filter(
+      (it: any) => it.status === 'PENDING' || !it.status
+    );
 
-    return evaluateGate2Budget({
+    return evaluateGate2TicketQuota({
       spkId: sId,
       wbsStage,
-      currentTicketCost,
+      pendingItems,
       rabItems: rabItemsList,
       approvedCoItems: approvedCoItemsList,
       approvedReqs: approvedReqsList,
-      directIssues: directIssuesList
+      directIssues: directIssuesList,
+      masterMaterials: masterMaterialsList,
     });
-  }, [rabItemsList, approvedCoItemsList, approvedReqsList, directIssuesList]);
+  }, [rabItemsList, approvedCoItemsList, approvedReqsList, directIssuesList, masterMaterialsList]);
 
   const handleRequestApprove = (requisition: any) => {
     const pendingItems = (requisition.material_requisition_items || []).filter(
@@ -505,21 +537,29 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
     const totalCostStr = (pendingCost > 0 ? pendingCost : requisition.totalRequisitionCost || 0).toLocaleString('id-ID');
     const spkDisplayName = requisition.spk?.spk_no || requisition.spk?.spk_number || '-';
     const gate2 = getRequisitionGate2Evaluation(requisition);
-    const isOverBudget = gate2.isOverBudget;
+    const isQtyOverQuota = gate2.isQtyOverQuota;
+    const isOwnerOverride = profile?.role === 'owner' && Boolean(ownerOverrideMap[requisition.id]);
     const stageDisplayName = requisition.wbs_category || gate2.wbsStageName || 'WBS Terkait';
 
-    const overBudgetMessage = isOverBudget
-      ? `\n\n⚠️ PERINGATAN PAGU GATE 2 (OVER BUDGET):\nMenyetujui permintaan ini (Rp ${gate2.currentTicketCost.toLocaleString('id-ID')}) akan menyebabkan total pengeluaran material ${stageDisplayName} (Rp ${gate2.projectedTotal.toLocaleString('id-ID')}) MELEBIHI pagu material RAB WBS (Rp ${gate2.wbsBudgetLimit.toLocaleString('id-ID')}) sebesar Rp ${gate2.overAmount.toLocaleString('id-ID')}.\n\nPastikan sudah ada persetujuan Change Order / SPK Tambahan dari Service Advisor sebelum menyetujui!`
-      : '';
+    if (isQtyOverQuota && !isOwnerOverride) {
+      return;
+    }
+
+    const primaryOver = gate2.primaryOverQuotaItem;
+    const overQuotaMessage = isQtyOverQuota && primaryOver
+      ? `\n\n🚫 OTORISASI OWNER OVERRIDE (OVER QUOTA KUANTITAS):\nTotal pengambilan (${formatGate2Qty(primaryOver.proyeksiTotalQty)} ${primaryOver.satuan}) melebihi kuota RAB (${formatGate2Qty(primaryOver.qtyPaguRab)} ${primaryOver.satuan}) sebesar +${formatGate2Qty(primaryOver.overQty)} ${primaryOver.satuan}.`
+      : gate2.costVarianceRp > 0
+        ? `\n\nℹ Catatan Audit: Kuantitas sesuai kuota RAB (${formatGate2Qty(gate2.displayProjectedQty)} / ${formatGate2Qty(gate2.displayQuotaQty)} ${gate2.displayUnit}). Terjadi penyesuaian harga HPP gudang (+Rp ${Math.round(gate2.costVarianceRp).toLocaleString('id-ID')}) dari estimasi awal RAB.`
+        : '';
 
     setConfirmDialog({
       isOpen: true,
       type: 'APPROVE',
       requisition,
-      title: isOverBudget ? 'Konfirmasi Persetujuan (Peringatan Over Budget)' : 'Setujui Semua Permintaan yang Tersisa',
-      message: `Apakah Anda yakin ingin menyetujui seluruh sisa permintaan material (${pendingItems.length} item) untuk SPK ${spkDisplayName} (${stageDisplayName}) sebesar Rp ${totalCostStr} dan mengeluarkan material terkait?\n\nKuantitas material akan otomatis dicatat pada transaksi inventaris gudang dan stok fisik akan disesuaikan.${overBudgetMessage}`,
-      confirmText: isOverBudget ? 'Tetap Setujui (Change Order Disetujui)' : 'Ya, Setujui Semua yang Tersisa',
-      variant: isOverBudget ? 'danger' : 'info',
+      title: isQtyOverQuota ? 'Konfirmasi Owner Override (Over Quota Qty)' : 'Setujui Semua Permintaan yang Tersisa',
+      message: `Apakah Anda yakin ingin menyetujui seluruh sisa permintaan material (${pendingItems.length} item) untuk SPK ${spkDisplayName} (${stageDisplayName}) sebesar Rp ${totalCostStr} dan mengeluarkan material terkait?\n\nKuantitas material akan otomatis dicatat pada transaksi inventaris gudang dan stok fisik akan disesuaikan.${overQuotaMessage}`,
+      confirmText: isQtyOverQuota ? 'Setujui (Owner Override)' : 'Ya, Setujui Semua yang Tersisa',
+      variant: isQtyOverQuota ? 'danger' : 'info',
     });
   };
 
@@ -546,30 +586,45 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
     const spkDisplayName = requisition.spk?.spk_no || requisition.spk?.spk_number || '-';
     const stageDisplayName = item.wbs_stage || requisition.wbs_category || 'WBS Terkait';
 
-    const gate2 = evaluateGate2Budget({
+    const gate2 = evaluateGate2ItemQuota({
       spkId: requisition.spk_id || requisition.spk?.id,
       wbsStage: stageDisplayName,
-      currentTicketCost: itemCost,
+      materialId: item.material_id || item.materials?.id || null,
+      materialName: matName,
+      rabItemId: item.rab_item_id || null,
+      changeOrderItemId: item.change_order_item_id || null,
+      unit: matUnit,
+      currentRequestQty: Number(item.quantity || 0),
+      currentInventoryCostPrice: item.materials?.cost_price ? Number(item.materials.cost_price) : null,
       rabItems: rabItemsList,
       approvedCoItems: approvedCoItemsList,
       approvedReqs: approvedReqsList,
-      directIssues: directIssuesList
+      directIssues: directIssuesList,
+      masterMaterials: masterMaterialsList,
     });
 
-    const isOverBudget = gate2.isOverBudget;
-    const overBudgetMessage = isOverBudget
-      ? `\n\n⚠️ PERINGATAN PAGU GATE 2 (OVER BUDGET):\nMenyetujui item "${matName}" (Rp ${gate2.currentTicketCost.toLocaleString('id-ID')}) akan menyebabkan total pengeluaran material ${stageDisplayName} (Rp ${gate2.projectedTotal.toLocaleString('id-ID')}) MELEBIHI pagu material RAB WBS (Rp ${gate2.wbsBudgetLimit.toLocaleString('id-ID')}) sebesar Rp ${gate2.overAmount.toLocaleString('id-ID')}.\n\nPastikan sudah ada persetujuan Change Order sebelum menyetujui!`
-      : '';
+    const isQtyOverQuota = gate2.isQtyOverQuota;
+    const isOwnerOverride = profile?.role === 'owner' && Boolean(ownerOverrideMap[requisition.id]);
+
+    if (isQtyOverQuota && !isOwnerOverride) {
+      return;
+    }
+
+    const overQuotaMessage = isQtyOverQuota
+      ? `\n\n🚫 OTORISASI OWNER OVERRIDE (OVER QUOTA KUANTITAS):\nTotal pengambilan "${matName}" (${formatGate2Qty(gate2.proyeksiTotalQty)} ${matUnit}) melebihi kuota RAB (${formatGate2Qty(gate2.qtyPaguRab)} ${matUnit}) sebesar +${formatGate2Qty(gate2.overQty)} ${matUnit}.`
+      : gate2.costVarianceRp > 0
+        ? `\n\nℹ Catatan Audit: Kuantitas sesuai kuota RAB (${formatGate2Qty(gate2.proyeksiTotalQty)} / ${formatGate2Qty(gate2.qtyPaguRab)} ${matUnit}). Terjadi penyesuaian harga HPP gudang (+Rp ${Math.round(gate2.costVarianceRp).toLocaleString('id-ID')}) dari estimasi awal RAB.`
+        : '';
 
     setConfirmDialog({
       isOpen: true,
       type: 'APPROVE_ITEM',
       requisition,
       item,
-      title: isOverBudget ? 'Konfirmasi Rilis Item (Over Budget)' : 'Rilis / Approve Item Material',
-      message: `Apakah Anda yakin ingin menyetujui / merilis material "${matName}" (${item.quantity} ${matUnit}) untuk SPK ${spkDisplayName} sebesar Rp ${itemCostStr}?\n\nKuantitas material akan langsung dicatat pada transaksi pengeluaran gudang (Goods Issue) dan stok fisik akan dikurangi.${overBudgetMessage}`,
-      confirmText: isOverBudget ? 'Tetap Rilis Item' : 'Ya, Rilis / Approve Item',
-      variant: isOverBudget ? 'danger' : 'info',
+      title: isQtyOverQuota ? 'Konfirmasi Owner Override Item (Over Quota Qty)' : 'Rilis / Approve Item Material',
+      message: `Apakah Anda yakin ingin menyetujui / merilis material "${matName}" (${item.quantity} ${matUnit}) untuk SPK ${spkDisplayName} sebesar Rp ${itemCostStr}?\n\nKuantitas material akan langsung dicatat pada transaksi pengeluaran gudang (Goods Issue) dan stok fisik akan dikurangi.${overQuotaMessage}`,
+      confirmText: isQtyOverQuota ? 'Rilis Item (Owner Override)' : 'Ya, Rilis / Approve Item',
+      variant: isQtyOverQuota ? 'danger' : 'info',
     });
   };
 
@@ -1203,34 +1258,49 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                                       </span>
                                     ) : (
                                       (() => {
-                                        const itemGate2 = evaluateGate2Budget({
+                                        const itemGate2 = evaluateGate2ItemQuota({
                                           spkId: req.spk_id || req.spk?.id,
                                           wbsStage: item.wbs_stage || req.wbs_category,
-                                          currentTicketCost: Number(item.subtotal || 0),
+                                          materialId: item.material_id || item.materials?.id || null,
+                                          materialName: matName,
+                                          rabItemId: item.rab_item_id || null,
+                                          changeOrderItemId: item.change_order_item_id || null,
+                                          unit: matUnit,
+                                          currentRequestQty: Number(item.quantity || 0),
+                                          currentInventoryCostPrice: item.materials?.cost_price ? Number(item.materials.cost_price) : null,
                                           rabItems: rabItemsList,
                                           approvedCoItems: approvedCoItemsList,
                                           approvedReqs: approvedReqsList,
-                                          directIssues: directIssuesList
+                                          directIssues: directIssuesList,
+                                          masterMaterials: masterMaterialsList,
                                         });
-                                        const isItemOverBudget = itemGate2.isOverBudget;
+                                        const isItemOverQuota = itemGate2.isQtyOverQuota;
+                                        const isOwnerOverride = profile?.role === 'owner' && Boolean(ownerOverrideMap[req.id]);
+                                        const isItemLocked = isItemOverQuota && !isOwnerOverride;
 
                                         return (
                                           <div className="flex items-center justify-center gap-1.5">
                                             <button
                                               type="button"
                                               onClick={() => handleRequestApproveItem(req, item)}
-                                              disabled={processingId !== null}
-                                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium text-white transition disabled:opacity-50 shadow-sm ${
-                                                isItemOverBudget
-                                                  ? 'bg-amber-600 hover:bg-amber-500'
-                                                  : 'bg-emerald-600 hover:bg-emerald-500'
+                                              disabled={processingId !== null || isItemLocked}
+                                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium transition disabled:opacity-50 shadow-sm ${
+                                                isItemLocked
+                                                  ? 'bg-rose-950/60 text-rose-300/70 border border-rose-700/50 cursor-not-allowed'
+                                                  : isItemOverQuota
+                                                    ? 'bg-amber-600 hover:bg-amber-500 text-white'
+                                                    : 'bg-emerald-600 hover:bg-emerald-500 text-white'
                                               }`}
-                                              title={isItemOverBudget ? 'Peringatan: Item Melebihi Pagu WBS. Butuh persetujuan Change Order' : 'Rilis dan setujui item ini saja'}
+                                              title={
+                                                isItemLocked
+                                                  ? `Diblokir Gate 2: Kuantitas (${formatGate2Qty(itemGate2.proyeksiTotalQty)} ${matUnit}) melebihi kuota RAB (${formatGate2Qty(itemGate2.qtyPaguRab)} ${matUnit}). Butuh otorisasi Owner atau Change Order.`
+                                                  : 'Rilis dan setujui item ini saja'
+                                              }
                                             >
                                               {processingId === item.id ? (
                                                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                              ) : isItemOverBudget ? (
-                                                <AlertTriangle className="w-3.5 h-3.5" />
+                                              ) : isItemLocked ? (
+                                                <Lock className="w-3.5 h-3.5" />
                                               ) : null}
                                               ✓ Rilis / Approve
                                             </button>
@@ -1291,48 +1361,73 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                       </table>
                     </div>
                     
-                    {/* Ringkasan Gate 2 Berjenjang (Dynamic Tiered Gate 2 Budget Warning) */}
+                    {/* Ringkasan Gate 2 Berbasis Kuantitas & Audit Varian Harga Non-Blocking */}
                     {(() => {
                       const gate2 = getRequisitionGate2Evaluation(req);
                       const stageDisplayName = req.wbs_stage || req.wbs_category || gate2.wbsStageName;
-                      const wbsMaterialBudget = gate2.wbsBudgetLimit;
-                      const wbsMaterialIssued = gate2.approvedReqCost + gate2.directIssueCost;
-                      const currentReqAmount = Number(req.total_estimated_cost || req.totalRequisitionCost || 0);
-                      const projectedTotal = wbsMaterialIssued + currentReqAmount;
-                      const isOverBudget = gate2.isOverBudget;
-                      const overAmount = gate2.overAmount;
+                      const isQtyOverQuota = gate2.isQtyOverQuota;
+                      const primaryOver = gate2.primaryOverQuotaItem;
 
-                      if (isOverBudget) {
+                      if (isQtyOverQuota && primaryOver) {
+                        const isOwner = profile?.role === 'owner';
+                        const isOverrideChecked = Boolean(ownerOverrideMap[req.id]);
                         return (
-                          <div className="mt-3 flex items-start gap-2.5 text-xs bg-rose-950/70 border border-rose-600 text-rose-200 p-3 rounded-md shadow-sm">
+                          <div className="mt-3 flex items-start gap-2.5 text-xs bg-rose-950/80 border border-rose-600 text-rose-200 p-3 rounded-md shadow-sm">
                             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
                             <div className="space-y-1.5 w-full">
                               <p className="leading-relaxed">
-                                <span className="font-bold text-rose-300">PERINGATAN PAGU GATE 2 (OVER BUDGET):</span> Menyetujui requisition ini (Rp {currentReqAmount.toLocaleString('id-ID')}) akan menyebabkan total pengeluaran material <strong className="text-white underline">{stageDisplayName}</strong> (Rp {projectedTotal.toLocaleString('id-ID')}) MELEBIHI pagu material RAB WBS (Rp {wbsMaterialBudget.toLocaleString('id-ID')}) sebesar Rp {overAmount.toLocaleString('id-ID')}. Pastikan sudah ada persetujuan Change Order / SPK Tambahan dari Service Advisor sebelum menyetujui.
+                                <span className="font-bold text-rose-300">🚫 PERINGATAN GATE 2 (OVER QUOTA KUANTITAS):</span> Permintaan ini menyebabkan total pengambilan ({formatGate2Qty(primaryOver.proyeksiTotalQty)} {primaryOver.satuan}) MELEBIHI kuota RAB ({formatGate2Qty(primaryOver.qtyPaguRab)} {primaryOver.satuan}) sebesar +{formatGate2Qty(primaryOver.overQty)} {primaryOver.satuan}. Membutuhkan otorisasi Owner atau Change Order dari Service Advisor.
                               </p>
                               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-rose-300/80 pt-1.5 border-t border-rose-800/60 font-mono">
-                                <span>Pagu Material WBS: <strong className="text-rose-100">Rp {wbsMaterialBudget.toLocaleString('id-ID')}</strong></span>
+                                <span>{`Tahapan: ${stageDisplayName}`}</span>
                                 <span>•</span>
-                                <span>Requisition Disetujui: <strong className="text-rose-100">Rp {wbsMaterialIssued.toLocaleString('id-ID')}</strong></span>
+                                <span>{`Kuota RAB: ${formatGate2Qty(primaryOver.qtyPaguRab)} ${primaryOver.satuan}`}</span>
                                 <span>•</span>
-                                <span>Tiket Ini: <strong className="text-rose-100">Rp {currentReqAmount.toLocaleString('id-ID')}</strong></span>
+                                <span>{`Sudah Keluar: ${formatGate2Qty(primaryOver.qtySudahKeluar)} ${primaryOver.satuan}`}</span>
                                 <span>•</span>
-                                <span>Kelebihan: <strong className="text-rose-200">Rp {overAmount.toLocaleString('id-ID')}</strong></span>
+                                <span>{`Permintaan Ini: ${formatGate2Qty(primaryOver.qtyPermintaanSaatIni)} ${primaryOver.satuan}`}</span>
                               </div>
+                              {isOwner && (
+                                <label className="mt-2 inline-flex items-center gap-2 cursor-pointer text-[11px] font-medium text-amber-200 bg-rose-900/50 border border-rose-500/40 px-2.5 py-1 rounded">
+                                  <input
+                                    type="checkbox"
+                                    checked={isOverrideChecked}
+                                    onChange={(e) =>
+                                      setOwnerOverrideMap(prev => ({
+                                        ...prev,
+                                        [req.id]: e.target.checked,
+                                      }))
+                                    }
+                                    className="accent-amber-500 rounded"
+                                  />
+                                  <span>Otorisasi Owner Override (Buka Kunci Rilis Over-Quota)</span>
+                                </label>
+                              )}
                             </div>
                           </div>
                         );
                       }
 
-                      return (
-                        <div className="text-[11px] text-emerald-400 bg-emerald-950/40 border border-emerald-800/60 rounded px-2.5 py-1 mb-2 mt-3 flex items-center justify-between gap-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <span>✓</span>
-                            <span>Alokasi Sesuai Pagu Material {stageDisplayName}: Rp {currentReqAmount.toLocaleString('id-ID')} / Rp {wbsMaterialBudget.toLocaleString('id-ID')}</span>
+                      if (gate2.costVarianceRp > 0) {
+                        const roundedVariance = Math.round(gate2.costVarianceRp).toLocaleString('id-ID');
+                        return (
+                          <div className="mt-3 flex items-start gap-2.5 text-xs bg-sky-950/40 border border-sky-800 text-sky-200 p-3 rounded-md shadow-sm">
+                            <Info className="w-4 h-4 shrink-0 mt-0.5 text-sky-400" />
+                            <p className="leading-relaxed">
+                              ℹ Kuantitas Sesuai Kuota RAB ({formatGate2Qty(gate2.displayProjectedQty)} / {formatGate2Qty(gate2.displayQuotaQty)} {gate2.displayUnit}). Catatan Audit: Terjadi penyesuaian harga HPP gudang (+Rp {roundedVariance}) dari estimasi awal RAB.
+                            </p>
                           </div>
-                          <span className="text-[10px] text-emerald-300/90 font-mono">
-                            Sisa Pagu WBS: Rp {gate2.remainingQuota.toLocaleString('id-ID')}
-                          </span>
+                        );
+                      }
+
+                      return (
+                        <div className="mt-3 mb-1 flex items-center justify-between gap-2 text-xs bg-emerald-950/40 border border-emerald-800 text-emerald-300 px-3 py-2 rounded-md">
+                          <div className="flex items-center gap-1.5">
+                            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                            <span>
+                              ✓ Kuota Kuantitas Sesuai RAB ({stageDisplayName}): {formatGate2Qty(gate2.displayProjectedQty)} / {formatGate2Qty(gate2.displayQuotaQty)} {gate2.displayUnit} (Aman untuk dirilis).
+                            </span>
+                          </div>
                         </div>
                       );
                     })()}
@@ -1341,7 +1436,9 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                   {/* Actions Section */}
                   {(() => {
                     const gate2 = getRequisitionGate2Evaluation(req);
-                    const isOverBudget = gate2.isOverBudget;
+                    const isQtyOverQuota = gate2.isQtyOverQuota;
+                    const isOwnerOverride = profile?.role === 'owner' && Boolean(ownerOverrideMap[req.id]);
+                    const isGate2Locked = isQtyOverQuota && !isOwnerOverride;
                     const pendingItemsCount = (req.material_requisition_items || []).filter(
                       (it: any) => it.status === 'PENDING' || !it.status
                     ).length;
@@ -1350,23 +1447,29 @@ export const RequisitionApproval: React.FC<RequisitionApprovalProps> = ({
                       <div className="flex lg:flex-col justify-end gap-2 lg:min-w-[130px]">
                         <button
                           onClick={() => handleRequestApprove(req)}
-                          disabled={processingId !== null || pendingItemsCount === 0}
-                          className={`flex-1 lg:flex-none flex items-center justify-center gap-2 px-3.5 py-2 rounded transition disabled:opacity-50 text-white font-medium text-xs sm:text-sm ${
-                            isOverBudget
-                              ? 'bg-amber-600 hover:bg-amber-700 border border-amber-500 shadow-sm'
-                              : 'bg-primary hover:bg-primary/90'
+                          disabled={processingId !== null || pendingItemsCount === 0 || isGate2Locked}
+                          className={`flex-1 lg:flex-none flex items-center justify-center gap-2 px-3.5 py-2 rounded transition disabled:opacity-50 font-medium text-xs sm:text-sm ${
+                            isGate2Locked
+                              ? 'bg-rose-950/60 border border-rose-700/50 text-rose-300/70 cursor-not-allowed'
+                              : isQtyOverQuota
+                                ? 'bg-amber-600 hover:bg-amber-700 border border-amber-500 text-white shadow-sm'
+                                : 'bg-primary hover:bg-primary/90 text-white'
                           }`}
                           title={
                             pendingItemsCount === 0 
                               ? 'Semua item telah diproses' 
-                              : isOverBudget 
-                                ? 'Peringatan: Over Budget (Memerlukan persetujuan Change Order)' 
-                                : 'Setujui Seluruh Sisa Material Pending Sekaligus'
+                              : isGate2Locked 
+                                ? 'Diblokir Gate 2: Kuantitas melebihi kuota RAB. Membutuhkan otorisasi Owner atau Change Order dari Service Advisor' 
+                                : isQtyOverQuota
+                                  ? 'Setujui dengan Owner Override'
+                                  : 'Setujui Seluruh Sisa Material Pending Sekaligus'
                           }
                         >
                           {processingId === req.id ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : isOverBudget ? (
+                          ) : isGate2Locked ? (
+                            <Lock className="w-4 h-4" />
+                          ) : isQtyOverQuota ? (
                             <AlertTriangle className="w-4 h-4 text-white" />
                           ) : null}
                           ✓ Approve Semua yang Tersisa

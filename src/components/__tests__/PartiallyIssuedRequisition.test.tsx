@@ -179,14 +179,39 @@ describe('Component: RequisitionApproval (Partially Issued Requisitions & Sideba
                 rab_items: [
                   {
                     id: 'rab-item-1',
-                    description: 'Material Pembongkaran',
-                    quantity: 1,
-                    unit_price: 10000000,
-                    cost_price: 8000000,
-                    item_total: 10000000,
+                    material_id: 'mat-plat-uuid',
+                    description: 'Plat Besi 3mm',
+                    quantity: 5,
+                    unit_price: 350000,
+                    cost_price: 350000,
+                    item_total: 1750000,
                     wbs_category: 'Pembongkaran',
                     wbs_stage: 'Pembongkaran',
-                    item_type: 'material'
+                    item_type: 'MATERIAL'
+                  },
+                  {
+                    id: 'rab-item-2',
+                    material_id: 'mat-baut-uuid',
+                    description: 'Baut Baja M12',
+                    quantity: 50,
+                    unit_price: 5000,
+                    cost_price: 5000,
+                    item_total: 250000,
+                    wbs_category: 'Pembongkaran',
+                    wbs_stage: 'Pembongkaran',
+                    item_type: 'MATERIAL'
+                  },
+                  {
+                    id: 'rab-item-3',
+                    material_id: 'mat-kawat-uuid',
+                    description: 'Kawat Las RB-26',
+                    quantity: 10,
+                    unit_price: 45000,
+                    cost_price: 45000,
+                    item_total: 450000,
+                    wbs_category: 'Pembongkaran',
+                    wbs_stage: 'Pembongkaran',
+                    item_type: 'MATERIAL'
                   }
                 ]
               }],

@@ -1,10 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Package, CheckCircle2, Lock, ShieldAlert } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { Package, CheckCircle2, Lock, ShieldAlert, AlertTriangle, Info } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
-import { inventoryService } from '../services/inventoryService';
 import { ConfirmationModal } from './ConfirmationModal';
 import { MaterialSearchAutocomplete, type MaterialOption } from './MaterialSearchAutocomplete';
+import {
+  evaluateGate2ItemQuota,
+  formatGate2Qty,
+  GATE2_QTY_EPSILON,
+  type RabItemGate2,
+  type ChangeOrderItemGate2,
+  type DirectIssueGate2,
+} from '../utils/gate2BudgetValidation';
 
 interface GoodsIssueFormProps {
   onSuccess?: () => void;
@@ -17,6 +24,7 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
   const [selectedMaterial, setSelectedMaterial] = useState<string>('');
   const [requestQty, setRequestQty] = useState<string>('');
   const [auditNotes, setAuditNotes] = useState<string>('');
+  const [ownerOverride, setOwnerOverride] = useState<boolean>(false);
   const requestQtyInputRef = useRef<HTMLInputElement>(null);
 
   const [feedbackModal, setFeedbackModal] = useState<{
@@ -26,7 +34,9 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
     variant: 'success' | 'danger' | 'warning' | 'info';
   } | null>(null);
 
-  const [rabMaterials, setRabMaterials] = useState<any[]>([]);
+  const [rabItems, setRabItems] = useState<RabItemGate2[]>([]);
+  const [approvedCoItems, setApprovedCoItems] = useState<ChangeOrderItemGate2[]>([]);
+  const [issuedTransactions, setIssuedTransactions] = useState<DirectIssueGate2[]>([]);
   const [masterMaterials, setMasterMaterials] = useState<any[]>([]);
   const [inventoryTotals, setInventoryTotals] = useState<Record<string, number>>({});
 
@@ -38,7 +48,7 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
   const fetchMasterMaterials = async () => {
     const { data } = await supabase
       .from('materials')
-      .select('id, name, barcode, unit, current_stock, cost_price, selling_price')
+      .select('id, name, barcode, unit, current_stock, cost_price, selling_price, unit_price, waste_factor_percentage')
       .order('name');
     if (data) setMasterMaterials(data);
   };
@@ -55,258 +65,377 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
     if (error) console.error('Error fetching SPKs:', error);
   };
 
-  useEffect(() => {
-    if (selectedSpk) {
-      fetchRabAndInventory(selectedSpk);
-      setSelectedMaterial('');
-      setRequestQty('');
-    } else {
-      setRabMaterials([]);
-      setInventoryTotals({});
-      setSelectedMaterial('');
-      setRequestQty('');
-    }
-  }, [selectedSpk]);
-
-  const fetchRabAndInventory = async (spkId: string) => {
-    // Fetch master materials first for tolerant matching
+  const fetchRabAndInventory = useCallback(async (spkId: string) => {
     const { data: masterData } = await supabase
       .from('materials')
-      .select('id, name, barcode, unit, current_stock, cost_price, selling_price, waste_factor_percentage')
+      .select('id, name, barcode, unit, current_stock, cost_price, selling_price, unit_price, waste_factor_percentage')
       .order('name');
+    const loadedMasters = masterData || [];
     if (masterData) setMasterMaterials(masterData);
+
+    const resolveMasterId = (matId?: string | null, label?: string | null): string | null => {
+      if (matId) return matId;
+      if (!label || !loadedMasters.length) return null;
+      const clean = label.replace(/^(?:Bagian dari paket:\s*)?(?:\[?Paket:\s*[^\]]+\]?\s*[-:]?\s*)/i, '').trim().toLowerCase();
+      const found = loadedMasters.find((m: any) => String(m.name || '').trim().toLowerCase() === clean);
+      return found ? found.id : null;
+    };
 
     const { data: rabData } = await supabase
       .from('rab_estimations')
       .select(`
         id,
         rab_items (
+          id,
           quantity,
           description,
           material_id,
-          item_type
+          item_type,
+          wbs_stage,
+          wbs_category,
+          cost_price,
+          unit_price,
+          item_total
         )
       `)
       .eq('spk_id', spkId)
       .single();
 
-    let mats: any[] = [];
-    if (rabData && rabData.rab_items && masterData) {
-      mats = rabData.rab_items
-        .filter((item: any) => (item.item_type || 'MATERIAL').toUpperCase() === 'MATERIAL')
-        .map((item: any) => {
-        let matched = null;
-        if (item.material_id) matched = masterData.find(m => m.id === item.material_id);
-        else if (item.description) matched = masterData.find(m => m.name.toLowerCase() === item.description.toLowerCase());
-
-        if (matched) {
-          return {
-            material_id: matched.id,
+    const mappedRabItems: RabItemGate2[] = [];
+    if (rabData && rabData.rab_items) {
+      rabData.rab_items
+        .filter((item: any) => {
+          const t = (item.item_type || '').toUpperCase();
+          return !t || t === 'MATERIAL';
+        })
+        .forEach((item: any) => {
+          const resolvedMatId = resolveMasterId(item.material_id, item.description);
+          const matchedMat = loadedMasters.find((m: any) => m.id === resolvedMatId);
+          mappedRabItems.push({
+            id: item.id,
+            spk_id: spkId,
+            material_id: resolvedMatId,
+            description: item.description,
             quantity: Number(item.quantity || 0),
-            materials: {
-              id: matched.id,
-              name: matched.name,
-              waste_factor_percentage: matched.waste_factor_percentage || 0
-            }
-          };
-        }
-        return null;
-      }).filter(Boolean);
+            item_type: 'MATERIAL',
+            wbs_stage: item.wbs_stage || item.wbs_category || null,
+            wbs_category: item.wbs_category || null,
+            cost_price: Number(item.cost_price || 0),
+            unit_price: Number(item.unit_price || 0),
+            item_total: Number(item.item_total || 0),
+            materials: matchedMat
+              ? {
+                  id: matchedMat.id,
+                  name: matchedMat.name,
+                  unit: matchedMat.unit,
+                  cost_price: matchedMat.cost_price,
+                  unit_price: matchedMat.unit_price,
+                  waste_factor_percentage: matchedMat.waste_factor_percentage || 0,
+                }
+              : null,
+          });
+        });
     }
+    setRabItems(mappedRabItems);
 
-    // Ambil material dari Change Order yang telah APPROVED untuk memperluas kuota Gate 2
+    const mappedCoItems: ChangeOrderItemGate2[] = [];
     try {
       const { data: coItemsData } = await supabase
         .from('change_order_items')
         .select(`
+          id,
           material_id,
           item_name,
           quantity,
           item_type,
+          wbs_stage,
+          cost_price,
+          unit_price,
+          subtotal,
           change_orders!inner ( status )
         `)
         .eq('spk_id', spkId)
         .eq('item_type', 'MATERIAL')
         .eq('change_orders.status', 'APPROVED');
 
-      if (coItemsData && masterData) {
+      if (coItemsData) {
         coItemsData.forEach((coItem: any) => {
-          let matched = null;
-          if (coItem.material_id) matched = masterData.find(m => m.id === coItem.material_id);
-          else if (coItem.item_name) matched = masterData.find(m => m.name.toLowerCase() === coItem.item_name.toLowerCase());
-
-          if (matched) {
-            const existing = mats.find(m => m.material_id === matched.id);
-            const addQty = Number(coItem.quantity || 0);
-            if (existing) {
-              existing.quantity += addQty;
-            } else {
-              mats.push({
-                material_id: matched.id,
-                quantity: addQty,
-                materials: {
-                  id: matched.id,
-                  name: matched.name,
-                  waste_factor_percentage: matched.waste_factor_percentage || 0
+          const resolvedMatId = resolveMasterId(coItem.material_id, coItem.item_name);
+          const matchedMat = loadedMasters.find((m: any) => m.id === resolvedMatId);
+          mappedCoItems.push({
+            id: coItem.id,
+            spk_id: spkId,
+            material_id: resolvedMatId,
+            item_name: coItem.item_name,
+            quantity: Number(coItem.quantity || 0),
+            item_type: 'MATERIAL',
+            wbs_stage: coItem.wbs_stage || null,
+            cost_price: Number(coItem.cost_price || 0),
+            unit_price: Number(coItem.unit_price || 0),
+            subtotal: Number(coItem.subtotal || 0),
+            materials: matchedMat
+              ? {
+                  id: matchedMat.id,
+                  name: matchedMat.name,
+                  unit: matchedMat.unit,
+                  cost_price: matchedMat.cost_price,
+                  unit_price: matchedMat.unit_price,
+                  waste_factor_percentage: matchedMat.waste_factor_percentage || 0,
                 }
-              });
-            }
-          }
+              : null,
+          });
         });
       }
     } catch (coErr) {
       console.warn('Notice: Could not load change order items for Gate 2 quota:', coErr);
     }
-
-    setRabMaterials(mats);
+    setApprovedCoItems(mappedCoItems);
 
     try {
-      const totals = await inventoryService.getIssuedMaterialsBySpk(spkId);
+      const { data: txData, error: txErr } = await supabase
+        .from('inventory_transactions')
+        .select('id, spk_id, material_id, quantity_issued, wbs_stage, status, custom_unit_price')
+        .eq('spk_id', spkId);
+
+      if (txErr) throw txErr;
+
+      const activeTxs = (txData || []).filter((tx: any) => {
+        const st = String(tx.status || '').toUpperCase();
+        return st !== 'VOID' && st !== 'VOIDED' && st !== 'CANCELLED';
+      });
+      setIssuedTransactions(activeTxs);
+
+      const totals: Record<string, number> = {};
+      activeTxs.forEach((tx: any) => {
+        if (tx.material_id) {
+          totals[tx.material_id] = (totals[tx.material_id] || 0) + Number(tx.quantity_issued || 0);
+        }
+      });
       setInventoryTotals(totals);
     } catch (invError) {
       console.error('Error fetching inventory:', invError);
+      setIssuedTransactions([]);
+      setInventoryTotals({});
     }
-  };
+  }, []);
 
-  const selectedRabItem = rabMaterials.find(m => m.material_id === selectedMaterial);
+  useEffect(() => {
+    if (selectedSpk) {
+      fetchRabAndInventory(selectedSpk);
+      setSelectedMaterial('');
+      setRequestQty('');
+      setOwnerOverride(false);
+    } else {
+      setRabItems([]);
+      setApprovedCoItems([]);
+      setIssuedTransactions([]);
+      setInventoryTotals({});
+      setSelectedMaterial('');
+      setRequestQty('');
+      setOwnerOverride(false);
+    }
+  }, [selectedSpk, fetchRabAndInventory]);
+
+  useEffect(() => {
+    setOwnerOverride(false);
+  }, [selectedMaterial]);
+
   const selectedMasterItem = masterMaterials.find(m => m.id === selectedMaterial);
-  
-  let maxAllowed = 0;
-  let remainingAllowed = 0;
-  let isOverbudget = false;
 
-  if (selectedRabItem) {
-    const wasteFactor = Number(selectedRabItem.materials.waste_factor_percentage || 0);
-    const rabQty = Number(selectedRabItem.quantity || 0);
-    const issuedQty = inventoryTotals[selectedMaterial] || 0;
-    
-    maxAllowed = rabQty * (1 + (wasteFactor / 100));
-    remainingAllowed = maxAllowed - issuedQty;
-    isOverbudget = parseFloat(requestQty || '0') > remainingAllowed;
-  } else if (selectedMasterItem) {
-    // If not in RAB (or RAB is empty), fallback to physical stock limit logic if needed, 
-    // but for flexibility, we allow issuing if it's not strictly restricted by RAB here,
-    // or we treat remainingAllowed as current stock.
-    const issuedQty = inventoryTotals[selectedMaterial] || 0;
-    maxAllowed = Infinity;
-    remainingAllowed = (selectedMasterItem.current_stock || 0) - issuedQty;
-    // Don't block with overbudget for non-RAB fallback according to prompt "Sesuai fleksibilitas"
-    isOverbudget = parseFloat(requestQty || '0') > (selectedMasterItem.current_stock || 0);
-  }
+  // Determine RAB + Approved CO allocations for the currently selected material
+  const selectedMaterialRabStages = useMemo(() => {
+    if (!selectedMaterial) return [];
+    const stages = new Set<string>();
+    rabItems.forEach(ri => {
+      if (ri.material_id === selectedMaterial) {
+        const st = (ri.wbs_stage || ri.wbs_category || '').trim();
+        if (st) stages.add(st);
+      }
+    });
+    approvedCoItems.forEach(ci => {
+      if (ci.material_id === selectedMaterial) {
+        const st = (ci.wbs_stage || '').trim();
+        if (st) stages.add(st);
+      }
+    });
+    return Array.from(stages);
+  }, [selectedMaterial, rabItems, approvedCoItems]);
+
+  const hasRabAllocation = useMemo(() => {
+    if (!selectedMaterial) return false;
+    return (
+      rabItems.some(ri => ri.material_id === selectedMaterial) ||
+      approvedCoItems.some(ci => ci.material_id === selectedMaterial)
+    );
+  }, [selectedMaterial, rabItems, approvedCoItems]);
+
+  const parsedRequestQty = useMemo(() => {
+    const num = parseFloat(requestQty || '0');
+    return Number.isFinite(num) && num > 0 ? num : 0;
+  }, [requestQty]);
+
+  const wbsStageLabel =
+    selectedMaterialRabStages.length === 1
+      ? selectedMaterialRabStages[0]
+      : selectedMaterialRabStages.length > 1
+        ? selectedMaterialRabStages.join(', ')
+        : 'Alokasi RAB SPK';
+
+  const gate2Eval = useMemo(() => {
+    if (!selectedSpk || !selectedMaterial || !selectedMasterItem) return null;
+    return evaluateGate2ItemQuota({
+      spkId: selectedSpk,
+      wbsStage: selectedMaterialRabStages.length === 1 ? selectedMaterialRabStages[0] : null,
+      materialId: selectedMaterial,
+      materialName: selectedMasterItem.name,
+      unit: selectedMasterItem.unit || 'pcs',
+      currentRequestQty: parsedRequestQty,
+      currentInventoryCostPrice: selectedMasterItem.cost_price ? Number(selectedMasterItem.cost_price) : null,
+      rabItems,
+      approvedCoItems,
+      approvedReqs: [],
+      directIssues: issuedTransactions,
+      masterMaterials,
+    });
+  }, [
+    selectedSpk,
+    selectedMaterial,
+    selectedMasterItem,
+    selectedMaterialRabStages,
+    parsedRequestQty,
+    rabItems,
+    approvedCoItems,
+    issuedTransactions,
+    masterMaterials,
+  ]);
+
+  const remainingQuotaBeforeInput = gate2Eval
+    ? Math.max(0, gate2Eval.qtyPaguRab - gate2Eval.qtySudahKeluar)
+    : 0;
+  const availableStock = Number(selectedMasterItem?.current_stock || 0);
+  const isInsufficientStock = Boolean(
+    selectedMasterItem && parsedRequestQty > availableStock + GATE2_QTY_EPSILON
+  );
+  const isQtyOverQuota = Boolean(hasRabAllocation && gate2Eval?.isQtyOverQuota);
+  const isOwnerOverrideActive = profile?.role === 'owner' && ownerOverride;
+  const isLockedByGate2 = isQtyOverQuota && !isOwnerOverrideActive;
+  const isSubmitDisabled =
+    !selectedMaterial ||
+    parsedRequestQty <= 0 ||
+    isLockedByGate2 ||
+    isInsufficientStock ||
+    !user;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Guardrail: Double Issuance Check
-    if (inventoryTotals[selectedMaterial] && inventoryTotals[selectedMaterial] > 0) {
-      setFeedbackModal({
-        isOpen: true,
-        title: 'Material Pernah Dikeluarkan',
-        message: 'Material ini sudah pernah dikeluarkan untuk SPK ini dan tidak dapat diambil kembali.',
-        variant: 'warning'
-      });
-      return;
-    }
+    if (isSubmitDisabled || !user || !selectedMasterItem) return;
 
-    if (!isOverbudget && requestQty && user) {
-      const qty = parseFloat(requestQty);
+    const qty = parsedRequestQty;
 
-      // Ambil stok aktual terbaru dari materials sebelum pengurangan
-      const { data: freshMat } = await supabase
-        .from('materials')
-        .select('name, unit, current_stock')
-        .eq('id', selectedMaterial)
-        .single();
+    // Ambil stok aktual terbaru dari materials sebelum pengurangan
+    const { data: freshMat } = await supabase
+      .from('materials')
+      .select('name, unit, current_stock')
+      .eq('id', selectedMaterial)
+      .single();
 
-      const stockBefore = Number(freshMat?.current_stock ?? (selectedMasterItem?.current_stock || 0));
-      const stockAfter = Math.max(0, stockBefore - qty);
-      const executorName = profile?.full_name || user.email || 'Petugas Gudang';
-      const executorRole = profile?.role || 'petugas_gudang';
-      const finalAuditNotes = auditNotes.trim() || (profile?.role === 'service_advisor'
+    const stockBefore = Number(freshMat?.current_stock ?? availableStock);
+    const stockAfter = Math.max(0, stockBefore - qty);
+    const executorName = profile?.full_name || user.email || 'Petugas Gudang';
+    const executorRole = profile?.role || 'petugas_gudang';
+    const finalAuditNotes =
+      auditNotes.trim() ||
+      (profile?.role === 'service_advisor'
         ? 'Diproses oleh Service Advisor (Backup Gudang)'
         : 'Pengeluaran material operasional gudang');
+    const resolvedWbsStage = selectedMaterialRabStages.length === 1 ? selectedMaterialRabStages[0] : null;
 
-      let insertError: any = null;
-      const { error: fullError } = await supabase
+    let insertError: any = null;
+    const baseTx: any = {
+      spk_id: selectedSpk,
+      material_id: selectedMaterial,
+      quantity_issued: qty,
+      issued_by: user.id,
+      issued_by_user_id: user.id,
+      issued_by_name: executorName,
+      issued_by_role: executorRole,
+      audit_notes: finalAuditNotes,
+      stock_before: stockBefore,
+      stock_after: stockAfter,
+    };
+    if (resolvedWbsStage) {
+      baseTx.wbs_stage = resolvedWbsStage;
+    }
+
+    const { error: fullError } = await supabase
+      .from('inventory_transactions')
+      .insert(baseTx);
+
+    if (fullError) {
+      console.warn('Gagal insert dengan snapshot stok/wbs di GoodsIssueForm, mencoba fallback transaksi:', fullError.message);
+      const { stock_before: _sb, stock_after: _sa, wbs_stage: _ws, ...fallbackTx } = baseTx;
+      const { error: fallbackError } = await supabase
         .from('inventory_transactions')
-        .insert({
+        .insert(fallbackTx);
+      insertError = fallbackError;
+    }
+
+    if (!insertError) {
+      await supabase.from('materials').update({ current_stock: stockAfter }).eq('id', selectedMaterial);
+
+      try {
+        await supabase.from('material_issues').insert({
           spk_id: selectedSpk,
           material_id: selectedMaterial,
-          quantity_issued: qty,
-          issued_by: user.id,
+          quantity: qty,
           issued_by_user_id: user.id,
           issued_by_name: executorName,
           issued_by_role: executorRole,
           audit_notes: finalAuditNotes,
-          stock_before: stockBefore,
-          stock_after: stockAfter
         });
-
-      if (fullError) {
-        console.warn('Gagal insert dengan snapshot stok di GoodsIssueForm, mencoba fallback transaksi:', fullError.message);
-        const { error: fallbackError } = await supabase
-          .from('inventory_transactions')
-          .insert({
-            spk_id: selectedSpk,
-            material_id: selectedMaterial,
-            quantity_issued: qty,
-            issued_by: user.id,
-            issued_by_user_id: user.id,
-            issued_by_name: executorName,
-            issued_by_role: executorRole,
-            audit_notes: finalAuditNotes
-          });
-        insertError = fallbackError;
-      } else {
-        insertError = null;
+      } catch (err: any) {
+        console.warn('Mirror material_issues notice:', err);
       }
-        
-      if (!insertError) {
-        // Kurangi current_stock di tabel materials
-        await supabase.from('materials').update({ current_stock: stockAfter }).eq('id', selectedMaterial);
 
-        // Mirror ke tabel material_issues untuk audit kompatibilitas
-        try {
-          await supabase.from('material_issues').insert({
-            spk_id: selectedSpk,
-            material_id: selectedMaterial,
-            quantity: qty,
-            issued_by_user_id: user.id,
-            issued_by_name: executorName,
-            issued_by_role: executorRole,
-            audit_notes: finalAuditNotes
-          });
-        } catch (err: any) {
-          console.warn('Mirror material_issues notice:', err);
-        }
-
-        setFeedbackModal({
-          isOpen: true,
-          title: 'Material Berhasil Dikeluarkan',
-          message: `Berhasil mengeluarkan ${qty} unit material untuk SPK ini. Stok inventaris gudang telah disesuaikan (Sisa: ${stockAfter}). Audit trail tercatat atas nama ${executorName} (${executorRole}).`,
-          variant: 'success'
-        });
-        setRequestQty('');
-        setSelectedMaterial('');
-        setAuditNotes('');
-        fetchRabAndInventory(selectedSpk);
-        if (onSuccess) onSuccess();
-      } else {
-        setFeedbackModal({
-          isOpen: true,
-          title: 'Gagal Mengeluarkan Material',
-          message: insertError?.message || 'Gagal mengeluarkan material ke SPK.',
-          variant: 'danger'
-        });
-        console.error(insertError);
-      }
+      setFeedbackModal({
+        isOpen: true,
+        title: 'Material Berhasil Dikeluarkan',
+        message: `Berhasil mengeluarkan ${qty} ${selectedMasterItem.unit || 'unit'} material untuk SPK ini. Stok inventaris gudang telah disesuaikan (Sisa: ${stockAfter}). Audit trail tercatat atas nama ${executorName} (${executorRole}).`,
+        variant: 'success',
+      });
+      setRequestQty('');
+      setSelectedMaterial('');
+      setAuditNotes('');
+      setOwnerOverride(false);
+      fetchRabAndInventory(selectedSpk);
+      if (onSuccess) onSuccess();
+    } else {
+      setFeedbackModal({
+        isOpen: true,
+        title: 'Gagal Mengeluarkan Material',
+        message: insertError?.message || 'Gagal mengeluarkan material ke SPK.',
+        variant: 'danger',
+      });
+      console.error(insertError);
     }
   };
 
   const autocompleteMaterials: MaterialOption[] = masterMaterials.map(mat => {
-    const isRab = rabMaterials.some(r => r.material_id === mat.id);
+    const matchingRabs = rabItems.filter(r => r.material_id === mat.id);
+    const matchingCos = approvedCoItems.filter(c => c.material_id === mat.id);
+    const isRab = matchingRabs.length > 0 || matchingCos.length > 0;
+    const totalQuota =
+      matchingRabs.reduce((s, r) => {
+        const w = Number(r.materials?.waste_factor_percentage ?? mat.waste_factor_percentage ?? 0);
+        return s + Number(r.quantity || 0) * (1 + w / 100);
+      }, 0) +
+      matchingCos.reduce((s, c) => {
+        const w = Number(c.materials?.waste_factor_percentage ?? mat.waste_factor_percentage ?? 0);
+        return s + Number(c.quantity || 0) * (1 + w / 100);
+      }, 0);
     const issuedQty = inventoryTotals[mat.id] || 0;
-    const hasBeenIssued = issuedQty > 0;
+    const hasBeenIssued = isRab ? (totalQuota - issuedQty) <= GATE2_QTY_EPSILON : false;
+
     return {
       id: mat.id,
       name: mat.name,
@@ -321,6 +450,8 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
       has_been_issued: hasBeenIssued,
     };
   });
+
+  const satuan = selectedMasterItem?.unit || 'pcs';
 
   return (
     <div className="bg-surface border border-border rounded-lg p-6">
@@ -351,14 +482,14 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
             <label className="block text-sm text-text-muted mb-1">Select SPK</label>
             <select
               value={selectedSpk}
-              onChange={(e) => {
-                setSelectedSpk(e.target.value);
-              }}
+              onChange={(e) => setSelectedSpk(e.target.value)}
               className="w-full bg-background border border-border rounded p-2 text-text focus:border-primary focus:outline-none"
             >
               <option value="">-- Choose SPK --</option>
               {spks.map(spk => (
-                <option key={spk.id} value={spk.id}>{spk.spk_no} - {spk.customer_name}</option>
+                <option key={spk.id} value={spk.id}>
+                  {spk.spk_no} - {spk.customer_name}
+                </option>
               ))}
             </select>
           </div>
@@ -380,33 +511,40 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
           <div className="bg-surface/50 border border-border p-4 rounded-lg flex items-center justify-between">
             <div>
               <p className="text-sm text-text-muted">Stok Tersedia</p>
-              <p className="font-bold text-lg">{selectedMasterItem.current_stock || 0} <span className="text-sm font-normal text-text-muted">{selectedMasterItem.unit}</span></p>
+              <p className="font-bold text-lg">
+                {availableStock} <span className="text-sm font-normal text-text-muted">{satuan}</span>
+              </p>
             </div>
-            {selectedRabItem && (
+            {hasRabAllocation && gate2Eval && (
               <div className="text-right">
-                <p className="text-sm text-text-muted">Sisa Kuota RAB</p>
-                <p className={`font-bold text-lg ${remainingAllowed <= 0 ? 'text-status-danger' : 'text-status-success'}`}>
-                  {remainingAllowed.toFixed(2)} <span className="text-sm font-normal text-text-muted">{selectedMasterItem.unit}</span>
+                <p className="text-sm text-text-muted">Sisa Kuota RAB (Qty)</p>
+                <p className={`font-bold text-lg ${remainingQuotaBeforeInput <= GATE2_QTY_EPSILON ? 'text-status-danger' : 'text-status-success'}`}>
+                  {formatGate2Qty(remainingQuotaBeforeInput)}{' '}
+                  <span className="text-sm font-normal text-text-muted">{satuan}</span>
                 </p>
               </div>
             )}
           </div>
         )}
 
-        {selectedRabItem && (
+        {hasRabAllocation && gate2Eval && (
           <div className="bg-background border border-border p-4 rounded-lg grid grid-cols-3 gap-4">
             <div>
-              <div className="text-xs text-text-muted uppercase font-mono">RAB Estimate</div>
-              <div className="font-medium">{selectedRabItem.quantity} (Waste {selectedRabItem.materials.waste_factor_percentage}%)</div>
+              <div className="text-xs text-text-muted uppercase font-mono">Kuota RAB (+Waste)</div>
+              <div className="font-medium">
+                {formatGate2Qty(gate2Eval.qtyPaguRab)} {satuan}
+              </div>
             </div>
             <div>
-              <div className="text-xs text-text-muted uppercase font-mono">Max Allowed</div>
-              <div className="font-medium">{maxAllowed.toFixed(2)}</div>
+              <div className="text-xs text-text-muted uppercase font-mono">Sudah Keluar</div>
+              <div className="font-medium">
+                {formatGate2Qty(gate2Eval.qtySudahKeluar)} {satuan}
+              </div>
             </div>
             <div>
-              <div className="text-xs text-text-muted uppercase font-mono">Remaining Budget</div>
-              <div className={`font-medium ${remainingAllowed <= 0 ? 'text-status-danger' : 'text-status-success'}`}>
-                {remainingAllowed.toFixed(2)}
+              <div className="text-xs text-text-muted uppercase font-mono">Sisa Kuota Qty</div>
+              <div className={`font-medium ${gate2Eval.isQtyOverQuota ? 'text-status-danger' : 'text-status-success'}`}>
+                {formatGate2Qty(gate2Eval.remainingQtyQuota)} {satuan}
               </div>
             </div>
           </div>
@@ -418,11 +556,11 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
             <input
               ref={requestQtyInputRef}
               type="number"
-              min="0.1"
-              step="0.1"
+              min="0.001"
+              step="any"
               value={requestQty}
               onChange={(e) => setRequestQty(e.target.value)}
-              disabled={!selectedMaterial || remainingAllowed <= 0}
+              disabled={!selectedMaterial}
               className={`w-full bg-background border border-border rounded p-2 text-text focus:border-primary focus:outline-none disabled:opacity-50 ${selectedMasterItem?.unit ? 'pr-20' : ''}`}
               placeholder="Enter quantity..."
             />
@@ -436,14 +574,54 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
           </div>
         </div>
 
-        {isOverbudget && requestQty && (
-          <div className="bg-status-danger/10 border border-status-danger/30 rounded p-3 flex items-start gap-3">
-            <Lock className="w-5 h-5 text-status-danger mt-0.5" />
+        {/* Gate 2 Quantity-Based Validation Banners */}
+        {hasRabAllocation && gate2Eval && (
+          <>
+            {isQtyOverQuota ? (
+              <div className="bg-rose-950/80 border border-rose-600 text-rose-200 rounded-lg p-3 flex items-start gap-2.5 text-xs">
+                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                <div className="space-y-1.5 w-full">
+                  <p className="leading-relaxed">
+                    <span className="font-bold text-rose-300">🚫 PERINGATAN GATE 2 (OVER QUOTA KUANTITAS):</span> Permintaan ini menyebabkan total pengambilan ({formatGate2Qty(gate2Eval.proyeksiTotalQty)} {satuan}) MELEBIHI kuota RAB ({formatGate2Qty(gate2Eval.qtyPaguRab)} {satuan}) sebesar +{formatGate2Qty(gate2Eval.overQty)} {satuan}. Membutuhkan otorisasi Owner atau Change Order dari Service Advisor.
+                  </p>
+                  {profile?.role === 'owner' && (
+                    <label className="mt-1 inline-flex items-center gap-2 cursor-pointer text-[11px] font-medium text-amber-200 bg-rose-900/50 border border-rose-500/40 px-2.5 py-1 rounded">
+                      <input
+                        type="checkbox"
+                        checked={ownerOverride}
+                        onChange={(e) => setOwnerOverride(e.target.checked)}
+                        className="accent-amber-500 rounded"
+                      />
+                      <span>Otorisasi Owner Override (Buka Kunci Rilis Over-Quota)</span>
+                    </label>
+                  )}
+                </div>
+              </div>
+            ) : gate2Eval.costVarianceRp > 0 ? (
+              <div className="bg-sky-950/40 border border-sky-800 text-sky-200 rounded-lg p-3 flex items-start gap-2.5 text-xs">
+                <Info className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+                <p className="leading-relaxed">
+                  ℹ Kuantitas Sesuai Kuota RAB ({formatGate2Qty(gate2Eval.proyeksiTotalQty)} / {formatGate2Qty(gate2Eval.qtyPaguRab)} {satuan}). Catatan Audit: Terjadi penyesuaian harga HPP gudang (+Rp {Math.round(gate2Eval.costVarianceRp).toLocaleString('id-ID')}) dari estimasi awal RAB.
+                </p>
+              </div>
+            ) : (
+              <div className="bg-emerald-950/40 border border-emerald-800 text-emerald-300 rounded-lg p-3 flex items-center gap-2 text-xs">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>
+                  ✓ Kuota Kuantitas Sesuai RAB ({wbsStageLabel}): {formatGate2Qty(gate2Eval.proyeksiTotalQty)} / {formatGate2Qty(gate2Eval.qtyPaguRab)} {satuan} (Aman untuk dirilis).
+                </span>
+              </div>
+            )}
+          </>
+        )}
+
+        {isInsufficientStock && (
+          <div className="bg-rose-950/80 border border-rose-600 text-rose-200 rounded-lg p-3 flex items-start gap-2.5 text-xs">
+            <Lock className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
             <div>
-              <h4 className="font-bold text-status-danger text-sm">Gate 2 Locked: Overbudget</h4>
-              <p className="text-xs text-status-danger/80 mt-1">
-                Requested quantity ({requestQty}) exceeds the remaining allowable budget ({remainingAllowed.toFixed(2)}).
-                This issue is blocked until authorized by the Owner via a Change Order (Amandemen SPK).
+              <h4 className="font-bold text-rose-300">Stok Fisik Tidak Mencukupi</h4>
+              <p className="mt-0.5">
+                Jumlah diminta ({formatGate2Qty(parsedRequestQty)} {satuan}) melebihi stok fisik tersedia ({formatGate2Qty(availableStock)} {satuan}).
               </p>
             </div>
           </div>
@@ -463,11 +641,19 @@ export const GoodsIssueForm: React.FC<GoodsIssueFormProps> = ({ onSuccess }) => 
         <div className="pt-2">
           <button
             type="submit"
-            disabled={!selectedMaterial || !requestQty || isOverbudget || remainingAllowed <= 0 || !user}
+            disabled={isSubmitDisabled}
             className="bg-primary hover:bg-primary/90 text-white font-medium py-2 px-6 rounded transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
-            {isOverbudget ? <Lock className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
-            {isOverbudget ? (selectedRabItem ? 'Blocked: Overbudget' : 'Blocked: Insufficient Stock') : 'Issue Material'}
+            {isLockedByGate2 || isInsufficientStock ? (
+              <Lock className="w-4 h-4" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4" />
+            )}
+            {isLockedByGate2
+              ? 'Blocked: Over Quota Qty'
+              : isInsufficientStock
+                ? 'Blocked: Insufficient Stock'
+                : 'Issue Material'}
           </button>
         </div>
       </form>

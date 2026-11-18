@@ -232,19 +232,19 @@ export const WarehouseDashboard: React.FC = () => {
             />
 
              <div className="bg-surface border border-border rounded-lg p-5">
-              <h3 className="font-bold text-text font-display mb-3">Gate 2 Rules (Material)</h3>
+              <h3 className="font-bold text-text font-display mb-3">Gate 2 Rules (Material — Kontrol Kuantitas)</h3>
               <ul className="space-y-3 text-sm text-text-muted">
                 <li className="flex gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-status-success mt-1.5 shrink-0"></div>
-                  <p>Check the system for the RAB limit + assigned waste factor before issuing materials.</p>
+                  <p>Periksa kesesuaian kuantitas fisik (Qty) terhadap kuota RAB + Change Order yang disetujui (+ faktor waste) sebelum merilis material.</p>
+                </li>
+                <li className="flex gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-sky-400 mt-1.5 shrink-0"></div>
+                  <p>Fluktuasi / kenaikan harga HPP supplier tidak memblokir pengeluaran barang selama kuantitas fisik sesuai kuota RAB (tercatat sebagai catatan audit &amp; varian di Laporan Keuangan).</p>
                 </li>
                 <li className="flex gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-status-danger mt-1.5 shrink-0"></div>
-                  <p>If requested amount exceeds remaining budget, the system will lock the issue.</p>
-                </li>
-                <li className="flex gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0"></div>
-                  <p>Overbudget requests require a formal Change Order (Amandemen) approved by the Owner.</p>
+                  <p>Jika proyeksi total kuantitas melebihi kuota RAB, sistem mengunci (Hard-Gate) tombol Approve / Issue Material hingga ada otorisasi Owner atau Change Order dari Service Advisor.</p>
                 </li>
               </ul>
             </div>
