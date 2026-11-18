@@ -3,24 +3,29 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Settings, Users, Plus, 
   Save, Globe, DollarSign, Calculator, Factory, Percent, ArrowLeft, Database,
-  UserX, UserCheck, RotateCcw
+  UserX, UserCheck, RotateCcw, Pencil
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BackupRestoreCard } from '../components/BackupRestoreCard';
 import { ConfirmationModal, type ConfirmationModalVariant } from '../components/ConfirmationModal';
+import { EditUserModal } from '../components/settings/EditUserModal';
+import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabaseClient';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import { StageSettingsPanel } from '../components/owner/StageSettingsPanel';
+import type { UserProfile } from '../types/auth';
 
 export const AdminSettingsPage: React.FC = () => {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const { user: currentUser, profile: currentProfile } = useAuth();
+  const currentUserId = currentUser?.id ?? currentProfile?.id ?? null;
   const [activeTab, setActiveTab] = useState<'users' | 'workshop' | 'database'>('users');
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<UserProfile[]>([]);
 
   // Form State for New User
-  const [newUser, setNewUser] = useState({ full_name: '', email: '', password: '', role: 'service_advisor', quick_pin: '' });
+  const [newUser, setNewUser] = useState({ full_name: '', email: '', password: '', role: 'service_advisor' });
 
   // Form State for Settings
   const [settings, setSettings] = useState({
@@ -32,7 +37,8 @@ export const AdminSettingsPage: React.FC = () => {
   });
 
   // Modal and Action States
-  const [targetUserToggle, setTargetUserToggle] = useState<any | null>(null);
+  const [targetUserToggle, setTargetUserToggle] = useState<UserProfile | null>(null);
+  const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [showResetSettingsModal, setShowResetSettingsModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedbackModal, setFeedbackModal] = useState<{
@@ -68,7 +74,7 @@ export const AdminSettingsPage: React.FC = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email: newUser.email,
         password: newUser.password,
         options: {
@@ -87,16 +93,13 @@ export const AdminSettingsPage: React.FC = () => {
           variant: 'danger',
         });
       } else {
-        if (newUser.quick_pin && data.user?.id) {
-          await supabase.from('profiles').update({ quick_pin: newUser.quick_pin }).eq('id', data.user.id);
-        }
         setFeedbackModal({
           isOpen: true,
           title: 'Registrasi Berhasil',
           message: `Pengguna ${newUser.full_name} (${newUser.role}) berhasil didaftarkan. Pengguna kini dapat masuk ke sistem.`,
           variant: 'success',
         });
-        setNewUser({ full_name: '', email: '', password: '', role: 'service_advisor', quick_pin: '' });
+        setNewUser({ full_name: '', email: '', password: '', role: 'service_advisor' });
         fetchUsers();
       }
     } catch (err: any) {
@@ -152,13 +155,29 @@ export const AdminSettingsPage: React.FC = () => {
 
   const handleToggleUserStatus = async () => {
     if (!targetUserToggle) return;
-    setIsSubmitting(true);
     const newStatus = targetUserToggle.is_active === false;
+
+    if (currentUserId && targetUserToggle.id === currentUserId && !newStatus) {
+      setTargetUserToggle(null);
+      setFeedbackModal({
+        isOpen: true,
+        title: 'Aksi Ditolak',
+        message: 'Anda tidak dapat menonaktifkan akun Owner yang sedang digunakan untuk login.',
+        variant: 'warning',
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ is_active: newStatus })
-        .eq('id', targetUserToggle.id);
+      const { error } = await supabase.rpc('admin_update_user_account', {
+        p_target_user_id: targetUserToggle.id,
+        p_full_name: targetUserToggle.full_name,
+        p_email: targetUserToggle.email,
+        p_role: targetUserToggle.role,
+        p_is_active: newStatus,
+        p_new_password: null,
+      });
 
       if (error) throw error;
 
@@ -174,7 +193,7 @@ export const AdminSettingsPage: React.FC = () => {
       setFeedbackModal({
         isOpen: true,
         title: 'Gagal Memperbarui Status Pengguna',
-        message: err.message || 'Pastikan migrasi kolom is_active pada tabel profiles telah dijalankan di Supabase SQL Editor.',
+        message: err.message || 'Pastikan migrasi SQL terbaru telah dijalankan di Supabase SQL Editor.',
         variant: 'danger',
       });
     } finally {
@@ -279,13 +298,13 @@ export const AdminSettingsPage: React.FC = () => {
                         <th className="px-4 py-3">{t('settings.email')}</th>
                         <th className="px-4 py-3">{t('settings.role')}</th>
                         <th className="px-4 py-3">Status</th>
-                        <th className="px-4 py-3">{t('settings.quick_pin')}</th>
                         <th className="px-4 py-3 text-right">{t('settings.action')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
                       {users.map((u) => {
                         const isActive = u.is_active !== false;
+                        const isSelf = Boolean(currentUserId && u.id === currentUserId);
                         return (
                           <tr key={u.id} className="hover:bg-surface-hover/50 transition">
                             <td className="px-4 py-3 font-medium">{u.full_name}</td>
@@ -300,18 +319,33 @@ export const AdminSettingsPage: React.FC = () => {
                                 {isActive ? 'AKTIF' : 'NONAKTIF'}
                               </span>
                             </td>
-                            <td className="px-4 py-3 font-mono">{u.quick_pin ? '***' : '-'}</td>
                             <td className="px-4 py-3 text-right">
                               <div className="flex items-center justify-end gap-2">
                                 <button
                                   type="button"
+                                  onClick={() => setEditingUser(u)}
+                                  className="p-1.5 rounded text-primary hover:bg-primary/10 transition flex items-center gap-1 text-xs font-medium"
+                                  title="Edit Data Pengguna"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                  <span className="hidden sm:inline">Edit</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isSelf && isActive}
                                   onClick={() => setTargetUserToggle(u)}
-                                  className={`p-1.5 rounded transition flex items-center gap-1 text-xs font-medium ${
+                                  className={`p-1.5 rounded transition flex items-center gap-1 text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed ${
                                     isActive 
                                       ? 'text-status-danger hover:bg-status-danger/10' 
                                       : 'text-status-success hover:bg-status-success/10'
                                   }`}
-                                  title={isActive ? 'Nonaktifkan Akses Staf' : 'Aktifkan Kembali Akses Staf'}
+                                  title={
+                                    isSelf && isActive
+                                      ? 'Tidak dapat menonaktifkan akun Anda sendiri'
+                                      : isActive
+                                        ? 'Nonaktifkan Akses Staf'
+                                        : 'Aktifkan Kembali Akses Staf'
+                                  }
                                 >
                                   {isActive ? (
                                     <>
@@ -385,17 +419,6 @@ export const AdminSettingsPage: React.FC = () => {
                       <option value="petugas_gudang">Petugas Gudang</option>
                       <option value="kasir">Kasir</option>
                     </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-mono text-text-muted mb-1">{t('settings.quick_pin')} (Opsional)</label>
-                    <input 
-                      type="text" 
-                      maxLength={6}
-                      value={newUser.quick_pin}
-                      onChange={e => setNewUser({...newUser, quick_pin: e.target.value})}
-                      placeholder="6-digit PIN"
-                      className="w-full bg-background border border-border rounded px-3 py-2 text-sm text-text focus:border-primary focus:outline-none" 
-                    />
                   </div>
                   <button type="submit" className="w-full bg-primary text-background font-bold py-2 rounded mt-2 hover:bg-secondary transition flex justify-center items-center gap-2">
                     <Plus className="w-4 h-4" /> {t('settings.create_account')}
@@ -531,6 +554,24 @@ export const AdminSettingsPage: React.FC = () => {
           </div>
         )}
       </main>
+
+      {/* Modal Edit Data & Kredensial Pengguna */}
+      <EditUserModal
+        isOpen={Boolean(editingUser)}
+        user={editingUser}
+        currentUserId={currentUserId}
+        onClose={() => setEditingUser(null)}
+        onSuccess={(message) => {
+          setEditingUser(null);
+          setFeedbackModal({
+            isOpen: true,
+            title: 'Data Pengguna Diperbarui',
+            message,
+            variant: 'success',
+          });
+          void fetchUsers();
+        }}
+      />
 
       {/* Modal Konfirmasi Ubah Status Akses Pengguna */}
       <ConfirmationModal
